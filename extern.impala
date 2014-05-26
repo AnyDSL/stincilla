@@ -1,16 +1,20 @@
-extern array(int, int, int) -> [float];
-extern free_array([float]) -> ();
-extern random_val(int) -> float;
-
-extern getMicroTime() -> ();
-extern reset_and_start_timer() -> ();
-extern print_time() -> ();
+extern "C" {
+    fn array(int, int, int) -> &[float];
+    fn free_array(&[float]) -> ();
+    fn random_val(int) -> float;
+    fn getMicroTime() -> ();
+    fn reset_and_start_timer() -> ();
+    fn print_time() -> ();
+}
 
 fn iterate(a : int, b : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
         iterate(a+1, b, yield);
     }
+}
+fn range(a : int, b : int, yield : fn(int, fn())) -> () {
+    iterate(a, b, yield)
 }
 
 fn force_unroll(a : int, b : int, yield : fn(int, fn())) -> () {
@@ -23,29 +27,29 @@ fn force_unroll(a : int, b : int, yield : fn(int, fn())) -> () {
 fn iterate_times_two(a : int, b : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
-        iterate(a*2, b, yield);
+        iterate_times_two(a*2, b, yield);
     }
 }
 
-fn init_zero(arr : [float], width : int, height : int) -> () {
-    iterate(0, width*height, |i: int| -> () {
-        arr[i] = 0.0f;
-    });
+fn init_zero(arr : &[float], width : int, height : int) -> () {
+    for i in iterate(0, width*height) {
+        arr(i) = 0.0f;
+    }
 }
-fn init_rand(arr : [float], width : int, height : int) -> () {
-    iterate(0, height, |y: int| -> () {
-        iterate(0, width, |x: int| -> () {
-            arr[x + y*width] = random_val(1024);
-        });
-    });
+fn init_rand(arr : &[float], width : int, height : int) -> () {
+    for y in iterate(0, height) {
+        for x in iterate(0, width) {
+            arr(y*width + x) = random_val(1024);
+        }
+    }
 }
 
 // border handling specialization
 fn clamp_lower(idx : int, lower : int) -> int {
-    idx < lower ? lower : idx
+    if idx < lower { lower } else { idx }
 }
 fn clamp_upper(idx : int, upper : int) -> int {
-    idx >= upper ? upper - 1 : idx
+    if idx >= upper { upper - 1 } else { idx }
 }
 fn clamp_none(idx : int, bound : int) -> int {
     idx

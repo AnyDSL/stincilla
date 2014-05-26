@@ -1,18 +1,39 @@
-fn write(out: [float], src: [float], i: int) -> () {
-    out[i] = src[i];
+extern "thorin" {
+    fn map([float], int, int, (int, int, int), (int, int, int)) -> [float];
+}
+
+fn range(a : int, b : int, yield : fn(int, fn())) -> () {
+    if a < b {
+        yield(a);
+        range(a+1, b, yield);
+    }
+}
+
+fn iteration(width : int, height : int,
+             body : fn(int, int, [float], [float]) -> ()
+            ) -> () {
+    for y in $range(0, height) {
+        for x in $range(0, width) {
+            body(x, y);
+        }
+    }
+}
+
+fn write(out: &[float], src: &[float], i: int) -> () {
+    out(i) = src(i);
 }
 
 fn main() -> int {
     let width   = 2048;
     let height  = 2048;
-    let mut arr = array(4, width, height);
-    let mut out = array(4, width, height);
+    let mut arr = ~[width*height:float];
+    let mut out = ~[width*height:float];
 
     let mapped = map(arr, 1, 1, (0, 0, 0), (width, height, 1));
 
-    iteration(width, height, |x : int, y : int| -> () {
-        write(out, mapped, x);
-    });
+    for x, y in iteration(width, height) {
+        write(out, mapped, y*width + x);
+    }
 
     0
 }

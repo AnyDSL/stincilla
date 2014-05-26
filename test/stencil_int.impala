@@ -3,7 +3,7 @@
 fn range(a : int, b : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
-        iterate(a+1, b, yield);
+        range(a+1, b, yield);
     }
 }
 
@@ -15,26 +15,26 @@ fn apply_bh(mut index : int,
     index
 }
 
-fn apply_stencil(N : int, arr : [float], out : [float], stencil : [float * 3],
+fn apply_stencil[T1, T2](N : int, arr : &[float], out : &[float], stencil : [float * 3],
                  bh_lower : fn(int, int) -> int, bh_upper : fn(int, int) -> int) -> () {
-    let lb : [int * 3] = [0, 1, N - 1];
-    let ub : [int * 3] = [1, N - 1, N];
-    @range(0, 3, |i : int| -> () {
-        let current_lb : int = lb[i];
-        let current_ub : int = ub[i];
-        range(lb[i], ub[i], |index : int| -> () {
+    let lb = [0, 1, N - 1];
+    let ub = [1, N - 1, N];
+    for region in @range(0, 3) {
+        let current_lb : int = lb(region);
+        let current_ub : int = ub(region);
+        range(lb(region), ub(region), |index : int| -> () {
             // apply stencil to pixel
             let mut sum : float = 0.0f;
-            @range(-1, 2, |j : int| -> () {
-                let adapted_j : int = apply_bh(index + j,
-                                               bh_lower, bh_upper,
+            for j in @range(-1, 2) {
+                let adapted_j : int = apply_bh(index + j, bh_lower, bh_upper,
                                                current_lb, current_ub);
-                sum += stencil[j + 1] * arr[adapted_j];
-            });
-            out[index] = sum;
+                sum += stencil(j + 1) * arr(adapted_j);
+            }
+            out(index) = sum;
         });
-    });
+    }
 }
+
 
 // DSL code
 
@@ -52,17 +52,14 @@ fn main() -> [float] {
     let a       = 0.2f;
     let b       = 1.0f - 4.0f * a;
     let num_it  = 100;
-    let mut arr = array(4, width, height);
-    let mut out = array(4, width, height);
+    let mut arr = ~[width*height:float];
+    let mut out = ~[width*height:float];
+    let stencil = [b, a, b];
 
-    let stencil : [float * 3] = [b, a, b];
+    for iter in (0, num_it) {
+        @apply_stencil(width, arr, out, stencil, bh_clamp_lower, bh_clamp_upper);
 
-    for (let mut iter = 0; iter < num_it; ++iter) {
-        @apply_stencil(width, arr, out, stencil,
-                       bh_clamp_lower, bh_clamp_upper);
-
-        let mut tmp : [float];
-        tmp = arr;
+        let mut tmp = arr;
         arr = out;
         out = tmp;
     }
