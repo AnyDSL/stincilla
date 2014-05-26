@@ -7,9 +7,10 @@ extern reset_and_start_timer() -> ();
 extern print_time() -> ();
 
 fn iterate(a : int, b : int, yield : fn(int, fn())) -> () {
-    let mut i: int = a;
-    while (i < b)
-        yield(i++, || { continue; });
+    if a < b {
+        yield(a);
+        iterate(a+1, b, yield);
+    }
 }
 
 fn force_unroll(a : int, b : int, yield : fn(int, fn())) -> () {
@@ -20,9 +21,10 @@ fn force_unroll(a : int, b : int, yield : fn(int, fn())) -> () {
 }
 
 fn iterate_times_two(a : int, b : int, yield : fn(int, fn())) -> () {
-    let mut i: int = a;
-    while (i < b)
-        yield(i*=2, || { continue; });
+    if a < b {
+        yield(a);
+        iterate(a*2, b, yield);
+    }
 }
 
 fn init_zero(arr : [float], width : int, height : int) -> () {
