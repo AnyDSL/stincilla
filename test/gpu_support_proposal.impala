@@ -1,29 +1,29 @@
 // current mapping: arrays are implicitely mapped to GPU
-iteration(width, height, |x : int, y : int| -> void {
+iteration(width, height, |x : int, y : int| -> () {
     out[y*width + x] = @apply_stencil(range, stencil, x, y, arr, width);
 });
 
 // proposed mapping: mapped array is passed as parameter
-iteration_mapped(width, height, |x : int, y : int, arr : [float]| -> void {
+iteration_mapped(width, height, |x : int, y : int, arr : [float]| -> () {
     out[y*width + x] = @apply_stencil(range, stencil, x, y, arr, width);
 });
 
 // proposed mapping: mapped array is passed as parameter, using shared
 // memory
 iteration_mapped_smem(width, height,
-    |x : int, y : int, arr : [float], smem : [float]| -> void {
+    |x : int, y : int, arr : [float], smem : [float]| -> () {
         out[y*width + x] = @apply_stencil(range, stencil, x, y, arr, width);
     }
-    |x : int, y : int, arr : [float], smem : [float]| -> void {
+    |x : int, y : int, arr : [float], smem : [float]| -> () {
         out[y*width + x] = @apply_stencil(range, stencil, x, y, arr, width);
     }
 );
 
-fn iteration(width : int, height : int, body : fn(int, int) -> void) -> void {
+fn iteration(width : int, height : int, body : fn(int, int) -> ()) -> () {
     let dim = (width, height, 1);
     let block = (32, 4, 1);
 
-    opencl(1, dim, block, || -> void {
+    opencl(1, dim, block, || -> () {
         let tid_x = int64_to_int32(get_global_id(0));
         let tid_y = int64_to_int32(get_global_id(1));
 
@@ -32,7 +32,7 @@ fn iteration(width : int, height : int, body : fn(int, int) -> void) -> void {
 }
 
 
-fn iteration_mapped(width : int, height : int, img : [float], body : fn(int, int, [float]) -> void) -> void {
+fn iteration_mapped(width : int, height : int, img : [float], body : fn(int, int, [float]) -> ()) -> () {
     let dim = (width, height/2, 1);
     let block = (32, 4, 1);
 
@@ -57,8 +57,8 @@ fn iteration_mapped(width : int, height : int, img : [float], body : fn(int, int
     let mut g = [ g1, g2 ];
     let mut h = [int * 2];
     
-    @iterate(0, 2+1, |i : int| -> void {
-        h[i] = opencl(i+1, dim, block, || -> void {
+    @iterate(0, 2+1, |i : int| -> () {
+        h[i] = opencl(i+1, dim, block, || -> () {
             let tid_x = int64_to_int32(get_global_id(0));
             let tid_y = int64_to_int32(get_global_id(1));
 
@@ -72,7 +72,7 @@ fn iteration_mapped(width : int, height : int, img : [float], body : fn(int, int
     synchronize(GPU2);
 }
 
-fn iteration_mapped_smem(width : int, height : int, img : [float], body : fn(int, int, [float], [float]) -> void) -> void {
+fn iteration_mapped_smem(width : int, height : int, img : [float], body : fn(int, int, [float], [float]) -> ()) -> () {
     let dim = (width, height/2, 1);
     let block = (32, 4, 1);
 
@@ -84,8 +84,8 @@ fn iteration_mapped_smem(width : int, height : int, img : [float], body : fn(int
     let mut h = [int * 2];
 
     
-    @iterate(0, 2+1, |i : int| -> void {
-        h[i] = opencl(i+1, dim, block, || -> void {
+    @iterate(0, 2+1, |i : int| -> () {
+        h[i] = opencl(i+1, dim, block, || -> () {
             let tid_x = int64_to_int32(get_global_id(0));
             let tid_y = int64_to_int32(get_global_id(1));
 
@@ -109,8 +109,8 @@ fn iteration_mapped_smem(width : int, height : int, img : [float], body : fn(int
             body(get_local_id(0), get_local_id(1), width, arr, out_view) {
                 let mut sum = 0.0f;
                 let half_range = range / 2;
-                iterate(-half_range, half_range+1, |j : int| -> void {
-                    iterate(-half_range, half_range+1, |i : int| -> void {
+                iterate(-half_range, half_range+1, |j : int| -> () {
+                    iterate(-half_range, half_range+1, |i : int| -> () {
                         let stencil_index = i + half_range + ((j + half_range) * range);
                         let stencil_val = stencil[stencil_index];
                         sum += arr[x + i][y + j] * stencil_val;
@@ -120,14 +120,14 @@ fn iteration_mapped_smem(width : int, height : int, img : [float], body : fn(int
             }
 
             // higher-order version
-            let out_fun = |val: float, i: int| -> void {
+            let out_fun = |val: float, i: int| -> () {
                 out[tid_x + i][tid_y] = val;
             };
             body(get_local_id(0), get_local_id(1), width, arr, out_fun) {
                 let mut sum = 0.0f;
                 let half_range = range / 2;
-                iterate(-half_range, half_range+1, |j : int| -> void {
-                    iterate(-half_range, half_range+1, |i : int| -> void {
+                iterate(-half_range, half_range+1, |j : int| -> () {
+                    iterate(-half_range, half_range+1, |i : int| -> () {
                         let stencil_index = i + half_range + ((j + half_range) * range);
                         let stencil_val = stencil[stencil_index];
                         sum += arr[x + i][y + j] * stencil_val;
@@ -183,7 +183,7 @@ fn iteration_mapped_smem(width : int, height : int, img : [float], body : fn(int
 
 
 
-fn iteration(width : int, height : int, img : [float], body : fn(int, int, [float]) -> void) -> void {
+fn iteration(width : int, height : int, img : [float], body : fn(int, int, [float]) -> ()) -> () {
     // slice memory
     let mut cpu_slice1 = slice(img, 0,       0, width/2, height);
     let mut cpu_slice2 = slice(img, width/2, 0, width/2, height);
@@ -193,8 +193,8 @@ fn iteration(width : int, height : int, img : [float], body : fn(int, int, [floa
     let dim = (width/2, height, 1);
     let block = (32, 4, 1);
 
-    let handle1 = async(|| -> void {
-        nvvm(1, dim, block, || -> void {
+    let handle1 = async(|| -> () {
+        nvvm(1, dim, block, || -> () {
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -202,8 +202,8 @@ fn iteration(width : int, height : int, img : [float], body : fn(int, int, [floa
         });
     });
 
-    let handle2 = async(|| -> void {
-        nvvm(1, dim, block, || -> void {
+    let handle2 = async(|| -> () {
+        nvvm(1, dim, block, || -> () {
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -216,10 +216,10 @@ fn iteration(width : int, height : int, img : [float], body : fn(int, int, [floa
     gpu_mems[1] = gpu_img2;
     let num_devices = 2;
     let handles = [float * 2];
-    iterate(0, num_devices+1, |i : int| -> void {
+    iterate(0, num_devices+1, |i : int| -> () {
         body(tid_x, tid_y + i * nvvm_read_ptx_sreg_ntid_y());
-        handles[i] = async(|| -> void {
-            nvvm(1, dim, block, || -> void {
+        handles[i] = async(|| -> () {
+            nvvm(1, dim, block, || -> () {
                 let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
                 let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -237,7 +237,7 @@ fn iteration(width : int, height : int, img : [float], body : fn(int, int, [floa
 }
 
 
-fn iteration(width : int, height : int, img : [float], body : fn(int, int, [float], [float]) -> void) -> void {
+fn iteration(width : int, height : int, img : [float], body : fn(int, int, [float], [float]) -> ()) -> () {
     // slice memory
     let mut cpu_slice1 = slice(img, 0,       0, width/2, height);
     let mut cpu_slice2 = slice(img, width/2, 0, width/2, height);
@@ -247,8 +247,8 @@ fn iteration(width : int, height : int, img : [float], body : fn(int, int, [floa
     let dim = (width/2, height, 1);
     let block = (32, 4, 1);
 
-    let handle1 = async(|| -> void {
-        nvvm(1, dim, block, || -> void {
+    let handle1 = async(|| -> () {
+        nvvm(1, dim, block, || -> () {
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -266,8 +266,8 @@ fn iteration(width : int, height : int, img : [float], body : fn(int, int, [floa
         });
     });
 
-    let handle2 = async(|| -> void {
-        nvvm(1, dim, block, || -> void {
+    let handle2 = async(|| -> () {
+        nvvm(1, dim, block, || -> () {
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -303,7 +303,7 @@ fn main() -> [float] {
 
     convolution_separable(img, stencil, stencil);
 
-    return img;
+    img
 }
 
 

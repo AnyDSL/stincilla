@@ -1,4 +1,4 @@
-fn write(out: [float], src: [float], i: int) -> void {
+fn write(out: [float], src: [float], i: int) -> () {
     out[i] = src[i];
 }
 
@@ -10,10 +10,10 @@ fn main() -> int {
 
     let mapped = map(arr, 1, 1, (0, 0, 0), (width, height, 1));
 
-    iteration(width, height, |x : int, y : int| -> void {
+    iteration(width, height, |x : int, y : int| -> () {
         write(out, mapped, x);
     });
 
-    return 0;
+    0
 }
 

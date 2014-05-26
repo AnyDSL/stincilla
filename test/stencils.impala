@@ -1,7 +1,7 @@
 extern sqrt(float) -> float;
 
 fn idx(x : int, y: int, width : int, height : int) -> int {
-    return x + y * width;
+    x + y * width
 }
 
 fn main() -> [float] {
@@ -18,7 +18,7 @@ fn main() -> [float] {
         [0.0f, 1.0f, 0.0f],
         [1.0f, 4.0f, 1.0f],
         [0.0f, 1.0f, 0.0f]];
-    iteration(width, height, |x : int, y : int| -> void {
+    iteration(width, height, |x : int, y : int| -> () {
         //let result = @convolve(img, mask, 1.0f, range, x, y, width, height);
         let result = - (
             1.0f * img[idx(x+0, y+1, width, height)] +
@@ -38,7 +38,7 @@ fn main() -> [float] {
     jacobi_mask[0] = 0.00f; jacobi_mask[1] = 0.25f; jacobi_mask[2] = 0.00f;
     jacobi_mask[3] = 0.25f; jacobi_mask[4] = 0.00f; jacobi_mask[5] = 0.25f;
     jacobi_mask[6] = 0.00f; jacobi_mask[7] = 0.25f; jacobi_mask[8] = 0.00f;
-    iteration(width, height, |x : int, y : int| -> void {
+    iteration(width, height, |x : int, y : int| -> () {
         //let result =
         //    (1.0f - OMEGA) * Sol[idx(x, y, width, height)] +
         //    0.25f * OMEGA  * RHS[idx(x, y, width, height)] +
@@ -57,7 +57,7 @@ fn main() -> [float] {
 
 
     // Residuum
-    iteration(width, height, |x : int, y : int| -> void {
+    iteration(width, height, |x : int, y : int| -> () {
         //let result =
         //    RHS[idx(x, y, width, height)] +
         //    @convolve(Sol, mask, 1.0f, range, x, y, width, height);
@@ -78,7 +78,7 @@ fn main() -> [float] {
     restrict_mask[0] = 0.25f; restrict_mask[1] = 0.50f; restrict_mask[2] = 0.25f;
     restrict_mask[3] = 0.50f; restrict_mask[4] = 1.00f; restrict_mask[5] = 0.50f;
     restrict_mask[6] = 0.25f; restrict_mask[7] = 0.50f; restrict_mask[8] = 0.25f;
-    iteration(width, height, |x : int, y : int| -> void {
+    iteration(width, height, |x : int, y : int| -> () {
         let fx = 2*x;
         let fy = 2*y;
         let fwidth  = 2*width;
@@ -101,7 +101,7 @@ fn main() -> [float] {
 
     // L2 norm
     let mut l2sum = 0.0f;
-    iteration(width, height, |x : int, y : int| -> void {
+    iteration(width, height, |x : int, y : int| -> () {
         let value = img[idx(x, y, width, height)];
         l2sum += value*value;
     });
@@ -116,7 +116,7 @@ fn main() -> [float] {
     // 0.25 0.50 0.25
     // FIXME: this will not run correctly on accelerators such as GPUs due to
     // their memory consistency model
-    iteration(width, height, |x : int, y : int| -> void {
+    iteration(width, height, |x : int, y : int| -> () {
         let cx = 2*x;
         let cy = 2*y;
         let cwidth  = 2*width;
@@ -134,7 +134,7 @@ fn main() -> [float] {
         out[idx(cx+1, cy+1, cwidth, cheight)] += 0.25f * v;
     });
 
-    return out;
+    out
 }
 
 fn convolve(arr : [float], mask : [float * 3 * 3], omega : float, range : int, x : int, y : int, width : int, height : int) -> float {
@@ -156,6 +156,6 @@ fn convolve(arr : [float], mask : [float * 3 * 3], omega : float, range : int, x
         }
     }
 
-    return sum;
+    sum
 }
 
