@@ -1,10 +1,10 @@
 intrinsic int32_to_float(int) -> float;
 fn closeness(c_d : float, xf : int, yf : int) -> float {
-    return expf(-c_d * int32_to_float(xf*xf)) * expf(-c_d * int32_to_float(yf*yf));
+    expf(-c_d * int32_to_float(xf*xf)) * expf(-c_d * int32_to_float(yf*yf))
 }
 fn similarity(c_r : float, xi : float, x : float) -> float {
     let diff = xi - x;
-    return expf(-c_r * diff * diff);
+    expf(-c_r * diff * diff)
 }
 
 fn bilateral_filter(sigma_d : int, c_d : float, c_r : float, x : int, y : int,
@@ -13,8 +13,8 @@ fn bilateral_filter(sigma_d : int, c_d : float, c_r : float, x : int, y : int,
     let mut k = 0.0f;
     let mut p = 0.0f;
 
-    iterate(-2*sigma_d, 2*sigma_d+1, |yf : int| -> void {
-        iterate(-2*sigma_d, 2*sigma_d+1, |xf : int| -> void {
+    iterate(-2*sigma_d, 2*sigma_d+1, |yf : int| -> () {
+        iterate(-2*sigma_d, 2*sigma_d+1, |xf : int| -> () {
             let mut idx_x = x + xf;
             let mut idx_y = y + yf;
 
@@ -23,27 +23,27 @@ fn bilateral_filter(sigma_d : int, c_d : float, c_r : float, x : int, y : int,
             // 6 --- 7 --- 8
 
             // left
-            if (region == 0) idx_x = clamp_lower(idx_x, 0);
-            if (region == 3) idx_x = clamp_lower(idx_x, 0);
-            if (region == 6) idx_x = clamp_lower(idx_x, 0);
+            if region == 0 { idx_x = clamp_lower(idx_x, 0); }
+            if region == 3 { idx_x = clamp_lower(idx_x, 0); }
+            if region == 6 { idx_x = clamp_lower(idx_x, 0); }
 
             // right
-            if (region == 2) idx_x = clamp_upper(idx_x, width);
-            if (region == 5) idx_x = clamp_upper(idx_x, width);
-            if (region == 8) idx_x = clamp_upper(idx_x, width);
+            if region == 2 { idx_x = clamp_upper(idx_x, width); }
+            if region == 5 { idx_x = clamp_upper(idx_x, width); }
+            if region == 8 { idx_x = clamp_upper(idx_x, width); }
 
             // top
-            if (region == 0) idx_y = clamp_lower(idx_y, 0);
-            if (region == 1) idx_y = clamp_lower(idx_y, 0);
-            if (region == 2) idx_y = clamp_lower(idx_y, 0);
+            if region == 0 { idx_y = clamp_lower(idx_y, 0); }
+            if region == 1 { idx_y = clamp_lower(idx_y, 0); }
+            if region == 2 { idx_y = clamp_lower(idx_y, 0); }
 
             // bottom
-            if (region == 6) idx_y = clamp_upper(idx_y, height);
-            if (region == 7) idx_y = clamp_upper(idx_y, height);
-            if (region == 8) idx_y = clamp_upper(idx_y, height);
+            if region == 6 { idx_y = clamp_upper(idx_y, height); }
+            if region == 7 { idx_y = clamp_upper(idx_y, height); }
+            if region == 8 { idx_y = clamp_upper(idx_y, height); }
 
             // all in
-            if (region == 10) {
+            if region == 10 {
                 idx_x = clamp_lower(idx_x, 0);
                 idx_x = clamp_upper(idx_x, width);
                 idx_y = clamp_upper(idx_y, height);
@@ -59,7 +59,7 @@ fn bilateral_filter(sigma_d : int, c_d : float, c_r : float, x : int, y : int,
         });
     });
 
-    return p/k;
+    p/k
 }
 
 fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [float * 9 * 9],
@@ -69,8 +69,8 @@ fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [float * 9 * 9],
     let mut k = 0.0f;
     let mut p = 0.0f;
 
-    iterate(-2*sigma_d, 2*sigma_d+1, |yf : int| -> void {
-        iterate(-2*sigma_d, 2*sigma_d+1, |xf : int| -> void {
+    iterate(-2*sigma_d, 2*sigma_d+1, |yf : int| -> () {
+        iterate(-2*sigma_d, 2*sigma_d+1, |xf : int| -> () {
             let mut idx_x = x + xf;
             let mut idx_y = y + yf;
 
@@ -79,27 +79,27 @@ fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [float * 9 * 9],
             // 6 --- 7 --- 8
 
             // left
-            if (region == 0) idx_x = clamp_lower(idx_x, 0);
-            if (region == 3) idx_x = clamp_lower(idx_x, 0);
-            if (region == 6) idx_x = clamp_lower(idx_x, 0);
+            if region == 0 { idx_x = clamp_lower(idx_x, 0); }
+            if region == 3 { idx_x = clamp_lower(idx_x, 0); }
+            if region == 6 { idx_x = clamp_lower(idx_x, 0); }
 
             // right
-            if (region == 2) idx_x = clamp_upper(idx_x, width);
-            if (region == 5) idx_x = clamp_upper(idx_x, width);
-            if (region == 8) idx_x = clamp_upper(idx_x, width);
+            if region == 2 { idx_x = clamp_upper(idx_x, width); }
+            if region == 5 { idx_x = clamp_upper(idx_x, width); }
+            if region == 8 { idx_x = clamp_upper(idx_x, width); }
 
             // top
-            if (region == 0) idx_y = clamp_lower(idx_y, 0);
-            if (region == 1) idx_y = clamp_lower(idx_y, 0);
-            if (region == 2) idx_y = clamp_lower(idx_y, 0);
+            if region == 0 { idx_y = clamp_lower(idx_y, 0); }
+            if region == 1 { idx_y = clamp_lower(idx_y, 0); }
+            if region == 2 { idx_y = clamp_lower(idx_y, 0); }
 
             // bottom
-            if (region == 6) idx_y = clamp_upper(idx_y, height);
-            if (region == 7) idx_y = clamp_upper(idx_y, height);
-            if (region == 8) idx_y = clamp_upper(idx_y, height);
+            if region == 6 { idx_y = clamp_upper(idx_y, height); }
+            if region == 7 { idx_y = clamp_upper(idx_y, height); }
+            if region == 8 { idx_y = clamp_upper(idx_y, height); }
 
             // all in
-            if (region == 10) {
+            if region == 10 {
                 idx_x = clamp_lower(idx_x, 0);
                 idx_x = clamp_upper(idx_x, width);
                 idx_y = clamp_upper(idx_y, height);
@@ -116,7 +116,7 @@ fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [float * 9 * 9],
         });
     });
 
-    return p/k;
+    p/k
 }
 
 fn main() -> int {
@@ -171,7 +171,7 @@ fn main() -> int {
 
     // SS
     @iteration(width, height, arr, out,
-        |x : int, y : int, arr : [float], out : [float]| -> void {
+        |x : int, y : int, arr : [float], out : [float]| -> () {
             //out[y*width + x] = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, width, height, 10);
             out[y*width + x] = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, width, height, 10);
         }
@@ -180,7 +180,7 @@ fn main() -> int {
     //// SS + BH
     //let range = 4*sigma_d + 1;
     //@iteration_bounds(width, height, range, arr, out,
-    //    |x : int, y : int, arr : [float], out : [float], region : int| -> void {
+    //    |x : int, y : int, arr : [float], out : [float], region : int| -> () {
     //        //out[y*width + x] = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, width, height, region);
     //        out[y*width + x] = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, width, height, region);
     //    }
@@ -197,8 +197,8 @@ fn main() -> int {
     //        let mut err = ref - out[y*width + x];
     //        rms_err += err*err;
 
-    //        if (err < 0.0f) err = -err;
-    //        if (err > EPS) passed++;
+    //        if err < 0.0f { err = -err; }
+    //        if err > EPS  { passed++; }
     //    }
     //}
     ////rms_err = sqrtf(rms_err / ((float)(width*height)));
@@ -206,6 +206,6 @@ fn main() -> int {
     free_array(arr);
     free_array(out);
 
-    return passed;
+    passed
 }
 

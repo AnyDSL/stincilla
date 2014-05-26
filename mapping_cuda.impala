@@ -1,17 +1,17 @@
 fn iteration(width : int, height : int,
              arr : [float], out : [float],
-             body : fn(int, int, [float], [float]) -> void
-            ) -> void {
+             body : fn(int, int, [float], [float]) -> ()
+            ) -> () {
     let unroll = 1;
     let dim = (width, height/unroll, 1);
     let block = (128, 1, 1);
 
     let dev = 1;
-    cuda(dev, dim, block, || -> void {
+    cuda(dev, dim, block, || -> () {
         let gid_x = threadIdx_x() + blockDim_x() * blockIdx_x();
         let gid_y = threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
 
-        @iterate(0, unroll, |i : int| -> void {
+        @iterate(0, unroll, |i : int| -> () {
             body(gid_x, gid_y + i * blockDim_y(), arr, out);
         });
     });
@@ -19,13 +19,15 @@ fn iteration(width : int, height : int,
 
 fn iteration_advanced(width : int, height : int, ksize : int,
                       arr : [float], out : [float],
-                      body : fn(int, int, [float], [float], int, int, int) -> void
-                     ) -> void {
-    iterate_times_two(1, 16+1, |unroll : int| -> void {
+                      body : fn(int, int, [float], [float], int, int, int) -> ()
+                     ) -> () {
+    iterate_times_two(1, 16+1, |unroll : int| -> () {
         // compute the number of blocks required for boundary handling
-        let mut bbh = ksize / 2;
-        if (bbh % unroll==0) bbh = bbh / unroll;
-        else bbh = bbh / unroll + 1;
+        let bbh = if ((ksize/2) % unroll==0) {
+                    (ksize/2) / unroll
+                  } else {
+                    (ksize/2) / unroll + 1
+                  }
 
         let dim = (width, height/unroll, 1);
         let block = (128/bbh, bbh, 1);
@@ -46,7 +48,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         let gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
         let tex_arr = map(arr, dev, 2, (0, 0, 0), (width, height, 1));
 
-        cuda(dev, dim, block, || -> void {
+        cuda(dev, dim, block, || -> () {
             let tid_x = threadIdx_x();
             let tid_y = threadIdx_y();
             let bid_x = blockIdx_x();
@@ -71,14 +73,15 @@ fn iteration_advanced(width : int, height : int, ksize : int,
                     idx_x = clamp_upper(idx_x, width);
 
                     if (lid_x < block[0] + 2*ksize2 &&
-                        lid_y < block[1]*unroll + 2*ksize2)
+                        lid_y < block[1]*unroll + 2*ksize2) {
                         smem[lid_y * lstride + lid_x] = tex_arr[idx_y * width + idx_x];
+                    }
                 }
             }
 
             __syncthreads();
 
-            @iterate(0, unroll, |i : int| -> void {
+            @iterate(0, unroll, |i : int| -> () {
                 body(gid_x, gid_y + i * bdim_y, smem, gmem_out, tid_x+ksize2, tid_y+ksize2 + i * bdim_y, lstride);
             });
         });
@@ -87,9 +90,9 @@ fn iteration_advanced(width : int, height : int, ksize : int,
 
 fn iteration_sep_bounds(width : int, height : int, ksize : int,
                         arr : [float], out : [float],
-                        body_col : fn(int, int, [float], [float], int) -> void,
-                        body_row : fn(int, int, [float], [float], int) -> void
-                       ) -> void {
+                        body_col : fn(int, int, [float], [float], int) -> (),
+                        body_row : fn(int, int, [float], [float], int) -> ()
+                       ) -> () {
     // define the unroll factor
     let unroll = 1;
     // define if we want to generate one big kernel or multiple kernels
@@ -97,9 +100,11 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 
 
     // compute the number of blocks required for boundary handling
-    let mut bbh = ksize / 2;
-    if (bbh % unroll==0) bbh = bbh / unroll;
-    else bbh = bbh / unroll + 1;
+    let bbh = if ((ksize/2) % unroll==0) {
+                (ksize/2) / unroll
+              } else {
+                (ksize/2) / unroll + 1
+              }
     let block = (128, bbh, 1);
 
     // allocate temporary array
@@ -107,11 +112,11 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
     init_zero(tmp, $width, $height);
 
     let dev = 1;
-    if (big_kernel) {
+    if big_kernel {
         let dim = (width, height/unroll, 1);
 
         // column component
-        cuda(dev, dim, block, || -> void {
+        cuda(dev, dim, block, || -> () {
             let tid_x = threadIdx_x();
             let tid_y = threadIdx_y();
             let bid_x = blockIdx_x();
@@ -127,25 +132,25 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             // 1
             // 2
             if (bid_y < 1) {                                // top: 0
-                @iterate(0, unroll, |i : int| -> void {
+                @iterate(0, unroll, |i : int| -> () {
                     body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 0);
                 });
             } else
             if (bid_y >= gdim_y-1) {                        // bottom: 2
-                @iterate(0, unroll, |i : int| -> void {
+                @iterate(0, unroll, |i : int| -> () {
                     body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 2);
                 });
             } else
             // no border handling - hack for old hardware
             if (bdim_x >= 16) {
-                @iterate(0, unroll, |i : int| -> void {
+                @iterate(0, unroll, |i : int| -> () {
                     body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 1);
                 });
             }
         });
 
         // row component
-        cuda(dev, dim, block, || -> void {
+        cuda(dev, dim, block, || -> () {
             let tid_x = threadIdx_x();
             let tid_y = threadIdx_y();
             let bid_x = blockIdx_x();
@@ -159,18 +164,18 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 
             // 0 --- 1 --- 2
             if (bid_x < 1) {                                // left: 0
-                @iterate(0, unroll, |i : int| -> void {
+                @iterate(0, unroll, |i : int| -> () {
                     body_row(gid_x, gid_y + i * bdim_y, tmp, out, 0);
                 });
             } else
             if (bid_x >= gdim_x-1) {                        // right: 2
-                @iterate(0, unroll, |i : int| -> void {
+                @iterate(0, unroll, |i : int| -> () {
                     body_row(gid_x, gid_y + i * bdim_y, tmp, out, 2);
                 });
             } else
             // no border handling - hack for old hardware
             if (bdim_x >= 16) {
-                @iterate(0, unroll, |i : int| -> void {
+                @iterate(0, unroll, |i : int| -> () {
                     body_row(gid_x, gid_y + i * bdim_y, tmp, out, 1);
                 });
             }
@@ -183,15 +188,15 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             (hu - block[1]   , hu)
         ];
 
-        iterate(0, 3, |region : int| -> void {
+        iterate(0, 3, |region : int| -> () {
             let bounds = Bounds2DCol[region];
             let dim = (width, bounds[1] - bounds[0], 1);
 
-            cuda(dev, dim, block, || -> void {
+            cuda(dev, dim, block, || -> () {
                 let gid_x = threadIdx_x() + blockDim_x() * blockIdx_x();
                 let gid_y = threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
 
-                @iterate(0, unroll, |i : int| -> void {
+                @iterate(0, unroll, |i : int| -> () {
                     body_col(gid_x, gid_y + bounds[0] + i * blockDim_y(), arr, tmp, region);
                 });
             });
@@ -203,15 +208,15 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             (width - block[0], width)
         ];
 
-        iterate(0, 3, |region : int| -> void {
+        iterate(0, 3, |region : int| -> () {
             let bounds = Bounds2DRow[region];
             let dim = (bounds[1] - bounds[0], height/unroll, 1);
 
-            cuda(dev, dim, block, || -> void {
+            cuda(dev, dim, block, || -> () {
                 let gid_x = threadIdx_x() + blockDim_x() * blockIdx_x();
                 let gid_y = threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
 
-                @iterate(0, unroll, |i : int| -> void {
+                @iterate(0, unroll, |i : int| -> () {
                     body_row(gid_x + bounds[0], gid_y + i * blockDim_y(), tmp, out, region);
                 });
             });
