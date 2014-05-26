@@ -1,38 +1,5 @@
-// current mapping: arrays are implicitely mapped to GPU
-iteration(width, height, |x : int, y : int| -> () {
-    out[y*width + x] = @apply_stencil(range, stencil, x, y, arr, width);
-});
-
-// proposed mapping: mapped array is passed as parameter
-iteration_mapped(width, height, |x : int, y : int, arr : [float]| -> () {
-    out[y*width + x] = @apply_stencil(range, stencil, x, y, arr, width);
-});
-
-// proposed mapping: mapped array is passed as parameter, using shared
-// memory
-iteration_mapped_smem(width, height,
-    |x : int, y : int, arr : [float], smem : [float]| -> () {
-        out[y*width + x] = @apply_stencil(range, stencil, x, y, arr, width);
-    }
-    |x : int, y : int, arr : [float], smem : [float]| -> () {
-        out[y*width + x] = @apply_stencil(range, stencil, x, y, arr, width);
-    }
-);
-
-fn iteration(width : int, height : int, body : fn(int, int) -> ()) -> () {
-    let dim = (width, height, 1);
-    let block = (32, 4, 1);
-
-    opencl(1, dim, block, || -> () {
-        let tid_x = int64_to_int32(get_global_id(0));
-        let tid_y = int64_to_int32(get_global_id(1));
-
-        body(tid_x, tid_y);
-    });
-}
-
-
-fn iteration_mapped(width : int, height : int, img : [float], body : fn(int, int, [float]) -> ()) -> () {
+// synchronization ...
+fn iteration_mapped(width : int, height : int, img : &[float], body : fn(int, int, &[float]) -> ()) -> () {
     let dim = (width, height/2, 1);
     let block = (32, 4, 1);
 
@@ -72,118 +39,9 @@ fn iteration_mapped(width : int, height : int, img : [float], body : fn(int, int
     synchronize(GPU2);
 }
 
-fn iteration_mapped_smem(width : int, height : int, img : [float], body : fn(int, int, [float], [float]) -> ()) -> () {
-    let dim = (width, height/2, 1);
-    let block = (32, 4, 1);
-
-    // skip slicing
-    let mut g1 = map_region<GPU1, Global>(img, (0, 0),        (width, height/2));
-    let mut g2 = map_region<GPU2, Global>(img, (0, height/2), (width, height/2));
-
-    let mut g = [ g1, g2 ];
-    let mut h = [int * 2];
-
-    
-    @iterate(0, 2+1, |i : int| -> () {
-        h[i] = opencl(i+1, dim, block, || -> () {
-            let tid_x = int64_to_int32(get_global_id(0));
-            let tid_y = int64_to_int32(get_global_id(1));
-
-            // block size plus apron for 3x3 stencil
-            let mut sm = sm_array(block[0] + 2, block[1] + 2);
-
-            // load data to shared memory
-            let sm_x = blockDim.x * blockIdx.x;
-            let sm_y = blockDim.y * blockIdx.y;
-
-            // GPU execution with dedicated scratchpad memory
-            let mut sm = map<GPUX, Shared>(gpu_img, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
-
-            // execution with scratchpad memory mapped to global memory
-            let mut sm = map<GPUX, Proxy >(gpu_img, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
-
-            out_view = map<GPUX, Proxy>(out, sm_x, sm_y, block[0], block[1]);
-
-            barrier(sm);
-
-            body(get_local_id(0), get_local_id(1), width, arr, out_view) {
-                let mut sum = 0.0f;
-                let half_range = range / 2;
-                iterate(-half_range, half_range+1, |j : int| -> () {
-                    iterate(-half_range, half_range+1, |i : int| -> () {
-                        let stencil_index = i + half_range + ((j + half_range) * range);
-                        let stencil_val = stencil[stencil_index];
-                        sum += arr[x + i][y + j] * stencil_val;
-                    });
-                });
-                out[y*width + x] = sum;
-            }
-
-            // higher-order version
-            let out_fun = |val: float, i: int| -> () {
-                out[tid_x + i][tid_y] = val;
-            };
-            body(get_local_id(0), get_local_id(1), width, arr, out_fun) {
-                let mut sum = 0.0f;
-                let half_range = range / 2;
-                iterate(-half_range, half_range+1, |j : int| -> () {
-                    iterate(-half_range, half_range+1, |i : int| -> () {
-                        let stencil_index = i + half_range + ((j + half_range) * range);
-                        let stencil_val = stencil[stencil_index];
-                        sum += arr[x + i][y + j] * stencil_val;
-                    });
-                });
-                out_fun(sum);
-                // relative indices
-                out(sum, 1, -1);
-            }
-
-            body(get_local_id(0), get_local_id(1), width, arr, out_fun) {
-                let mut sum = 0.0f;
-
-                // ... compute phase 1
-                ... = temp[x, y] + arr[x-1, y+1];
-
-                temp[x, y] = result;
-                sync(temp);
-
-                // ... compute phase 2
-                ... = temp[x, y] + temp[x-1, y+1];
-
-                out_fun(sum);
-            }
-
-            
-            // ulitmate syntax
-            sm = map<Shared>(...);
-            // compute phase 1
-            body1(...);
-            sync(sm);
-            //compute phase 2
-            body2(...);
-        });
-    });
-
-    synchronize(GPU1);
-    synchronize(GPU2);
-}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-fn iteration(width : int, height : int, img : [float], body : fn(int, int, [float]) -> ()) -> () {
+fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[float]) -> ()) -> () {
     // slice memory
     let mut cpu_slice1 = slice(img, 0,       0, width/2, height);
     let mut cpu_slice2 = slice(img, width/2, 0, width/2, height);
@@ -237,7 +95,7 @@ fn iteration(width : int, height : int, img : [float], body : fn(int, int, [floa
 }
 
 
-fn iteration(width : int, height : int, img : [float], body : fn(int, int, [float], [float]) -> ()) -> () {
+fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[float], &[float]) -> ()) -> () {
     // slice memory
     let mut cpu_slice1 = slice(img, 0,       0, width/2, height);
     let mut cpu_slice2 = slice(img, width/2, 0, width/2, height);
@@ -294,112 +152,17 @@ fn iteration(width : int, height : int, img : [float], body : fn(int, int, [floa
 }
 
 
-fn main() -> [float] {
+fn main() -> &[float] {
     let width   = 2048;
     let height  = 2048;
-    let mut img = array(4, width, height);
+    let mut arr = ~[width*height:float];
+    let mut out = ~[width*height:float];
+    let stencil = [ 0.25f, 0.50f, 0.25f ];
 
-    let stencil : [float * 3] = [ 0.25f, 0.50f, 0.25f ];
-
-    convolution_separable(img, stencil, stencil);
-
-    img
-}
-
-
-// explicit variant
-fn convolution_separable(img: [float],
-                         stencil_row: [float * 3 * 3],
-                         stencil_col: [float * 3 * 3]) -> [float] {
-    // temporary memory
-    let img_gpu : [float] = map<GPU>(img);
-    let tmp_gpu : [float] = array<GPU>(img.width(), img.height());
-
-    // constant memory for stencil
-    let stencil_row_gpu : [float * 3 * 3] = map<CM>(stencil_row);
-    let stencil_col_gpu : [float * 3 * 3] = map<CM>(stencil_col);
-
-    for gid_x, gid_y in range(tmp_gpu) run on GPU {
-        // thread index
-        let tid_x = get_thread_idx(0);
-        let tid_y = get_thread_idx(1);
-
-        // shared memory for data staging
-        let mut sdata : [float, float] = array<SM>(get_blocking(1), get_blocking(2));
-
-        // load data to shared memory
-        sdata[get_thread_idx(1), get_thread_idx(0)] = img_gpu[gid_x, gid_y];
-
-        // synchronize
-        barrier(SM);
-
-        // apply stencil
-        tmp_gpu[gid_x, gid_y] = @convolve(sdata, stencil_row_gpu);
+    for x, y arr, out in iteration(width, height, arr, out) {
+        out[y*width + x] = apply_stencil(arr, stencil, ...);
     }
 
-    for gid_x, gid_y in range(img_gpu) run on GPU {
-        // thread index
-        let tid_x = get_thread_idx(0);
-        let tid_y = get_thread_idx(1);
-
-        // shared memory for data staging
-        let mut sdata : [float, float] = array<SM>(get_blocking(1), get_blocking(2));
-
-        // load data to shared memory
-        sdata[get_thread_idx(1), get_thread_idx(0)] = tmp_gpu[gid_x, gid_y];
-
-        // synchronize
-        barrier(SM);
-
-        // apply stencil
-        img_gpu[gid_x, gid_y] = @convolve(sdata, stencil_col_gpu);
-    }
-
-    // map GPU to CPU memory using map<CPU>()
-    img = map(img_gpu);
-}
-
-
-// implicit variant
-fn convolution_separable(img: [float],
-                         stencil_row: [float * 3 * 3],
-                         stencil_col: [float * 3 * 3]) -> [float] {
-    let tmp : [float] = array(img.width(), img.height());
-
-    for gid_x, gid_y in range(tmp) {
-        // thread index
-        let tid_x = get_thread_idx(0);
-        let tid_y = get_thread_idx(1);
-
-        // shared memory for data staging
-        let mut sdata : [float, float] = array(get_blocking(1), get_blocking(2));
-
-        // load data to shared memory
-        sdata[get_thread_idx(1), get_thread_idx(0)] = img[gid_x, gid_y];
-
-        // synchronize
-        barrier();
-
-        // apply stencil
-        tmp[gid_x, gid_y] = @convolve(sdata, stencil_row);
-    }
-
-    for gid_x, gid_y in range(img) {
-        // thread index
-        let tid_x = get_thread_idx(0);
-        let tid_y = get_thread_idx(1);
-
-        // shared memory for data staging
-        let mut sdata : [float, float] = array(get_blocking(1), get_blocking(2));
-
-        // load data to shared memory
-        sdata[get_thread_idx(1), get_thread_idx(0)] = tmp[gid_x, gid_y];
-
-        // synchronize
-        barrier();
-
-        // apply stencil
-        img[gid_x, gid_y] = @convolve(sdata, stencil_col);
-    }
+    out
 }
 
