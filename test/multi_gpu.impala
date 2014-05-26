@@ -1,10 +1,36 @@
-fn write(out: [float], src: [float], i: int) -> () {
-    out[i] = src[i];
+extern "thorin" {
+    fn map(&[float], int, int, (int, int, int), (int, int, int)) -> &[float];
+    fn opencl(int, (int, int, int), (int, int, int), fn() -> ()) -> ();
+    fn int64_to_int32(i64) -> i32;
+}
+extern "C" { fn random_val(int) -> float; }
+extern "raw" { fn get_global_id(i32) -> i64; }
+fn global_id(idx : int) -> int {
+    int64_to_int32(get_global_id(idx))
+}
+fn range(a : int, b : int, yield : fn(int, fn())) -> () {
+    if a < b {
+        yield(a);
+        range(a+1, b, yield);
+    }
+}
+
+fn init_zero(arr : &[float], width : int, height : int) -> () {
+    for i in range(0, width*height) {
+        arr(i) = 0.0f;
+    }
+}
+fn init_rand(arr : &[float], width : int, height : int) -> () {
+    for y in range(0, height) {
+        for x in range(0, width) {
+            arr(y*width + x) = random_val(1024);
+        }
+    }
 }
 
 fn iteration_multi(width : int, height : int,
-                   arr : [float], out : [float],
-                   body : fn(int, int, [float], [float]) -> ()
+                   arr : &[float], out : &[float],
+                   body : fn(int, int, &[float], &[float]) -> ()
                   ) -> () {
     let dim = (width, height/2, 1);
     let block = (128, 1, 1);
@@ -13,8 +39,8 @@ fn iteration_multi(width : int, height : int,
     let map_out_CPU = map(out, 1, 0, (0, 0, 0),        (width, height/2, 0));
 
     opencl(1, dim, block, || -> () {
-        let tid_x = int64_to_int32(get_global_id(0));
-        let tid_y = int64_to_int32(get_global_id(1));
+        let tid_x = global_id(0);
+        let tid_y = global_id(1);
 
         body(tid_x, tid_y, map_arr_CPU, map_out_CPU);
     });
@@ -23,8 +49,8 @@ fn iteration_multi(width : int, height : int,
     let map_out_GPU = map(out, 2, 0, (0, height/2, 0), (width, height/2, 0));
 
     opencl(2, dim, block, || -> () {
-        let tid_x = int64_to_int32(get_global_id(0));
-        let tid_y = int64_to_int32(get_global_id(1));
+        let tid_x = global_id(0);
+        let tid_y = global_id(1);
 
         body(tid_x, tid_y, map_arr_GPU, map_out_GPU);
     });
@@ -33,27 +59,22 @@ fn iteration_multi(width : int, height : int,
 fn main() -> int {
     let width   = 4096;
     let height  = 4096;
-    let mut arr = array(4, width, height);
-    let mut out = array(4, width, height);
+    let mut arr = ~[width*height:float];
+    let mut out = ~[width*height:float];
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
-    iteration_multi(width, height, arr, out,
-        |x : int, y : int, out : [float], arr : [float]| -> () {
-            out[x + y*width] = arr[x + y*width];
-        }
-    );
+    for x, y, arr, out in iteration_multi(width, height, arr, out) {
+        out(x + y*width) = arr(x + y*width);
+    }
 
     let mut passed = 0;
 
-    for (let mut y=0; y<height; ++y) {
-        for (let mut x=0; x<width; ++x) {
-            if out[x + y*width] != arr[x + y*width] { passed++; }
+    for y in range(0, height) {
+        for x in range(0, width) {
+            if out(x + y*width) != arr(x + y*width) { passed++; }
         }
     }
-
-    free_array(arr);
-    free_array(out);
 
     passed
 }
