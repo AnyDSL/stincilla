@@ -15,7 +15,7 @@ fn apply_bh(mut index : int,
     index
 }
 
-fn apply_stencil(N : int, in : [float], out : [float], stencil : [float * 3],
+fn apply_stencil(N : int, arr : [float], out : [float], stencil : [float * 3],
                  bh_lower : fn(int, int) -> int, bh_upper : fn(int, int) -> int) -> () {
     let lb : [int * 3] = [0, 1, N - 1];
     let ub : [int * 3] = [1, N - 1, N];
@@ -29,7 +29,7 @@ fn apply_stencil(N : int, in : [float], out : [float], stencil : [float * 3],
                 let adapted_j : int = apply_bh(index + j,
                                                bh_lower, bh_upper,
                                                current_lb, current_ub);
-                sum += stencil[j + 1] * in[adapted_j];
+                sum += stencil[j + 1] * arr[adapted_j];
             });
             out[index] = sum;
         });
