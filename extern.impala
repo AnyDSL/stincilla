@@ -1,6 +1,6 @@
 extern "C" {
-    fn array(int, int, int) -> &[float];
-    fn free_array(&[float]) -> ();
+    //fn array(int, int, int) -> &[float];
+    //fn free_array(&[float]) -> ();
     fn random_val(int) -> float;
     fn getMicroTime() -> ();
     fn reset_and_start_timer() -> ();

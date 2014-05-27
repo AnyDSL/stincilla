@@ -1,4 +1,4 @@
-fn matmul(res: [float], mut num_rows: int, mut num_cols: int, a: [float], b: [float], num: int) -> () {
+fn matmul(res: &[float], mut num_rows: int, mut num_cols: int, a: &[float], b: &[float], num: int) -> () {
     fn index_res(x: int, y: int) -> int {
         num_cols*y + x
     }
@@ -9,25 +9,25 @@ fn matmul(res: [float], mut num_rows: int, mut num_cols: int, a: [float], b: [fl
         num*y + x
     }
 
-    for (let mut y = 0; y != num_rows; ++y) {
-        for (let mut x = 0; x != num_cols; ++x) {
+    for y in (0, num_rows) {
+        for x in (0, num_cols) {
             let mut sum = 0.f;
-            for (let mut i = 0; i != num; ++i) {
-                sum += a[index_a(i, y)]*b[index_b(x, i)];
+            for i in (0, num) {
+                sum += a(index_a(i, y))*b(index_b(x, i));
             }
-            res[index_res(x, y)] = sum;
+            res(index_res(x, y)) = sum;
         }
     }
 }
 
-fn matmul2(res: [float], a: [float], b: [float], num: int) -> () {
+fn matmul2(res: &[float], a: &[float], b: &[float], num: int) -> () {
     matmul(res, num, num, a, b, num);
 }
 
 fn main(i: int) -> int {
-    let a   = array(3*3);
-    let b   = array(3*3);
-    let res = array(3*3);
+    let mut a   = ~[3*3:float];
+    let mut b   = ~[3*3:float];
+    let mut res = ~[3*3:float];
     reset_and_start_timer();
     @matmul2(res, a, b, i);
     print_time();

@@ -1,6 +1,6 @@
 fn iteration(width : int, height : int,
-             arr : [float], out : [float],
-             body : fn(int, int, [float], [float]) -> ()
+             arr : &[float], out : &[float],
+             body : fn(int, int, &[float], &[float]) -> ()
             ) -> () {
     let unroll = 1;
     let dim = (width, height/unroll, 1);
@@ -11,15 +11,15 @@ fn iteration(width : int, height : int,
         let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
         let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
 
-        @iterate(0, unroll, |i : int| -> () {
+        for i in @iterate(0, unroll) {
             body(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), arr, out);
-        });
+        }
     });
 }
 
 fn iteration_bounds(width : int, height : int, ksize : int,
-                    arr : [float], out : [float],
-                    body : fn(int, int, [float], [float], int) -> ()
+                    arr : &[float], out : &[float],
+                    body : fn(int, int, &[float], &[float], int) -> ()
                    ) -> () {
     // define the unroll factor
     let unroll = 1;
@@ -32,7 +32,7 @@ fn iteration_bounds(width : int, height : int, ksize : int,
                 (ksize/2) / unroll
               } else {
                 (ksize/2) / unroll + 1
-              }
+              };
     let block = (128, bbh, 1);
 
     let dev = 1;
@@ -55,104 +55,104 @@ fn iteration_bounds(width : int, height : int, ksize : int,
             // 3 --- 4 --- 5
             // 6 --- 7 --- 8
             if (bid_x < 1 && bid_y < 1) {                   // top-left: 0
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, arr, out, 0);
-                });
+                }
                 return()
             }
             if (bid_x >= gdim_x-1 && bid_y < 1) {           // top-right: 2
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, arr, out, 2);
-                });
+                }
                 return()
             }
             if (bid_y < 1) {                                // top: 1
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, arr, out, 1);
-                });
+                }
                 return()
             }
             if (bid_y >= gdim_y-1 && bid_x < 1) {           // bottom-left: 6
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, arr, out, 6);
-                });
+                }
                 return()
             }
             if (bid_y >= gdim_y-1 && bid_x >= gdim_x-1) {   // bottom-right: 8
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, arr, out, 8);
-                });
+                }
                 return()
             }
             if (bid_y >= gdim_y-1) {                        // bottom: 7
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, arr, out, 7);
-                });
+                }
                 return()
             }
             if (bid_x >= gdim_x-1) {                        // right: 5
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, arr, out, 5);
-                });
+                }
                 return()
             }
             if (bid_x < 1) {                                // left: 3
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, arr, out, 3);
-                });
+                }
                 return()
             }
             // no border handling
-            @iterate(0, unroll, |i : int| -> () {
+            for i in @iterate(0, unroll) {
                 body(gid_x, gid_y + i * bdim_y, arr, out, 4);
-            });
+            }
         });
     } else {
         // bounds account for unroll factor
         let hu = height/unroll;
         let Bounds2D = [
-            (0               , block[0]        , 0            , block[1]),
-            (block[0]        , width - block[0], 0            , block[1]),
-            (width - block[0], width           , 0            , block[1]),
+            (0               , block(0)        , 0            , block(1)),
+            (block(0)        , width - block(0), 0            , block(1)),
+            (width - block(0), width           , 0            , block(1)),
 
-            (0               , block[0]        , block[1]     , hu - block[1]),
-            (block[0]        , width - block[0], block[1]     , hu - block[1]),
-            (width - block[0], width           , block[1]     , hu - block[1]),
+            (0               , block(0)        , block(1)     , hu - block(1)),
+            (block(0)        , width - block(0), block(1)     , hu - block(1)),
+            (width - block(0), width           , block(1)     , hu - block(1)),
 
-            (0               , block[0]        , hu - block[1], hu),
-            (block[0]        , width - block[0], hu - block[1], hu),
-            (width - block[0], width           , hu - block[1], hu)
+            (0               , block(0)        , hu - block(1), hu),
+            (block(0)        , width - block(0), hu - block(1), hu),
+            (width - block(0), width           , hu - block(1), hu)
         ];
 
-        iterate(0, 9, |region : int| -> () {
+        for region in @iterate(0, 9) {
             let bounds = Bounds2D[region];
-            let dim = (bounds[1] - bounds[0], bounds[3] - bounds[2], 1);
+            let dim = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
 
             nvvm(dev, dim, block, || -> () {
-                let gid_x = bounds[0] +
+                let gid_x = bounds(0) +
                             nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
-                let gid_y = bounds[2] * unroll +
+                let gid_y = bounds(2) * unroll +
                             nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
 
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), arr, out, region);
-                });
+                }
             });
-        });
+        }
     }
 }
 
 fn iteration_advanced(width : int, height : int, ksize : int,
-                      arr : [float], out : [float],
-                      body : fn(int, int, [float], [float], int, int, int) -> ()
+                      arr : &[float], out : &[float],
+                      body : fn(int, int, &[float], &[float], int, int, int) -> ()
                      ) -> () {
-    iterate_times_two(1, 16+1, |unroll : int| -> () {
+    for unroll in iterate_times_two(1, 16+1) {
         // compute the number of blocks required for boundary handling
         let bbh = if ((ksize/2) % unroll==0) {
                     (ksize/2) / unroll
                   } else {
                     (ksize/2) / unroll + 1
-                  }
+                  };
 
         let dim = (width, height/unroll, 1);
         let block = (128/bbh, bbh, 1);
@@ -160,8 +160,8 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         // compute number of steps required to stage data to shared memory
         let ksize2 = ksize / 2;
         let steps_x = 2;
-        let offset_y = (ksize%block[1]==0)?0:1;
-        let steps_y = unroll + ksize/block[1] + offset_y;
+        let offset_y = if ksize%block(1)==0 { 0 } else { 1 };
+        let steps_y = unroll + ksize/block(1) + offset_y;
 
         // 0 -> generic
         // 1 -> global
@@ -169,7 +169,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
+        let mut gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
         let gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
         let tex_arr = map(arr, dev, 2, (0, 0, 0), (width, height, 1));
 
@@ -183,47 +183,47 @@ fn iteration_advanced(width : int, height : int, ksize : int,
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
 
-            let smem = map(arr, dev, 3, (0, 0, 0), (block[0] + 2*ksize2, block[1]*unroll + 2*ksize2, 1));
-            let lstride = block[0] + 2*ksize2;
+            let mut smem = map(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
+            let lstride = block(0) + 2*ksize2;
 
-            for (let mut y=0; y<steps_y; ++y) {
+            for y in range(0, steps_y) {
                 let lid_y = tid_y + y*bdim_y;
                 let mut idx_y = gid_y - ksize2 + y*bdim_y;
                 idx_y = clamp_upper(idx_y, height);
                 idx_y = clamp_lower(idx_y, 0);
-                for (let mut x=0; x<steps_x; ++x) {
+                for x in range(0, steps_x) {
                     let lid_x = tid_x + x*bdim_x;
                     let mut idx_x = gid_x - ksize2 + x*bdim_x;
                     idx_x = clamp_lower(idx_x, 0);
                     idx_x = clamp_upper(idx_x, width);
 
-                    if (lid_x < block[0] + 2*ksize2 &&
-                        lid_y < block[1]*unroll + 2*ksize2) {
-                        smem[lid_y * lstride + lid_x] = tex_arr[idx_y * width + idx_x];
+                    if (lid_x < block(0) + 2*ksize2 &&
+                        lid_y < block(1)*unroll + 2*ksize2) {
+                        smem(lid_y * lstride + lid_x) = tex_arr(idx_y * width + idx_x);
                     }
                 }
             }
 
             nvvm_barrier0();
 
-            @iterate(0, unroll, |i : int| -> () {
+            for i in @iterate(0, unroll) {
                 body(gid_x, gid_y + i * bdim_y, smem, gmem_out, tid_x+ksize2, tid_y+ksize2 + i * bdim_y, lstride);
-            });
+            }
         });
-    });
+    }
 }
 
 fn iteration_sep(width : int, height : int,
-                 arr : [float], out : [float],
-                 body_col : fn(int, int, [float], [float]) -> (),
-                 body_row : fn(int, int, [float], [float]) -> ()
+                 arr : &[float], out : &[float],
+                 body_col : fn(int, int, &[float], &[float]) -> (),
+                 body_row : fn(int, int, &[float], &[float]) -> ()
                 ) -> () {
     let unroll = 1;
     let dim = (width, height/unroll, 1);
     let block = (128, 1, 1);
 
     // allocate temporary array
-    let mut tmp = array(4, width, height);
+    let mut tmp = ~[width*height:float];
     init_zero(tmp, $width, $height);
 
     let dev = 1;
@@ -231,25 +231,24 @@ fn iteration_sep(width : int, height : int,
         let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
         let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
 
-        @iterate(0, unroll, |i : int| -> () {
+        for i in @iterate(0, unroll) {
             body_col(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), arr, tmp);
-        });
+        }
     });
     nvvm(dev, dim, block, || -> () {
         let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
         let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
 
-        @iterate(0, unroll, |i : int| -> () {
+        for i in @iterate(0, unroll) {
             body_row(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), tmp, out);
-        });
+        }
     });
-    free_array(tmp);
 }
 
 fn iteration_sep_bounds(width : int, height : int, ksize : int,
-                        arr : [float], out : [float],
-                        body_col : fn(int, int, [float], [float], int) -> (),
-                        body_row : fn(int, int, [float], [float], int) -> ()
+                        arr : &[float], out : &[float],
+                        body_col : fn(int, int, &[float], &[float], int) -> (),
+                        body_row : fn(int, int, &[float], &[float], int) -> ()
                        ) -> () {
     // define the unroll factor
     let unroll = 1;
@@ -262,11 +261,11 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
                 (ksize/2) / unroll
               } else {
                 (ksize/2) / unroll + 1
-              }
+              };
     let block = (128, bbh, 1);
 
     // allocate temporary array
-    let mut tmp = array(4, width, height);
+    let mut tmp = ~[width*height:float];
     init_zero(tmp, $width, $height);
 
     let dev = 1;
@@ -290,21 +289,21 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             // 1
             // 2
             if (bid_y < 1) {                                // top: 0
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 0);
-                });
+                }
                 return()
             }
             if (bid_y >= gdim_y-1) {                        // bottom: 2
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 2);
-                });
+                }
                 return()
             }
             // no border handling
-            @iterate(0, unroll, |i : int| -> () {
+            for i in @iterate(0, unroll) {
                 body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 1);
-            });
+            }
         });
 
         // row component
@@ -322,81 +321,80 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 
             // 0 --- 1 --- 2
             if (bid_x < 1) {                                // left: 0
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_row(gid_x, gid_y + i * bdim_y, tmp, out, 0);
-                });
+                }
                 return()
             }
             if (bid_x >= gdim_x-1) {                        // right: 2
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_row(gid_x, gid_y + i * bdim_y, tmp, out, 2);
-                });
+                }
                 return()
             }
             // no border handling
-            @iterate(0, unroll, |i : int| -> () {
+            for i in @iterate(0, unroll) {
                 body_row(gid_x, gid_y + i * bdim_y, tmp, out, 1);
-            });
+            }
         });
     } else {
         let hu = height / unroll;
         let Bounds2DCol = [
-            (0               , block[1]),
-            (block[1]        , hu - block[1]),
-            (hu - block[1]   , hu)
+            (0               , block(1)),
+            (block(1)        , hu - block(1)),
+            (hu - block(1)   , hu)
         ];
 
-        iterate(0, 3, |region : int| -> () {
+        for region in iterate(0, 3) {
             let bounds = Bounds2DCol[region];
-            let dim = (width, bounds[1] - bounds[0], 1);
+            let dim = (width, bounds(1) - bounds(0), 1);
 
             nvvm(dev, dim, block, || -> () {
                 let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
-                let gid_y = bounds[0] * unroll +
+                let gid_y = bounds(0) * unroll +
                             nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
 
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_col(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), arr, tmp, region);
-                });
+                }
             });
-        });
+        }
 
         let Bounds2DRow = [
-            (0               , block[0]),
-            (block[0]        , width - block[0]),
-            (width - block[0], width)
+            (0               , block(0)),
+            (block(0)        , width - block(0)),
+            (width - block(0), width)
         ];
 
-        iterate(0, 3, |region : int| -> () {
+        for region in iterate(0, 3) {
             let bounds = Bounds2DRow[region];
-            let dim = (bounds[1] - bounds[0], height/unroll, 1);
+            let dim = (bounds(1) - bounds(0), height/unroll, 1);
 
             nvvm(dev, dim, block, || -> () {
-                let gid_x = bounds[0] +
+                let gid_x = bounds(0) +
                             nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
                 let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
 
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_row(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), tmp, out, region);
-                });
+                }
             });
-        });
+        }
     }
-    free_array(tmp);
 }
 
 fn iteration_sep_advanced(width : int, height : int, ksize : int,
-                          arr : [float], out : [float],
-                          body_col : fn(int, int, [float], [float], int, int, int, int) -> (),
-                          body_row : fn(int, int, [float], [float], int, int, int, int) -> ()
+                          arr : &[float], out : &[float],
+                          body_col : fn(int, int, &[float], &[float], int, int, int, int) -> (),
+                          body_row : fn(int, int, &[float], &[float], int, int, int, int) -> ()
                          ) -> () {
-    iterate_times_two(1, 16+1, |unroll : int| -> () {
+    for unroll in iterate_times_two(1, 16+1) {
         // compute the number of blocks required for boundary handling
         let bbh = if ((ksize/2) % unroll==0) {
                     (ksize/2) / unroll
                   } else {
                     (ksize/2) / unroll + 1
-                  }
+                  };
 
         let dim = (width, height/unroll, 1);
         let block = (128/bbh, bbh, 1);
@@ -404,8 +402,8 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
         // compute number of steps required to stage data to shared memory
         let ksize2 = ksize / 2;
         let steps_x = 2;
-        let offset_y = (ksize%block[1]==0)?0:1;
-        let steps_y = unroll + ksize/block[1] + offset_y;
+        let offset_y = if ksize%block(1)==0 { 0 } else { 1 };
+        let steps_y = unroll + ksize/block(1) + offset_y;
 
         // 0 -> generic
         // 1 -> global
@@ -413,7 +411,7 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
+        let mut gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
         let gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
         let tex_arr = map(arr, dev, 2, (0, 0, 0), (width, height, 1));
 
@@ -427,31 +425,31 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
 
-            let smem_col = map(arr, dev, 3, (0, 0, 0), (block[0] + 2*ksize2, block[1]*unroll + 2*ksize2, 1));
-            let smem_row = map(arr, dev, 3, (0, 0, 0), (block[0] + 2*ksize2, block[1]*unroll, 1));
-            let lstride = block[0] + 2*ksize2;
+            let mut smem_col = map(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
+            let mut smem_row = map(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll, 1));
+            let lstride = block(0) + 2*ksize2;
 
-            for (let mut y=0; y<steps_y; ++y) {
+            for y in range(0, steps_y) {
                 let lid_y = tid_y + y*bdim_y;
                 let mut idx_y = gid_y - ksize2 + y*bdim_y;
                 idx_y = clamp_upper(idx_y, height);
                 idx_y = clamp_lower(idx_y, 0);
-                for (let mut x=0; x<steps_x; ++x) {
+                for x in range(0, steps_x) {
                     let lid_x = tid_x + x*bdim_x;
                     let mut idx_x = gid_x - ksize2 + x*bdim_x;
                     idx_x = clamp_lower(idx_x, 0);
                     idx_x = clamp_upper(idx_x, width);
 
                     if (lid_x < lstride &&
-                        lid_y < block[1]*unroll + 2*ksize2) {
-                        smem_col[lid_y * lstride + lid_x] = tex_arr[idx_y * width + idx_x];
+                        lid_y < block(1)*unroll + 2*ksize2) {
+                        smem_col(lid_y * lstride + lid_x) = tex_arr(idx_y * width + idx_x);
                     }
                 }
             }
 
             nvvm_barrier0();
 
-            @iterate(0, unroll, |i : int| -> () {
+            for i in @iterate(0, unroll) {
                 body_col(tid_x+ksize2, tid_y + i * bdim_y, smem_col, smem_row, tid_x+ksize2, tid_y+ksize2 + i * bdim_y, lstride, lstride);
                 if (tid_x < ksize2) {
                     @body_col(tid_x, tid_y + i * bdim_y, smem_col, smem_row, tid_x, tid_y+ksize2 + i * bdim_y, lstride, lstride);
@@ -459,26 +457,26 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
                 if (tid_x >= bdim_x-ksize2) {
                     @body_col(tid_x+ksize2+ksize2, tid_y + i * bdim_y, smem_col, smem_row, tid_x+ksize2+ksize2, tid_y+ksize2 + i * bdim_y, lstride, lstride);
                 }
-            });
+            }
 
             nvvm_barrier0();
 
-            @iterate(0, unroll, |i : int| -> () {
+            for i in @iterate(0, unroll) {
                 body_row(gid_x, gid_y + i * bdim_y, smem_row, gmem_out, tid_x+ksize2, tid_y + i * bdim_y, lstride, width);
-            });
+            }
         });
-    });
+    }
 }
 
 fn iteration_multi(width : int, height : int,
-                   arr : [float], out : [float],
-                   body : fn(int, int, [float], [float]) -> ()
+                   arr : &[float], out : &[float],
+                   body : fn(int, int, &[float], &[float]) -> ()
                   ) -> () {
     let dim = (width, height/2, 1);
     let block = (128, 1, 1);
 
     let dev_gpu1 = 1;
-    let map_arr_GPU1 = map(arr, dev_gpu1, 1, (0, 0, 0),        (width, height/2, 1));
+    let mut map_arr_GPU1 = map(arr, dev_gpu1, 1, (0, 0, 0),        (width, height/2, 1));
     let map_out_GPU1 = map(out, dev_gpu1, 1, (0, 0, 0),        (width, height/2, 1));
 
     nvvm(dev_gpu1, dim, block, || -> () {
@@ -489,7 +487,7 @@ fn iteration_multi(width : int, height : int,
     });
 
     let dev_gpu2 = 2;
-    let map_arr_GPU2 = map(arr, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
+    let mut map_arr_GPU2 = map(arr, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
     let map_out_GPU2 = map(out, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
 
     nvvm(dev_gpu2, dim, block, || -> () {

@@ -116,7 +116,7 @@ fn main() -> &[float] {
     // 0.25 0.50 0.25
     // FIXME: this will not run correctly on accelerators such as GPUs due to
     // their memory consistency model
-    iteration(width, height, |x : int, y : int| -> () {
+    for x, y in iteration(width, height) {
         let cx = 2*x;
         let cy = 2*y;
         let cwidth  = 2*width;
@@ -132,7 +132,7 @@ fn main() -> &[float] {
         out(idx(cx-1, cy+1, cwidth, cheight)) += 0.25f * v;
         out(idx(cx+0, cy+1, cwidth, cheight)) += 0.50f * v;
         out(idx(cx+1, cy+1, cwidth, cheight)) += 0.25f * v;
-    });
+    }
 
     out
 }

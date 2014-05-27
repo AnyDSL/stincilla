@@ -1,13 +1,13 @@
-fn apply_stencil(range : int, stencil : [float * 3 * 3],
-                 x : int, y : int, arr : [float], width : int, height : int,
+fn apply_stencil(range : int, stencil : [[float * 3] * 3],
+                 x : int, y : int, arr : &[float], width : int, height : int,
                  region: int
                 ) -> float {
     let mut sum_xxx = 0.0f;
     let half_range = range / 2;
 
-    iterate(-half_range, half_range+1, |j : int| -> () {
-        iterate(-half_range, half_range+1, |i : int| -> () {
-            let stencil_val = stencil[i + half_range][j + half_range];
+    for j in iterate(-half_range, half_range+1) {
+        for i in iterate(-half_range, half_range+1) {
+            let stencil_val = stencil(i + half_range)(j + half_range);
             if stencil_val != 0.0f {
                 let mut idx_x = x + i;
                 let mut idx_y = y + j;
@@ -44,12 +44,12 @@ fn apply_stencil(range : int, stencil : [float * 3 * 3],
                     idx_y = clamp_lower(idx_y, 0);
                 }
 
-                sum_xxx += arr[idx_y * width + idx_x] * stencil_val;
+                sum_xxx += arr(idx_y * width + idx_x) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
-        });
-    });
+        }
+    }
 
     sum_xxx
 }
@@ -60,47 +60,38 @@ fn main() -> int {
     let range   = 3;
     let a       = 0.2f;
     let b       = 1.0f - 4.0f * a;
-    let mut arr = array(4, width, height);
-    let mut out = array(4, width, height);
+    let mut arr = ~[width*height:float];
+    let mut out = ~[width*height:float];
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
-    let stencil : [float * 3 * 3] = [
+    let stencil = [
         [0.0f, b, 0.0f],
         [   b, a, b   ],
         [0.0f, b, 0.0f]];
 
     // SS
-    iteration(width, height, arr, out,
-        |x : int, y : int, arr : [float], out : [float]| -> () {
-            out[y*width + x] = apply_stencil(range, stencil, x, y, arr, width,
-                                             height, 10);
-        }
-    );
+    for x, y, arr, out in @iteration(width, height, arr, out) {
+        out(y*width + x) = apply_stencil(range, stencil, x, y, arr, width, height, 10);
+    }
 
     //// SS + BH
-    //@iteration_bounds(width, height, range, arr, out,
-    //    |x : int, y : int, arr: [float], out : [float], region : int| -> () {
-    //        out[y*width + x] = apply_stencil(range, stencil, x, y, arr,
-    //                                         width, height, region);
-    //    }
-    //);
+    //for x, y, arr, out, region in @iteration_bounds(width, height, range, arr, out) {
+    //    out(y*width + x) = apply_stencil(range, stencil, x, y, arr, width, height, region);
+    //}
 
 
     let mut passed = 0;
 
-    for (let mut y=0; y<height; ++y) {
-        for (let mut x=0; x<width; ++x) {
+    for y in range(0, height) {
+        for x in range(0, width) {
             let ref = @apply_stencil(range, stencil, x, y, arr,
                                      width, height, 10);
-            let mut diff = ref - out[x + y*width];
+            let mut diff = ref - out(x + y*width);
             if diff < 0.0f  { diff = -diff; }
             if diff > 0.01f { passed++; }
         }
     }
-
-    free_array(arr);
-    free_array(out);
 
     passed
 }

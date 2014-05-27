@@ -1,6 +1,6 @@
 fn iteration(width : int, height : int,
-             arr : [float], out : [float],
-             body : fn(int, int, [float], [float]) -> ()
+             arr : &[float], out : &[float],
+             body : fn(int, int, &[float], &[float]) -> ()
             ) -> () {
     let unroll = 1;
     let dim = (width, height/unroll, 1);
@@ -11,23 +11,23 @@ fn iteration(width : int, height : int,
         let gid_x = threadIdx_x() + blockDim_x() * blockIdx_x();
         let gid_y = threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
 
-        @iterate(0, unroll, |i : int| -> () {
+        for i in @iterate(0, unroll) {
             body(gid_x, gid_y + i * blockDim_y(), arr, out);
-        });
+        }
     });
 }
 
 fn iteration_advanced(width : int, height : int, ksize : int,
-                      arr : [float], out : [float],
-                      body : fn(int, int, [float], [float], int, int, int) -> ()
+                      arr : &[float], out : &[float],
+                      body : fn(int, int, &[float], &[float], int, int, int) -> ()
                      ) -> () {
-    iterate_times_two(1, 16+1, |unroll : int| -> () {
+    for unroll in iterate_times_two(1, 16+1) {
         // compute the number of blocks required for boundary handling
         let bbh = if ((ksize/2) % unroll==0) {
                     (ksize/2) / unroll
                   } else {
                     (ksize/2) / unroll + 1
-                  }
+                  };
 
         let dim = (width, height/unroll, 1);
         let block = (128/bbh, bbh, 1);
@@ -35,8 +35,8 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         // compute number of steps required to stage data to shared memory
         let ksize2 = ksize / 2;
         let steps_x = 2;
-        let offset_y = (ksize%block[1]==0)?0:1;
-        let steps_y = unroll + ksize/block[1] + offset_y;
+        let offset_y = if ksize%block(1)==0 { 0 } else { 1 };
+        let steps_y = unroll + ksize/block(1) + offset_y;
 
         // 0 -> generic
         // 1 -> global
@@ -44,7 +44,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
+        let mut gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
         let gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
         let tex_arr = map(arr, dev, 2, (0, 0, 0), (width, height, 1));
 
@@ -58,40 +58,40 @@ fn iteration_advanced(width : int, height : int, ksize : int,
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
 
-            let smem = map(arr, dev, 3, (0, 0, 0), (block[0] + 2*ksize2, block[1]*unroll + 2*ksize2, 1));
-            let lstride = block[0] + 2*ksize2;
+            let mut smem = map(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
+            let lstride = block(0) + 2*ksize2;
 
-            for (let mut y=0; y<steps_y; ++y) {
+            for y in range(0, steps_y) {
                 let lid_y = tid_y + y*bdim_y;
                 let mut idx_y = gid_y - ksize2 + y*bdim_y;
                 idx_y = clamp_upper(idx_y, height);
                 idx_y = clamp_lower(idx_y, 0);
-                for (let mut x=0; x<steps_x; ++x) {
+                for x in range(0, steps_x) {
                     let lid_x = tid_x + x*bdim_x;
                     let mut idx_x = gid_x - ksize2 + x*bdim_x;
                     idx_x = clamp_lower(idx_x, 0);
                     idx_x = clamp_upper(idx_x, width);
 
-                    if (lid_x < block[0] + 2*ksize2 &&
-                        lid_y < block[1]*unroll + 2*ksize2) {
-                        smem[lid_y * lstride + lid_x] = tex_arr[idx_y * width + idx_x];
+                    if (lid_x < block(0) + 2*ksize2 &&
+                        lid_y < block(1)*unroll + 2*ksize2) {
+                        smem(lid_y * lstride + lid_x) = tex_arr(idx_y * width + idx_x);
                     }
                 }
             }
 
             __syncthreads();
 
-            @iterate(0, unroll, |i : int| -> () {
+            for i in @iterate(0, unroll) {
                 body(gid_x, gid_y + i * bdim_y, smem, gmem_out, tid_x+ksize2, tid_y+ksize2 + i * bdim_y, lstride);
-            });
+            }
         });
-    });
+    }
 }
 
 fn iteration_sep_bounds(width : int, height : int, ksize : int,
-                        arr : [float], out : [float],
-                        body_col : fn(int, int, [float], [float], int) -> (),
-                        body_row : fn(int, int, [float], [float], int) -> ()
+                        arr : &[float], out : &[float],
+                        body_col : fn(int, int, &[float], &[float], int) -> (),
+                        body_row : fn(int, int, &[float], &[float], int) -> ()
                        ) -> () {
     // define the unroll factor
     let unroll = 1;
@@ -104,11 +104,11 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
                 (ksize/2) / unroll
               } else {
                 (ksize/2) / unroll + 1
-              }
+              };
     let block = (128, bbh, 1);
 
     // allocate temporary array
-    let mut tmp = array(4, width, height);
+    let mut tmp = ~[width*height:float];
     init_zero(tmp, $width, $height);
 
     let dev = 1;
@@ -132,20 +132,20 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             // 1
             // 2
             if (bid_y < 1) {                                // top: 0
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 0);
-                });
+                }
             } else
             if (bid_y >= gdim_y-1) {                        // bottom: 2
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 2);
-                });
+                }
             } else
             // no border handling - hack for old hardware
             if (bdim_x >= 16) {
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 1);
-                });
+                }
             }
         });
 
@@ -164,64 +164,64 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 
             // 0 --- 1 --- 2
             if (bid_x < 1) {                                // left: 0
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_row(gid_x, gid_y + i * bdim_y, tmp, out, 0);
-                });
+                }
             } else
             if (bid_x >= gdim_x-1) {                        // right: 2
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_row(gid_x, gid_y + i * bdim_y, tmp, out, 2);
-                });
+                }
             } else
             // no border handling - hack for old hardware
             if (bdim_x >= 16) {
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_row(gid_x, gid_y + i * bdim_y, tmp, out, 1);
-                });
+                }
             }
         });
     } else {
         let hu = height / unroll;
         let Bounds2DCol = [
-            (0               , block[1]),
-            (block[1]        , hu - block[1]),
-            (hu - block[1]   , hu)
+            (0               , block(1)),
+            (block(1)        , hu - block(1)),
+            (hu - block(1)   , hu)
         ];
 
-        iterate(0, 3, |region : int| -> () {
+        for region in iterate(0, 3) {
             let bounds = Bounds2DCol[region];
-            let dim = (width, bounds[1] - bounds[0], 1);
+            let dim = (width, bounds(1) - bounds(0), 1);
 
             cuda(dev, dim, block, || -> () {
                 let gid_x = threadIdx_x() + blockDim_x() * blockIdx_x();
-                let gid_y = bounds[0] * unroll +
+                let gid_y = bounds(0) * unroll +
                             threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
 
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_col(gid_x, gid_y + i * blockDim_y(), arr, tmp, region);
-                });
+                }
             });
-        });
+        }
 
         let Bounds2DRow = [
-            (0               , block[0]),
-            (block[0]        , width - block[0]),
-            (width - block[0], width)
+            (0               , block(0)),
+            (block(0)        , width - block(0)),
+            (width - block(0), width)
         ];
 
-        iterate(0, 3, |region : int| -> () {
+        for region in iterate(0, 3) {
             let bounds = Bounds2DRow[region];
-            let dim = (bounds[1] - bounds[0], height/unroll, 1);
+            let dim = (bounds(1) - bounds(0), height/unroll, 1);
 
             cuda(dev, dim, block, || -> () {
-                let gid_x = bounds[0] +
+                let gid_x = bounds(0) +
                             threadIdx_x() + blockDim_x() * blockIdx_x();
                 let gid_y = threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
 
-                @iterate(0, unroll, |i : int| -> () {
+                for i in @iterate(0, unroll) {
                     body_row(gid_x, gid_y + i * blockDim_y(), tmp, out, region);
-                });
+                }
             });
-        });
+        }
     }
 }
