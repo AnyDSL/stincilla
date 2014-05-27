@@ -53,11 +53,12 @@ fn iteration_bounds(width : int, height : int, ksize : int,
         let dim = (bounds[1] - bounds[0], bounds[3] - bounds[2], 1);
 
         opencl(dev, dim, block, || -> () {
-            let gid_x = global_id(0);
-            let gid_y = local_id(1) + local_size(1) * group_id(1) * unroll;
+            let gid_x = bounds[0] + global_id(0);
+            let gid_y = bounds[2] * unroll +
+                        local_id(1) + local_size(1) * group_id(1) * unroll;
 
             @iterate(0, unroll, |i : int| -> () {
-                body(gid_x + bounds[0], gid_y + bounds[2] + i * local_size(1), arr, out, region);
+                body(gid_x, gid_y + i * local_size(1), arr, out, region);
             });
         });
     });
@@ -202,10 +203,11 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 
         opencl(dev, dim, block, || -> () {
             let gid_x = global_id(0);
-            let gid_y = local_id(1) + local_size(1) * group_id(1) * unroll;
+            let gid_y = bounds[0] * unroll +
+                        local_id(1) + local_size(1) * group_id(1) * unroll;
 
             @iterate(0, unroll, |i : int| -> () {
-                body_col(gid_x, gid_y + bounds[0] + i * local_size(1), arr, tmp, region);
+                body_col(gid_x, gid_y + i * local_size(1), arr, tmp, region);
             });
         });
     });
@@ -218,14 +220,14 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 
     iterate(0, 3, |region : int| -> () {
         let bounds = Bounds2DRow[region];
-        let dim = (bounds[1] - bounds[0], height/unroll, 1);
+        let dim = (bounds[1] - bounds[0], hu, 1);
 
         opencl(dev, dim, block, || -> () {
-            let gid_x = global_id(0);
+            let gid_x = bounds[0] + global_id(0);
             let gid_y = local_id(1) + local_size(1) * group_id(1) * unroll;
 
             @iterate(0, unroll, |i : int| -> () {
-                body_row(gid_x + bounds[0], gid_y + i * local_size(1), tmp, out, region);
+                body_row(gid_x, gid_y + i * local_size(1), tmp, out, region);
             });
         });
     });

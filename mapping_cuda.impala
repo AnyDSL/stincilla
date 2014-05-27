@@ -194,10 +194,11 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 
             cuda(dev, dim, block, || -> () {
                 let gid_x = threadIdx_x() + blockDim_x() * blockIdx_x();
-                let gid_y = threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
+                let gid_y = bounds[0] * unroll +
+                            threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
 
                 @iterate(0, unroll, |i : int| -> () {
-                    body_col(gid_x, gid_y + bounds[0] + i * blockDim_y(), arr, tmp, region);
+                    body_col(gid_x, gid_y + i * blockDim_y(), arr, tmp, region);
                 });
             });
         });
@@ -213,11 +214,12 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             let dim = (bounds[1] - bounds[0], height/unroll, 1);
 
             cuda(dev, dim, block, || -> () {
-                let gid_x = threadIdx_x() + blockDim_x() * blockIdx_x();
+                let gid_x = bounds[0] +
+                            threadIdx_x() + blockDim_x() * blockIdx_x();
                 let gid_y = threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
 
                 @iterate(0, unroll, |i : int| -> () {
-                    body_row(gid_x + bounds[0], gid_y + i * blockDim_y(), tmp, out, region);
+                    body_row(gid_x, gid_y + i * blockDim_y(), tmp, out, region);
                 });
             });
         });
