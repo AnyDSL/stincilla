@@ -59,8 +59,7 @@ fn iteration_bounds(width : int, height : int, ksize : int,
 
 fn iteration_sep(width : int, height : int,
                  arr : &[float], out : &[float],
-                 body_col : fn(int, int, &[float], &[float]) -> (),
-                 body_row : fn(int, int, &[float], &[float]) -> ()
+                 body : fn(int, int, &[float], &[float], bool) -> ()
                 ) -> () {
     // allocate temporary array
     let mut tmp = ~[width*height:float];
@@ -69,13 +68,15 @@ fn iteration_sep(width : int, height : int,
     getMicroTime();
     for y in $iterate(0, height) {
         for x in $iterate(0, width) {
-            body_col(x, y, arr, tmp);
+            let is_row = false;
+            body(x, y, arr, tmp, is_row);
         }
     }
 
     for y in $iterate(0, height) {
         for x in $iterate(0, width) {
-            body_row(x, y, tmp, out);
+            let is_row = true;
+            body(x, y, tmp, out, is_row);
         }
     }
     getMicroTime();

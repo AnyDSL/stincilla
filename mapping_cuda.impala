@@ -90,8 +90,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
 
 fn iteration_sep_bounds(width : int, height : int, ksize : int,
                         arr : &[float], out : &[float],
-                        body_col : fn(int, int, &[float], &[float], int) -> (),
-                        body_row : fn(int, int, &[float], &[float], int) -> ()
+                        body : fn(int, int, &[float], &[float], bool, int) -> ()
                        ) -> () {
     // define the unroll factor
     let unroll = 1;
@@ -127,24 +126,25 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             let gdim_y = gridDim_y();
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
+            let is_row = false;
 
             // 0
             // 1
             // 2
             if (bid_y < 1) {                                // top: 0
                 for i in @iterate(0, unroll) {
-                    body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 0);
+                    body(gid_x, gid_y + i * bdim_y, arr, tmp, is_row, 0);
                 }
             } else
             if (bid_y >= gdim_y-1) {                        // bottom: 2
                 for i in @iterate(0, unroll) {
-                    body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 2);
+                    body(gid_x, gid_y + i * bdim_y, arr, tmp, is_row, 2);
                 }
             } else
             // no border handling - hack for old hardware
             if (bdim_x >= 16) {
                 for i in @iterate(0, unroll) {
-                    body_col(gid_x, gid_y + i * bdim_y, arr, tmp, 1);
+                    body(gid_x, gid_y + i * bdim_y, arr, tmp, is_row, 1);
                 }
             }
         });
@@ -161,22 +161,23 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             let gdim_y = gridDim_y();
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
+            let is_row = true;
 
             // 0 --- 1 --- 2
             if (bid_x < 1) {                                // left: 0
                 for i in @iterate(0, unroll) {
-                    body_row(gid_x, gid_y + i * bdim_y, tmp, out, 0);
+                    body(gid_x, gid_y + i * bdim_y, tmp, out, is_row, 0);
                 }
             } else
             if (bid_x >= gdim_x-1) {                        // right: 2
                 for i in @iterate(0, unroll) {
-                    body_row(gid_x, gid_y + i * bdim_y, tmp, out, 2);
+                    body(gid_x, gid_y + i * bdim_y, tmp, out, is_row, 2);
                 }
             } else
             // no border handling - hack for old hardware
             if (bdim_x >= 16) {
                 for i in @iterate(0, unroll) {
-                    body_row(gid_x, gid_y + i * bdim_y, tmp, out, 1);
+                    body(gid_x, gid_y + i * bdim_y, tmp, out, is_row, 1);
                 }
             }
         });
@@ -196,9 +197,10 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
                 let gid_x = threadIdx_x() + blockDim_x() * blockIdx_x();
                 let gid_y = bounds(0) * unroll +
                             threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
+                let is_row = false;
 
                 for i in @iterate(0, unroll) {
-                    body_col(gid_x, gid_y + i * blockDim_y(), arr, tmp, region);
+                    body(gid_x, gid_y + i * blockDim_y(), arr, tmp, is_row, region);
                 }
             });
         }
@@ -217,9 +219,10 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
                 let gid_x = bounds(0) +
                             threadIdx_x() + blockDim_x() * blockIdx_x();
                 let gid_y = threadIdx_y() + blockDim_y() * blockIdx_y() * unroll;
+                let is_row = true;
 
                 for i in @iterate(0, unroll) {
-                    body_row(gid_x, gid_y + i * blockDim_y(), tmp, out, region);
+                    body(gid_x, gid_y + i * blockDim_y(), tmp, out, is_row, region);
                 }
             });
         }

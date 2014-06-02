@@ -138,8 +138,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
 
 fn iteration_sep(width : int, height : int,
                  arr : &[float], out : &[float],
-                 body_col : fn(int, int, &[float], &[float]) -> (),
-                 body_row : fn(int, int, &[float], &[float]) -> ()
+                 body : fn(int, int, &[float], &[float], bool) -> ()
                 ) -> () {
     let unroll = 1;
     let dim = (width, height/unroll, 1);
@@ -153,25 +152,26 @@ fn iteration_sep(width : int, height : int,
     opencl(dev, dim, block, || -> () {
         let gid_x = global_id(0);
         let gid_y = local_id(1) + local_size(1) * group_id(1) * unroll;
+        let is_row = false;
 
         for i in @iterate(0, unroll) {
-            body_col(gid_x, gid_y + i * local_size(1), arr, tmp);
+            body(gid_x, gid_y + i * local_size(1), arr, tmp, is_row);
         }
     });
     opencl(dev, dim, block, || -> () {
         let gid_x = global_id(0);
         let gid_y = local_id(1) + local_size(1) * group_id(1) * unroll;
+        let is_row = true;
 
         for i in @iterate(0, unroll) {
-            body_row(gid_x, gid_y + i * local_size(1), tmp, out);
+            body(gid_x, gid_y + i * local_size(1), tmp, out, is_row);
         }
     });
 }
 
 fn iteration_sep_bounds(width : int, height : int, ksize : int,
                         arr : &[float], out : &[float],
-                        body_col : fn(int, int, &[float], &[float], int) -> (),
-                        body_row : fn(int, int, &[float], &[float], int) -> ()
+                        body : fn(int, int, &[float], &[float], bool, int) -> ()
                        ) -> () {
     // define the unroll factor
     let unroll = 1;
@@ -204,9 +204,10 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             let gid_x = global_id(0);
             let gid_y = bounds(0) * unroll +
                         local_id(1) + local_size(1) * group_id(1) * unroll;
+            let is_row = false;
 
             for i in @iterate(0, unroll) {
-                body_col(gid_x, gid_y + i * local_size(1), arr, tmp, region);
+                body(gid_x, gid_y + i * local_size(1), arr, tmp, is_row, region);
             }
         });
     }
@@ -224,9 +225,10 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
         opencl(dev, dim, block, || -> () {
             let gid_x = bounds(0) + global_id(0);
             let gid_y = local_id(1) + local_size(1) * group_id(1) * unroll;
+            let is_row = true;
 
             for i in @iterate(0, unroll) {
-                body_row(gid_x, gid_y + i * local_size(1), tmp, out, region);
+                body(gid_x, gid_y + i * local_size(1), tmp, out, is_row, region);
             }
         });
     }
@@ -234,8 +236,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 
 fn iteration_sep_advanced(width : int, height : int, ksize : int,
                           arr : &[float], out : &[float],
-                          body_col : fn(int, int, &[float], &[float], int, int, int, int) -> (),
-                          body_row : fn(int, int, &[float], &[float], int, int, int, int) -> ()
+                          body : fn(int, int, &[float], &[float], int, int, int, int, bool) -> ()
                          ) -> () {
     // CPU:   1 (SPIR)
     // GPU-0: 2
@@ -251,8 +252,9 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
     opencl(dev, dim, block, || -> () {
         let gid_x = global_id(0);
         let gid_y = global_id(1);
+        let is_row = false;
 
-        body_col(gid_x, gid_y, arr_col, out_col);
+        body(gid_x, gid_y, arr_col, out_col, is_row);
     });
 
     //unmap(arr_col);
@@ -264,8 +266,9 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
     opencl(dev, dim, block, || -> () {
         let gid_x = global_id(0);
         let gid_y = global_id(1);
+        let is_row = true;
 
-        body_row(gid_x, gid_y, arr_row, out_row);
+        body(gid_x, gid_y, arr_row, out_row, is_row);
     });
 
     //unmap(arr_row);

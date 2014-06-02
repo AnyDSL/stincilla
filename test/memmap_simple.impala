@@ -1,5 +1,5 @@
 extern "thorin" {
-    fn map([float], int, int, (int, int, int), (int, int, int)) -> [float];
+    fn map(&[float], int, int, (int, int, int), (int, int, int)) -> &[float];
 }
 
 fn range(a : int, b : int, yield : fn(int, fn())) -> () {
