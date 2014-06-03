@@ -1,9 +1,9 @@
-fn apply_stencil(range : int, stencil : [[float * 5] * 5],
+fn apply_stencil(ksize : int, stencil : [[float * 5] * 5],
                  x : int, y : int, arr : &[float], width : int, height : int,
                  region: int
                 ) -> float {
     let mut sum_xxx = 0.0f;
-    let half_range = range / 2;
+    let half_range = ksize / 2;
 
     for j in iterate(-half_range, half_range+1) {
         for i in iterate(-half_range, half_range+1) {
@@ -54,11 +54,11 @@ fn apply_stencil(range : int, stencil : [[float * 5] * 5],
     sum_xxx
 }
 
-fn apply_stencil_local(range : int, stencil : [[float * 5] * 5],
+fn apply_stencil_local(ksize : int, stencil : [[float * 5] * 5],
                  x : int, y : int, arr : &[float], width : int, height : int
                 ) -> float {
     let mut sum_xxx = 0.0f;
-    let half_range = range / 2;
+    let half_range = ksize / 2;
 
     for j in iterate(-half_range, half_range+1) {
         for i in iterate(-half_range, half_range+1) {
@@ -74,12 +74,12 @@ fn apply_stencil_local(range : int, stencil : [[float * 5] * 5],
     sum_xxx
 }
 
-fn apply_stencil_sep(range : int, stencil : [float * 5], x : int, y : int,
+fn apply_stencil_sep(ksize : int, stencil : [float * 5], x : int, y : int,
                      arr : &[float], width : int, height : int, row : bool,
                      region : int
                     ) -> float {
     let mut sum_xxx = 0.0f;
-    let half_range = range / 2;
+    let half_range = ksize / 2;
     for i in iterate(-half_range, half_range+1) {
         let stencil_val = stencil(i + half_range);
         let mut idx_x = if row { x + i } else { x };
@@ -119,11 +119,11 @@ fn apply_stencil_sep(range : int, stencil : [float * 5], x : int, y : int,
     sum_xxx
 }
 
-fn apply_stencil_sep_local(range : int, stencil : [float * 5], x : int, y : int,
+fn apply_stencil_sep_local(ksize : int, stencil : [float * 5], x : int, y : int,
                            arr : &[float], width : int, height : int, row : bool
                           ) -> float {
     let mut sum_xxx = 0.0f;
-    let half_range = range / 2;
+    let half_range = ksize / 2;
     for i in iterate(-half_range, half_range+1) {
         let idx_x = if row { x + i } else { x };
         let idx_y = if row { y } else { y + i };
@@ -138,11 +138,11 @@ fn apply_stencil_sep_local(range : int, stencil : [float * 5], x : int, y : int,
     sum_xxx
 }
 
-fn apply_stencil_row_cpu(range : int, stencil : [float * 5], x : int, y : int,
+fn apply_stencil_row_cpu(ksize : int, stencil : [float * 5], x : int, y : int,
                          arr : &[float], width : int, height : int, region : int
                         ) -> float {
     let mut sum_xxx = 0.0f;
-    let half_range = range / 2;
+    let half_range = ksize / 2;
     for i in iterate(-half_range, half_range+1) {
         let stencil_val = stencil(i + half_range);
         let mut idx_x = x + i;
@@ -167,7 +167,7 @@ fn apply_stencil_row_cpu(range : int, stencil : [float * 5], x : int, y : int,
 fn main() -> int {
     let width   = 4096;
     let height  = 4096;
-    let range   = 5;
+    let ksize   = 5;
     let mut arr = ~[width*height:float];
     let mut out = ~[width*height:float];
     init_rand(arr, width, height);
@@ -184,34 +184,34 @@ fn main() -> int {
 
 
     //// SS
-    //for x, y, arr, out in @iteration(width, height, arr, out) {
-    //    out(y*width + x) = apply_stencil(range, stencil, x, y, arr, width, height, 10);
+    //for x, y, arr, mut out in @iteration(width, height, arr, out) {
+    //    out(y*width + x) = apply_stencil(ksize, stencil, x, y, arr, width, height, 10);
     //}
 
     //// SS + BH
-    //for x, y, arr, out, region in @iteration_bounds(width, height, range, arr, out) {
-    //    out(y*width + x) = apply_stencil(range, stencil, x, y, arr, width, height, region);
+    //for x, y, arr, mut out, region in @iteration_bounds(width, height, ksize, arr, out) {
+    //    out(y*width + x) = apply_stencil(ksize, stencil, x, y, arr, width, height, region);
     //}
 
     //// SS + SEP
-    //for x, y, arr, out, is_row in @iteration_sep(width, height, arr, out) {
-    //    out(y*width + x) = apply_stencil_sep(range, stencil_sep, x, y, arr, width, height, is_row, 10);
+    //for x, y, arr, mut out, is_row in @iteration_sep(width, height, arr, out) {
+    //    out(y*width + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, width, height, is_row, 10);
     //}
 
     //// SS + SEP + BH
-    //for x, y, arr, out, is_row, region in @iteration_sep_bounds(width, height, range, arr, out) {
-    //    out(y*width + x) = apply_stencil_sep(range, stencil_sep, x, y, arr, width, height, is_row, region);
+    //for x, y, arr, mut out, is_row, region in @iteration_sep_bounds(width, height, ksize, arr, out) {
+    //    out(y*width + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, width, height, is_row, region);
     //}
 
 
     // SS + SM
-    for x, y, arr, out, x_in, y_in, width_in in @iteration_advanced(width, height, range, arr, out) {
-        out(y*width + x) = apply_stencil_local(range, stencil, x_in, y_in, arr, width_in, height);
+    for x, y, arr, mut out, x_in, y_in, width_in in @iteration_advanced(width, height, ksize, arr, out) {
+        out(y*width + x) = apply_stencil_local(ksize, stencil, x_in, y_in, arr, width_in, height);
     }
 
     //// SS + SEP + SM
-    //for x, y, arr, out, x_in, y_in, width_in, width_out, is_row in @iteration_sep_advanced(width, height, range, arr, out) {
-    //    out(y*width_out + x) = apply_stencil_sep_local(range, stencil_sep, x_in, y_in, arr, width_in, height, is_row);
+    //for x, y, arr, mut out, x_in, y_in, width_in, width_out, is_row in @iteration_sep_advanced(width, height, ksize, arr, out) {
+    //    out(y*width_out + x) = apply_stencil_sep_local(ksize, stencil_sep, x_in, y_in, arr, width_in, height, is_row);
     //}
 
 
@@ -219,24 +219,24 @@ fn main() -> int {
     //@iteration_sep_advanced(width, height, arr, out,
     //    |x : int, y : int, arr : &[float], out : &[float]| -> () {
     //        let is_row = false;
-    //        out(x) = apply_stencil_sep(range, stencil_sep, x, y, arr, width,
+    //        out(x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, width,
     //                                   height, is_row, 10);
     //    },
     //    |x : int, y : int, arr : &[float], out : &[float]| -> () {
-    //        out(y*width + x) = apply_stencil_row_cpu(range, stencil_sep, x, y,
+    //        out(y*width + x) = apply_stencil_row_cpu(ksize, stencil_sep, x, y,
     //                                                 arr, width, height, 10);
     //    }
     //);
 
     //// CPU variant IL + SS + BH
-    //@iteration_sep_bounds_advanced(width, height, range, arr, out,
+    //@iteration_sep_bounds_advanced(width, height, ksize, arr, out,
     //    |x : int, y : int, arr : &[float], out : &[float], region : int| -> () {
     //        let is_row = false;
-    //        out(x) = apply_stencil_sep(range, stencil_sep, x, y, arr, width,
+    //        out(x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, width,
     //                                   height, is_row, 10);
     //    },
     //    |x : int, y : int, arr : &[float], out : &[float], region : int| -> () {
-    //        out(y*width + x) = apply_stencil_row_cpu(range, stencil_sep, x, y,
+    //        out(y*width + x) = apply_stencil_row_cpu(ksize, stencil_sep, x, y,
     //                                                 arr, width, height, 10);
     //    }
     //);
@@ -246,7 +246,7 @@ fn main() -> int {
 
     for y in range(0, height) {
         for x in range(0, width) {
-            let ref = @apply_stencil(range, stencil, x, y, arr,
+            let ref = @apply_stencil(ksize, stencil, x, y, arr,
                                      width, height, 10);
             let mut diff = ref - out(x + y*width);
             if diff < 0.0f  { diff = -diff; }

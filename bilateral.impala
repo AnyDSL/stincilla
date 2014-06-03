@@ -123,7 +123,7 @@ fn main() -> int {
     let width   = 1024;
     let height  = 1024;
     //let sigma_d = 3;
-    //let range = 4*sigma_d + 1;
+    //let ksize = 4*sigma_d + 1;
     let sigma_r = 5.0f;
     //let c_d = 1.0f / (2.0f * sigma_d*sigma_d);
     let c_r = 1.0f / (2.0f * sigma_r*sigma_r);
@@ -170,14 +170,14 @@ fn main() -> int {
     //    [0.018316f, 0.033746f, 0.055638f, 0.082085f, 0.108368f, 0.128022f, 0.135335f, 0.128022f, 0.108368f, 0.082085f, 0.055638f, 0.033746f, 0.018316f]];
 
     // SS
-    for x, y, arr, out in @iteration(width, height, arr, out) {
+    for x, y, arr, mut out in @iteration(width, height, arr, out) {
         //out(y*width + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, width, height, 10);
         out(y*width + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, width, height, 10);
     }
 
     //// SS + BH
-    //let range = 4*sigma_d + 1;
-    //for x, y, arr, out, region in @iteration_bounds(width, height, range, arr, out) {
+    //let ksize = 4*sigma_d + 1;
+    //for x, y, arr, mut out, region in @iteration_bounds(width, height, ksize, arr, out) {
     //    //out(y*width + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, width, height, region);
     //    out(y*width + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, width, height, region);
     //}
@@ -186,8 +186,8 @@ fn main() -> int {
     // compare results
     let mut rms_err = 0.0f;   // RMS error
     let EPS = 0.02f;
-    for y in (0, height) {
-        for x in (0, width) {
+    for y in range(0, height) {
+        for x in range(0, width) {
             let ref = @bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr,
                                              width, height, 10);
             let mut err = ref - out(y*width + x);

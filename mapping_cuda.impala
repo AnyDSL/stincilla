@@ -1,5 +1,5 @@
 fn iteration(width : int, height : int,
-             arr : &[float], out : &[float],
+             arr : &[float], mut out : &[float],
              body : fn(int, int, &[float], &[float]) -> ()
             ) -> () {
     let unroll = 1;
@@ -18,7 +18,7 @@ fn iteration(width : int, height : int,
 }
 
 fn iteration_advanced(width : int, height : int, ksize : int,
-                      arr : &[float], out : &[float],
+                      arr : &[float], mut out : &[float],
                       body : fn(int, int, &[float], &[float], int, int, int) -> ()
                      ) -> () {
     for unroll in iterate_times_two(1, 16+1) {
@@ -44,8 +44,8 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let mut gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
-        let gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
+        let gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
+        let mut gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
         let tex_arr = map(arr, dev, 2, (0, 0, 0), (width, height, 1));
 
         cuda(dev, dim, block, || -> () {
@@ -89,7 +89,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
 }
 
 fn iteration_sep_bounds(width : int, height : int, ksize : int,
-                        arr : &[float], out : &[float],
+                        arr : &[float], mut out : &[float],
                         body : fn(int, int, &[float], &[float], bool, int) -> ()
                        ) -> () {
     // define the unroll factor
@@ -190,7 +190,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
         ];
 
         for region in iterate(0, 3) {
-            let bounds = Bounds2DCol[region];
+            let bounds = Bounds2DCol(region);
             let dim = (width, bounds(1) - bounds(0), 1);
 
             cuda(dev, dim, block, || -> () {
@@ -212,7 +212,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
         ];
 
         for region in iterate(0, 3) {
-            let bounds = Bounds2DRow[region];
+            let bounds = Bounds2DRow(region);
             let dim = (bounds(1) - bounds(0), height/unroll, 1);
 
             cuda(dev, dim, block, || -> () {

@@ -1,9 +1,9 @@
-fn apply_stencil(range : int, stencil : [[float * 3] * 3],
+fn apply_stencil(ksize : int, stencil : [[float * 3] * 3],
                  x : int, y : int, arr : &[float], width : int, height : int,
                  region: int
                 ) -> float {
     let mut sum_xxx = 0.0f;
-    let half_range = range / 2;
+    let half_range = ksize / 2;
 
     for j in iterate(-half_range, half_range+1) {
         for i in iterate(-half_range, half_range+1) {
@@ -57,7 +57,7 @@ fn apply_stencil(range : int, stencil : [[float * 3] * 3],
 fn main() -> int {
     let width   = 2048;
     let height  = 2048;
-    let range   = 3;
+    let ksize   = 3;
     let a       = 0.2f;
     let b       = 1.0f - 4.0f * a;
     let mut arr = ~[width*height:float];
@@ -71,13 +71,13 @@ fn main() -> int {
         [0.0f, b, 0.0f]];
 
     // SS
-    for x, y, arr, out in @iteration(width, height, arr, out) {
-        out(y*width + x) = apply_stencil(range, stencil, x, y, arr, width, height, 10);
+    for x, y, arr, mut out in @iteration(width, height, arr, out) {
+        out(y*width + x) = apply_stencil(ksize, stencil, x, y, arr, width, height, 10);
     }
 
     //// SS + BH
-    //for x, y, arr, out, region in @iteration_bounds(width, height, range, arr, out) {
-    //    out(y*width + x) = apply_stencil(range, stencil, x, y, arr, width, height, region);
+    //for x, y, arr, mut out, region in @iteration_bounds(width, height, ksize, arr, out) {
+    //    out(y*width + x) = apply_stencil(ksize, stencil, x, y, arr, width, height, region);
     //}
 
 
@@ -85,7 +85,7 @@ fn main() -> int {
 
     for y in range(0, height) {
         for x in range(0, width) {
-            let ref = @apply_stencil(range, stencil, x, y, arr,
+            let ref = @apply_stencil(ksize, stencil, x, y, arr,
                                      width, height, 10);
             let mut diff = ref - out(x + y*width);
             if diff < 0.0f  { diff = -diff; }

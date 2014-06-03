@@ -31,12 +31,12 @@ fn iterate_times_two(a : int, b : int, yield : fn(int, fn())) -> () {
     }
 }
 
-fn init_zero(arr : &[float], width : int, height : int) -> () {
+fn init_zero(mut arr : &[float], width : int, height : int) -> () {
     for i in iterate(0, width*height) {
         arr(i) = 0.0f;
     }
 }
-fn init_rand(arr : &[float], width : int, height : int) -> () {
+fn init_rand(mut arr : &[float], width : int, height : int) -> () {
     for y in iterate(0, height) {
         for x in iterate(0, width) {
             arr(y*width + x) = random_val(1024);

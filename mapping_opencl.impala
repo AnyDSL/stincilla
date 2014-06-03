@@ -1,5 +1,5 @@
 fn iteration(width : int, height : int,
-             arr : &[float], out : &[float],
+             arr : &[float], mut out : &[float],
              body : fn(int, int, &[float], &[float]) -> ()
             ) -> () {
     let unroll = 1;
@@ -18,7 +18,7 @@ fn iteration(width : int, height : int,
 }
 
 fn iteration_bounds(width : int, height : int, ksize : int,
-                    arr : &[float], out : &[float],
+                    arr : &[float], mut out : &[float],
                     body : fn(int, int, &[float], &[float], int) -> ()
                    ) -> () {
     // define the unroll factor
@@ -49,7 +49,7 @@ fn iteration_bounds(width : int, height : int, ksize : int,
 
     let dev = 1;
     for region in iterate(0, 9) {
-        let bounds = Bounds2D[region];
+        let bounds = Bounds2D(region);
         let dim = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
 
         opencl(dev, dim, block, || -> () {
@@ -65,7 +65,7 @@ fn iteration_bounds(width : int, height : int, ksize : int,
 }
 
 fn iteration_advanced(width : int, height : int, ksize : int,
-                      arr : &[float], out : &[float],
+                      arr : &[float], mut out : &[float],
                       body : fn(int, int, &[float], &[float], int, int, int) -> ()
                      ) -> () {
     for unroll in iterate_times_two(1, 16+1) {
@@ -91,8 +91,8 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let mut gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
-        let gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
+        let gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
+        let mut gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
 
         opencl(dev, dim, block, || -> () {
             let tid_x = local_id(0);
@@ -137,7 +137,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
 }
 
 fn iteration_sep(width : int, height : int,
-                 arr : &[float], out : &[float],
+                 arr : &[float], mut out : &[float],
                  body : fn(int, int, &[float], &[float], bool) -> ()
                 ) -> () {
     let unroll = 1;
@@ -170,7 +170,7 @@ fn iteration_sep(width : int, height : int,
 }
 
 fn iteration_sep_bounds(width : int, height : int, ksize : int,
-                        arr : &[float], out : &[float],
+                        arr : &[float], mut out : &[float],
                         body : fn(int, int, &[float], &[float], bool, int) -> ()
                        ) -> () {
     // define the unroll factor
@@ -197,7 +197,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
     ];
 
     for region in iterate(0, 3) {
-        let bounds = Bounds2DCol[region];
+        let bounds = Bounds2DCol(region);
         let dim = (width, bounds(1) - bounds(0), 1);
 
         opencl(dev, dim, block, || -> () {
@@ -219,7 +219,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
     ];
 
     for region in iterate(0, 3) {
-        let bounds = Bounds2DRow[region];
+        let bounds = Bounds2DRow(region);
         let dim = (bounds(1) - bounds(0), hu, 1);
 
         opencl(dev, dim, block, || -> () {
@@ -235,8 +235,8 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 }
 
 fn iteration_sep_advanced(width : int, height : int, ksize : int,
-                          arr : &[float], out : &[float],
-                          body : fn(int, int, &[float], &[float], int, int, int, int, bool) -> ()
+                          arr : &[float], mut out : &[float],
+                          body : fn(int, int, &[float], &[float]) -> ()
                          ) -> () {
     // CPU:   1 (SPIR)
     // GPU-0: 2
@@ -246,29 +246,27 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
 
     let dev = 2;
     let mut tmp = ~[width*height:float];
-    let mut arr_col = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
-    let out_col = map(tmp, dev, 1, (0, 0, 0), (width, height, 1));
+    let arr_col = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
+    let mut out_col = map(tmp, dev, 1, (0, 0, 0), (width, height, 1));
 
     opencl(dev, dim, block, || -> () {
         let gid_x = global_id(0);
         let gid_y = global_id(1);
-        let is_row = false;
 
-        body(gid_x, gid_y, arr_col, out_col, is_row);
+        body(gid_x, gid_y, arr_col, out_col);
     });
 
     //unmap(arr_col);
     //unmap(out_col);
 
-    let mut arr_row = map(tmp, dev, 1, (0, 0, 0), (width, height, 1));
-    let out_row = map(out, dev, 1, (0, 0, 0), (width, height, 1));
+    let arr_row = map(tmp, dev, 1, (0, 0, 0), (width, height, 1));
+    let mut out_row = map(out, dev, 1, (0, 0, 0), (width, height, 1));
 
     opencl(dev, dim, block, || -> () {
         let gid_x = global_id(0);
         let gid_y = global_id(1);
-        let is_row = true;
 
-        body(gid_x, gid_y, arr_row, out_row, is_row);
+        body(gid_x, gid_y, arr_row, out_row);
     });
 
     //unmap(arr_row);
@@ -276,15 +274,15 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
 }
 
 fn iteration_multi(width : int, height : int,
-                   arr : [float], out : [float],
-                   body : fn(int, int, [float], [float]) -> ()
+                   arr : &[float], mut out : &[float],
+                   body : fn(int, int, &[float], &[float]) -> ()
                   ) -> () {
     let dim = (width, height/2, 1);
     let block = (128, 1, 1);
 
     let dev_cpu = 1;
-    let mut map_arr_CPU = map(arr, dev_cpu, 1, (0, 0, 0),        (width, height/2, 1));
-    let map_out_CPU = map(out, dev_cpu, 1, (0, 0, 0),        (width, height/2, 1));
+    let map_arr_CPU =     map(arr, dev_cpu, 1, (0, 0, 0), (width, height/2, 1));
+    let mut map_out_CPU = map(out, dev_cpu, 1, (0, 0, 0), (width, height/2, 1));
 
     opencl(dev_cpu, dim, block, || -> () {
         let gid_x = global_id(0);
@@ -294,8 +292,8 @@ fn iteration_multi(width : int, height : int,
     });
 
     let dev_gpu = 2;
-    let mut map_arr_GPU = map(arr, dev_gpu, 1, (0, height/2, 0), (width, height/2, 1));
-    let map_out_GPU = map(out, dev_gpu, 1, (0, height/2, 0), (width, height/2, 1));
+    let map_arr_GPU =     map(arr, dev_gpu, 1, (0, height/2, 0), (width, height/2, 1));
+    let mut map_out_GPU = map(out, dev_gpu, 1, (0, height/2, 0), (width, height/2, 1));
 
     opencl(dev_gpu, dim, block, || -> () {
         let gid_x = global_id(0);
