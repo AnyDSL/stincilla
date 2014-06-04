@@ -8,7 +8,7 @@ extern "C" {
 fn iterate(a : int, b : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
-        iterate(a+1, b, yield);
+        iterate(a+1, b, yield, return)
     }
 }
 fn range(a : int, b : int, yield : fn(int, fn())) -> () {
@@ -18,14 +18,14 @@ fn range(a : int, b : int, yield : fn(int, fn())) -> () {
 fn force_unroll(a : int, b : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
-        @force_unroll(a+1, b, yield);
+        @force_unroll(a+1, b, yield, return)
     }
 }
 
 fn iterate_times_two(a : int, b : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
-        iterate_times_two(a*2, b, yield);
+        iterate_times_two(a*2, b, yield, return)
     }
 }
 
