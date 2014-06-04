@@ -19,14 +19,14 @@ fn iteration(width : int, height : int,
     }
 }
 
-fn write(out: &[float], src: &[float], i: int) -> () {
+fn write(mut out: &[float], src: &[float], i: int) -> () {
     out(i) = src(i);
 }
 
 fn main() -> int {
     let width   = 2048;
     let height  = 2048;
-    let mut arr = ~[width*height:float];
+    let arr = ~[width*height:float];
     let mut out = ~[width*height:float];
 
     let mapped = map(arr, 1, 1, (0, 0, 0), (width, height, 1));

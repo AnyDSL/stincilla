@@ -34,7 +34,7 @@ fn main() -> int {
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
-    for x, y, arr, out in iteration_multi(width, height, arr, out) {
+    for x, y, arr, mut out in iteration_multi(width, height, arr, out) {
         out(x + y*width) = arr(x + y*width);
     }
 

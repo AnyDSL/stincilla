@@ -17,9 +17,8 @@ fn idx(x : int, y: int, width : int, height : int) -> int {
 fn main() -> &[float] {
     let width   = 1024;
     let height  = 1024;
-    let range   = 3;
-    let size    = 2*range;
-    let mut arr = ~[width*height:float];
+    let ksize   = 3;
+    let arr = ~[width*height:float];
     let mut out = ~[width*height:float];
 
 
@@ -29,7 +28,7 @@ fn main() -> &[float] {
         [1.0f, 4.0f, 1.0f],
         [0.0f, 1.0f, 0.0f]];
     for x, y in iteration(width, height) {
-        //let result = @convolve(arr, mask, 1.0f, range, x, y, width, height);
+        //let result = @convolve(arr, mask, 1.0f, ksize, x, y, width, height);
         let result = - (
             1.0f * arr(idx(x+0, y+1, width, height)) +
             1.0f * arr(idx(x-1, y+0, width, height)) +
@@ -52,7 +51,7 @@ fn main() -> &[float] {
         //let result =
         //    (1.0f - OMEGA) * Sol[idx(x, y, width, height)] +
         //    0.25f * OMEGA  * RHS[idx(x, y, width, height)] +
-        //    @convolve(Sol, jacobi_mask, 1.0f, range, x, y, width, height);
+        //    @convolve(Sol, jacobi_mask, 1.0f, ksize, x, y, width, height);
         let result =
             (1.0f - OMEGA) * Sol(idx(x, y, width, height)) +
             0.25f * OMEGA  * (
@@ -70,7 +69,7 @@ fn main() -> &[float] {
     for x, y in iteration(width, height) {
         //let result =
         //    RHS[idx(x, y, width, height)] +
-        //    @convolve(Sol, mask, 1.0f, range, x, y, width, height);
+        //    @convolve(Sol, mask, 1.0f, ksize, x, y, width, height);
         let result =
                     RHS(idx(x,   y,   width, height)) +
              1.0f * Sol(idx(x+0, y+1, width, height)) +
@@ -94,7 +93,7 @@ fn main() -> &[float] {
         let fwidth  = 2*width;
         let fheight = 2*height;
 
-        //let result = @convolve(arr, restrict_mask, 1.0f, range, fx, fy, fwidth, fheight);
+        //let result = @convolve(arr, restrict_mask, 1.0f, ksize, fx, fy, fwidth, fheight);
         let result =
             0.25f * arr(idx(fx-1, fy-1, fwidth, fheight));
             0.50f * arr(idx(fx+0, fy-1, fwidth, fheight));
