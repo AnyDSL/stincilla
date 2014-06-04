@@ -32,7 +32,7 @@ fn iteration_bounds(width : int, height : int, ksize : int,
     ];
 
     for region in iterate(0, 9) {
-        let bounds = Bounds2D[region];
+        let bounds = Bounds2D(region);
         for y in $iterate(bounds(2), bounds(3)) {
             for x in $iterate(bounds(0), bounds(1)) {
                 body(x, y, arr, out, region);
@@ -90,7 +90,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 
     getMicroTime();
     for region in iterate(0, 3) {
-        let bounds = Bounds2DCol[region];
+        let bounds = Bounds2DCol(region);
         for y in $iterate(bounds(0), bounds(1)) {
             for x in $iterate(0, width) {
                 let is_row = false;
@@ -100,7 +100,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
     }
 
     for region in iterate(0, 3) {
-        let bounds = Bounds2DRow[region];
+        let bounds = Bounds2DRow(region);
         for y in $iterate(0, height) {
             for x in $iterate(bounds(0), bounds(1)) {
                 let is_row = true;
@@ -154,16 +154,16 @@ fn iteration_sep_bounds_advanced(width : int, height : int, ksize : int,
     let mut tmp = ~[width*1:float];
 
     for region_col in iterate(0, 3) {
-        let bounds_col = Bounds2DCol[region_col];
+        let bounds_col = Bounds2DCol(region_col);
         for y in $iterate(bounds_col(0), bounds_col(1)) {
             for region_row in iterate(0, 3) {
-                let bounds_row = Bounds2DRow[region_row];
+                let bounds_row = Bounds2DRow(region_row);
                 for x in $iterate(bounds_row(0), bounds_row(1)) {
                     body_col(x, y, arr, tmp, region_col);
                 }
             }
             for region_row in iterate(0, 3) {
-                let bounds_row = Bounds2DRow[region_row];
+                let bounds_row = Bounds2DRow(region_row);
                 for x in $iterate(bounds_row(0), bounds_row(1)) {
                     body_row(x, y, tmp, out, region_row);
                 }
