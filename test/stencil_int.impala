@@ -15,7 +15,7 @@ fn apply_bh(mut index : int,
     index
 }
 
-fn apply_stencil(N : int, arr : &[float], out : &[float], stencil : [float * 3],
+fn apply_stencil(N : int, arr : &[float], mut out : &[float], stencil : [float * 3],
                  bh_lower : fn(int, int) -> int, bh_upper : fn(int, int) -> int) -> () {
     let lb = [0, 1, N - 1];
     let ub = [1, N - 1, N];
