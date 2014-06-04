@@ -20,14 +20,16 @@ void getMicroTime() {
     }
 }
 
-void* array(int elem_size, int width, int height) {
+void *thorin_malloc(size_t size) {
     void *mem;
-    posix_memalign(&mem, 32, elem_size * width * height);
+    posix_memalign(&mem, 64, size);
+    std::cerr << " * malloc() -> " << mem << std::endl;
+    host_mems_[mem] = {1, size, 1};
     return mem;
 }
 
-void free_array(void *host) {
-    free(host);
+void thorin_free(void *ptr) {
+    free(ptr);
 }
 
 float random_val(int max) {
