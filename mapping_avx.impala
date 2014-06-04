@@ -44,7 +44,7 @@ fn iteration_bounds(width : int, height : int, ksize : int,
 
     getMicroTime();
     for region in iterate(0, 9) {
-        let bounds = Bounds2D[region];
+        let bounds = Bounds2D(region);
         let dim = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
 
         for y in $iterate(bounds(2), bounds(3)) {
