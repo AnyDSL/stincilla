@@ -22,7 +22,7 @@ fn apply_stencil(N : int, arr : &[float], mut out : &[float], stencil : [float *
     for region in @range(0, 3) {
         let current_lb : int = lb(region);
         let current_ub : int = ub(region);
-        for index in range(lb(region), ub(region)) {
+        for index in $range(lb(region), ub(region)) {
             // apply stencil to pixel
             let mut sum : float = 0.0f;
             for j in @range(-1, 2) {
