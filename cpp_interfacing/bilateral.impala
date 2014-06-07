@@ -1,0 +1,80 @@
+fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [[float * 9] * 9],
+                         x : int, y : int, arr : &[float],
+                         width : int, height : int, region: int
+                        ) -> float {
+    let mut k = 0.0f;
+    let mut p = 0.0f;
+
+    for yf in iterate(-2*sigma_d, 2*sigma_d+1) {
+        for xf in iterate(-2*sigma_d, 2*sigma_d+1) {
+            let mut idx_x = x + xf;
+            let mut idx_y = y + yf;
+
+            // 0 --- 1 --- 2
+            // 3 --- 4 --- 5
+            // 6 --- 7 --- 8
+
+            // left
+            if region == 0 { idx_x = clamp_lower(idx_x, 0); }
+            if region == 3 { idx_x = clamp_lower(idx_x, 0); }
+            if region == 6 { idx_x = clamp_lower(idx_x, 0); }
+
+            // right
+            if region == 2 { idx_x = clamp_upper(idx_x, width); }
+            if region == 5 { idx_x = clamp_upper(idx_x, width); }
+            if region == 8 { idx_x = clamp_upper(idx_x, width); }
+
+            // top
+            if region == 0 { idx_y = clamp_lower(idx_y, 0); }
+            if region == 1 { idx_y = clamp_lower(idx_y, 0); }
+            if region == 2 { idx_y = clamp_lower(idx_y, 0); }
+
+            // bottom
+            if region == 6 { idx_y = clamp_upper(idx_y, height); }
+            if region == 7 { idx_y = clamp_upper(idx_y, height); }
+            if region == 8 { idx_y = clamp_upper(idx_y, height); }
+
+            // all in
+            if region == 10 {
+                idx_x = clamp_lower(idx_x, 0);
+                idx_x = clamp_upper(idx_x, width);
+                idx_y = clamp_upper(idx_y, height);
+                idx_y = clamp_lower(idx_y, 0);
+            }
+
+
+            let diff = arr(idx_y * width + idx_x) - arr(y * width + x);
+
+            let s = expf(-c_r * diff*diff) * mask(xf + 2*sigma_d)(yf + 2*sigma_d);
+
+            k += s;
+            p += s * arr(idx_y * width + idx_x);
+        }
+    }
+
+    p/k
+}
+
+// not working: optimizer removes out array ...
+extern 
+fn thorin_bilateral(arr : &[float], mut out : &[float], width : int, height : int) -> () {
+    let sigma_r = 5.0f;
+    let sigma_d = 2;
+    let c_d = 1.0f / (2.0f * 2.0f*2.0f);
+    let c_r = 1.0f / (2.0f * sigma_r*sigma_r);
+    let mask = [
+        [0.018316f, 0.043937f, 0.082085f, 0.119433f, 0.135335f, 0.119433f, 0.082085f, 0.043937f, 0.018316f],
+        [0.043937f, 0.105399f, 0.196912f, 0.286505f, 0.324652f, 0.286505f, 0.196912f, 0.105399f, 0.043937f],
+        [0.082085f, 0.196912f, 0.367879f, 0.535261f, 0.606531f, 0.535261f, 0.367879f, 0.196912f, 0.082085f],
+        [0.119433f, 0.286505f, 0.535261f, 0.778801f, 0.882497f, 0.778801f, 0.535261f, 0.286505f, 0.119433f],
+        [0.135335f, 0.324652f, 0.606531f, 0.882497f, 1.000000f, 0.882497f, 0.606531f, 0.324652f, 0.135335f],
+        [0.119433f, 0.286505f, 0.535261f, 0.778801f, 0.882497f, 0.778801f, 0.535261f, 0.286505f, 0.119433f],
+        [0.082085f, 0.196912f, 0.367879f, 0.535261f, 0.606531f, 0.535261f, 0.367879f, 0.196912f, 0.082085f],
+        [0.043937f, 0.105399f, 0.196912f, 0.286505f, 0.324652f, 0.286505f, 0.196912f, 0.105399f, 0.043937f],
+        [0.018316f, 0.043937f, 0.082085f, 0.119433f, 0.135335f, 0.119433f, 0.082085f, 0.043937f, 0.018316f]];
+
+    for x, y, arr, mut out in @iteration(width, height, arr, out) {
+        out(y*width + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, width, height, 10);
+    }
+}
+
