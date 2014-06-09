@@ -1,6 +1,5 @@
-extern "thorin" { fn int32_to_float(int) -> float; }
 fn closeness(c_d : float, xf : int, yf : int) -> float {
-    expf(-c_d * int32_to_float(xf*xf)) * expf(-c_d * int32_to_float(yf*yf))
+    expf(-c_d * (xf*xf as float)) * expf(-c_d * (yf*yf as float))
 }
 fn similarity(c_r : float, xi : float, x : float) -> float {
     let diff = xi - x;
