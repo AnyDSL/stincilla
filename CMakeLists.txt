@@ -21,16 +21,23 @@ THORIN_RUNTIME_WRAP(GAUSSIAN_FILES GAUSSIAN_LIBS
 add_executable(gaussian ${GAUSSIAN_FILES})
 target_link_libraries(gaussian ${GAUSSIAN_LIBS})
 
+THORIN_RUNTIME_WRAP(BILATERAL_FILES BILATERAL_LIBS
+	RTTYPE nvvm
+	MAIN
+	FILES extern.impala mapping_nvvm.impala bilateral.impala)
+#add_executable(bilateral ${BILATERAL_FILES})
+#target_link_libraries(bilateral ${BILATERAL_LIBS})
+
 THORIN_RUNTIME_WRAP(JACOBI_FILES JACOBI_LIBS
 	RTTYPE nvvm
 	MAIN
 	FILES extern.impala mapping_nvvm.impala jacobi.impala)
-#add_executable(jacobi ${JACOBI_FILES}) # FIXME: loops endless; after removing the @ an assertion fails
+#add_executable(jacobi ${JACOBI_FILES})
 #target_link_libraries(jacobi ${JACOBI_LIBS})
 
 THORIN_RUNTIME_WRAP(MATMUL_FILES MATMUL_LIBS
 	RTTYPE cpu
 	MAIN
 	FILES extern.impala matmul.impala)
-add_executable(matmul ${MATMUL_FILES}) # FIXME: complains about invalid for
+add_executable(matmul ${MATMUL_FILES})
 target_link_libraries(matmul ${MATMUL_LIBS})
