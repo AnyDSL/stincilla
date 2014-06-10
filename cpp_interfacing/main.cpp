@@ -3,7 +3,7 @@
 #include <sys/time.h>
 
 #include "pgm_image.h"
-#include "cu_runtime.h"
+#include <thorin_ext_runtime.h>
 
 extern "C" void thorin_bilateral(float *, float *, int, int);
 
