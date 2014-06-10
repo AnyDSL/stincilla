@@ -14,6 +14,15 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 add_subdirectory(test)
 add_subdirectory(cpp_interfacing)
 
+# simple CPU-based examples
+THORIN_RUNTIME_WRAP(MATMUL_FILES MATMUL_LIBS
+	RTTYPE cpu
+	MAIN
+	FILES extern.impala matmul.impala)
+add_executable(matmul ${MATMUL_FILES})
+target_link_libraries(matmul ${MATMUL_LIBS})
+
+# examples based on the "mapping"
 set(TESTS_RTTYPE "nvvm" CACHE STRING "The runtime-type of the tests")
 message("Using runtime-type ${TESTS_RTTYPE}")
 
@@ -37,10 +46,3 @@ THORIN_RUNTIME_WRAP(JACOBI_FILES JACOBI_LIBS
 	FILES extern.impala mapping_${TESTS_RTTYPE}.impala jacobi.impala)
 add_executable(jacobi ${JACOBI_FILES})
 target_link_libraries(jacobi ${JACOBI_LIBS})
-
-THORIN_RUNTIME_WRAP(MATMUL_FILES MATMUL_LIBS
-	RTTYPE cpu
-	MAIN
-	FILES extern.impala matmul.impala)
-add_executable(matmul ${MATMUL_FILES})
-target_link_libraries(matmul ${MATMUL_LIBS})
