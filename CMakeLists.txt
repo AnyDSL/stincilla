@@ -18,5 +18,5 @@ THORIN_RUNTIME_WRAP(GAUSSIAN_FILES GAUSSIAN_LIBS
 	RTTYPE nvvm
 	MAIN
 	FILES extern.impala mapping_nvvm.impala gaussian.impala)
-#add_executable(gaussian ${GAUSSIAN_FILES})
-#target_link_libraries(gaussian ${GAUSSIAN_LIBS}) 
+add_executable(gaussian ${GAUSSIAN_FILES})
+target_link_libraries(gaussian ${GAUSSIAN_LIBS}) 
