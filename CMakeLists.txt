@@ -14,24 +14,26 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 add_subdirectory(test)
 add_subdirectory(cpp_interfacing)
 
+set(TESTS_RTTYPE "nvvm" CACHE STRING "The runtime-type of the tests")
+
 THORIN_RUNTIME_WRAP(GAUSSIAN_FILES GAUSSIAN_LIBS
-	RTTYPE nvvm
+	RTTYPE ${TESTS_RTTYPE}
 	MAIN
-	FILES extern.impala mapping_nvvm.impala gaussian.impala)
+	FILES extern.impala mapping_${TESTS_RTTYPE}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_FILES})
 target_link_libraries(gaussian ${GAUSSIAN_LIBS})
 
 THORIN_RUNTIME_WRAP(BILATERAL_FILES BILATERAL_LIBS
-	RTTYPE nvvm
+	RTTYPE ${TESTS_RTTYPE}
 	MAIN
-	FILES extern.impala mapping_nvvm.impala bilateral.impala)
+	FILES extern.impala mapping_${TESTS_RTTYPE}.impala bilateral.impala)
 #add_executable(bilateral ${BILATERAL_FILES})
 #target_link_libraries(bilateral ${BILATERAL_LIBS})
 
 THORIN_RUNTIME_WRAP(JACOBI_FILES JACOBI_LIBS
-	RTTYPE nvvm
+	RTTYPE ${TESTS_RTTYPE}
 	MAIN
-	FILES extern.impala mapping_nvvm.impala jacobi.impala)
+	FILES extern.impala mapping_${TESTS_RTTYPE}.impala jacobi.impala)
 #add_executable(jacobi ${JACOBI_FILES})
 #target_link_libraries(jacobi ${JACOBI_LIBS})
 
