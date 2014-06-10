@@ -29,8 +29,8 @@ THORIN_RUNTIME_WRAP(JACOBI_FILES JACOBI_LIBS
 #target_link_libraries(jacobi ${JACOBI_LIBS})
 
 THORIN_RUNTIME_WRAP(MATMUL_FILES MATMUL_LIBS
-	RTTYPE nvvm
+	RTTYPE cpu
 	MAIN
-	FILES extern.impala mapping_nvvm.impala matmul.impala)
-#add_executable(matmul ${MATMUL_FILES}) # FIXME: complains about invalid for
-#target_link_libraries(matmul ${MATMUL_LIBS})
+	FILES extern.impala matmul.impala)
+add_executable(matmul ${MATMUL_FILES}) # FIXME: complains about invalid for
+target_link_libraries(matmul ${MATMUL_LIBS})
