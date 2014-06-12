@@ -8,6 +8,9 @@ message("Using THORIN at ${THORIN_RUNTIME_DIR}, CUDA at ${CUDA_DIR}")
 include(${THORIN_RUNTIME_DIR}/cmake/ThorinRuntime.cmake)
 include_directories(${THORIN_RUNTIME_INCLUDE_DIR})
 
+set(TESTS_RTTYPE "nvvm" CACHE STRING "The runtime-type of the tests")
+message("Using runtime-type ${TESTS_RTTYPE}")
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
@@ -23,9 +26,6 @@ add_executable(matmul ${MATMUL_FILES})
 target_link_libraries(matmul ${MATMUL_LIBS})
 
 # examples based on the "mapping"
-set(TESTS_RTTYPE "nvvm" CACHE STRING "The runtime-type of the tests")
-message("Using runtime-type ${TESTS_RTTYPE}")
-
 THORIN_RUNTIME_WRAP(GAUSSIAN_FILES GAUSSIAN_LIBS
 	RTTYPE ${TESTS_RTTYPE}
 	MAIN
