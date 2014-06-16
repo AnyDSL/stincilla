@@ -7,12 +7,12 @@ fn iteration(width : int, height : int,
     let block = (128, 1, 1);
 
     let dev = 1;
-    nvvm(dev, dim, block, || -> () {
-        let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
-        let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
+    acc(dev, dim, block, || -> () {
+        let gid_x = acc_tidx() + acc_bdimx() * acc_bidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-        for i in @iterate(0, unroll) {
-            body(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), arr, out);
+        for i in iterate(0, unroll) {
+            body(gid_x, gid_y + i * acc_bdimy(), arr, out);
         }
     });
 }
@@ -39,15 +39,15 @@ fn iteration_bounds(width : int, height : int, ksize : int,
     if big_kernel {
         let dim = (width, height/unroll, 1);
 
-        nvvm(dev, dim, block, || -> () {
-            let tid_x = nvvm_read_ptx_sreg_tid_x();
-            let tid_y = nvvm_read_ptx_sreg_tid_y();
-            let bid_x = nvvm_read_ptx_sreg_ctaid_x();
-            let bid_y = nvvm_read_ptx_sreg_ctaid_y();
-            let bdim_x = nvvm_read_ptx_sreg_ntid_x();
-            let bdim_y = nvvm_read_ptx_sreg_ntid_y();
-            let gdim_x = nvvm_read_ptx_sreg_nctaid_x();
-            let gdim_y = nvvm_read_ptx_sreg_nctaid_y();
+        acc(dev, dim, block, || -> () {
+            let tid_x = acc_tidx();
+            let tid_y = acc_tidy();
+            let bid_x = acc_bidx();
+            let bid_y = acc_bidy();
+            let bdim_x = acc_bdimx();
+            let bdim_y = acc_bdimy();
+            let gdim_x = acc_gdimx();
+            let gdim_y = acc_gdimy();
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
 
@@ -128,14 +128,14 @@ fn iteration_bounds(width : int, height : int, ksize : int,
             let bounds = Bounds2D(region);
             let dim = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
 
-            nvvm(dev, dim, block, || -> () {
+            acc(dev, dim, block, || -> () {
                 let gid_x = bounds(0) +
-                            nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
+                            acc_tidx() + acc_bdimx() * acc_bidx();
                 let gid_y = bounds(2) * unroll +
-                            nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
+                            acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), arr, out, region);
+                    body(gid_x, gid_y + i * acc_bdimy(), arr, out, region);
                 }
             });
         }
@@ -173,13 +173,13 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         let mut gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
         let tex_arr = map(arr, dev, 2, (0, 0, 0), (width, height, 1));
 
-        nvvm(dev, dim, block, || -> () {
-            let tid_x = nvvm_read_ptx_sreg_tid_x();
-            let tid_y = nvvm_read_ptx_sreg_tid_y();
-            let bid_x = nvvm_read_ptx_sreg_ctaid_x();
-            let bid_y = nvvm_read_ptx_sreg_ctaid_y();
-            let bdim_x = nvvm_read_ptx_sreg_ntid_x();
-            let bdim_y = nvvm_read_ptx_sreg_ntid_y();
+        acc(dev, dim, block, || -> () {
+            let tid_x = acc_tidx();
+            let tid_y = acc_tidy();
+            let bid_x = acc_bidx();
+            let bid_y = acc_bidy();
+            let bdim_x = acc_bdimx();
+            let bdim_y = acc_bdimy();
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
 
@@ -204,7 +204,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
                 }
             }
 
-            nvvm_barrier0();
+            acc_barrier();
 
             for i in @iterate(0, unroll) {
                 body(gid_x, gid_y + i * bdim_y, smem, gmem_out, tid_x+ksize2, tid_y+ksize2 + i * bdim_y, lstride);
@@ -226,22 +226,22 @@ fn iteration_sep(width : int, height : int,
     init_zero(tmp, $width, $height);
 
     let dev = 1;
-    nvvm(dev, dim, block, || -> () {
-        let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
-        let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
+    acc(dev, dim, block, || -> () {
+        let gid_x = acc_tidx() + acc_bdimx() * acc_bidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
         let is_row = false;
 
         for i in @iterate(0, unroll) {
-            body(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), arr, tmp, is_row);
+            body(gid_x, gid_y + i * acc_bdimy(), arr, tmp, is_row);
         }
     });
-    nvvm(dev, dim, block, || -> () {
-        let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
-        let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
+    acc(dev, dim, block, || -> () {
+        let gid_x = acc_tidx() + acc_bdimx() * acc_bidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
         let is_row = true;
 
         for i in @iterate(0, unroll) {
-            body(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), tmp, out, is_row);
+            body(gid_x, gid_y + i * acc_bdimy(), tmp, out, is_row);
         }
     });
 }
@@ -273,15 +273,15 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
         let dim = (width, height/unroll, 1);
 
         // column component
-        nvvm(dev, dim, block, || -> () {
-            let tid_x = nvvm_read_ptx_sreg_tid_x();
-            let tid_y = nvvm_read_ptx_sreg_tid_y();
-            let bid_x = nvvm_read_ptx_sreg_ctaid_x();
-            let bid_y = nvvm_read_ptx_sreg_ctaid_y();
-            let bdim_x = nvvm_read_ptx_sreg_ntid_x();
-            let bdim_y = nvvm_read_ptx_sreg_ntid_y();
-            let gdim_x = nvvm_read_ptx_sreg_nctaid_x();
-            let gdim_y = nvvm_read_ptx_sreg_nctaid_y();
+        acc(dev, dim, block, || -> () {
+            let tid_x = acc_tidx();
+            let tid_y = acc_tidy();
+            let bid_x = acc_bidx();
+            let bid_y = acc_bidy();
+            let bdim_x = acc_bdimx();
+            let bdim_y = acc_bdimy();
+            let gdim_x = acc_gdimx();
+            let gdim_y = acc_gdimy();
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
             let is_row = false;
@@ -308,15 +308,15 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
         });
 
         // row component
-        nvvm(dev, dim, block, || -> () {
-            let tid_x = nvvm_read_ptx_sreg_tid_x();
-            let tid_y = nvvm_read_ptx_sreg_tid_y();
-            let bid_x = nvvm_read_ptx_sreg_ctaid_x();
-            let bid_y = nvvm_read_ptx_sreg_ctaid_y();
-            let bdim_x = nvvm_read_ptx_sreg_ntid_x();
-            let bdim_y = nvvm_read_ptx_sreg_ntid_y();
-            let gdim_x = nvvm_read_ptx_sreg_nctaid_x();
-            let gdim_y = nvvm_read_ptx_sreg_nctaid_y();
+        acc(dev, dim, block, || -> () {
+            let tid_x = acc_tidx();
+            let tid_y = acc_tidy();
+            let bid_x = acc_bidx();
+            let bid_y = acc_bidy();
+            let bdim_x = acc_bdimx();
+            let bdim_y = acc_bdimy();
+            let gdim_x = acc_gdimx();
+            let gdim_y = acc_gdimy();
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
             let is_row = true;
@@ -351,14 +351,14 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             let bounds = Bounds2DCol(region);
             let dim = (width, bounds(1) - bounds(0), 1);
 
-            nvvm(dev, dim, block, || -> () {
-                let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
+            acc(dev, dim, block, || -> () {
+                let gid_x = acc_tidx() + acc_bdimx() * acc_bidx();
                 let gid_y = bounds(0) * unroll +
-                            nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
+                            acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
                 let is_row = false;
 
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), arr, tmp, is_row, region);
+                    body(gid_x, gid_y + i * acc_bdimy(), arr, tmp, is_row, region);
                 }
             });
         }
@@ -373,14 +373,14 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
             let bounds = Bounds2DRow(region);
             let dim = (bounds(1) - bounds(0), height/unroll, 1);
 
-            nvvm(dev, dim, block, || -> () {
+            acc(dev, dim, block, || -> () {
                 let gid_x = bounds(0) +
-                            nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
-                let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y() * unroll;
+                            acc_tidx() + acc_bdimx() * acc_bidx();
+                let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
                 let is_row = true;
 
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * nvvm_read_ptx_sreg_ntid_y(), tmp, out, is_row, region);
+                    body(gid_x, gid_y + i * acc_bdimy(), tmp, out, is_row, region);
                 }
             });
         }
@@ -418,13 +418,13 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
         let mut gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
         let tex_arr = map(arr, dev, 2, (0, 0, 0), (width, height, 1));
 
-        nvvm(dev, dim, block, || -> () {
-            let tid_x = nvvm_read_ptx_sreg_tid_x();
-            let tid_y = nvvm_read_ptx_sreg_tid_y();
-            let bid_x = nvvm_read_ptx_sreg_ctaid_x();
-            let bid_y = nvvm_read_ptx_sreg_ctaid_y();
-            let bdim_x = nvvm_read_ptx_sreg_ntid_x();
-            let bdim_y = nvvm_read_ptx_sreg_ntid_y();
+        acc(dev, dim, block, || -> () {
+            let tid_x = acc_tidx();
+            let tid_y = acc_tidy();
+            let bid_x = acc_bidx();
+            let bid_y = acc_bidy();
+            let bdim_x = acc_bdimx();
+            let bdim_y = acc_bdimy();
             let gid_x = tid_x + bdim_x * bid_x;
             let gid_y = tid_y + bdim_y * bid_y * unroll;
 
@@ -450,7 +450,7 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
                 }
             }
 
-            nvvm_barrier0();
+            acc_barrier();
 
             for i in @iterate(0, unroll) {
                 let is_row = false;
@@ -463,7 +463,7 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
                 }
             }
 
-            nvvm_barrier0();
+            acc_barrier();
 
             for i in @iterate(0, unroll) {
                 let is_row = true;
@@ -484,9 +484,9 @@ fn iteration_multi(width : int, height : int,
     let map_arr_GPU1 = map(arr, dev_gpu1, 1, (0, 0, 0),        (width, height/2, 1));
     let mut map_out_GPU1 = map(out, dev_gpu1, 1, (0, 0, 0),        (width, height/2, 1));
 
-    nvvm(dev_gpu1, dim, block, || -> () {
-        let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
-        let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
+    acc(dev_gpu1, dim, block, || -> () {
+        let gid_x = acc_tidx() + acc_bdimx() * acc_bidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy();
 
         body(gid_x, gid_y, map_arr_GPU1, map_out_GPU1);
     });
@@ -495,9 +495,9 @@ fn iteration_multi(width : int, height : int,
     let map_arr_GPU2 = map(arr, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
     let mut map_out_GPU2 = map(out, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
 
-    nvvm(dev_gpu2, dim, block, || -> () {
-        let gid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
-        let gid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
+    acc(dev_gpu2, dim, block, || -> () {
+        let gid_x = acc_tidx() + acc_bdimx() * acc_bidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy();
 
         body(gid_x, gid_y, map_arr_GPU2, map_out_GPU2);
     });
