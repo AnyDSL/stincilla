@@ -10,6 +10,13 @@ include_directories(${THORIN_RUNTIME_INCLUDE_DIR})
 
 set(TESTS_RTTYPE "nvvm" CACHE STRING "The runtime-type of the tests")
 message("Using runtime-type ${TESTS_RTTYPE}")
+set(DEVICE "acc" CACHE STRING "mapping for target device")
+if(TESTS_RTTYPE STREQUAL "cpu")
+    set(DEVICE "cpu")
+endif()
+if(TESTS_RTTYPE STREQUAL "avx")
+    set(DEVICE "avx")
+endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
@@ -29,20 +36,20 @@ target_link_libraries(matmul ${MATMUL_LIBS})
 THORIN_RUNTIME_WRAP(GAUSSIAN_FILES GAUSSIAN_LIBS
 	RTTYPE ${TESTS_RTTYPE}
 	MAIN
-	FILES extern.impala mapping_${TESTS_RTTYPE}.impala gaussian.impala)
+	FILES extern.impala mapping_${DEVICE}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_FILES})
 target_link_libraries(gaussian ${GAUSSIAN_LIBS})
 
 THORIN_RUNTIME_WRAP(BILATERAL_FILES BILATERAL_LIBS
 	RTTYPE ${TESTS_RTTYPE}
 	MAIN
-	FILES extern.impala mapping_${TESTS_RTTYPE}.impala bilateral.impala)
+	FILES extern.impala mapping_${DEVICE}.impala bilateral.impala)
 add_executable(bilateral ${BILATERAL_FILES})
 target_link_libraries(bilateral ${BILATERAL_LIBS})
 
 THORIN_RUNTIME_WRAP(JACOBI_FILES JACOBI_LIBS
 	RTTYPE ${TESTS_RTTYPE}
 	MAIN
-	FILES extern.impala mapping_${TESTS_RTTYPE}.impala jacobi.impala)
+	FILES extern.impala mapping_${DEVICE}.impala jacobi.impala)
 add_executable(jacobi ${JACOBI_FILES})
 target_link_libraries(jacobi ${JACOBI_LIBS})
