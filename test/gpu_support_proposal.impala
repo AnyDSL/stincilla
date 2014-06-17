@@ -4,21 +4,21 @@ fn iteration_mapped(width : int, height : int, img : &[float], body : fn(int, in
     let block = (32, 4, 1);
 
     // explicit verstion
-    let mut cl_mem = map<CPU, Global>(img);
+    let mut cl_mem = mmap<CPU, Global>(img);
     let mut s1 = slice(cl_img, 0, 0,        width, height/2);
     let mut s2 = slice(cl_img, 0, height/2, width, height/2);
-    let mut g1 = map<GPU1, Global>(s1);
-    let mut g2 = map<GPU2, Global>(s2);
+    let mut g1 = mmap<GPU1, Global>(s1);
+    let mut g2 = mmap<GPU2, Global>(s2);
 
-    // skip map to cl mem
+    // skip mmap to cl mem
     let mut s1 = slice(img, 0, 0,        width, height/2);
     let mut s2 = slice(img, 0, height/2, width, height/2);
-    let mut g1 = map<GPU1, Global>(s1);
-    let mut g2 = map<GPU2, Global>(s2);
+    let mut g1 = mmap<GPU1, Global>(s1);
+    let mut g2 = mmap<GPU2, Global>(s2);
 
     // skip slicing
-    let mut g1 = map_region<GPU1, Global>(img, (0, 0),        (width, height/2));
-    let mut g2 = map_region<GPU2, Global>(img, (0, height/2), (width, height/2));
+    let mut g1 = mmap_region<GPU1, Global>(img, (0, 0),        (width, height/2));
+    let mut g2 = mmap_region<GPU2, Global>(img, (0, height/2), (width, height/2));
 
 
     let mut g = [ g1, g2 ];
@@ -45,8 +45,8 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
     // slice memory
     let mut cpu_slice1 = slice(img, 0,       0, width/2, height);
     let mut cpu_slice2 = slice(img, width/2, 0, width/2, height);
-    let mut gpu_img1 = map<GPU1>(cpu_slice1);
-    let mut gpu_img2 = map<GPU2>(cpu_slice2);
+    let mut gpu_img1 = mmap<GPU1>(cpu_slice1);
+    let mut gpu_img2 = mmap<GPU2>(cpu_slice2);
 
     let dim = (width/2, height, 1);
     let block = (32, 4, 1);
@@ -99,8 +99,8 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
     // slice memory
     let mut cpu_slice1 = slice(img, 0,       0, width/2, height);
     let mut cpu_slice2 = slice(img, width/2, 0, width/2, height);
-    let mut gpu_img1 = map<GPU1>(cpu_slice1);
-    let mut gpu_img2 = map<GPU2>(cpu_slice2);
+    let mut gpu_img1 = mmap<GPU1>(cpu_slice1);
+    let mut gpu_img2 = mmap<GPU2>(cpu_slice2);
 
     let dim = (width/2, height, 1);
     let block = (32, 4, 1);
@@ -116,9 +116,9 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
 
             // GPU execution with dedicated scratchpad memory
             let offset_x = 0, offset_y = 0;
-            sm = map<SM>(gpu_img1, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
+            sm = mmap<SM>(gpu_img1, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
             // execution with scratchpad memory mapped to global memory
-            sm = map<PROXY>(gpu_img1, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
+            sm = mmap<PROXY>(gpu_img1, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
 
             body(tid_x, tid_y, gpu_img1, sm);
         });
@@ -135,9 +135,9 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
 
             // GPU execution with dedicated scratchpad memory
             let offset_x = 0, offset_y = 0;
-            sm = map<SM>(gpu_img2, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
+            sm = mmap<SM>(gpu_img2, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
             // execution with scratchpad memory mapped to global memory
-            sm = map<PROXY>(gpu_img2, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
+            sm = mmap<PROXY>(gpu_img2, sm_x-offset_x, sm_y-offset_y, block[0]+2*offset_x, block[1]+2*offset_y);
 
             body(tid_x, tid_y, gpu_img2, sm);
         });

@@ -166,9 +166,9 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
-        let mut gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
-        let tex_arr = map(arr, dev, acc_tex(), (0, 0, 0), (width, height, 1));
+        let gmem_arr = mmap(arr, dev, 1, (0, 0, 0), (width, height, 1));
+        let mut gmem_out = mmap(out, dev, 1, (0, 0, 0), (width, height, 1));
+        let tex_arr = mmap(arr, dev, acc_tex(), (0, 0, 0), (width, height, 1));
 
         acc(dev, dim, block, || -> () {
             let tid_x = acc_tidx();
@@ -178,7 +178,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-            let mut smem = map(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
+            let mut smem = mmap(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
             let lstride = block(0) + 2*ksize2;
 
             for y in range(0, steps_y) {
@@ -398,9 +398,9 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let gmem_arr = map(arr, dev, 1, (0, 0, 0), (width, height, 1));
-        let mut gmem_out = map(out, dev, 1, (0, 0, 0), (width, height, 1));
-        let tex_arr = map(arr, dev, acc_tex(), (0, 0, 0), (width, height, 1));
+        let gmem_arr = mmap(arr, dev, 1, (0, 0, 0), (width, height, 1));
+        let mut gmem_out = mmap(out, dev, 1, (0, 0, 0), (width, height, 1));
+        let tex_arr = mmap(arr, dev, acc_tex(), (0, 0, 0), (width, height, 1));
 
         acc(dev, dim, block, || -> () {
             let tid_x = acc_tidx();
@@ -410,8 +410,8 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-            let mut smem_col = map(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
-            let mut smem_row = map(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll, 1));
+            let mut smem_col = mmap(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
+            let mut smem_row = mmap(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll, 1));
             let lstride = block(0) + 2*ksize2;
 
             for y in range(0, steps_y) {
@@ -463,8 +463,8 @@ fn iteration_multi(width : int, height : int,
     let block = (128, 1, 1);
 
     let dev_gpu1 = 1;
-    let map_arr_GPU1 =     map(arr, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
-    let mut map_out_GPU1 = map(out, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
+    let map_arr_GPU1 =     mmap(arr, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
+    let mut map_out_GPU1 = mmap(out, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
 
     acc(dev_gpu1, dim, block, || -> () {
         let gid_x = acc_gidx();
@@ -474,8 +474,8 @@ fn iteration_multi(width : int, height : int,
     });
 
     let dev_gpu2 = 2;
-    let map_arr_GPU2 =     map(arr, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
-    let mut map_out_GPU2 = map(out, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
+    let map_arr_GPU2 =     mmap(arr, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
+    let mut map_out_GPU2 = mmap(out, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
 
     acc(dev_gpu2, dim, block, || -> () {
         let gid_x = acc_gidx();
