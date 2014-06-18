@@ -57,7 +57,7 @@ fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [[float * 9] * 9],
 
 // not working: optimizer removes out array ...
 extern 
-fn thorin_bilateral(arr : &[float], mut out : &[float], width : int, height : int) -> () {
+fn thorin_bilateral(arr : &[float], out : &[float], width : int, height : int) -> () {
     let sigma_r = 5.0f;
     let sigma_d = 2;
     let c_d = 1.0f / (2.0f * 2.0f*2.0f);
