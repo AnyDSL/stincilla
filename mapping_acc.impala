@@ -1,5 +1,5 @@
 fn iteration(width : int, height : int,
-             arr : &[float], mut out : &[float],
+             arr : &[float], out : &[float],
              body : fn(int, int, &[float], &[float]) -> ()
             ) -> () {
     let unroll = 1;
@@ -11,14 +11,14 @@ fn iteration(width : int, height : int,
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-        for i in iterate(0, unroll) {
+        for i in @iterate(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), arr, out);
         }
     });
 }
 
 fn iteration_bounds(width : int, height : int, ksize : int,
-                    arr : &[float], mut out : &[float],
+                    arr : &[float], out : &[float],
                     body : fn(int, int, &[float], &[float], int) -> ()
                    ) -> () {
     // define the unroll factor
@@ -140,10 +140,10 @@ fn iteration_bounds(width : int, height : int, ksize : int,
 }
 
 fn iteration_advanced(width : int, height : int, ksize : int,
-                      arr : &[float], mut out : &[float],
+                      arr : &[float], out : &[float],
                       body : fn(int, int, &[float], &[float], int, int, int) -> ()
                      ) -> () {
-    for unroll in iterate_times_two(1, 16+1) {
+    for unroll in @iterate_times_two(1, 16+1) {
         // compute the number of blocks required for boundary handling
         let bbh = if ((ksize/2) % unroll==0) {
                     (ksize/2) / unroll
@@ -166,8 +166,8 @@ fn iteration_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let     gpu_arr = mmap(arr, dev, acc_tex(), (0, 0, 0), (width, height, 1));
-        let mut gpu_out = mmap(out, dev, 1,         (0, 0, 0), (width, height, 1));
+        let gpu_arr = mmap(arr, dev, acc_tex(), (0, 0, 0), (width, height, 1));
+        let gpu_out = mmap(out, dev, 1,         (0, 0, 0), (width, height, 1));
 
         acc(dev, dim, block, || -> () {
             let tid_x = acc_tidx();
@@ -180,12 +180,12 @@ fn iteration_advanced(width : int, height : int, ksize : int,
             let mut smem = mmap(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
             let lstride = block(0) + 2*ksize2;
 
-            for y in range(0, steps_y) {
+            for y in @range(0, steps_y) {
                 let lid_y = tid_y + y*bdim_y;
                 let mut idx_y = gid_y - ksize2 + y*bdim_y;
                 idx_y = clamp_upper(idx_y, height);
                 idx_y = clamp_lower(idx_y, 0);
-                for x in range(0, steps_x) {
+                for x in @range(0, steps_x) {
                     let lid_x = tid_x + x*bdim_x;
                     let mut idx_x = gid_x - ksize2 + x*bdim_x;
                     idx_x = clamp_lower(idx_x, 0);
@@ -208,7 +208,7 @@ fn iteration_advanced(width : int, height : int, ksize : int,
 }
 
 fn iteration_sep(width : int, height : int,
-                 arr : &[float], mut out : &[float],
+                 arr : &[float], out : &[float],
                  body : fn(int, int, &[float], &[float], bool) -> ()
                 ) -> () {
     let unroll = 1;
@@ -216,7 +216,7 @@ fn iteration_sep(width : int, height : int,
     let block = (128, 1, 1);
 
     // allocate temporary array
-    let mut tmp = ~[width*height:float];
+    let tmp = ~[width*height:float];
     init_zero(tmp, $width, $height);
 
     let dev = 1;
@@ -241,7 +241,7 @@ fn iteration_sep(width : int, height : int,
 }
 
 fn iteration_sep_bounds(width : int, height : int, ksize : int,
-                        arr : &[float], mut out : &[float],
+                        arr : &[float], out : &[float],
                         body : fn(int, int, &[float], &[float], bool, int) -> ()
                        ) -> () {
     // define the unroll factor
@@ -259,7 +259,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
     let block = (128, bbh, 1);
 
     // allocate temporary array
-    let mut tmp = ~[width*height:float];
+    let tmp = ~[width*height:float];
     init_zero(tmp, $width, $height);
 
     let dev = 1;
@@ -371,7 +371,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
 }
 
 fn iteration_sep_advanced(width : int, height : int, ksize : int,
-                          arr : &[float], mut out : &[float],
+                          arr : &[float], out : &[float],
                           body : fn(int, int, &[float], &[float], int, int, int, int, bool) -> ()
                          ) -> () {
     for unroll in iterate_times_two(1, 16+1) {
@@ -397,8 +397,8 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let     gpu_arr = mmap(arr, dev, acc_tex(), (0, 0, 0), (width, height, 1));
-        let mut gpu_out = mmap(out, dev, 1,         (0, 0, 0), (width, height, 1));
+        let gpu_arr = mmap(arr, dev, acc_tex(), (0, 0, 0), (width, height, 1));
+        let gpu_out = mmap(out, dev, 1,         (0, 0, 0), (width, height, 1));
 
         acc(dev, dim, block, || -> () {
             let tid_x = acc_tidx();
@@ -409,15 +409,15 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
             let mut smem_col = mmap(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
-            let mut smem_row = mmap(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll, 1));
+            let     smem_row = mmap(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll, 1));
             let lstride = block(0) + 2*ksize2;
 
-            for y in range(0, steps_y) {
+            for y in @range(0, steps_y) {
                 let lid_y = tid_y + y*bdim_y;
                 let mut idx_y = gid_y - ksize2 + y*bdim_y;
                 idx_y = clamp_upper(idx_y, height);
                 idx_y = clamp_lower(idx_y, 0);
-                for x in range(0, steps_x) {
+                for x in @range(0, steps_x) {
                     let lid_x = tid_x + x*bdim_x;
                     let mut idx_x = gid_x - ksize2 + x*bdim_x;
                     idx_x = clamp_lower(idx_x, 0);
@@ -454,31 +454,31 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
 }
 
 fn iteration_multi(width : int, height : int,
-                   arr : &[float], mut out : &[float],
+                   arr : &[float], out : &[float],
                    body : fn(int, int, &[float], &[float]) -> ()
                   ) -> () {
     let dim = (width, height/2, 1);
     let block = (128, 1, 1);
 
     let dev_gpu1 = 1;
-    let map_arr_GPU1 =     mmap(arr, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
-    let mut map_out_GPU1 = mmap(out, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
+    let map_arr_GPU1 = mmap(arr, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
+    let map_out_GPU1 = mmap(out, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
 
     acc(dev_gpu1, dim, block, || -> () {
         let gid_x = acc_gidx();
         let gid_y = acc_gidy();
 
-        body(gid_x, gid_y, map_arr_GPU1, map_out_GPU1);
+        @body(gid_x, gid_y, map_arr_GPU1, map_out_GPU1);
     });
 
     let dev_gpu2 = 2;
-    let map_arr_GPU2 =     mmap(arr, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
-    let mut map_out_GPU2 = mmap(out, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
+    let map_arr_GPU2 = mmap(arr, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
+    let map_out_GPU2 = mmap(out, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
 
     acc(dev_gpu2, dim, block, || -> () {
         let gid_x = acc_gidx();
         let gid_y = acc_gidy();
 
-        body(gid_x, gid_y, map_arr_GPU2, map_out_GPU2);
+        @body(gid_x, gid_y, map_arr_GPU2, map_out_GPU2);
     });
 }

@@ -5,7 +5,7 @@ fn iteration(width : int, height : int,
     getMicroTime();
     for y in $iterate(0, height) {
         for x in $iterate(0, width) {
-            body(x, y, arr, out);
+            @body(x, y, arr, out);
         }
     }
     getMicroTime();
@@ -35,7 +35,7 @@ fn iteration_bounds(width : int, height : int, ksize : int,
         let bounds = Bounds2D(region);
         for y in $iterate(bounds(2), bounds(3)) {
             for x in $iterate(bounds(0), bounds(1)) {
-                body(x, y, arr, out, region);
+                @body(x, y, arr, out, region);
             }
         }
     }
@@ -46,21 +46,21 @@ fn iteration_sep(width : int, height : int,
                  body : fn(int, int, &[float], &[float], bool) -> ()
                 ) -> () {
     // allocate temporary array
-    let mut tmp = ~[width*height:float];
+    let tmp = ~[width*height:float];
     init_zero(tmp, $width, $height);
 
     getMicroTime();
     for y in $iterate(0, height) {
         for x in $iterate(0, width) {
             let is_row = false;
-            body(x, y, arr, tmp, is_row);
+            @body(x, y, arr, tmp, is_row);
         }
     }
 
     for y in $iterate(0, height) {
         for x in $iterate(0, width) {
             let is_row = true;
-            body(x, y, tmp, out, is_row);
+            @body(x, y, tmp, out, is_row);
         }
     }
     getMicroTime();
@@ -71,7 +71,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
                         body : fn(int, int, &[float], &[float], bool, int) -> ()
                        ) -> () {
     // allocate temporary array
-    let mut tmp = ~[width*height:float];
+    let tmp = ~[width*height:float];
     init_zero(tmp, $width, $height);
 
     let bbh = ksize / 2;
@@ -94,7 +94,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
         for y in $iterate(bounds(0), bounds(1)) {
             for x in $iterate(0, width) {
                 let is_row = false;
-                body(x, y, arr, tmp, is_row, region);
+                @body(x, y, arr, tmp, is_row, region);
             }
         }
     }
@@ -104,7 +104,7 @@ fn iteration_sep_bounds(width : int, height : int, ksize : int,
         for y in $iterate(0, height) {
             for x in $iterate(bounds(0), bounds(1)) {
                 let is_row = true;
-                body(x, y, tmp, arr, is_row, region);
+                @body(x, y, tmp, arr, is_row, region);
             }
         }
     }
@@ -117,15 +117,15 @@ fn iteration_sep_advanced(width : int, height : int,
                           body_col : fn(int, int, &[float], &[float]) -> (),
                           body_row : fn(int, int, &[float], &[float]) -> ()
                          ) -> () {
-    let mut tmp = ~[width*1:float];
+    let tmp = ~[width*1:float];
 
     getMicroTime();
     for y in $iterate(0, height) {
         for x in $iterate(0, width) {
-            body_col(x, y, arr, tmp);
+            @body_col(x, y, arr, tmp);
         }
         for x in $iterate(0, width) {
-            body_row(x, y, tmp, out);
+            @body_row(x, y, tmp, out);
         }
     }
     getMicroTime();
@@ -151,7 +151,7 @@ fn iteration_sep_bounds_advanced(width : int, height : int, ksize : int,
     ];
 
     getMicroTime();
-    let mut tmp = ~[width*1:float];
+    let tmp = ~[width*1:float];
 
     for region_col in iterate(0, 3) {
         let bounds_col = Bounds2DCol(region_col);
@@ -159,13 +159,13 @@ fn iteration_sep_bounds_advanced(width : int, height : int, ksize : int,
             for region_row in iterate(0, 3) {
                 let bounds_row = Bounds2DRow(region_row);
                 for x in $iterate(bounds_row(0), bounds_row(1)) {
-                    body_col(x, y, arr, tmp, region_col);
+                    @body_col(x, y, arr, tmp, region_col);
                 }
             }
             for region_row in iterate(0, 3) {
                 let bounds_row = Bounds2DRow(region_row);
                 for x in $iterate(bounds_row(0), bounds_row(1)) {
-                    body_row(x, y, tmp, out, region_row);
+                    @body_row(x, y, tmp, out, region_row);
                 }
             }
         }

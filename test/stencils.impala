@@ -18,7 +18,7 @@ fn main() -> &[float] {
     let width   = 1024;
     let height  = 1024;
     let ksize   = 3;
-    let arr = ~[width*height:float];
+    let     arr = ~[width*height:float];
     let mut out = ~[width*height:float];
 
 
@@ -41,8 +41,8 @@ fn main() -> &[float] {
 
     // Jacobi
     let OMEGA = 0.8f;
-    let mut RHS = ~[width*height:float];
-    let mut Sol = ~[width*height:float];
+    let RHS = ~[width*height:float];
+    let Sol = ~[width*height:float];
     let jacobi_mask = [
         [0.00f, 0.25f, 0.00f],
         [0.25f, 0.00f, 0.25f],

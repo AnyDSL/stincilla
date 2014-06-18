@@ -55,13 +55,13 @@ fn apply_stencil(ksize : int, stencil : [[float * 3] * 3],
 }
 
 fn main() -> int {
-    let width   = 2048;
-    let height  = 2048;
-    let ksize   = 3;
-    let a       = 0.2f;
-    let b       = 1.0f - 4.0f * a;
-    let mut arr = ~[width*height:float];
-    let mut out = ~[width*height:float];
+    let width  = 2048;
+    let height = 2048;
+    let ksize  = 3;
+    let a      = 0.2f;
+    let b      = 1.0f - 4.0f * a;
+    let arr    = ~[width*height:float];
+    let out    = ~[width*height:float];
     init_rand(arr, width, height);
     init_zero(out, width, height);
 

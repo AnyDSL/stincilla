@@ -38,11 +38,11 @@ fn apply_stencil(N : int, arr : &[float], mut out : &[float], stencil : [float *
 
 // DSL code
 
-fn bh_clamp_lower(mut index : int, lower : int) -> int {
+fn bh_clamp_lower(index : int, lower : int) -> int {
     if index < lower { lower } else { index }
 }
 
-fn bh_clamp_upper(mut index : int, upper : int) -> int {
+fn bh_clamp_upper(index : int, upper : int) -> int {
     if index >= upper { upper - 1 } else { index }
 }
 
@@ -59,7 +59,7 @@ fn main() -> &[float] {
     for iter in range(0, num_it) {
         @apply_stencil(width, arr, out, stencil, bh_clamp_lower, bh_clamp_upper);
 
-        let mut tmp = arr;
+        let tmp = arr;
         arr = out;
         out = tmp;
     }

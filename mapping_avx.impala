@@ -7,7 +7,7 @@ fn iteration(width : int, height : int,
     for y in $iterate(0, height) {
         vectorized(width, L, || -> () {
             let x = wfv_get_tid();
-            body(x, y, arr, out);
+            @body(x, y, arr, out);
         });
     }
     getMicroTime();
@@ -50,7 +50,7 @@ fn iteration_bounds(width : int, height : int, ksize : int,
         for y in $iterate(bounds(2), bounds(3)) {
             vectorized(bounds(1)-bounds(0), L, || -> () {
                 let x = wfv_get_tid();
-                body(x, y, arr, out, region);
+                @body(x, y, arr, out, region);
             });
         }
     }
@@ -62,21 +62,21 @@ fn iteration_sep(width : int, height : int,
                  body : fn(int, int, &[float], &[float], bool) -> ()
                 ) -> () {
     // allocate temporary array
-    let mut tmp = ~[width*height:float];
+    let tmp = ~[width*height:float];
     init_zero(tmp, $width, $height);
 
     getMicroTime();
     for y in $iterate(0, height) {
         for x in $iterate(0, width) {
             let is_row = false;
-            body(x, y, arr, tmp, is_row);
+            @body(x, y, arr, tmp, is_row);
         }
     }
 
     for y in $iterate(0, height) {
         for x in $iterate(0, width) {
             let is_row = true;
-            body(x, y, tmp, out, is_row);
+            @body(x, y, tmp, out, is_row);
         }
     }
     getMicroTime();
@@ -87,15 +87,15 @@ fn iteration_sep_advanced(width : int, height : int,
                           body_col : fn(int, int, &[float], &[float]) -> (),
                           body_row : fn(int, int, &[float], &[float]) -> ()
                          ) -> () {
-    let mut tmp = ~[width*1:float];
+    let tmp = ~[width*1:float];
 
     getMicroTime();
     for y in $iterate(0, height) {
         for x in $iterate(0, width) {
-            body_col(x, y, arr, tmp);
+            @body_col(x, y, arr, tmp);
         }
         for x in $iterate(0, width) {
-            body_row(x, y, tmp, out);
+            @body_row(x, y, tmp, out);
         }
     }
     getMicroTime();

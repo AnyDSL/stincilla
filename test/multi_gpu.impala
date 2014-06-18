@@ -9,28 +9,28 @@ fn iteration_multi(width : int, height : int,
     let map_out_CPU = mmap(out, 1, 0, (0, 0, 0),        (width, height/2, 0));
 
     opencl(1, dim, block, || -> () {
-        let tid_x = global_id(0);
-        let tid_y = global_id(1);
+        let gid_x = acc_gidx();
+        let gid_y = acc_gidy();
 
-        body(tid_x, tid_y, map_arr_CPU, map_out_CPU);
+        body(gid_x, gid_y, map_arr_CPU, map_out_CPU);
     });
 
     let map_arr_GPU = mmap(arr, 2, 0, (0, height/2, 0), (width, height/2, 0));
     let map_out_GPU = mmap(out, 2, 0, (0, height/2, 0), (width, height/2, 0));
 
     opencl(2, dim, block, || -> () {
-        let tid_x = global_id(0);
-        let tid_y = global_id(1);
+        let gid_x = acc_gidx();
+        let gid_y = acc_gidy();
 
-        body(tid_x, tid_y, map_arr_GPU, map_out_GPU);
+        body(gid_x, gid_y, map_arr_GPU, map_out_GPU);
     });
 }
 
 fn main() -> int {
-    let width   = 4096;
-    let height  = 4096;
-    let mut arr = ~[width*height:float];
-    let mut out = ~[width*height:float];
+    let width  = 4096;
+    let height = 4096;
+    let arr    = ~[width*height:float];
+    let out    = ~[width*height:float];
     init_rand(arr, width, height);
     init_zero(out, width, height);
 

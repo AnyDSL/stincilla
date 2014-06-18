@@ -4,24 +4,24 @@ fn iteration_mapped(width : int, height : int, img : &[float], body : fn(int, in
     let block = (32, 4, 1);
 
     // explicit verstion
-    let mut cl_mem = mmap<CPU, Global>(img);
-    let mut s1 = slice(cl_img, 0, 0,        width, height/2);
-    let mut s2 = slice(cl_img, 0, height/2, width, height/2);
-    let mut g1 = mmap<GPU1, Global>(s1);
-    let mut g2 = mmap<GPU2, Global>(s2);
+    let cl_mem = mmap<CPU, Global>(img);
+    let s1 = slice(cl_img, 0, 0,        width, height/2);
+    let s2 = slice(cl_img, 0, height/2, width, height/2);
+    let g1 = mmap<GPU1, Global>(s1);
+    let g2 = mmap<GPU2, Global>(s2);
 
     // skip mmap to cl mem
-    let mut s1 = slice(img, 0, 0,        width, height/2);
-    let mut s2 = slice(img, 0, height/2, width, height/2);
-    let mut g1 = mmap<GPU1, Global>(s1);
-    let mut g2 = mmap<GPU2, Global>(s2);
+    let s1 = slice(img, 0, 0,        width, height/2);
+    let s2 = slice(img, 0, height/2, width, height/2);
+    let g1 = mmap<GPU1, Global>(s1);
+    let g2 = mmap<GPU2, Global>(s2);
 
     // skip slicing
-    let mut g1 = mmap_region<GPU1, Global>(img, (0, 0),        (width, height/2));
-    let mut g2 = mmap_region<GPU2, Global>(img, (0, height/2), (width, height/2));
+    let g1 = mmap_region<GPU1, Global>(img, (0, 0),        (width, height/2));
+    let g2 = mmap_region<GPU2, Global>(img, (0, height/2), (width, height/2));
 
 
-    let mut g = [ g1, g2 ];
+    let g = [ g1, g2 ];
     let mut h = [int * 2];
     
     @iterate(0, 2+1, |i : int| -> () {
@@ -43,10 +43,10 @@ fn iteration_mapped(width : int, height : int, img : &[float], body : fn(int, in
 
 fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[float]) -> ()) -> () {
     // slice memory
-    let mut cpu_slice1 = slice(img, 0,       0, width/2, height);
-    let mut cpu_slice2 = slice(img, width/2, 0, width/2, height);
-    let mut gpu_img1 = mmap<GPU1>(cpu_slice1);
-    let mut gpu_img2 = mmap<GPU2>(cpu_slice2);
+    let cpu_slice1 = slice(img, 0,       0, width/2, height);
+    let cpu_slice2 = slice(img, width/2, 0, width/2, height);
+    let gpu_img1 = mmap<GPU1>(cpu_slice1);
+    let gpu_img2 = mmap<GPU2>(cpu_slice2);
 
     let dim = (width/2, height, 1);
     let block = (32, 4, 1);
@@ -97,10 +97,10 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
 
 fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[float], &[float]) -> ()) -> () {
     // slice memory
-    let mut cpu_slice1 = slice(img, 0,       0, width/2, height);
-    let mut cpu_slice2 = slice(img, width/2, 0, width/2, height);
-    let mut gpu_img1 = mmap<GPU1>(cpu_slice1);
-    let mut gpu_img2 = mmap<GPU2>(cpu_slice2);
+    let cpu_slice1 = slice(img, 0,       0, width/2, height);
+    let cpu_slice2 = slice(img, width/2, 0, width/2, height);
+    let gpu_img1 = mmap<GPU1>(cpu_slice1);
+    let gpu_img2 = mmap<GPU2>(cpu_slice2);
 
     let dim = (width/2, height, 1);
     let block = (32, 4, 1);
@@ -110,7 +110,7 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
-            let mut sm = sm_array(block[0], block[1]);
+            let sm = sm_array(block[0], block[1]);
             let sm_x = nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let sm_y = nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -129,7 +129,7 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
-            let mut sm = sm_array(block[0], block[1]);
+            let sm = sm_array(block[0], block[1]);
             let sm_x = nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let sm_y = nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -155,8 +155,8 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
 fn main() -> &[float] {
     let width   = 2048;
     let height  = 2048;
-    let mut arr = ~[width*height:float];
-    let mut out = ~[width*height:float];
+    let arr     = ~[width*height:float];
+    let out     = ~[width*height:float];
     let stencil = [ 0.25f, 0.50f, 0.25f ];
 
     for x, y arr, out in iteration(width, height, arr, out) {

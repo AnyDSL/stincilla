@@ -165,11 +165,11 @@ fn apply_stencil_row_cpu(ksize : int, stencil : [float * 5], x : int, y : int,
 }
 
 fn main() -> int {
-    let width   = 4096;
-    let height  = 4096;
-    let ksize   = 5;
-    let mut arr = ~[width*height:float];
-    let mut out = ~[width*height:float];
+    let width  = 4096;
+    let height = 4096;
+    let ksize  = 5;
+    let arr    = ~[width*height:float];
+    let out    = ~[width*height:float];
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
