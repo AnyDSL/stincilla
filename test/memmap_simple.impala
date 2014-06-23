@@ -5,7 +5,7 @@ extern "thorin" {
 fn range(a : int, b : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
-        range(a+1, b, yield);
+        range(a+1, b, yield, return);
     }
 }
 
