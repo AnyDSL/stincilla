@@ -1,18 +1,18 @@
 CUDA_DIR  ?= /usr/local/cuda
 INC_DIRS   = -I $(CUDA_DIR)/include \
              -I $(CUDA_DIR)/nvvm/include \
-             -I $(CUDA_DIR)/nvvm/libnvvm-samples/common/include
+             -I $(CUDA_DIR)/nvvm/libnvvm-samples/common/include \
+             -I .
 LIB_DIRS   = $(CUDA_DIR)/lib64 $(CUDA_DIR)/nvvm/lib64
-
 CXX_FLAGS := -Wall -Wunused
-OPT_FLAGS := -O1
-DBG_FLAGS := -g
+OPT_FLAGS := -O3
+DBG_FLAGS :=
 RPATH_PRE := -Wl,-rpath,
 
 OS:=$(shell uname -s)
 
 ifeq ($(OS),Linux)
-    LD_FLAGS = -lcuda -lnvvm
+    LD_FLAGS = -lcuda -lnvvm -lm
     CXX_FLAGS += -std=c++11
     LD_FLAGS  += -lstdc++
 endif
