@@ -1,22 +1,32 @@
 extern "thorin" {
     fn mmap(&[float], int, int, (int, int, int), (int, int, int)) -> &[float];
+    fn spir(int, (int, int, int), (int, int, int), fn() -> ()) -> ();
 }
+extern "device" {
+    fn _Z13get_global_idj(i32) -> i64;
+}
+fn acc_gidx() -> int    { _Z13get_global_idj(0) as int }
+fn acc_gidy() -> int    { _Z13get_global_idj(1) as int }
 
 fn range(a : int, b : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
-        range(a+1, b, yield, return);
+        range(a+1, b, yield, return)
     }
 }
 
 fn iteration(width : int, height : int,
              body : fn(int, int) -> ()
             ) -> () {
-    for y in $range(0, height) {
-        for x in $range(0, width) {
-            body(x, y);
-        }
-    }
+    let dim = (width, height, 1);
+    let block = (128, 1, 1);
+    let dev = 1;
+    spir(dev, dim, block, || -> () {
+        let gid_x = acc_gidx();
+        let gid_y = acc_gidy();
+
+        body(gid_x, gid_y);
+    });
 }
 
 fn write(mut out: &[float], src: &[float], i: int) -> () {
@@ -31,7 +41,7 @@ fn main() -> int {
 
     let mapped = mmap(arr, 1, 1, (0, 0, 0), (width, height, 1));
 
-    for x, y in iteration(width, height) {
+    for x, y in @iteration(width, height) {
         write(out, mapped, y*width + x);
     }
 
