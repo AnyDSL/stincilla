@@ -28,8 +28,6 @@ fn main(i: int) -> int {
     let a   = ~[3*3:float];
     let b   = ~[3*3:float];
     let res = ~[3*3:float];
-//    reset_and_start_timer();
     @matmul2(res, a, b, i);
-//    print_time();
     0
 }

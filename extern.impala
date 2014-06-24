@@ -1,8 +1,6 @@
 extern "C" {
     fn random_val(int) -> float;
     fn getMicroTime() -> ();
-//    fn reset_and_start_timer() -> ();
-//    fn print_time() -> ();
 }
 
 fn iterate(a : int, b : int, yield : fn(int, fn())) -> () {
