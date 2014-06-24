@@ -1,11 +1,12 @@
-fn iteration(width : int, height : int,
-             arr : &[float], out : &[float],
-             body : fn(int, int, &[float], &[float]) -> ()
+fn iteration(arr : Img, out : Img,
+             body : fn(int, int, Acc, Acc) -> ()
             ) -> () {
+    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
+    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
     getMicroTime();
-    for y in $iterate(0, height) {
-        for x in $iterate(0, width) {
-            @body(x, y, arr, out);
+    for y in $iterate(0, out.height) {
+        for x in $iterate(0, out.width) {
+            @body(x, y, acc_arr, acc_out);
         }
     }
     getMicroTime();

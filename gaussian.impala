@@ -1,6 +1,5 @@
 fn apply_stencil(ksize : int, stencil : [[float * 5] * 5],
-                 x : int, y : int, arr : &[float], width : int, height : int,
-                 region: int
+                 x : int, y : int, acc : Acc, region: int
                 ) -> float {
     let mut sum_xxx = 0.0f;
     let half_range = ksize / 2;
@@ -9,8 +8,8 @@ fn apply_stencil(ksize : int, stencil : [[float * 5] * 5],
         for i in iterate(-half_range, half_range+1) {
             let stencil_val = stencil(i + half_range)(j + half_range);
             if stencil_val != 0.0f {
-                let mut idx_x = x + i;
-                let mut idx_y = y + j;
+                let mut idx_x = acc.o_x + x + i;
+                let mut idx_y = acc.o_x + y + j;
 
                 // 0 --- 1 --- 2
                 // 3 --- 4 --- 5
@@ -22,9 +21,9 @@ fn apply_stencil(ksize : int, stencil : [[float * 5] * 5],
                 if region == 6 { idx_x = clamp_lower(idx_x, 0); }
 
                 // right
-                if region == 2 { idx_x = clamp_upper(idx_x, width); }
-                if region == 5 { idx_x = clamp_upper(idx_x, width); }
-                if region == 8 { idx_x = clamp_upper(idx_x, width); }
+                if region == 2 { idx_x = clamp_upper(idx_x, acc.img.width); }
+                if region == 5 { idx_x = clamp_upper(idx_x, acc.img.width); }
+                if region == 8 { idx_x = clamp_upper(idx_x, acc.img.width); }
 
                 // top
                 if region == 0 { idx_y = clamp_lower(idx_y, 0); }
@@ -32,39 +31,20 @@ fn apply_stencil(ksize : int, stencil : [[float * 5] * 5],
                 if region == 2 { idx_y = clamp_lower(idx_y, 0); }
 
                 // bottom
-                if region == 6 { idx_y = clamp_upper(idx_y, height); }
-                if region == 7 { idx_y = clamp_upper(idx_y, height); }
-                if region == 8 { idx_y = clamp_upper(idx_y, height); }
+                if region == 6 { idx_y = clamp_upper(idx_y, acc.img.height); }
+                if region == 7 { idx_y = clamp_upper(idx_y, acc.img.height); }
+                if region == 8 { idx_y = clamp_upper(idx_y, acc.img.height); }
 
                 // all in
                 if region == 10 {
                     idx_x = clamp_lower(idx_x, 0);
-                    idx_x = clamp_upper(idx_x, width);
-                    idx_y = clamp_upper(idx_y, height);
+                    idx_x = clamp_upper(idx_x, acc.img.width);
+                    idx_y = clamp_upper(idx_y, acc.img.height);
                     idx_y = clamp_lower(idx_y, 0);
                 }
 
-                sum_xxx += arr(idx_y * width + idx_x) * stencil_val;
-            } else {
-                // additional logic for empty stencil value
-            }
-        }
-    }
-
-    sum_xxx
-}
-
-fn apply_stencil_local(ksize : int, stencil : [[float * 5] * 5],
-                 x : int, y : int, arr : &[float], width : int, height : int
-                ) -> float {
-    let mut sum_xxx = 0.0f;
-    let half_range = ksize / 2;
-
-    for j in iterate(-half_range, half_range+1) {
-        for i in iterate(-half_range, half_range+1) {
-            let stencil_val = stencil(i + half_range)(j + half_range);
-            if stencil_val != 0.0f {
-                sum_xxx += arr((y + j) * width + x + i) * stencil_val;
+                let tmp = acc.img.data;
+                sum_xxx += tmp(idx_y * acc.img.width + idx_x) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
@@ -75,27 +55,26 @@ fn apply_stencil_local(ksize : int, stencil : [[float * 5] * 5],
 }
 
 fn apply_stencil_sep(ksize : int, stencil : [float * 5], x : int, y : int,
-                     arr : &[float], width : int, height : int, row : bool,
-                     region : int
+                     acc : Acc, row : bool, region : int
                     ) -> float {
     let mut sum_xxx = 0.0f;
     let half_range = ksize / 2;
     for i in iterate(-half_range, half_range+1) {
         let stencil_val = stencil(i + half_range);
-        let mut idx_x = if row { x + i } else { x };
-        let mut idx_y = if row { y } else { y + i };
+        let mut idx_x = if row { acc.o_x + x + i } else { acc.o_x + x };
+        let mut idx_y = if row { acc.o_y + y } else { acc.o_y + y + i };
         if row {
             // 0 --- 1 --- 2
 
             // left
             if region == 0 { idx_x = clamp_lower(idx_x, 0); }
             // right
-            if region == 2 { idx_x = clamp_upper(idx_x, width); }
+            if region == 2 { idx_x = clamp_upper(idx_x, acc.img.width); }
 
             // all in
             if region == 10 {
                 idx_x = clamp_lower(idx_x, 0);
-                idx_x = clamp_upper(idx_x, width);
+                idx_x = clamp_upper(idx_x, acc.img.width);
             }
         } else {
             // 0
@@ -105,15 +84,16 @@ fn apply_stencil_sep(ksize : int, stencil : [float * 5], x : int, y : int,
             // top
             if region == 0 { idx_y = clamp_lower(idx_y, 0); }
             // bottom
-            if region == 2 { idx_y = clamp_upper(idx_y, height); }
+            if region == 2 { idx_y = clamp_upper(idx_y, acc.img.height); }
 
             // all in
             if region == 10 {
                 idx_y = clamp_lower(idx_y, 0);
-                idx_y = clamp_upper(idx_y, height);
+                idx_y = clamp_upper(idx_y, acc.img.height);
             }
         }
-        sum_xxx += arr(idx_y * width + idx_x) * stencil_val;
+        let tmp = acc.img.data;
+        sum_xxx += tmp(idx_y * acc.img.width + idx_x) * stencil_val;
     }
 
     sum_xxx
@@ -138,40 +118,15 @@ fn apply_stencil_sep_local(ksize : int, stencil : [float * 5], x : int, y : int,
     sum_xxx
 }
 
-fn apply_stencil_row_cpu(ksize : int, stencil : [float * 5], x : int, y : int,
-                         arr : &[float], width : int, height : int, region : int
-                        ) -> float {
-    let mut sum_xxx = 0.0f;
-    let half_range = ksize / 2;
-    for i in iterate(-half_range, half_range+1) {
-        let stencil_val = stencil(i + half_range);
-        let mut idx_x = x + i;
-        // 0 --- 1 --- 2
-
-        // left
-        if region == 0 { idx_x = clamp_lower(idx_x, 0); }
-        // right
-        if region == 2 { idx_x = clamp_upper(idx_x, width); }
-
-        // all in
-        if region == 10 {
-            idx_x = clamp_lower(idx_x, 0);
-            idx_x = clamp_upper(idx_x, width);
-        }
-        sum_xxx += arr(idx_x) * stencil_val;
-    }
-
-    sum_xxx
-}
 
 fn main() -> int {
     let width  = 4096;
     let height = 4096;
     let ksize  = 5;
-    let arr    = ~[width*height:float];
-    let out    = ~[width*height:float];
-    init_rand(arr, width, height);
-    init_zero(out, width, height);
+    let arr    = Img { data : ~[width*height:float], width : width, height : height };
+    let out    = Img { data : ~[width*height:float], width : width, height : height };
+    init_rand(arr.data, width, height);
+    init_zero(out.data, width, height);
 
     let stencil_sep = [ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ];
 
@@ -184,29 +139,34 @@ fn main() -> int {
 
 
     //// SS
-    //for x, y, arr, mut out in @iteration(width, height, arr, out) {
-    //    out(y*width + x) = apply_stencil(ksize, stencil, x, y, arr, width, height, 10);
+    //for x, y, arr, out in @iteration(arr, out) {
+    //    let mut tmp = out.img.data;
+    //    tmp(y*out.img.width + x) = apply_stencil(ksize, stencil, x, y, arr, 10);
     //}
 
     //// SS + BH
-    //for x, y, arr, mut out, region in @iteration_bounds(width, height, ksize, arr, out) {
-    //    out(y*width + x) = apply_stencil(ksize, stencil, x, y, arr, width, height, region);
+    //for x, y, arr, out, region in @iteration_bounds(ksize, arr, out) {
+    //    let mut tmp = out.img.data;
+    //    tmp(y*out.img.width + x) = apply_stencil(ksize, stencil, x, y, arr, region);
     //}
 
     //// SS + SEP
-    //for x, y, arr, mut out, is_row in @iteration_sep(width, height, arr, out) {
-    //    out(y*width + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, width, height, is_row, 10);
+    //for x, y, arr, out, is_row in @iteration_sep(arr, out) {
+    //    let mut tmp = out.img.data;
+    //    tmp(y*out.img.width + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, is_row, 10);
     //}
 
     // SS + SEP + BH
-    for x, y, arr, mut out, is_row, region in @iteration_sep_bounds(width, height, ksize, arr, out) {
-        out(y*width + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, width, height, is_row, region);
+    for x, y, arr, out, is_row, region in @iteration_sep_bounds(ksize, arr, out) {
+        let mut tmp = out.img.data;
+        tmp(y*width + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, is_row, region);
     }
 
 
     //// SS + SM
-    //for x, y, arr, mut out, x_in, y_in, width_in in @iteration_advanced(width, height, ksize, arr, out) {
-    //    out(y*width + x) = apply_stencil_local(ksize, stencil, x_in, y_in, arr, width_in, height);
+    //for x, y, arr, out, region in @iteration_advanced(ksize, arr, out) {
+    //    let mut tmp = out.img.data;
+    //    tmp((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil(ksize, stencil, x, y, arr, region);
     //}
 
     //// SS + SEP + SM
@@ -215,40 +175,14 @@ fn main() -> int {
     //}
 
 
-    //// CPU variant: IL + SS
-    //@iteration_sep_advanced(width, height, arr, out,
-    //    |x : int, y : int, arr : &[float], out : &[float]| -> () {
-    //        let is_row = false;
-    //        out(x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, width,
-    //                                   height, is_row, 10);
-    //    },
-    //    |x : int, y : int, arr : &[float], out : &[float]| -> () {
-    //        out(y*width + x) = apply_stencil_row_cpu(ksize, stencil_sep, x, y,
-    //                                                 arr, width, height, 10);
-    //    }
-    //);
-
-    //// CPU variant IL + SS + BH
-    //@iteration_sep_bounds_advanced(width, height, ksize, arr, out,
-    //    |x : int, y : int, arr : &[float], out : &[float], region : int| -> () {
-    //        let is_row = false;
-    //        out(x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, width,
-    //                                   height, is_row, 10);
-    //    },
-    //    |x : int, y : int, arr : &[float], out : &[float], region : int| -> () {
-    //        out(y*width + x) = apply_stencil_row_cpu(ksize, stencil_sep, x, y,
-    //                                                 arr, width, height, 10);
-    //    }
-    //);
-
-
     let mut passed = 0;
 
-    for y in $range(0, height) {
-        for x in $range(0, width) {
-            let ref = @apply_stencil(ksize, stencil, x, y, arr,
-                                     width, height, 10);
-            let mut diff = ref - out(x + y*width);
+    for y in $range(0, out.height) {
+        for x in $range(0, out.width) {
+            let acc = Acc { img : arr, o_x : 0, o_y : 0 };
+            let ref = @apply_stencil(ksize, stencil, x, y, acc, 10);
+            let tmp = out.data;
+            let mut diff = ref - tmp(x + y*width);
             if diff < 0.0f  { diff = -diff; }
             if diff > 0.01f { passed++; }
         }

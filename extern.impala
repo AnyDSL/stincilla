@@ -50,3 +50,17 @@ fn clamp_upper(idx : int, upper : int) -> int {
 fn clamp_none(idx : int, bound : int) -> int {
     idx
 }
+
+// structs for images and accessors
+struct Img {
+    data : &[float],
+    width : int,
+    height : int
+}
+struct Acc {
+    img : Img,
+    o_x : int,
+    o_y : int
+    //bh_lower : fn(int, int) -> T
+}
+
