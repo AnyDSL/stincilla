@@ -151,8 +151,8 @@ fn main() -> int {
 
     let mut passed = 0;
 
-    for y in $range(0, out.height) {
-        for x in $range(0, out.width) {
+    for y in range(0, out.height) {
+        for x in range(0, out.width) {
             let acc = Acc { img : arr, o_x : 0, o_y : 0 };
             let ref = @apply_stencil(ksize, stencil, x, y, acc, 10);
             let mut diff = ref - out.data(x + y*width);
