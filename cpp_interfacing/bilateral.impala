@@ -1,3 +1,22 @@
+fn iteration(width : int, height : int,
+             arr : &[float], out : &[float],
+             body : fn(int, int, &[float], &[float]) -> ()
+            ) -> () {
+    let unroll = 1;
+    let dim = (width, height/unroll, 1);
+    let block = (128, 1, 1);
+
+    let dev = 2;
+    acc(dev, dim, block, || -> () {
+        let gid_x = acc_gidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+
+        for i in @iterate(0, unroll) {
+            body(gid_x, gid_y + i * acc_bdimy(), arr, out);
+        }
+    });
+}
+
 fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [[float * 9] * 9],
                          x : int, y : int, arr : &[float],
                          width : int, height : int, region: int
