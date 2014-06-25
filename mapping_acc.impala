@@ -383,8 +383,8 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
 }
 
 fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
-                        body : fn(int, int, Acc, Acc, bool, int) -> ()
-                       ) -> () {
+                          body : fn(int, int, Acc, Acc, bool, int) -> ()
+                         ) -> () {
     for unroll in @iterate_times_two(1, 16+1) {
         // compute the number of blocks required for boundary handling
         let bbh = if ((ksize/2) % unroll==0) {
