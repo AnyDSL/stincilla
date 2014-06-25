@@ -1,21 +1,21 @@
-fn iteration(width : int, height : int,
-             arr : &[float], out : &[float],
-             body : fn(int, int, &[float], &[float]) -> ()
+fn iteration(arr : Img, out : Img,
+             body : fn(int, int, Acc, Acc) -> ()
             ) -> () {
+    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
+    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
     let L = 8;
     getMicroTime();
-    for y in $iterate(0, height) {
-        vectorized(width, L, || -> () {
+    for y in $iterate(0, out.height) {
+        vectorized(out.width, L, || -> () {
             let x = wfv_get_tid();
-            @body(x, y, arr, out);
+            @body(x, y, acc_arr, acc_out);
         });
     }
     getMicroTime();
 }
 
-fn iteration_bounds(width : int, height : int, ksize : int,
-                    arr : &[float], out : &[float],
-                    body : fn(int, int, &[float], &[float], int) -> ()
+fn iteration_bounds(ksize : int, arr : Img, out : Img,
+                    body : fn(int, int, Acc, Acc, int) -> ()
                    ) -> () {
     let L = 8;
 
@@ -29,73 +29,110 @@ fn iteration_bounds(width : int, height : int, ksize : int,
 
     // (minx, maxx, miny, maxy)
     let Bounds2D = [
-        (0          , bhx        , 0           , bhy),
-        (bhx        , width - bhx, 0           , bhy),
-        (width - bhx, width      , 0           , bhy),
+        (0              , bhx            , 0               , bhy),
+        (bhx            , out.width - bhx, 0               , bhy),
+        (out.width - bhx, out.width      , 0               , bhy),
 
-        (0          , bhx        , bhy         , height - bhy),
-        (bhx        , width - bhx, bhy         , height - bhy),
-        (width - bhx, width      , bhy         , height - bhy),
+        (0              , bhx            , bhy             , out.height - bhy),
+        (bhx            , out.width - bhx, bhy             , out.height - bhy),
+        (out.width - bhx, out.width      , bhy             , out.height - bhy),
 
-        (0          , bhx        , height - bhy, height),
-        (bhx        , width - bhx, height - bhy, height),
-        (width - bhx, width      , height - bhy, height)
+        (0              , bhx            , out.height - bhy, out.height),
+        (bhx            , out.width - bhx, out.height - bhy, out.height),
+        (out.width - bhx, out.width      , out.height - bhy, out.height)
     ];
 
+    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
+    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
+
     getMicroTime();
-    for region in iterate(0, 9) {
+    for region in @iterate(0, 9) {
         let bounds = Bounds2D(region);
         let dim = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
 
         for y in $iterate(bounds(2), bounds(3)) {
             vectorized(bounds(1)-bounds(0), L, || -> () {
                 let x = wfv_get_tid();
-                @body(x, y, arr, out, region);
+                @body(x, y, acc_arr, acc_out, region);
             });
         }
     }
     getMicroTime();
 }
 
-fn iteration_sep(width : int, height : int,
-                 arr : &[float], out : &[float],
-                 body : fn(int, int, &[float], &[float], bool) -> ()
+fn iteration_sep(arr : Img, out : Img,
+                 body : fn(int, int, Acc, Acc, bool) -> ()
                 ) -> () {
     // allocate temporary array
-    let tmp = ~[width*height:float];
-    init_zero(tmp, $width, $height);
+    let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
+    init_zero(tmp.data, $tmp.width, $tmp.height);
+    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
+    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
+    let acc_tmp = Acc { img : tmp, o_x : 0, o_y : 0 };
 
     getMicroTime();
-    for y in $iterate(0, height) {
-        for x in $iterate(0, width) {
+    for y in $iterate(0, out.height) {
+        for x in $iterate(0, out.width) {
             let is_row = false;
-            @body(x, y, arr, tmp, is_row);
+            @body(x, y, acc_arr, acc_tmp, is_row);
         }
     }
 
-    for y in $iterate(0, height) {
-        for x in $iterate(0, width) {
+    for y in $iterate(0, out.height) {
+        for x in $iterate(0, out.width) {
             let is_row = true;
-            @body(x, y, tmp, out, is_row);
+            @body(x, y, acc_tmp, acc_out, is_row);
         }
     }
     getMicroTime();
 }
 
-fn iteration_sep_advanced(width : int, height : int,
-                          arr : &[float], out : &[float],
-                          body_col : fn(int, int, &[float], &[float]) -> (),
-                          body_row : fn(int, int, &[float], &[float]) -> ()
+fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
+                          body : fn(int, int, Acc, Acc, bool, int) -> ()
                          ) -> () {
-    let tmp = ~[width*1:float];
+    let L = 8;
+
+    let bbh = ksize / 2;
+
+    let Bounds2DCol = [
+        (0               , bbh),
+        (bbh             , out.height - bbh),
+        (out.height - bbh, out.height)
+    ];
+
+    let Bounds2DRow = [
+        (0              , bbh),
+        (bbh            , out.width - bbh),
+        (out.width - bbh, out.width)
+    ];
 
     getMicroTime();
-    for y in $iterate(0, height) {
-        for x in $iterate(0, width) {
-            @body_col(x, y, arr, tmp);
-        }
-        for x in $iterate(0, width) {
-            @body_row(x, y, tmp, out);
+    // allocate temporary array
+    let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : 1 };
+    init_zero(tmp.data, $tmp.width, $tmp.height);
+    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
+    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
+    let acc_tmp = Acc { img : tmp, o_x : 0, o_y : 0 };
+
+    for region_col in @iterate(0, 3) {
+        let bounds_col = Bounds2DCol(region_col);
+        for y in $iterate(bounds_col(0), bounds_col(1)) {
+            for region_row in @iterate(0, 3) {
+                let bounds_row = Bounds2DRow(region_row);
+                vectorized(bounds_row(1) - bounds_row(0), L, || -> () {
+                    let is_row = false;
+                    let x = wfv_get_tid() + bounds_row(0);
+                    @body(x, y, acc_arr, acc_tmp, is_row, region_col);
+                });
+            }
+            for region_row in @iterate(0, 3) {
+                let bounds_row = Bounds2DRow(region_row);
+                vectorized(bounds_row(1) - bounds_row(0), L, || -> () {
+                    let is_row = true;
+                    let x = wfv_get_tid() + bounds_row(0);
+                    @body(x, y, acc_tmp, acc_out, is_row, region_row);
+                });
+            }
         }
     }
     getMicroTime();
