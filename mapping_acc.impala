@@ -183,6 +183,8 @@ fn iteration_advanced(ksize : int, arr : Img, out : Img,
             let lstride = block(0) + 2 * ksize2;
             let lheight = block(1) * unroll + 2 * ksize2;
             let mut smem = mmap(arr.data, dev, 3, (0, 0, 0), (lstride, lheight, 1));
+            let out_img = Img { data : gpu_out, width : out.width, height : out.height };
+            let arr_img = Img { data : smem,    width : lstride,   height : lheight };
 
             for y in @range(0, steps_y) {
                 let lid_y = tid_y + y*bdim_y;
@@ -204,9 +206,7 @@ fn iteration_advanced(ksize : int, arr : Img, out : Img,
             acc_barrier();
 
             for i in @iterate(0, unroll) {
-                // iteration space: block
-                let out_img = Img { data : gpu_out, width : out.width, height : out.height };
-                let arr_img = Img { data : smem,    width : lstride,   height : lheight };
+                // index space: block
                 let out_acc = Acc { img : out_img, o_x : acc_bdimx() * acc_bidx(), o_y : acc_bdimy() * acc_bidy() * unroll + i * bdim_y };
                 let arr_acc = Acc { img : arr_img, o_x : ksize2,                   o_y : ksize2 + i * bdim_y };
                 body(tid_x, tid_y, arr_acc, out_acc, 4);
@@ -365,7 +365,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
             (out.width - block(0), out.width)
         ];
 
-        for region in iterate(0, 3) {
+        for region in @iterate(0, 3) {
             let bounds = Bounds2DRow(region);
             let dim = (bounds(1) - bounds(0), out.height/unroll, 1);
 
@@ -382,10 +382,9 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
     }
 }
 
-fn iteration_sep_advanced(width : int, height : int, ksize : int,
-                          arr : &[float], out : &[float],
-                          body : fn(int, int, &[float], &[float], int, int, int, int, bool) -> ()
-                         ) -> () {
+fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
+                        body : fn(int, int, Acc, Acc, bool, int) -> ()
+                       ) -> () {
     for unroll in @iterate_times_two(1, 16+1) {
         // compute the number of blocks required for boundary handling
         let bbh = if ((ksize/2) % unroll==0) {
@@ -394,7 +393,7 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
                     (ksize/2) / unroll + 1
                   };
 
-        let dim = (width, height/unroll, 1);
+        let dim = (out.width, out.height/unroll, 1);
         let block = (128/bbh, bbh, 1);
 
         // compute number of steps required to stage data to shared memory
@@ -409,8 +408,8 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
         // 3 -> shared
         // 4 -> constant
         let dev = 1;
-        let gpu_arr = mmap(arr, dev, acc_tex(), (0, 0, 0), (width, height, 1));
-        let gpu_out = mmap(out, dev, 1,         (0, 0, 0), (width, height, 1));
+        let gpu_arr = mmap(arr.data, dev, acc_tex(), (0, 0, 0), (arr.width, out.height, 1));
+        let gpu_out = mmap(out.data, dev, 1,         (0, 0, 0), (out.width, out.height, 1));
 
         acc(dev, dim, block, || -> () {
             let tid_x = acc_tidx();
@@ -420,24 +419,30 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-            let mut smem_col = mmap(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll + 2*ksize2, 1));
-            let     smem_row = mmap(arr, dev, 3, (0, 0, 0), (block(0) + 2*ksize2, block(1)*unroll, 1));
-            let lstride = block(0) + 2*ksize2;
+            let lstride = block(0) + 2 * ksize2;
+            let lheight_col = block(1) * unroll + 2 * ksize2;
+            let lheight_row = block(1) * unroll;
+            let mut smem_col = mmap(arr.data, dev, 3, (0, 0, 0), (lstride, lheight_col, 1));
+            let     smem_row = mmap(arr.data, dev, 3, (0, 0, 0), (lstride, lheight_row, 1));
+            let smr_img = Img { data : smem_row, width : lstride, height : lheight_row };
+            let smc_img = Img { data : smem_col, width : lstride, height : lheight_col };
+            let out_img = Img { data : gpu_out, width : out.width, height : out.height };
+            let region = 1; // no bh
+
 
             for y in @range(0, steps_y) {
                 let lid_y = tid_y + y*bdim_y;
                 let mut idx_y = gid_y - ksize2 + y*bdim_y;
-                idx_y = clamp_upper(idx_y, height);
+                idx_y = clamp_upper(idx_y, arr.height);
                 idx_y = clamp_lower(idx_y, 0);
                 for x in @range(0, steps_x) {
                     let lid_x = tid_x + x*bdim_x;
                     let mut idx_x = gid_x - ksize2 + x*bdim_x;
                     idx_x = clamp_lower(idx_x, 0);
-                    idx_x = clamp_upper(idx_x, width);
+                    idx_x = clamp_upper(idx_x, arr.width);
 
-                    if (lid_x < lstride &&
-                        lid_y < block(1)*unroll + 2*ksize2) {
-                        smem_col(lid_y * lstride + lid_x) = gpu_arr(idx_y * width + idx_x);
+                    if (lid_x < lstride && lid_y < lheight_col) {
+                        smem_col(lid_y * lstride + lid_x) = gpu_arr(idx_y * arr.width + idx_x);
                     }
                 }
             }
@@ -445,21 +450,35 @@ fn iteration_sep_advanced(width : int, height : int, ksize : int,
             acc_barrier();
 
             for i in @iterate(0, unroll) {
+                // index space: block
                 let is_row = false;
-                body(tid_x+ksize2, tid_y + i * bdim_y, smem_col, smem_row, tid_x+ksize2, tid_y+ksize2 + i * bdim_y, lstride, lstride, is_row);
+                // block region
+                let out_acc = Acc { img : smr_img, o_x : ksize2, o_y :          i * bdim_y };
+                let arr_acc = Acc { img : smc_img, o_x : ksize2, o_y : ksize2 + i * bdim_y };
+                body(tid_x, tid_y, arr_acc, out_acc, is_row, region);
+
                 if (tid_x < ksize2) {
-                    @body(tid_x, tid_y + i * bdim_y, smem_col, smem_row, tid_x, tid_y+ksize2 + i * bdim_y, lstride, lstride, is_row);
+                    // left halo
+                    let out_acc = Acc { img : smr_img, o_x : 0, o_y :          i * bdim_y };
+                    let arr_acc = Acc { img : smc_img, o_x : 0, o_y : ksize2 + i * bdim_y };
+                    @body(tid_x, tid_y, arr_acc, out_acc, is_row, region);
                 }
                 if (tid_x >= bdim_x-ksize2) {
-                    @body(tid_x+ksize2+ksize2, tid_y + i * bdim_y, smem_col, smem_row, tid_x+ksize2+ksize2, tid_y+ksize2 + i * bdim_y, lstride, lstride, is_row);
+                    // right halo
+                    let out_acc = Acc { img : smr_img, o_x : ksize2 + ksize2, o_y :          i * bdim_y };
+                    let arr_acc = Acc { img : smc_img, o_x : ksize2 + ksize2, o_y : ksize2 + i * bdim_y };
+                    @body(tid_x, tid_y, arr_acc, out_acc, is_row, region);
                 }
             }
 
             acc_barrier();
 
             for i in @iterate(0, unroll) {
+                // index space: block
                 let is_row = true;
-                body(gid_x, gid_y + i * bdim_y, smem_row, gpu_out, tid_x+ksize2, tid_y + i * bdim_y, lstride, width, is_row);
+                let out_acc = Acc { img : out_img, o_x : acc_bdimx() * acc_bidx(), o_y : acc_bdimy() * acc_bidy() * unroll + i * bdim_y };
+                let arr_acc = Acc { img : smr_img, o_x : ksize2,                   o_y : i * bdim_y };
+                body(tid_x, tid_y, arr_acc, out_acc, is_row, region);
             }
         });
     }
