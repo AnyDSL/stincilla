@@ -1,28 +1,11 @@
-fn iteration(width : int, height : int,
-             arr : &[float], out : &[float],
-             body : fn(int, int, &[float], &[float]) -> ()
-            ) -> () {
-    let unroll = 1;
-    let dim = (width, height/unroll, 1);
-    let block = (128, 1, 1);
-
-    let dev = 1;
-    acc(dev, dim, block, || -> () {
-        let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-
-        for i in @iterate(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy(), arr, out);
-        }
-    });
-}
-
 fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [[float * 9] * 9],
-                         x : int, y : int, arr : &[float],
-                         width : int, height : int, region: int
+                         mut x : int, mut y : int, acc : Acc, region: int
                         ) -> float {
     let mut k = 0.0f;
     let mut p = 0.0f;
+
+    x = x + acc.o_x;
+    y = y + acc.o_y;
 
     for yf in iterate(-2*sigma_d, 2*sigma_d+1) {
         for xf in iterate(-2*sigma_d, 2*sigma_d+1) {
@@ -39,9 +22,9 @@ fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [[float * 9] * 9],
             if region == 6 { idx_x = clamp_lower(idx_x, 0); }
 
             // right
-            if region == 2 { idx_x = clamp_upper(idx_x, width); }
-            if region == 5 { idx_x = clamp_upper(idx_x, width); }
-            if region == 8 { idx_x = clamp_upper(idx_x, width); }
+            if region == 2 { idx_x = clamp_upper(idx_x, acc.img.width); }
+            if region == 5 { idx_x = clamp_upper(idx_x, acc.img.width); }
+            if region == 8 { idx_x = clamp_upper(idx_x, acc.img.width); }
 
             // top
             if region == 0 { idx_y = clamp_lower(idx_y, 0); }
@@ -49,25 +32,25 @@ fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [[float * 9] * 9],
             if region == 2 { idx_y = clamp_lower(idx_y, 0); }
 
             // bottom
-            if region == 6 { idx_y = clamp_upper(idx_y, height); }
-            if region == 7 { idx_y = clamp_upper(idx_y, height); }
-            if region == 8 { idx_y = clamp_upper(idx_y, height); }
+            if region == 6 { idx_y = clamp_upper(idx_y, acc.img.height); }
+            if region == 7 { idx_y = clamp_upper(idx_y, acc.img.height); }
+            if region == 8 { idx_y = clamp_upper(idx_y, acc.img.height); }
 
             // all in
             if region == 10 {
                 idx_x = clamp_lower(idx_x, 0);
-                idx_x = clamp_upper(idx_x, width);
-                idx_y = clamp_upper(idx_y, height);
+                idx_x = clamp_upper(idx_x, acc.img.width);
+                idx_y = clamp_upper(idx_y, acc.img.height);
                 idx_y = clamp_lower(idx_y, 0);
             }
 
 
-            let diff = arr(idx_y * width + idx_x) - arr(y * width + x);
+            let diff = acc.img.data(idx_y * acc.img.width + idx_x) - acc.img.data(y * acc.img.width + x);
 
             let s = expf(-c_r * diff*diff) * mask(xf + 2*sigma_d)(yf + 2*sigma_d);
 
             k += s;
-            p += s * arr(idx_y * width + idx_x);
+            p += s * acc.img.data(idx_y * acc.img.width + idx_x);
         }
     }
 
@@ -75,12 +58,14 @@ fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [[float * 9] * 9],
 }
 
 extern 
-fn thorin_bilateral(arr : &[float], out : &[float], width : int, height : int) -> () {
+fn thorin_bilateral(arr_data : &[float], out_data : &[float], width : int, height : int) -> () {
     let sigma_r = 5.0f;
     let sigma_d = 2;
-    let c_d = 1.0f / (2.0f * 2.0f*2.0f);
-    let c_r = 1.0f / (2.0f * sigma_r*sigma_r);
-    let mask = [
+    let c_d     = 1.0f / (2.0f * 2.0f*2.0f);
+    let c_r     = 1.0f / (2.0f * sigma_r*sigma_r);
+    let arr     = Img { data : arr_data, width : width, height : height };
+    let out     = Img { data : out_data, width : width, height : height };
+    let mask    = [
         [0.018316f, 0.043937f, 0.082085f, 0.119433f, 0.135335f, 0.119433f, 0.082085f, 0.043937f, 0.018316f],
         [0.043937f, 0.105399f, 0.196912f, 0.286505f, 0.324652f, 0.286505f, 0.196912f, 0.105399f, 0.043937f],
         [0.082085f, 0.196912f, 0.367879f, 0.535261f, 0.606531f, 0.535261f, 0.367879f, 0.196912f, 0.082085f],
@@ -91,8 +76,9 @@ fn thorin_bilateral(arr : &[float], out : &[float], width : int, height : int) -
         [0.043937f, 0.105399f, 0.196912f, 0.286505f, 0.324652f, 0.286505f, 0.196912f, 0.105399f, 0.043937f],
         [0.018316f, 0.043937f, 0.082085f, 0.119433f, 0.135335f, 0.119433f, 0.082085f, 0.043937f, 0.018316f]];
 
-    for x, y, arr, mut out in @iteration(width, height, arr, out) {
-        out(y*width + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, width, height, 10);
+
+    for x, y, arr, mut out in @iteration(arr, out) {
+        out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, 10);
     }
 }
 
