@@ -9,7 +9,7 @@ fn apply_stencil(ksize : int, stencil : [[float * 3] * 3],
             let stencil_val = stencil(i + half_range)(j + half_range);
             if stencil_val != 0.0f {
                 let mut idx_x = acc.o_x + x + i;
-                let mut idx_y = acc.o_x + y + j;
+                let mut idx_y = acc.o_y + y + j;
 
                 // 0 --- 1 --- 2
                 // 3 --- 4 --- 5
