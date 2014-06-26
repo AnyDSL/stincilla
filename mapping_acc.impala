@@ -160,8 +160,8 @@ fn iteration_advanced(ksize : int, arr : Img, out : Img,
         // compute number of steps required to stage data to shared memory
         let ksize2 = ksize / 2;
         let steps_x = 2;
-        let offset_y = if ksize%block(1)==0 { 0 } else { 1 };
-        let steps_y = unroll + ksize/block(1) + offset_y;
+        let offset_y = if (ksize-1)%block(1)==0 { 0 } else { 1 };
+        let steps_y = unroll + (ksize-1)/block(1) + offset_y;
 
         // 0 -> generic
         // 1 -> global
@@ -183,14 +183,15 @@ fn iteration_advanced(ksize : int, arr : Img, out : Img,
             let lstride = block(0) + 2 * ksize2;
             let lheight = block(1) * unroll + 2 * ksize2;
             let mut smem = mmap(arr.data, dev, 3, (0, 0, 0), (lstride, lheight, 1));
+            let sma_img = Img { data : smem,    width : lstride,   height : lheight };
             let out_img = Img { data : gpu_out, width : out.width, height : out.height };
-            let arr_img = Img { data : smem,    width : lstride,   height : lheight };
+            let region = 4; // no bh
 
             for y in @range(0, steps_y) {
                 let lid_y = tid_y + y*bdim_y;
                 let mut idx_y = gid_y - ksize2 + y*bdim_y;
-                idx_y = clamp_upper(idx_y, arr.height);
                 idx_y = clamp_lower(idx_y, 0);
+                idx_y = clamp_upper(idx_y, arr.height);
                 for x in @range(0, steps_x) {
                     let lid_x = tid_x + x*bdim_x;
                     let mut idx_x = gid_x - ksize2 + x*bdim_x;
@@ -208,8 +209,8 @@ fn iteration_advanced(ksize : int, arr : Img, out : Img,
             for i in @iterate(0, unroll) {
                 // index space: block
                 let out_acc = Acc { img : out_img, o_x : acc_bdimx() * acc_bidx(), o_y : acc_bdimy() * acc_bidy() * unroll + i * bdim_y };
-                let arr_acc = Acc { img : arr_img, o_x : ksize2,                   o_y : ksize2 + i * bdim_y };
-                body(tid_x, tid_y, arr_acc, out_acc, 4);
+                let arr_acc = Acc { img : sma_img, o_x : ksize2,                   o_y : ksize2 + i * bdim_y };
+                body(tid_x, tid_y, arr_acc, out_acc, region);
             }
         });
     }
@@ -399,8 +400,8 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
         // compute number of steps required to stage data to shared memory
         let ksize2 = ksize / 2;
         let steps_x = 2;
-        let offset_y = if ksize%block(1)==0 { 0 } else { 1 };
-        let steps_y = unroll + ksize/block(1) + offset_y;
+        let offset_y = if (ksize-1)%block(1)==0 { 0 } else { 1 };
+        let steps_y = unroll + (ksize-1)/block(1) + offset_y;
 
         // 0 -> generic
         // 1 -> global
@@ -433,8 +434,8 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
             for y in @range(0, steps_y) {
                 let lid_y = tid_y + y*bdim_y;
                 let mut idx_y = gid_y - ksize2 + y*bdim_y;
-                idx_y = clamp_upper(idx_y, arr.height);
                 idx_y = clamp_lower(idx_y, 0);
+                idx_y = clamp_upper(idx_y, arr.height);
                 for x in @range(0, steps_x) {
                     let lid_x = tid_x + x*bdim_x;
                     let mut idx_x = gid_x - ksize2 + x*bdim_x;
@@ -452,7 +453,6 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
             for i in @iterate(0, unroll) {
                 // index space: block
                 let is_row = false;
-                // block region
                 let out_acc = Acc { img : smr_img, o_x : ksize2, o_y :          i * bdim_y };
                 let arr_acc = Acc { img : smc_img, o_x : ksize2, o_y : ksize2 + i * bdim_y };
                 body(tid_x, tid_y, arr_acc, out_acc, is_row, region);
