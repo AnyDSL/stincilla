@@ -9,10 +9,10 @@ fn matmul(mut res: &[float], num_rows: int, num_cols: int, a: &[float], b: &[flo
         num*y + x
     }
 
-    for y in iterate(0, num_rows) {
-        for x in iterate(0, num_cols) {
+    for y in $iterate(0, num_rows) {
+        for x in $iterate(0, num_cols) {
             let mut sum = 0.f;
-            for i in iterate(0, num) {
+            for i in $iterate(0, num) {
                 sum += a(index_a(i, y))*b(index_b(x, i));
             }
             res(index_res(x, y)) = sum;
@@ -25,9 +25,12 @@ fn matmul2(res: &[float], a: &[float], b: &[float], num: int) -> () {
 }
 
 fn main(i: int) -> int {
-    let a   = ~[3*3:float];
-    let b   = ~[3*3:float];
-    let res = ~[3*3:float];
-    @matmul2(res, a, b, i);
+    let N   = 1024;
+    let a   = ~[N*N:float];
+    let b   = ~[N*N:float];
+    let res = ~[N*N:float];
+    getMicroTime();
+    @matmul2(res, a, b, N);
+    getMicroTime();
     0
 }
