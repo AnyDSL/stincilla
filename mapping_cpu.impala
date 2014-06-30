@@ -5,7 +5,7 @@ fn iteration(arr : Img, out : Img,
     let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
     getMicroTime();
     for y in $iterate(0, out.height) {
-        for x in $iterate(0, out.width) {
+        for x in inner_loop(0, out.width) {
             @body(x, y, acc_arr, acc_out);
         }
     }
@@ -15,33 +15,42 @@ fn iteration(arr : Img, out : Img,
 fn iteration_bounds(ksize : int, arr : Img, out : Img,
                     body : fn(int, int, Acc, Acc, int) -> ()
                    ) -> () {
-    let bbh = ksize / 2;
+    // compute the number of vector strides for boundary handling
+    let bhy = ksize / 2;
+    let bhx = if ((ksize/2) % get_vector_length()==0) {
+                (ksize/2) / get_vector_length()
+              } else {
+                (ksize/2) / get_vector_length() + get_vector_length()
+              };
+
     // (minx, maxx, miny, maxy)
     let Bounds2D = [
-        (0              , bbh            , 0               , bbh),
-        (bbh            , out.width - bbh, 0               , bbh),
-        (out.width - bbh, out.width      , 0               , bbh),
+        (0              , bhx            , 0               , bhy),
+        (bhx            , out.width - bhx, 0               , bhy),
+        (out.width - bhx, out.width      , 0               , bhy),
 
-        (0              , bbh            , out.height - bbh, out.height),
-        (bbh            , out.width - bbh, out.height - bbh, out.height),
-        (out.width - bbh, out.width      , out.height - bbh, out.height),
+        (0              , bhx            , bhy             , out.height - bhy),
+        (bhx            , out.width - bhx, bhy             , out.height - bhy),
+        (out.width - bhx, out.width      , bhy             , out.height - bhy),
 
-        (0              , bbh            , bbh             , out.height - bbh),
-        (out.width - bbh, out.width      , bbh             , out.height - bbh),
-        (bbh            , out.width - bbh, bbh             , out.height - bbh)
+        (0              , bhx            , out.height - bhy, out.height),
+        (bhx            , out.width - bhx, out.height - bhy, out.height),
+        (out.width - bhx, out.width      , out.height - bhy, out.height)
     ];
 
     let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
     let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
 
+    getMicroTime();
     for region in @iterate(0, 9) {
         let bounds = Bounds2D(region);
         for y in $iterate(bounds(2), bounds(3)) {
-            for x in $iterate(bounds(0), bounds(1)) {
+            for x in inner_loop(bounds(0), bounds(1)) {
                 @body(x, y, acc_arr, acc_out, region);
             }
         }
     }
+    getMicroTime();
 }
 
 fn iteration_sep(arr : Img, out : Img,
@@ -56,14 +65,14 @@ fn iteration_sep(arr : Img, out : Img,
 
     getMicroTime();
     for y in $iterate(0, out.height) {
-        for x in $iterate(0, out.width) {
+        for x in inner_loop(0, out.width) {
             let is_row = false;
             @body(x, y, acc_arr, acc_tmp, is_row);
         }
     }
 
     for y in $iterate(0, out.height) {
-        for x in $iterate(0, out.width) {
+        for x in inner_loop(0, out.width) {
             let is_row = true;
             @body(x, y, acc_tmp, acc_out, is_row);
         }
@@ -81,25 +90,30 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
     let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
     let acc_tmp = Acc { img : tmp, o_x : 0, o_y : 0 };
 
-    let bbh = ksize / 2;
+    let bhy = ksize / 2;
+    let bhx = if ((ksize/2) % get_vector_length()==0) {
+                (ksize/2) / get_vector_length()
+              } else {
+                (ksize/2) / get_vector_length() + get_vector_length()
+              };
 
     let Bounds2DCol = [
-        (0               , bbh),
-        (bbh             , out.height - bbh),
-        (out.height - bbh, out.height)
+        (0               , bhy),
+        (bhy             , out.height - bhy),
+        (out.height - bhy, out.height)
     ];
 
     let Bounds2DRow = [
-        (0              , bbh),
-        (bbh            , out.width - bbh),
-        (out.width - bbh, out.width)
+        (0              , bhx),
+        (bhx            , out.width - bhx),
+        (out.width - bhx, out.width)
     ];
 
     getMicroTime();
     for region in @iterate(0, 3) {
         let bounds = Bounds2DCol(region);
         for y in $iterate(bounds(0), bounds(1)) {
-            for x in $iterate(0, out.width) {
+            for x in inner_loop(0, out.width) {
                 let is_row = false;
                 @body(x, y, acc_arr, acc_tmp, is_row, region);
             }
@@ -109,7 +123,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
     for region in @iterate(0, 3) {
         let bounds = Bounds2DRow(region);
         for y in $iterate(0, out.height) {
-            for x in $iterate(bounds(0), bounds(1)) {
+            for x in inner_loop(bounds(0), bounds(1)) {
                 let is_row = true;
                 @body(x, y, acc_tmp, acc_arr, is_row, region);
             }
@@ -148,14 +162,14 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
         for y in $iterate(bounds_col(0), bounds_col(1)) {
             for region_row in @iterate(0, 3) {
                 let bounds_row = Bounds2DRow(region_row);
-                for x in $iterate(bounds_row(0), bounds_row(1)) {
+                for x in inner_loop(bounds_row(0), bounds_row(1)) {
                     let is_row = false;
                     @body(x, y, acc_arr, acc_tmp, is_row, region_col);
                 }
             }
             for region_row in @iterate(0, 3) {
                 let bounds_row = Bounds2DRow(region_row);
-                for x in $iterate(bounds_row(0), bounds_row(1)) {
+                for x in inner_loop(bounds_row(0), bounds_row(1)) {
                     let is_row = true;
                     @body(x, y, acc_tmp, acc_out, is_row, region_row);
                 }
