@@ -51,6 +51,14 @@ fn clamp_none(idx : int, bound : int) -> int {
     idx
 }
 
+// nearest multiple of num
+fn round_up(num : int, multiple : int) -> int {
+    if multiple == 0 { num } else {
+    let rem = num % multiple;
+    if rem == 0 { num } else { num + multiple - rem }
+    }
+}
+
 // structs for images and accessors
 struct Img {
     data : &[float],
