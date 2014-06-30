@@ -10,11 +10,11 @@ fn iteration(arr : Img, out : Img,
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-        let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
-        let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
+        let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
+        let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
 
         for i in @iterate(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy(), acc_arr, acc_out);
+            body(gid_x, gid_y + i * acc_bdimy(), arr_acc, out_acc);
         }
     });
 }
@@ -36,8 +36,8 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
               };
     let block = (128/bbh, bbh, 1);
 
-    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
-    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
 
     let dev = 2;
     if big_kernel {
@@ -57,55 +57,55 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
             // 6 --- 7 --- 8
             if (bid_x < 1 && bid_y < 1) {                   // top-left: 0
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_out, 0);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, out_acc, 0);
                 }
                 return()
             }
             if (bid_x >= gdim_x-1 && bid_y < 1) {           // top-right: 2
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_out, 2);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, out_acc, 2);
                 }
                 return()
             }
             if (bid_y < 1) {                                // top: 1
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_out, 1);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, out_acc, 1);
                 }
                 return()
             }
             if (bid_y >= gdim_y-1 && bid_x < 1) {           // bottom-left: 6
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_out, 6);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, out_acc, 6);
                 }
                 return()
             }
             if (bid_y >= gdim_y-1 && bid_x >= gdim_x-1) {   // bottom-right: 8
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_out, 8);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, out_acc, 8);
                 }
                 return()
             }
             if (bid_y >= gdim_y-1) {                        // bottom: 7
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_out, 7);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, out_acc, 7);
                 }
                 return()
             }
             if (bid_x >= gdim_x-1) {                        // right: 5
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_out, 5);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, out_acc, 5);
                 }
                 return()
             }
             if (bid_x < 1) {                                // left: 3
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_out, 3);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, out_acc, 3);
                 }
                 return()
             }
             // no border handling
             for i in @iterate(0, unroll) {
-                body(gid_x, gid_y + i * bdim_y, acc_arr, acc_out, 4);
+                body(gid_x, gid_y + i * bdim_y, arr_acc, out_acc, 4);
             }
         });
     } else {
@@ -136,7 +136,7 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
                             acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * acc_bdimy(), acc_arr, acc_out, region);
+                    body(gid_x, gid_y + i * acc_bdimy(), arr_acc, out_acc, region);
                 }
             });
         }
@@ -226,9 +226,9 @@ fn iteration_sep(arr : Img, out : Img,
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
     init_zero(tmp.data, $tmp.width, $tmp.height);
-    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
-    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
-    let acc_tmp = Acc { img : tmp, o_x : 0, o_y : 0 };
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
+    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
 
     let dev = 2;
     acc(dev, dim, block, || -> () {
@@ -237,7 +237,7 @@ fn iteration_sep(arr : Img, out : Img,
         let is_row = false;
 
         for i in @iterate(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy(), acc_arr, acc_tmp, is_row);
+            body(gid_x, gid_y + i * acc_bdimy(), arr_acc, tmp_acc, is_row);
         }
     });
     acc(dev, dim, block, || -> () {
@@ -246,7 +246,7 @@ fn iteration_sep(arr : Img, out : Img,
         let is_row = true;
 
         for i in @iterate(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy(), acc_tmp, acc_out, is_row);
+            body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, out_acc, is_row);
         }
     });
 }
@@ -271,9 +271,9 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
     init_zero(tmp.data, $tmp.width, $tmp.height);
-    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
-    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
-    let acc_tmp = Acc { img : tmp, o_x : 0, o_y : 0 };
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
+    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
 
     let dev = 2;
     if big_kernel {
@@ -293,19 +293,19 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
             // 2
             if (bid_y < 1) {                                // top: 0
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_tmp, is_row, 0);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, tmp_acc, is_row, 0);
                 }
                 return()
             }
             if (bid_y >= gdim_y-1) {                        // bottom: 2
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_arr, acc_tmp, is_row, 2);
+                    body(gid_x, gid_y + i * bdim_y, arr_acc, tmp_acc, is_row, 2);
                 }
                 return()
             }
             // no border handling
             for i in @iterate(0, unroll) {
-                body(gid_x, gid_y + i * bdim_y, acc_arr, acc_tmp, is_row, 1);
+                body(gid_x, gid_y + i * bdim_y, arr_acc, tmp_acc, is_row, 1);
             }
         });
 
@@ -321,19 +321,19 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
             // 0 --- 1 --- 2
             if (bid_x < 1) {                                // left: 0
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_tmp, acc_out, is_row, 0);
+                    body(gid_x, gid_y + i * bdim_y, tmp_acc, out_acc, is_row, 0);
                 }
                 return()
             }
             if (bid_x >= gdim_x-1) {                        // right: 2
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, acc_tmp, acc_out, is_row, 2);
+                    body(gid_x, gid_y + i * bdim_y, tmp_acc, out_acc, is_row, 2);
                 }
                 return()
             }
             // no border handling
             for i in @iterate(0, unroll) {
-                body(gid_x, gid_y + i * bdim_y, acc_tmp, acc_out, is_row, 1);
+                body(gid_x, gid_y + i * bdim_y, tmp_acc, out_acc, is_row, 1);
             }
         });
     } else {
@@ -355,7 +355,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
                 let is_row = false;
 
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * acc_bdimy(), acc_arr, acc_tmp, is_row, region);
+                    body(gid_x, gid_y + i * acc_bdimy(), arr_acc, tmp_acc, is_row, region);
                 }
             });
         }
@@ -376,7 +376,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
                 let is_row = true;
 
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * acc_bdimy(), acc_tmp, acc_out, is_row, region);
+                    body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, out_acc, is_row, region);
                 }
             });
         }

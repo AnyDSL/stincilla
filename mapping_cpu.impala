@@ -1,12 +1,12 @@
 fn iteration(arr : Img, out : Img,
              body : fn(int, int, Acc, Acc) -> ()
             ) -> () {
-    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
-    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
     getMicroTime();
     for y in $iterate(0, out.height) {
         for x in inner_loop(0, out.width) {
-            @body(x, y, acc_arr, acc_out);
+            @body(x, y, arr_acc, out_acc);
         }
     }
     getMicroTime();
@@ -34,15 +34,15 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
         (out.width - bhx, out.width      , out.height - bhy, out.height)
     ];
 
-    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
-    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
 
     getMicroTime();
     for region in @iterate(0, 9) {
         let bounds = Bounds2D(region);
         for y in $iterate(bounds(2), bounds(3)) {
             for x in inner_loop(bounds(0), bounds(1)) {
-                @body(x, y, acc_arr, acc_out, region);
+                @body(x, y, arr_acc, out_acc, region);
             }
         }
     }
@@ -62,22 +62,22 @@ fn iteration_sep(arr : Img, out : Img,
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
     init_zero(tmp.data, $tmp.width, $tmp.height);
-    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
-    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
-    let acc_tmp = Acc { img : tmp, o_x : 0, o_y : 0 };
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
+    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
 
     getMicroTime();
     for y in $iterate(0, out.height) {
         for x in inner_loop(0, out.width) {
             let is_row = false;
-            @body(x, y, acc_arr, acc_tmp, is_row);
+            @body(x, y, arr_acc, tmp_acc, is_row);
         }
     }
 
     for y in $iterate(0, out.height) {
         for x in inner_loop(0, out.width) {
             let is_row = true;
-            @body(x, y, acc_tmp, acc_out, is_row);
+            @body(x, y, tmp_acc, out_acc, is_row);
         }
     }
     getMicroTime();
@@ -89,9 +89,9 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
     init_zero(tmp.data, $tmp.width, $tmp.height);
-    let acc_arr = Acc { img : arr, o_x : 0, o_y : 0 };
-    let acc_out = Acc { img : out, o_x : 0, o_y : 0 };
-    let acc_tmp = Acc { img : tmp, o_x : 0, o_y : 0 };
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
+    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
 
     let bhy = ksize / 2;
     let bhx = @round_up(ksize / 2, get_vector_length());
@@ -114,7 +114,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
         for y in $iterate(bounds(0), bounds(1)) {
             for x in inner_loop(0, out.width) {
                 let is_row = false;
-                @body(x, y, acc_arr, acc_tmp, is_row, region);
+                @body(x, y, arr_acc, tmp_acc, is_row, region);
             }
         }
     }
@@ -124,7 +124,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
         for y in $iterate(0, out.height) {
             for x in inner_loop(bounds(0), bounds(1)) {
                 let is_row = true;
-                @body(x, y, acc_tmp, acc_arr, is_row, region);
+                @body(x, y, tmp_acc, arr_acc, is_row, region);
             }
         }
     }
@@ -160,18 +160,18 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
             for x in inner_loop(0, tmp.width) {
                 let is_row = false;
                 // index space: cache line
-                let acc_arr = Acc { img : arr, o_x : 0, o_y : y };
-                let acc_tmp = Acc { img : tmp, o_x : 0, o_y : 0 };
-                @body(x, 0, acc_arr, acc_tmp, is_row, 10);
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : y };
+                let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
+                @body(x, 0, arr_acc, tmp_acc, is_row, 10);
             }
             for region_row in @iterate(0, 3) {
                 let bounds_row = Bounds2DRow(region_row);
                 for x in inner_loop(bounds_row(0), bounds_row(1)) {
                     let is_row = true;
                     // index space: cache line
-                    let acc_tmp = Acc { img : tmp, o_x : 0, o_y : 0 };
-                    let acc_out = Acc { img : arr, o_x : 0, o_y : y };
-                    @body(x, 0, acc_tmp, acc_out, is_row, 10);
+                    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
+                    let out_acc = Acc { img : arr, o_x : 0, o_y : y };
+                    @body(x, 0, tmp_acc, out_acc, is_row, 10);
                 }
             }
         }
