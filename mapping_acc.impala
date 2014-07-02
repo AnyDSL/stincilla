@@ -5,7 +5,7 @@ fn iteration(arr : Img, out : Img,
     let dim = (out.width, out.height/unroll, 1);
     let block = (128, 1, 1);
 
-    let dev = 2;
+    let dev = 1;
     acc(dev, dim, block, || -> () {
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
@@ -39,7 +39,7 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
     let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
     let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
 
-    let dev = 2;
+    let dev = 1;
     if big_kernel {
         let dim = (out.width, out.height/unroll, 1);
 
@@ -168,7 +168,7 @@ fn iteration_advanced(ksize : int, arr : Img, out : Img,
         // 2 -> texture
         // 3 -> shared
         // 4 -> constant
-        let dev = 2;
+        let dev = 1;
         let gpu_arr = mmap(arr.data, dev, acc_tex(), (0, 0, 0), (arr.width, arr.height, 1));
         let gpu_out = mmap(out.data, dev, 1,         (0, 0, 0), (out.width, out.height, 1));
 
@@ -230,7 +230,7 @@ fn iteration_sep(arr : Img, out : Img,
     let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
     let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
 
-    let dev = 2;
+    let dev = 1;
     acc(dev, dim, block, || -> () {
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
@@ -275,7 +275,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
     let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
     let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
 
-    let dev = 2;
+    let dev = 1;
     if big_kernel {
         let dim = (out.width, out.height/unroll, 1);
 
@@ -408,7 +408,7 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
         // 2 -> texture
         // 3 -> shared
         // 4 -> constant
-        let dev = 2;
+        let dev = 1;
         let gpu_arr = mmap(arr.data, dev, acc_tex(), (0, 0, 0), (arr.width, out.height, 1));
         let gpu_out = mmap(out.data, dev, 1,         (0, 0, 0), (out.width, out.height, 1));
 
@@ -491,7 +491,7 @@ fn iteration_multi(width : int, height : int,
     let dim = (width, height/2, 1);
     let block = (128, 1, 1);
 
-    let dev_gpu1 = 1;
+    let dev_gpu1 = 0;
     let map_arr_GPU1 = mmap(arr, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
     let map_out_GPU1 = mmap(out, dev_gpu1, 1, (0, 0, 0), (width, height/2, 1));
 
@@ -502,7 +502,7 @@ fn iteration_multi(width : int, height : int,
         @body(gid_x, gid_y, map_arr_GPU1, map_out_GPU1);
     });
 
-    let dev_gpu2 = 2;
+    let dev_gpu2 = 1;
     let map_arr_GPU2 = mmap(arr, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
     let map_out_GPU2 = mmap(out, dev_gpu2, 1, (0, height/2, 0), (width, height/2, 1));
 
