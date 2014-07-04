@@ -1,36 +1,42 @@
-fn matmul(mut res: &[float], num_rows: int, num_cols: int, a: &[float], b: &[float], num: int) -> () {
-    fn index_res(x: int, y: int) -> int {
-        num_cols*y + x
-    }
-    fn index_a(x: int, y: int) -> int {
-        index_res(x, y)
-    }
-    fn index_b(x: int, y: int) -> int {
-        num*y + x
-    }
+struct Mat {
+    data : &[float],
+    rows : int,
+    cols : int
+}
 
-    for y in $iterate(0, num_rows) {
-        for x in $iterate(0, num_cols) {
-            let mut sum = 0.f;
-            for i in $iterate(0, num) {
-                sum += a(index_a(i, y))*b(index_b(x, i));
+fn index(M: Mat, x: int, y: int) -> int {
+    M.cols * y + x
+}
+
+fn matmul(mut C: Mat, A: Mat, B: Mat) -> () {
+    for i in $iterate(0, C.rows) {
+        for k in $iterate(0, C.cols) {
+            let mut sum = 0 as float;
+            for j in $iterate(0, A.cols) {
+                //C(index(C, i, k) += C(index(C, i, k) + A(index(A, i, j) * B(index(B, j, k);
+                sum += A.data(index(A, i, j)) * B.data(index(B, j, k));
             }
-            res(index_res(x, y)) = sum;
+            C.data(index(C, i, k)) = sum;
         }
     }
 }
 
-fn matmul2(res: &[float], a: &[float], b: &[float], num: int) -> () {
-    matmul(res, num, num, a, b, num);
-}
-
 fn main(i: int) -> int {
-    let N   = 1024;
-    let a   = ~[N*N:float];
-    let b   = ~[N*N:float];
-    let res = ~[N*N:float];
+    let l     = 512;
+    let m     = 1024;
+    let n     = 2048;
+    let A     = Mat { data : ~[l*m:float], rows : l, cols : m }; // mxl
+    let B     = Mat { data : ~[m*n:float], rows : m, cols : n }; // nxm
+    let mut C = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
+    /*
+    // initialize C with zeros
+    for i in iterate(0, C.rows * C.cols) {
+        C.data(i) = 0 as float;
+    }
+    */
+
     getMicroTime();
-    @matmul2(res, a, b, N);
+    @matmul(C, A, B);
     getMicroTime();
     0
 }
