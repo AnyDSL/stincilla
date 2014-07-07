@@ -3,13 +3,13 @@ fn iteration(arr : Img, out : Img,
             ) -> () {
     let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
     let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
-    getMicroTime();
+    get_micro_time();
     for y in $iterate(0, out.height) {
         for x in inner_loop(0, out.width) {
             @body(x, y, arr_acc, out_acc);
         }
     }
-    getMicroTime();
+    get_micro_time();
 }
 
 fn iteration_bounds(ksize : int, arr : Img, out : Img,
@@ -37,7 +37,7 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
     let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
     let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
 
-    getMicroTime();
+    get_micro_time();
     for region in @iterate(0, 9) {
         let bounds = Bounds2D(region);
         for y in $iterate(bounds(2), bounds(3)) {
@@ -46,7 +46,7 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
             }
         }
     }
-    getMicroTime();
+    get_micro_time();
 }
 
 fn iteration_advanced(ksize : int, arr : Img, out : Img,
@@ -66,7 +66,7 @@ fn iteration_sep(arr : Img, out : Img,
     let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
     let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
 
-    getMicroTime();
+    get_micro_time();
     for y in $iterate(0, out.height) {
         for x in inner_loop(0, out.width) {
             let is_row = false;
@@ -80,7 +80,7 @@ fn iteration_sep(arr : Img, out : Img,
             @body(x, y, tmp_acc, out_acc, is_row);
         }
     }
-    getMicroTime();
+    get_micro_time();
 }
 
 fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
@@ -108,7 +108,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
         (out.width - bhx, out.width)
     ];
 
-    getMicroTime();
+    get_micro_time();
     for region in @iterate(0, 3) {
         let bounds = Bounds2DCol(region);
         for y in $iterate(bounds(0), bounds(1)) {
@@ -128,7 +128,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
             }
         }
     }
-    getMicroTime();
+    get_micro_time();
 }
 
 fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
@@ -149,7 +149,7 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
         (out.width - bhx, out.width)
     ];
 
-    getMicroTime();
+    get_micro_time();
     // allocate temporary array
     let tmp = Img { data : ~[out.width:float], width : out.width, height : 1 };
     init_zero(tmp.data, $tmp.width, $tmp.height);
@@ -176,5 +176,5 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
             }
         }
     }
-    getMicroTime();
+    get_micro_time();
 }

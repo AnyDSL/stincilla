@@ -68,8 +68,10 @@ fn main(i: int) -> int {
     let B = Mat { data : ~[m*n:float], rows : m, cols : n }; // nxm
     let C = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
 
-    getMicroTime();
+    let start = get_micro_time();
     @matmul(C, A, B);
-    getMicroTime();
+    let end = get_micro_time();
+    let nops = 2 * l * m * n;
+    let gflops = 1.0e-9f * nops as float / ((end - start) as float * 1.0e-6f);
     0
 }
