@@ -126,17 +126,17 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
         // bounds account for unroll factor
         let hu = out.height/unroll;
         let Bounds2D = [
-            (0                   , block(0)            , 0            , block(1)),
-            (block(0)            , out.width - block(0), 0            , block(1)),
-            (out.width - block(0), out.width           , 0            , block(1)),
+            (0                      , bx*block(0)            , 0               , by*block(1)),
+            (bx*block(0)            , out.width - bx*block(0), 0               , by*block(1)),
+            (out.width - bx*block(0), out.width              , 0               , by*block(1)),
 
-            (0                   , block(0)            , block(1)     , hu - block(1)),
-            (block(0)            , out.width - block(0), block(1)     , hu - block(1)),
-            (out.width - block(0), out.width           , block(1)     , hu - block(1)),
+            (0                      , bx*block(0)            , by*block(1)     , hu - by*block(1)),
+            (bx*block(0)            , out.width - bx*block(0), by*block(1)     , hu - by*block(1)),
+            (out.width - bx*block(0), out.width              , by*block(1)     , hu - by*block(1)),
 
-            (0                   , block(0)            , hu - block(1), hu),
-            (block(0)            , out.width - block(0), hu - block(1), hu),
-            (out.width - block(0), out.width           , hu - block(1), hu)
+            (0                      , bx*block(0)            , hu - by*block(1), hu),
+            (bx*block(0)            , out.width - bx*block(0), hu - by*block(1), hu),
+            (out.width - bx*block(0), out.width              , hu - by*block(1), hu)
         ];
 
         for region in @iterate(0, 9) {
@@ -340,9 +340,9 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
     } else {
         let hu = out.height / unroll;
         let Bounds2DCol = [
-            (0               , block(1)),
-            (block(1)        , hu - block(1)),
-            (hu - block(1)   , hu)
+            (0               , by*block(1)),
+            (by*block(1)     , hu - by*block(1)),
+            (hu - by*block(1), hu)
         ];
 
         for region in @iterate(0, 3) {
@@ -362,9 +362,9 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
         }
 
         let Bounds2DRow = [
-            (0                   , block(0)),
-            (block(0)            , out.width - block(0)),
-            (out.width - block(0), out.width)
+            (0                      , bx*block(0)),
+            (bx*block(0)            , out.width - bx*block(0)),
+            (out.width - bx*block(0), out.width)
         ];
 
         for region in @iterate(0, 3) {
