@@ -162,6 +162,7 @@ fn iteration_advanced(ksize : int, arr : Img, out : Img,
                      ) -> () {
     let unroll = 1;
     let dim = (out.width, out.height/unroll, 1);
+    // must be 1, 1, 1 for CPU on Mac OS X when local memory is used
     let block = (128, 1, 1);
 
     // compute number of steps required to stage data to shared memory
@@ -389,6 +390,7 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
                          ) -> () {
     let unroll = 1;
     let dim = (out.width, out.height/unroll, 1);
+    // must be 1, 1, 1 for CPU on Mac OS X when local memory is used
     let block = (128, 1, 1);
 
     // compute number of steps required to stage data to shared memory
