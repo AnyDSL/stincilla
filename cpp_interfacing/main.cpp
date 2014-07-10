@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
+#include <thorin_ext_runtime.h>
 
 #include "pgm_image.h"
-#include "thorin_runtime.h"
 
 extern "C" void thorin_bilateral(float *, float *, int, int);
 
