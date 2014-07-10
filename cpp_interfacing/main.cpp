@@ -17,7 +17,7 @@ int main(int argc, const char **argv) {
     // Lena test image
     short int *image;
     int width, height;
-    image = read_image(&width, &height, "lena.pgm");
+    image = read_image(&width, &height, argc > 1 ? argv[1] : "lena.pgm");
 
     // host memory for image of width x height pixels
     // use thorin_malloc from AnyDSL runtime for memory allocation
