@@ -127,23 +127,23 @@ fn main() -> int {
     //    out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil(ksize, stencil, x, y, arr, region);
     //}
 
-    //// SS + SEP
-    //for x, y, arr, mut out, is_row in @iteration_sep(arr, out) {
-    //    out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, is_row, 10);
-    //}
-
-    // SS + SEP + BH
-    for x, y, arr, mut out, is_row, region in @iteration_sep_bounds(ksize, arr, out) {
-        out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, is_row, region);
-    }
-
-
     //// SS + SM
     //for x, y, arr, mut out, region in @iteration_advanced(ksize, arr, out) {
     //    out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil(ksize, stencil, x, y, arr, region);
     //}
 
-    //// SS + SEP + SM
+
+    //// SEP + SS
+    //for x, y, arr, mut out, is_row in @iteration_sep(arr, out) {
+    //    out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, is_row, 10);
+    //}
+
+    // SEP + SS + BH
+    for x, y, arr, mut out, is_row, region in @iteration_sep_bounds(ksize, arr, out) {
+        out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, is_row, region);
+    }
+
+    //// SEP + SS + SM
     //for x, y, arr, mut out, is_row, region in @iteration_sep_advanced(ksize, arr, out) {
     //    out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr, is_row, region);
     //}

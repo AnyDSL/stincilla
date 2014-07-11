@@ -79,6 +79,11 @@ fn main() -> int {
     //    out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil(ksize, stencil, x, y, arr, region);
     //}
 
+    //// SS + SM
+    //for x, y, arr, mut out, region in @iteration_advanced(ksize, arr, out) {
+    //    out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = apply_stencil(ksize, stencil, x, y, arr, region);
+    //}
+
 
     let mut passed = 0;
 
