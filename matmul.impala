@@ -4,6 +4,18 @@ struct Mat {
     cols : int
 }
 
+fn matmul_golden(mut C: Mat, A: Mat, B: Mat) -> () {
+    for i in $iterate(0, C.rows) {
+        for k in $iterate(0, C.cols) {
+            let mut sum = 0 as float;
+            for j in $iterate(0, A.cols) {
+                sum += A.data(index(A, j, i)) * B.data(index(B, k, j));
+            }
+            C.data(index(C, k, i)) = sum;
+        }
+    }
+}
+
 fn range_step(a : int, b : int, step : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
@@ -41,7 +53,7 @@ fn index(M: Mat, x: int, y: int) -> int {
     M.cols * y + x
 }
 
-fn matmul(mut C: Mat, A: Mat, B: Mat) -> () {
+fn matmul_tiled(mut C: Mat, A: Mat, B: Mat) -> () {
     /*
     // initialize C with zeros
     for i in iterate(0, C.rows * C.cols) {
@@ -52,6 +64,7 @@ fn matmul(mut C: Mat, A: Mat, B: Mat) -> () {
         for k in $iterate(0, C.cols) {
             let mut sum = 0 as float;
             for j in $iterate(0, A.cols) {
+            //for j in @tiled_loop(A.cols) {
                 //C(index(C, i, k) += C(index(C, i, k) + A(index(A, i, j) * B(index(B, j, k);
                 sum += A.data(index(A, j, i)) * B.data(index(B, k, j));
             }
@@ -67,11 +80,22 @@ fn main(i: int) -> int {
     let A = Mat { data : ~[l*m:float], rows : l, cols : m }; // mxl
     let B = Mat { data : ~[m*n:float], rows : m, cols : n }; // nxm
     let C = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
+    let R = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
 
-    let start = get_micro_time();
-    @matmul(C, A, B);
-    let end = get_micro_time();
-    let nops = 2 * l * m * n;
-    let gflops = 1.0e-9f * (nops as float) / ((end - start) as float * 1.0e-6f);
+    let mut start = get_micro_time();
+    @matmul_golden(R, A, B);
+    let mut end = get_micro_time();
+
+    let nops = (2 as i64) * (l as i64) * (m as i64) * (n as i64);
+    let mut gflops = (1.0e-9 * (nops as double)) / ((end - start) as double * 1.0e-6);
+    print_gflops(gflops as float);
+
+    start = get_micro_time();
+    @matmul_tiled(C, A, B);
+    end = get_micro_time();
+
+    gflops = (1.0e-9 * (nops as double)) / ((end - start) as double * 1.0e-6);
+    print_gflops(gflops as float);
+
     0
 }
