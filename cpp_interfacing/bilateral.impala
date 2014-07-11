@@ -61,7 +61,7 @@ extern
 fn thorin_bilateral(arr_data : &[float], out_data : &[float], width : int, height : int) -> () {
     let sigma_r = 5.0f;
     let sigma_d = 2;
-    let c_d     = 1.0f / (2.0f * 2.0f*2.0f);
+    let c_d     = 1.0f / (2.0f * (sigma_d*sigma_d as float));
     let c_r     = 1.0f / (2.0f * sigma_r*sigma_r);
     let arr     = Img { data : arr_data, width : width, height : height };
     let out     = Img { data : out_data, width : width, height : height };

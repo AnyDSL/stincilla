@@ -126,16 +126,12 @@ fn bilateral_filter_mask(sigma_d : int, c_r : float, mask : [[float * 9] * 9],
 fn main() -> int {
     let width   = 1024;
     let height  = 1024;
-    //let sigma_d = 3;
-    //let ksize = 4*sigma_d + 1;
     let sigma_r = 5.0f;
-    //let c_d = 1.0f / (2.0f * sigma_d*sigma_d);
     let c_r     = 1.0f / (2.0f * sigma_r*sigma_r);
     let arr     = Img { data : ~[width*height:float], width : width, height : height };
     let out     = Img { data : ~[width*height:float], width : width, height : height };
 
     //let sigma_d = 1;
-    //let c_d = 1.0f / (2.0f * 1.0f*1.0f);
     //let mask = [
     //    [0.018316f, 0.082085f, 0.135335f, 0.082085f, 0.018316f],
     //    [0.082085f, 0.367879f, 0.606531f, 0.367879f, 0.082085f],
@@ -144,7 +140,6 @@ fn main() -> int {
     //    [0.018316f, 0.082085f, 0.135335f, 0.082085f, 0.018316f]];
 
     let sigma_d = 2;
-    let c_d = 1.0f / (2.0f * 2.0f*2.0f);
     let mask = [
         [0.018316f, 0.043937f, 0.082085f, 0.119433f, 0.135335f, 0.119433f, 0.082085f, 0.043937f, 0.018316f],
         [0.043937f, 0.105399f, 0.196912f, 0.286505f, 0.324652f, 0.286505f, 0.196912f, 0.105399f, 0.043937f],
@@ -157,7 +152,6 @@ fn main() -> int {
         [0.018316f, 0.043937f, 0.082085f, 0.119433f, 0.135335f, 0.119433f, 0.082085f, 0.043937f, 0.018316f]];
 
     //let sigma_d = 3;
-    //let c_d = 1.0f / (2.0f * 3.0f*3.0f);
     //let mask = [
     //    [0.018316f, 0.033746f, 0.055638f, 0.082085f, 0.108368f, 0.128022f, 0.135335f, 0.128022f, 0.108368f, 0.082085f, 0.055638f, 0.033746f, 0.018316f],
     //    [0.033746f, 0.062177f, 0.102512f, 0.151240f, 0.199666f, 0.235877f, 0.249352f, 0.235877f, 0.199666f, 0.151240f, 0.102512f, 0.062177f, 0.033746f],
@@ -173,18 +167,28 @@ fn main() -> int {
     //    [0.033746f, 0.062177f, 0.102512f, 0.151240f, 0.199666f, 0.235877f, 0.249352f, 0.235877f, 0.199666f, 0.151240f, 0.102512f, 0.062177f, 0.033746f],
     //    [0.018316f, 0.033746f, 0.055638f, 0.082085f, 0.108368f, 0.128022f, 0.135335f, 0.128022f, 0.108368f, 0.082085f, 0.055638f, 0.033746f, 0.018316f]];
 
+    let ksize = 4*sigma_d + 1;
+    let c_d = 1.0f / (2.0f * (sigma_d*sigma_d as float));
+
+
     // SS
     for x, y, arr, mut out in @iteration(arr, out) {
         //out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, 10);
         out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, 10);
     }
 
-    //// SS + BH
-    //let ksize = 4*sigma_d + 1;
-    //for x, y, arr, mut out, region in @iteration_bounds(ksize, arr, out) {
+    // SS + BH
+    for x, y, arr, mut out, region in @iteration_bounds(ksize, arr, out) {
+        //out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, region);
+        out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, region);
+    }
+
+    //// SS + SM
+    //for x, y, arr, mut out, region in @iteration_advanced(ksize, arr, out) {
     //    //out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, region);
     //    out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, region);
     //}
+
 
     let mut passed = 0;
     //// compare results
