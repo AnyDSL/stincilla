@@ -53,9 +53,9 @@ fn matmul(mut C: Mat, A: Mat, B: Mat) -> () {
             let mut sum = 0 as float;
             for j in $iterate(0, A.cols) {
                 //C(index(C, i, k) += C(index(C, i, k) + A(index(A, i, j) * B(index(B, j, k);
-                sum += A.data(index(A, i, j)) * B.data(index(B, j, k));
+                sum += A.data(index(A, j, i)) * B.data(index(B, k, j));
             }
-            C.data(index(C, i, k)) = sum;
+            C.data(index(C, k, i)) = sum;
         }
     }
 }
