@@ -5,7 +5,7 @@ fn iteration(arr : Img, out : Img,
     let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
     get_micro_time();
     for y in $iterate(0, out.height) {
-        for x in inner_loop(0, out.width) {
+        for x in $inner_loop(0, out.width) {
             @body(x, y, arr_acc, out_acc);
         }
     }
@@ -41,7 +41,7 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
     for region in @iterate(0, 9) {
         let bounds = Bounds2D(region);
         for y in $iterate(bounds(2), bounds(3)) {
-            for x in inner_loop(bounds(0), bounds(1)) {
+            for x in $inner_loop(bounds(0), bounds(1)) {
                 @body(x, y, arr_acc, out_acc, region);
             }
         }
@@ -68,14 +68,14 @@ fn iteration_sep(arr : Img, out : Img,
 
     get_micro_time();
     for y in $iterate(0, out.height) {
-        for x in inner_loop(0, out.width) {
+        for x in $inner_loop(0, out.width) {
             let is_row = false;
             @body(x, y, arr_acc, tmp_acc, is_row);
         }
     }
 
     for y in $iterate(0, out.height) {
-        for x in inner_loop(0, out.width) {
+        for x in $inner_loop(0, out.width) {
             let is_row = true;
             @body(x, y, tmp_acc, out_acc, is_row);
         }
@@ -112,7 +112,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
     for region in @iterate(0, 3) {
         let bounds = Bounds2DCol(region);
         for y in $iterate(bounds(0), bounds(1)) {
-            for x in inner_loop(0, out.width) {
+            for x in $inner_loop(0, out.width) {
                 let is_row = false;
                 @body(x, y, arr_acc, tmp_acc, is_row, region);
             }
@@ -122,7 +122,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
     for region in @iterate(0, 3) {
         let bounds = Bounds2DRow(region);
         for y in $iterate(0, out.height) {
-            for x in inner_loop(bounds(0), bounds(1)) {
+            for x in $inner_loop(bounds(0), bounds(1)) {
                 let is_row = true;
                 @body(x, y, tmp_acc, arr_acc, is_row, region);
             }
@@ -149,15 +149,15 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
         (out.width - bhx, out.width)
     ];
 
-    get_micro_time();
     // allocate temporary array
     let tmp = Img { data : ~[out.width:float], width : out.width, height : 1 };
     init_zero(tmp.data, $tmp.width, $tmp.height);
 
+    get_micro_time();
     for region_col in @iterate(0, 3) {
         let bounds_col = Bounds2DCol(region_col);
         for y in $iterate(bounds_col(0), bounds_col(1)) {
-            for x in inner_loop(0, tmp.width) {
+            for x in $inner_loop(0, tmp.width) {
                 let is_row = false;
                 // index space: cache line
                 let arr_acc = Acc { img : arr, o_x : 0, o_y : y };
@@ -166,7 +166,7 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
             }
             for region_row in @iterate(0, 3) {
                 let bounds_row = Bounds2DRow(region_row);
-                for x in inner_loop(bounds_row(0), bounds_row(1)) {
+                for x in $inner_loop(bounds_row(0), bounds_row(1)) {
                     let is_row = true;
                     // index space: cache line
                     let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
