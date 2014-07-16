@@ -162,7 +162,7 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
                 // index space: cache line
                 let arr_acc = Acc { img : arr, o_x : 0, o_y : y };
                 let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
-                @body(x, 0, arr_acc, tmp_acc, is_row, 10);
+                @body(x, 0, arr_acc, tmp_acc, is_row, region_col);
             }
             for region_row in @iterate(0, 3) {
                 let bounds_row = Bounds2DRow(region_row);
@@ -171,7 +171,7 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
                     // index space: cache line
                     let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
                     let out_acc = Acc { img : out, o_x : 0, o_y : y };
-                    @body(x, 0, tmp_acc, out_acc, is_row, 10);
+                    @body(x, 0, tmp_acc, out_acc, is_row, region_row);
                 }
             }
         }
