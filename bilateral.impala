@@ -172,21 +172,21 @@ fn main() -> int {
 
 
     // SS
-    for x, y, arr, mut out in @iteration(arr, out) {
-        //out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, 10);
-        out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, 10);
+    for x, y, arr_acc, mut out_acc in @iteration(arr, out) {
+        //out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr_acc, 10);
+        out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr_acc, 10);
     }
 
     // SS + BH
-    for x, y, arr, mut out, region in @iteration_bounds(ksize, arr, out) {
-        //out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, region);
-        out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, region);
+    for x, y, arr_acc, mut out_acc, region in @iteration_bounds(ksize, arr, out) {
+        //out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr_acc, region);
+        out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr_acc, region);
     }
 
     //// SS + SM
-    //for x, y, arr, mut out, region in @iteration_advanced(ksize, arr, out) {
-    //    //out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr, region);
-    //    out.img.data((out.o_y + y)*out.img.width + out.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr, region);
+    //for x, y, arr_acc, mut out_acc, region in @iteration_advanced(ksize, arr, out) {
+    //    //out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter(sigma_d, c_d, c_r, x, y, arr_acc, region);
+    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter_mask(sigma_d, c_r, mask, x, y, arr_acc, region);
     //}
 
 
