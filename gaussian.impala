@@ -1,7 +1,7 @@
 fn apply_stencil(ksize : int, stencil : [[float * 5] * 5],
                  x : int, y : int, acc : Acc, region: int
                 ) -> float {
-    let mut sum_xxx = 0.0f;
+    let mut sum = 0.0f;
     let half_range = ksize / 2;
 
     for j in iterate(-half_range, half_range+1) {
@@ -43,20 +43,20 @@ fn apply_stencil(ksize : int, stencil : [[float * 5] * 5],
                     idx_y = clamp_lower(idx_y, 0);
                 }
 
-                sum_xxx += acc.img.data(idx_y * acc.img.width + idx_x) * stencil_val;
+                sum += acc.img.data(idx_y * acc.img.width + idx_x) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
         }
     }
 
-    sum_xxx
+    sum
 }
 
 fn apply_stencil_sep(ksize : int, stencil : [float * 5], x : int, y : int,
                      acc : Acc, row : bool, region : int
                     ) -> float {
-    let mut sum_xxx = 0.0f;
+    let mut sum = 0.0f;
     let half_range = ksize / 2;
     for i in iterate(-half_range, half_range+1) {
         let stencil_val = stencil(i + half_range);
@@ -91,10 +91,10 @@ fn apply_stencil_sep(ksize : int, stencil : [float * 5], x : int, y : int,
                 idx_y = clamp_upper(idx_y, acc.img.height);
             }
         }
-        sum_xxx += acc.img.data(idx_y * acc.img.width + idx_x) * stencil_val;
+        sum += acc.img.data(idx_y * acc.img.width + idx_x) * stencil_val;
     }
 
-    sum_xxx
+    sum
 }
 
 
