@@ -124,7 +124,7 @@ fn iteration_sep_bounds(ksize : int, arr : Img, out : Img,
         for y in $iterate(0, out.height) {
             for x in $inner_loop(bounds(0), bounds(1)) {
                 let is_row = true;
-                @body(x, y, tmp_acc, arr_acc, is_row, region);
+                @body(x, y, tmp_acc, out_acc, is_row, region);
             }
         }
     }
