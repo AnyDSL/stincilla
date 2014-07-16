@@ -170,7 +170,7 @@ fn iteration_sep_advanced(ksize : int, arr : Img, out : Img,
                     let is_row = true;
                     // index space: cache line
                     let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
-                    let out_acc = Acc { img : arr, o_x : 0, o_y : y };
+                    let out_acc = Acc { img : out, o_x : 0, o_y : y };
                     @body(x, 0, tmp_acc, out_acc, is_row, 10);
                 }
             }
