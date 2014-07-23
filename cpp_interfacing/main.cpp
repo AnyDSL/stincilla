@@ -21,7 +21,7 @@ int main(int argc, const char **argv) {
 
     // host memory for image of width x height pixels
     // use thorin_malloc from AnyDSL runtime for memory allocation
-    float *input = (float *)thorin_malloc(width * height * sizeof(float));
+    float *input  = (float *)thorin_malloc(width * height * sizeof(float));
     float *output = (float *)thorin_malloc(width * height * sizeof(float));
 
     // initialize data
