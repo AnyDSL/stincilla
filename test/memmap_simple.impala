@@ -1,5 +1,5 @@
 extern "thorin" {
-    fn mmap(&[float], int, int, (int, int, int), (int, int, int)) -> &[float];
+    fn mmap(&[float], int, int, int, int) -> &[float];
     fn spir(int, (int, int, int), (int, int, int), fn() -> ()) -> ();
 }
 extern "device" {
@@ -39,7 +39,7 @@ fn main() -> int {
     let arr    = ~[width*height:float];
     let out    = ~[width*height:float];
 
-    let mapped = mmap(arr, 1, 1, (0, 0, 0), (width, height, 1));
+    let mapped = mmap(arr, 1, 1, 0, width * height);
 
     for x, y in @iteration(width, height) {
         write(out, mapped, y*width + x);
