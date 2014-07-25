@@ -52,7 +52,7 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
     let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
 
     // define if we want to generate one big kernel or multiple kernels
-    let big_kernel = false;
+    let big_kernel = true;
 
     if big_kernel {
         let dim = (out.width, out.height/unroll, 1);
