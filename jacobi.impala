@@ -93,7 +93,7 @@ fn main() -> int {
             let ref = @apply_stencil(ksize, stencil, x, y, acc, 10);
             let mut diff = ref - out.data(y*width + x);
             if diff < 0.0f  { diff = -diff; }
-            if diff > 0.01f { passed++; }
+            if diff > 0.01f { passed = 42; }
         }
     }
 
