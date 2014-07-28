@@ -24,11 +24,10 @@ fn range_step(a : int, b : int, step : int, yield : fn(int, fn())) -> () {
 }
 
 fn get_step(lvl : int) -> int {
+    // 2048 -> 256 -> 1 -> 0
     if lvl == 0 {
-        2048
+        1024
     } else if lvl == 1 {
-        256
-    } else if lvl == 2 {
         1
     } else {
         0
