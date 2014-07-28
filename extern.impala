@@ -70,6 +70,7 @@ struct Acc {
     img : Img,
     o_x : int,
     o_y : int,
+    region : int,
 }
 struct Mask {
     data : [[float * 5] * 5],

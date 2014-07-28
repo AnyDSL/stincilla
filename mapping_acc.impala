@@ -9,8 +9,8 @@ fn iteration(mask : Mask, arr : Img, out : Img,
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-        let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
-        let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
+        let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 10 };
+        let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 10 };
 
         for i in @iterate(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), mask, arr_acc, out_acc);
@@ -39,7 +39,7 @@ fn compute_config(m_range : (int, int), unroll : int) -> ((int, int, int), (int,
 }
 
 fn iteration_bounds(mask : Mask, arr : Img, out : Img,
-                    body : fn(int, int, Mask, Acc, Acc, int) -> ()
+                    body : fn(int, int, Mask, Acc, Acc) -> ()
                    ) -> () {
     // compute the number of blocks required for boundary handling
     let unroll = 1;
@@ -47,9 +47,6 @@ fn iteration_bounds(mask : Mask, arr : Img, out : Img,
     let block = config(0);
     let bx = config(1)(0);
     let by = config(1)(1);
-
-    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
-    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
 
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
@@ -70,56 +67,74 @@ fn iteration_bounds(mask : Mask, arr : Img, out : Img,
             // 3 --- 4 --- 5
             // 6 --- 7 --- 8
             if (bid_x < bx && bid_y < by) {                 // top-left: 0
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 0 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 0 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc, 0);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc);
                 }
                 return()
             }
             if (bid_x >= gdim_x-bx && bid_y < by) {         // top-right: 2
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 2 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 2 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc, 2);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc);
                 }
                 return()
             }
             if (bid_y < by) {                               // top: 1
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 1 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 1 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc, 1);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc);
                 }
                 return()
             }
             if (bid_y >= gdim_y-by && bid_x < bx) {         // bottom-left: 6
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 6 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 6 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc, 6);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc);
                 }
                 return()
             }
             if (bid_y >= gdim_y-by && bid_x >= gdim_x-bx) { // bottom-right: 8
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 8 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 8 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc, 8);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc);
                 }
                 return()
             }
             if (bid_y >= gdim_y-by) {                       // bottom: 7
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 7 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 7 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc, 7);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc);
                 }
                 return()
             }
             if (bid_x >= gdim_x-bx) {                       // right: 5
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 5 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 5 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc, 5);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc);
                 }
                 return()
             }
             if (bid_x < bx) {                               // left: 3
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 3 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 3 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc, 3);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc);
                 }
                 return()
             }
-            // no border handling
+            // no border handling: 4
+            let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 4 };
+            let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 4 };
             for i in @iterate(0, unroll) {
-                body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc, 4);
+                body(gid_x, gid_y + i * bdim_y, mask, arr_acc, out_acc);
             }
         });
     } else {
@@ -143,6 +158,9 @@ fn iteration_bounds(mask : Mask, arr : Img, out : Img,
             let bounds = Bounds2D(region);
             let dim = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
 
+            let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : region };
+            let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : region };
+
             acc(acc_dev(), dim, block, || {
                 let gid_x = bounds(0) +
                             acc_tidx() + acc_bdimx() * acc_bidx();
@@ -150,7 +168,7 @@ fn iteration_bounds(mask : Mask, arr : Img, out : Img,
                             acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * acc_bdimy(), mask, arr_acc, out_acc, region);
+                    body(gid_x, gid_y + i * acc_bdimy(), mask, arr_acc, out_acc);
                 }
             });
         }
@@ -158,7 +176,7 @@ fn iteration_bounds(mask : Mask, arr : Img, out : Img,
 }
 
 fn iteration_advanced(mask : Mask, arr : Img, out : Img,
-                      body : fn(int, int, Mask, Acc, Acc, int) -> ()
+                      body : fn(int, int, Mask, Acc, Acc) -> ()
                      ) -> () {
     let unroll = 1;
     let dim = (out.width, out.height/unroll, 1);
@@ -194,7 +212,6 @@ fn iteration_advanced(mask : Mask, arr : Img, out : Img,
         let mut smem = mmap(arr.data, dev, 3, 0, lstride * lheight);
         let sma_img = Img { data : smem,    width : lstride,   height : lheight };
         let out_img = Img { data : gpu_out, width : out.width, height : out.height };
-        let region = 4; // no bh
 
         for y in @range(0, steps_y) {
             let lid_y = tid_y + y*bdim_y;
@@ -217,9 +234,9 @@ fn iteration_advanced(mask : Mask, arr : Img, out : Img,
 
         for i in @iterate(0, unroll) {
             // index space: block
-            let out_acc = Acc { img : out_img, o_x : acc_bdimx() * acc_bidx(), o_y : acc_bdimy() * acc_bidy() * unroll + i * bdim_y };
-            let arr_acc = Acc { img : sma_img, o_x : m_range_x,                o_y : m_range_y + i * bdim_y };
-            body(tid_x, tid_y, mask, arr_acc, out_acc, region);
+            let out_acc = Acc { img : out_img, o_x : acc_bdimx() * acc_bidx(), o_y : acc_bdimy() * acc_bidy() * unroll + i * bdim_y, region : 4 /* no bh */};
+            let arr_acc = Acc { img : sma_img, o_x : m_range_x,                o_y : m_range_y + i * bdim_y,                         region : 4 /* no bh */};
+            body(tid_x, tid_y, mask, arr_acc, out_acc);
         }
     });
 }
@@ -234,9 +251,9 @@ fn iteration_sep(mask : MaskSep, arr : Img, out : Img,
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
     init_zero(tmp.data, $tmp.width, $tmp.height);
-    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
-    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
-    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 10 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 10 };
+    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : 10 };
 
     let dev = acc_dev();
     acc(dev, dim, block, || {
@@ -260,7 +277,7 @@ fn iteration_sep(mask : MaskSep, arr : Img, out : Img,
 }
 
 fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
-                        body : fn(int, int, MaskSep, Acc, Acc, bool, int) -> ()
+                        body : fn(int, int, MaskSep, Acc, Acc, bool) -> ()
                        ) -> () {
     // compute the number of blocks required for boundary handling
     let unroll = 1;
@@ -272,9 +289,6 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
     init_zero(tmp.data, $tmp.width, $tmp.height);
-    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
-    let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
-    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0 };
 
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
@@ -295,20 +309,26 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
             // 1
             // 2
             if (bid_y < by) {                               // top: 0
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 0 };
+                let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : 0 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, tmp_acc, is_row, 0);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, tmp_acc, is_row);
                 }
                 return()
             }
             if (bid_y >= gdim_y-by) {                       // bottom: 2
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 2 };
+                let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : 2 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, tmp_acc, is_row, 2);
+                    body(gid_x, gid_y + i * bdim_y, mask, arr_acc, tmp_acc, is_row);
                 }
                 return()
             }
-            // no border handling
+            // no border handling: 1
+            let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 1 };
+            let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : 1 };
             for i in @iterate(0, unroll) {
-                body(gid_x, gid_y + i * bdim_y, mask, arr_acc, tmp_acc, is_row, 1);
+                body(gid_x, gid_y + i * bdim_y, mask, arr_acc, tmp_acc, is_row);
             }
         });
 
@@ -323,20 +343,26 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
 
             // 0 --- 1 --- 2
             if (bid_x < bx) {                               // left: 0
+                let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : 0 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 0 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, tmp_acc, out_acc, is_row, 0);
+                    body(gid_x, gid_y + i * bdim_y, mask, tmp_acc, out_acc, is_row);
                 }
                 return()
             }
             if (bid_x >= gdim_x-bx) {                       // right: 2
+                let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : 2 };
+                let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 2 };
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, mask, tmp_acc, out_acc, is_row, 2);
+                    body(gid_x, gid_y + i * bdim_y, mask, tmp_acc, out_acc, is_row);
                 }
                 return()
             }
-            // no border handling
+            // no border handling: 1
+            let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : 1 };
+            let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 1 };
             for i in @iterate(0, unroll) {
-                body(gid_x, gid_y + i * bdim_y, mask, tmp_acc, out_acc, is_row, 1);
+                body(gid_x, gid_y + i * bdim_y, mask, tmp_acc, out_acc, is_row);
             }
         });
     } else {
@@ -351,6 +377,9 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
             let bounds = Bounds2DCol(region);
             let dim = (out.width, bounds(1) - bounds(0), 1);
 
+            let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : region };
+            let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : region };
+
             acc(acc_dev(), dim, block, || {
                 let gid_x = acc_gidx();
                 let gid_y = bounds(0) * unroll +
@@ -358,7 +387,7 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
                 let is_row = false;
 
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * acc_bdimy(), mask, arr_acc, tmp_acc, is_row, region);
+                    body(gid_x, gid_y + i * acc_bdimy(), mask, arr_acc, tmp_acc, is_row);
                 }
             });
         }
@@ -373,13 +402,16 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
             let bounds = Bounds2DRow(region);
             let dim = (bounds(1) - bounds(0), out.height/unroll, 1);
 
+            let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : region };
+            let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : region };
+
             acc(acc_dev(), dim, block, || {
                 let gid_x = bounds(0) + acc_gidx();
                 let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
                 let is_row = true;
 
                 for i in @iterate(0, unroll) {
-                    body(gid_x, gid_y + i * acc_bdimy(), mask, tmp_acc, out_acc, is_row, region);
+                    body(gid_x, gid_y + i * acc_bdimy(), mask, tmp_acc, out_acc, is_row);
                 }
             });
         }
@@ -387,7 +419,7 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
 }
 
 fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
-                          body : fn(int, int, MaskSep, Acc, Acc, bool, int) -> ()
+                          body : fn(int, int, MaskSep, Acc, Acc, bool) -> ()
                          ) -> () {
     let unroll = 1;
     let dim = (out.width, out.height/unroll, 1);
@@ -450,21 +482,21 @@ fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
         for i in @iterate(0, unroll) {
             // index space: block
             let is_row = false;
-            let out_acc = Acc { img : smr_img, o_x : m_range, o_y :           i * bdim_y };
-            let arr_acc = Acc { img : smc_img, o_x : m_range, o_y : m_range + i * bdim_y };
-            body(tid_x, tid_y, mask, arr_acc, out_acc, is_row, region);
+            let out_acc = Acc { img : smr_img, o_x : m_range, o_y :           i * bdim_y, region : 1 /* no bh */ };
+            let arr_acc = Acc { img : smc_img, o_x : m_range, o_y : m_range + i * bdim_y, region : 1 /* no bh */ };
+            body(tid_x, tid_y, mask, arr_acc, out_acc, is_row);
 
             if (tid_x < m_range) {
                 // left halo
-                let out_acc = Acc { img : smr_img, o_x : 0, o_y :           i * bdim_y };
-                let arr_acc = Acc { img : smc_img, o_x : 0, o_y : m_range + i * bdim_y };
-                @body(tid_x, tid_y, mask, arr_acc, out_acc, is_row, region);
+                let out_acc = Acc { img : smr_img, o_x : 0, o_y :           i * bdim_y, region : 1 /* no bh */ };
+                let arr_acc = Acc { img : smc_img, o_x : 0, o_y : m_range + i * bdim_y, region : 1 /* no bh */ };
+                @body(tid_x, tid_y, mask, arr_acc, out_acc, is_row);
             }
             if (tid_x >= bdim_x-m_range) {
                 // right halo
-                let out_acc = Acc { img : smr_img, o_x : m_range + m_range, o_y :           i * bdim_y };
-                let arr_acc = Acc { img : smc_img, o_x : m_range + m_range, o_y : m_range + i * bdim_y };
-                @body(tid_x, tid_y, mask, arr_acc, out_acc, is_row, region);
+                let out_acc = Acc { img : smr_img, o_x : m_range + m_range, o_y :           i * bdim_y, region : 1 /* no bh */ };
+                let arr_acc = Acc { img : smc_img, o_x : m_range + m_range, o_y : m_range + i * bdim_y, region : 1 /* no bh */ };
+                @body(tid_x, tid_y, mask, arr_acc, out_acc, is_row);
             }
         }
 
@@ -473,9 +505,9 @@ fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
         for i in @iterate(0, unroll) {
             // index space: block
             let is_row = true;
-            let out_acc = Acc { img : out_img, o_x : acc_bdimx() * acc_bidx(), o_y : acc_bdimy() * acc_bidy() * unroll + i * bdim_y };
-            let arr_acc = Acc { img : smr_img, o_x : m_range,                  o_y : i * bdim_y };
-            body(tid_x, tid_y, mask, arr_acc, out_acc, is_row, region);
+            let out_acc = Acc { img : out_img, o_x : acc_bdimx() * acc_bidx(), o_y : acc_bdimy() * acc_bidy() * unroll + i * bdim_y, region : 1 /* no bh */ };
+            let arr_acc = Acc { img : smr_img, o_x : m_range,                  o_y : i * bdim_y,                                     region : 1 /* no bh */ };
+            body(tid_x, tid_y, mask, arr_acc, out_acc, is_row);
         }
     });
 }
