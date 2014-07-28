@@ -81,20 +81,22 @@ fn main(i: int) -> int {
     let C = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
     let R = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
 
-    let mut start = get_micro_time();
+    let mut start = thorin_get_micro_time();
     @matmul_golden(R, A, B);
-    let mut end = get_micro_time();
+    let mut end = thorin_get_micro_time();
+    thorin_print_micro_time(end-start);
 
     let nops = (2 as i64) * (l as i64) * (m as i64) * (n as i64);
     let mut gflops = (1.0e-9 * (nops as double)) / ((end - start) as double * 1.0e-6);
-    print_gflops(gflops as float);
+    thorin_print_gflops(gflops as float);
 
-    start = get_micro_time();
+    start = thorin_get_micro_time();
     @matmul_tiled(C, A, B);
-    end = get_micro_time();
+    end = thorin_get_micro_time();
+    thorin_print_micro_time(end-start);
 
     gflops = (1.0e-9 * (nops as double)) / ((end - start) as double * 1.0e-6);
-    print_gflops(gflops as float);
+    thorin_print_gflops(gflops as float);
 
     0
 }

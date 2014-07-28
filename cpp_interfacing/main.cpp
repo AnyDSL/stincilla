@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
-#include <thorin_ext_runtime.h>
+#include <thorin_runtime.h>
 
 #include "pgm_image.h"
 
