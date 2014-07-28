@@ -64,12 +64,20 @@ fn round_up(num : int, multiple : int) -> int {
 struct Img {
     data : &[float],
     width : int,
-    height : int
+    height : int,
 }
 struct Acc {
     img : Img,
     o_x : int,
-    o_y : int
-    //bh_lower : fn(int, int) -> T
+    o_y : int,
+}
+struct Mask {
+    data : [[float * 5] * 5],
+    size_x : int,
+    size_y : int,
+}
+struct MaskSep {
+    data : [float * 5],
+    size : int,
 }
 

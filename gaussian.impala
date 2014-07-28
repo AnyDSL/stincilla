@@ -53,13 +53,13 @@ fn apply_stencil(ksize : int, stencil : [[float * 5] * 5],
     sum
 }
 
-fn apply_stencil_sep(ksize : int, stencil : [float * 5], x : int, y : int,
-                     acc : Acc, row : bool, region : int
+fn apply_stencil_sep(mask : MaskSep, acc : Acc, row : bool, region : int,
+                     x : int, y : int
                     ) -> float {
     let mut sum = 0.0f;
-    let half_range = ksize / 2;
+    let half_range = mask.size / 2;
     for i in iterate(-half_range, half_range+1) {
-        let stencil_val = stencil(i + half_range);
+        let stencil_val = mask.data(i + half_range);
         let mut idx_x = if row { acc.o_x + x + i } else { acc.o_x + x };
         let mut idx_y = if row { acc.o_y + y } else { acc.o_y + y + i };
         if row {
@@ -107,7 +107,10 @@ fn main() -> int {
     init_rand(arr.data, width, height);
     init_zero(out.data, width, height);
 
-    let stencil_sep = [ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ];
+    let mask_sep = MaskSep {
+        data : [ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ],
+        size : 5
+    };
 
     let stencil = [
         [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
@@ -134,18 +137,18 @@ fn main() -> int {
 
 
     //// SEP + SS
-    //for x, y, arr_acc, mut out_acc, is_row in @iteration_sep(arr, out) {
-    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr_acc, is_row, 10);
+    //for x, y, mask, arr_acc, mut out_acc, is_row in @iteration_sep(mask_sep, arr, out) {
+    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil_sep(mask, arr_acc, is_row, 10, x, y);
     //}
 
     // SEP + SS + BH
-    for x, y, arr_acc, mut out_acc, is_row, region in @iteration_sep_bounds(ksize, arr, out) {
-        out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr_acc, is_row, region);
+    for x, y, mask, arr_acc, mut out_acc, is_row, region in @iteration_sep_bounds(mask_sep, arr, out) {
+        out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil_sep(mask, arr_acc, is_row, region, x, y);
     }
 
     //// SEP + SS + SM
-    //for x, y, arr_acc, mut out_acc, is_row, region in @iteration_sep_advanced(ksize, arr, out) {
-    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil_sep(ksize, stencil_sep, x, y, arr_acc, is_row, region);
+    //for x, y, mask, arr_acc, mut out_acc, is_row, region in @iteration_sep_advanced(mask_sep, arr, out) {
+    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil_sep(mask, arr_acc, is_row, region, x, y);
     //}
 
 
