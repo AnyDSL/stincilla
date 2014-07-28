@@ -1,23 +1,23 @@
-fn iteration(arr : Img, out : Img,
-             body : fn(int, int, Acc, Acc) -> ()
+fn iteration(mask : Mask, arr : Img, out : Img,
+             body : fn(int, int, Mask, Acc, Acc) -> ()
             ) -> () {
     let arr_acc = Acc { img : arr, o_x : 0, o_y : 0 };
     let out_acc = Acc { img : out, o_x : 0, o_y : 0 };
     get_micro_time();
     for y in $iterate(0, out.height) {
         for x in $inner_loop(0, out.width) {
-            @body(x, y, arr_acc, out_acc);
+            @body(x, y, mask, arr_acc, out_acc);
         }
     }
     get_micro_time();
 }
 
-fn iteration_bounds(ksize : int, arr : Img, out : Img,
-                    body : fn(int, int, Acc, Acc, int) -> ()
+fn iteration_bounds(mask : Mask, arr : Img, out : Img,
+                    body : fn(int, int, Mask, Acc, Acc, int) -> ()
                    ) -> () {
     // compute the number of vector strides for boundary handling
-    let bhy = ksize / 2;
-    let bhx = @round_up(ksize / 2, get_vector_length());
+    let bhy = mask.size_y / 2;
+    let bhx = @round_up(mask.size_x / 2, get_vector_length());
 
     // (minx, maxx, miny, maxy)
     let Bounds2D = [
@@ -42,18 +42,18 @@ fn iteration_bounds(ksize : int, arr : Img, out : Img,
         let bounds = Bounds2D(region);
         for y in $iterate(bounds(2), bounds(3)) {
             for x in $inner_loop(bounds(0), bounds(1)) {
-                @body(x, y, arr_acc, out_acc, region);
+                @body(x, y, mask, arr_acc, out_acc, region);
             }
         }
     }
     get_micro_time();
 }
 
-fn iteration_advanced(ksize : int, arr : Img, out : Img,
-                      body : fn(int, int, Acc, Acc, int) -> ()
+fn iteration_advanced(mask : Mask, arr : Img, out : Img,
+                      body : fn(int, int, Mask, Acc, Acc, int) -> ()
                      ) -> () {
     // TODO: blocked loop
-    @iteration_bounds(ksize, arr, out, body)
+    @iteration_bounds(mask, arr, out, body)
 }
 
 fn iteration_sep(mask: MaskSep, arr : Img, out : Img,

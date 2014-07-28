@@ -1,12 +1,11 @@
-fn apply_stencil(ksize : int, stencil : [[float * 5] * 5],
-                 x : int, y : int, acc : Acc, region: int
-                ) -> float {
+fn apply_stencil(mask : Mask, acc : Acc, region: int, x : int, y : int) -> float {
     let mut sum = 0.0f;
-    let half_range = ksize / 2;
+    let half_range_y = mask.size_y / 2;
+    let half_range_x = mask.size_x / 2;
 
-    for j in iterate(-half_range, half_range+1) {
-        for i in iterate(-half_range, half_range+1) {
-            let stencil_val = stencil(i + half_range)(j + half_range);
+    for j in iterate(-half_range_y, half_range_y+1) {
+        for i in iterate(-half_range_x, half_range_x+1) {
+            let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
             if stencil_val != 0.0f {
                 let mut idx_x = acc.o_x + x + i;
                 let mut idx_y = acc.o_y + y + j;
@@ -101,7 +100,6 @@ fn apply_stencil_sep(mask : MaskSep, acc : Acc, row : bool, region : int,
 fn main() -> int {
     let width  = 4096;
     let height = 4096;
-    let ksize  = 5;
     let arr    = Img { data : ~[width*height:float], width : width, height : height };
     let out    = Img { data : ~[width*height:float], width : width, height : height };
     init_rand(arr.data, width, height);
@@ -112,27 +110,29 @@ fn main() -> int {
         size : 5
     };
 
-    let stencil = [
-        [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
-        [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
-        [ 0.026151f, 0.090339f, 0.136565f, 0.090339f, 0.026151f ],
-        [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
-        [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]];
+    let mask = Mask {
+        data : [[ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
+                [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
+                [ 0.026151f, 0.090339f, 0.136565f, 0.090339f, 0.026151f ],
+                [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
+                [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]],
+        size_x : 5, size_y : 5
+    };
 
 
     //// SS
-    //for x, y, arr_acc, mut out_acc in @iteration(arr, out) {
-    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil(ksize, stencil, x, y, arr_acc, 10);
+    //for x, y, mask, arr_acc, mut out_acc in @iteration(mask, arr, out) {
+    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil(mask, arr_acc, 10, x, y);
     //}
 
     //// SS + BH
-    //for x, y, arr_acc, mut out_acc, region in @iteration_bounds(ksize, arr, out) {
-    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil(ksize, stencil, x, y, arr_acc, region);
+    //for x, y, mask, arr_acc, mut out_acc, region in @iteration_bounds(mask, arr, out) {
+    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil(mask, arr_acc, region, x, y);
     //}
 
     //// SS + SM
-    //for x, y, arr_acc, mut out_acc, region in @iteration_advanced(ksize, arr, out) {
-    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil(ksize, stencil, x, y, arr_acc, region);
+    //for x, y, mask, arr_acc, mut out_acc, region in @iteration_advanced(mask, arr, out) {
+    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = apply_stencil(mask, arr_acc, region, x, y);
     //}
 
 
@@ -157,7 +157,7 @@ fn main() -> int {
     for y in range(0, out.height) {
         for x in range(0, out.width) {
             let acc = Acc { img : arr, o_x : 0, o_y : 0 };
-            let ref = @apply_stencil(ksize, stencil, x, y, acc, 10);
+            let ref = @apply_stencil(mask, acc, 10, x, y);
             let mut diff = ref - out.data(y*width + x);
             if diff < 0.0f  { diff = -diff; }
             if diff > 0.01f { passed = 42; }
