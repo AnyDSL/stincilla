@@ -1,9 +1,31 @@
+fn compute_config(m_range : (int, int), unroll : int) -> ((int, int, int), (int, int)) {
+    fn compute_config_y (y_max : int) -> int {
+        if m_range(1) > 1 { return(y_max) }
+        for n in range(1, y_max+1) {
+            if n * unroll >= m_range(1) { return(n) }
+        }
+        y_max
+    }
+
+    let config_y_max = 4;   // must be 1 for CPU on Mac OS X
+    let config_x_max = 128; // use 256 for AMD GPUs
+
+    let threads_y = compute_config_y(config_y_max);
+    let threads_x = config_x_max / threads_y;
+
+    let blocks_x = round_up(m_range(0), threads_x) / threads_x;
+    let blocks_y = round_up(m_range(1), threads_y) / threads_y;
+
+    ((threads_x, threads_y, 1), (blocks_x, blocks_y))
+}
+
 fn iteration(mask : Mask, arr : Img, out : Img,
              body : fn(int, int, Mask, Acc, Acc) -> ()
             ) -> () {
     let unroll = 1;
+    let config = @compute_config((mask.size_x/2, mask.size_y/2), unroll);
     let dim = (out.width, out.height/unroll, 1);
-    let block = (128, 1, 1);
+    let block = config(0);
 
     acc(acc_dev(), dim, block, || {
         let gid_x = acc_gidx();
@@ -16,26 +38,6 @@ fn iteration(mask : Mask, arr : Img, out : Img,
             body(gid_x, gid_y + i * acc_bdimy(), mask, arr_acc, out_acc);
         }
     });
-}
-
-fn compute_config(m_range : (int, int), unroll : int) -> ((int, int, int), (int, int)) {
-    fn compute_config_y (y_max : int) -> int {
-        for n in range(1, y_max+1) {
-            if n * unroll >= m_range(1) { return(n) }
-        }
-        y_max
-    }
-
-    let config_y_max = 4; // must be 1 for CPU on Mac OS X
-    let config_x_max = 128;
-
-    let threads_y = compute_config_y(config_y_max);
-    let threads_x = config_x_max / threads_y;
-
-    let blocks_x = round_up(m_range(0), threads_x) / threads_x;
-    let blocks_y = round_up(m_range(1), threads_y) / threads_y;
-
-    ((threads_x, threads_y, 1), (blocks_x, blocks_y))
 }
 
 fn iteration_bounds(mask : Mask, arr : Img, out : Img,
@@ -179,9 +181,9 @@ fn iteration_advanced(mask : Mask, arr : Img, out : Img,
                       body : fn(int, int, Mask, Acc, Acc) -> ()
                      ) -> () {
     let unroll = 1;
+    let config = @compute_config((mask.size_x/2, mask.size_y/2), unroll);
     let dim = (out.width, out.height/unroll, 1);
-    // must be 1, 1, 1 for CPU on Mac OS X when local memory is used
-    let block = (128, 1, 1);
+    let block = config(0);
 
     // compute number of steps required to stage data to shared memory
     let m_range_x = mask.size_x / 2;
@@ -245,8 +247,9 @@ fn iteration_sep(mask : MaskSep, arr : Img, out : Img,
                  body : fn(int, int, MaskSep, Acc, Acc, bool) -> ()
                 ) -> () {
     let unroll = 1;
+    let config = @compute_config((mask.size/2, mask.size/2), unroll);
     let dim = (out.width, out.height/unroll, 1);
-    let block = (128, 1, 1);
+    let block = config(0);
 
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
@@ -422,9 +425,9 @@ fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
                           body : fn(int, int, MaskSep, Acc, Acc, bool) -> ()
                          ) -> () {
     let unroll = 1;
+    let config = @compute_config((mask.size/2, mask.size/2), unroll);
     let dim = (out.width, out.height/unroll, 1);
-    // must be 1, 1, 1 for CPU on Mac OS X when local memory is used
-    let block = (128, 1, 1);
+    let block = config(0);
 
     // compute number of steps required to stage data to shared memory
     let m_range = mask.size / 2;
