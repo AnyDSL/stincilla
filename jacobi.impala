@@ -1,3 +1,13 @@
+struct Mask {
+    data : [[float * 3] * 3],
+    size_x : int,
+    size_y : int,
+}
+struct MaskSep {
+    data : [float * 3],
+    size : int,
+}
+
 fn apply_stencil(stencil : Mask, acc : Acc, x : int, y : int) -> float {
     let mut sum = 0.0f;
     let half_range_y = stencil.size_y / 2;
@@ -63,12 +73,10 @@ fn main() -> int {
     init_zero(out.data, width, height);
 
     let stencil = Mask {
-        data : [[0.0f, 0.0f, 0.0f, 0.0f, 0.0f],
-                [0.0f, 0.0f, b,    0.0f, 0.0f],
-                [0.0f,    b, a, b      , 0.0f],
-                [0.0f, 0.0f, b,    0.0f, 0.0f],
-                [0.0f, 0.0f, 0.0f, 0.0f, 0.0f]],
-        size_x : 5, size_y : 5
+        data : [[0.0f, b, 0.0f],
+                [   b, a, b   ],
+                [0.0f, b, 0.0f]],
+        size_x : 3, size_y : 3
     };
 
     // SS

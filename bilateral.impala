@@ -1,3 +1,13 @@
+struct Mask {
+    data : [[float * 5] * 5],
+    size_x : int,
+    size_y : int,
+}
+struct MaskSep {
+    data : [float * 5],
+    size : int,
+}
+
 fn closeness(c_d : float, xf : int, yf : int) -> float {
     expf(-c_d * (xf*xf as float)) * expf(-c_d * (yf*yf as float))
 }
