@@ -1,0 +1,315 @@
+struct Mask {
+    data : [[float * 3] * 3],
+    size_x : int,
+    size_y : int,
+}
+struct MaskSep {
+    data : [float * 3],
+    size : int,
+}
+
+fn get_pixel(acc : Acc, x : int, y : int) -> float {
+    acc.img.data((acc.o_y + y)*acc.img.width + acc.o_x + x)
+}
+fn set_pixel(mut acc : Acc, x : int, y : int, val : float) -> () {
+    acc.img.data((acc.o_y + y)*acc.img.width + acc.o_x + x) = val;
+}
+
+fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
+    let mut sum = 0.0f;
+    let half_range_y = mask.size_y / 2;
+    let half_range_x = mask.size_x / 2;
+
+    for j in iterate(-half_range_y, half_range_y+1) {
+        for i in iterate(-half_range_x, half_range_x+1) {
+            let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
+            if stencil_val != 0.0f {
+                let mut idx_x = acc.o_x + x + i;
+                let mut idx_y = acc.o_y + y + j;
+
+                // 0 --- 1 --- 2
+                // 3 --- 4 --- 5
+                // 6 --- 7 --- 8
+
+                // left
+                if acc.region == 0 { idx_x = clamp_lower(idx_x, 0); }
+                if acc.region == 3 { idx_x = clamp_lower(idx_x, 0); }
+                if acc.region == 6 { idx_x = clamp_lower(idx_x, 0); }
+
+                // right
+                if acc.region == 2 { idx_x = clamp_upper(idx_x, acc.img.width); }
+                if acc.region == 5 { idx_x = clamp_upper(idx_x, acc.img.width); }
+                if acc.region == 8 { idx_x = clamp_upper(idx_x, acc.img.width); }
+
+                // top
+                if acc.region == 0 { idx_y = clamp_lower(idx_y, 0); }
+                if acc.region == 1 { idx_y = clamp_lower(idx_y, 0); }
+                if acc.region == 2 { idx_y = clamp_lower(idx_y, 0); }
+
+                // bottom
+                if acc.region == 6 { idx_y = clamp_upper(idx_y, acc.img.height); }
+                if acc.region == 7 { idx_y = clamp_upper(idx_y, acc.img.height); }
+                if acc.region == 8 { idx_y = clamp_upper(idx_y, acc.img.height); }
+
+                // all in
+                if acc.region == 10 {
+                    idx_x = clamp_lower(idx_x, 0);
+                    idx_x = clamp_upper(idx_x, acc.img.width);
+                    idx_y = clamp_upper(idx_y, acc.img.height);
+                    idx_y = clamp_lower(idx_y, 0);
+                }
+
+                sum += acc.img.data(idx_y * acc.img.width + idx_x) * stencil_val;
+            } else {
+                // additional logic for empty stencil value
+            }
+        }
+    }
+
+    sum
+}
+
+fn deriv2D(img : Img, RHS : Img) -> () {
+    // deriv 2D
+    let mask = Mask {
+        data : [[0.0f,  1.0f, 0.0f],
+                [1.0f, -4.0f, 1.0f],
+                [0.0f,  1.0f, 0.0f]],
+        size_x : 3, size_y : 3
+    };
+    for x, y, mask, img_acc, rhs_acc in @iteration(mask, img, RHS) {
+        let val = apply_stencil(mask, img_acc, x, y);
+        set_pixel(rhs_acc, x, y, val);
+        //let result = - (
+        //    1.0f * arr(idx(x+0, y+1, width, height)) +
+        //    1.0f * arr(idx(x-1, y+0, width, height)) +
+        //   -4.0f * arr(idx(x  , y  , width, height)) +
+        //    1.0f * arr(idx(x+1, y+0, width, height)) +
+        //    1.0f * arr(idx(x+0, y-1, width, height)));
+        //out(idx(x, y, width, height)) = result;
+    }
+}
+
+fn jacobi(RHS : Img, Tmp : Img, Sol : Img, omega : float) -> () {
+    // Jacobi
+    let mask = Mask {
+        data : [[0.00f, 0.25f, 0.00f],
+                [0.25f, 0.00f, 0.25f],
+                [0.00f, 0.25f, 0.00f]],
+        size_x : 3, size_y : 3
+    };
+    for x, y, mask, tmp_acc, sol_acc in @iteration(mask, Tmp, Sol) {
+        // TODO: RHS is not mapped in iteration
+        let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, region : 10 };
+        let val = (1.0f - omega) * get_pixel(tmp_acc, x, y) +
+                  0.25f * omega  * get_pixel(rhs_acc, x, y) +
+                  apply_stencil(mask, tmp_acc, x, y);
+        set_pixel(sol_acc, x, y, val);
+        //let result =
+        //    (1.0f - omega) * Sol(idx(x, y, width, height)) +
+        //    0.25f * omega  * (
+        //        Sol(idx(x+0, y+1, width, height)) +
+        //        Sol(idx(x-1, y+0, width, height)) +
+        //        RHS(idx(x  , y  , width, height)) +
+        //        Sol(idx(x+1, y+0, width, height)) +
+        //        Sol(idx(x+0, y-1, width, height))
+        //    );
+        //out(idx(x, y, width, height)) = result;
+    }
+}
+
+fn residual(Sol : Img, Res : Img, RHS : Img) -> () {
+    let mask = Mask {
+        data : [[0.0f,  1.0f, 0.0f],
+                [1.0f, -4.0f, 1.0f],
+                [0.0f,  1.0f, 0.0f]],
+        size_x : 3, size_y : 3
+    };
+    for x, y, mask, sol_acc, res_acc in @iteration(mask, Sol, Res) {
+        // TODO: RHS is not mapped in iteration
+        let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, region : 10 };
+        let val = get_pixel(rhs_acc, x, y) +
+                  apply_stencil(mask, sol_acc, x, y);
+        set_pixel(res_acc, x, y, val);
+        //let result =
+        //            RHS(idx(x,   y,   width, height)) +
+        //     1.0f * Sol(idx(x+0, y+1, width, height)) +
+        //     1.0f * Sol(idx(x-1, y+0, width, height)) +
+        //    -4.0f * Sol(idx(x  , y  , width, height)) +
+        //     1.0f * Sol(idx(x+1, y+0, width, height)) +
+        //     1.0f * Sol(idx(x+0, y-1, width, height));
+        //out(idx(x, y, width, height)) = result;
+    }
+}
+
+fn restrict(Res : Img, RHS : Img) -> () {
+    let mask = Mask {
+        data : [[0.25f, 0.50f, 0.25f],
+                [0.50f, 1.00f, 0.50f],
+                [0.25f, 0.50f, 0.25f]],
+        size_x : 3, size_y : 3
+    };
+    // Restrict: arr = size x size; out = size/2 x size/2; fine -> coarse
+    // coarse = Stencil * fine;
+    for x, y, mask, res_acc, rhs_acc in @iteration(mask, Res, RHS) {
+        /*
+        let val = apply_stencil(mask, res_acc, 2*x, 2*y)/4.0f;
+        set_pixel(rhs_acc, x, y, val);
+        */
+        let val = get_pixel(res_acc, 2*x,   2*y  ) +
+                  get_pixel(res_acc, 2*x-1, 2*y  ) +
+                  get_pixel(res_acc, 2*x,   2*y-1) +
+                  get_pixel(res_acc, 2*x-1, 2*y-1);
+        set_pixel(rhs_acc, x, y, val);
+        //let result =
+        //    0.25f * arr(idx(2*x-1, 2*y-1, 2*width, 2*height));
+        //    0.50f * arr(idx(2*x+0, 2*y-1, 2*width, 2*height));
+        //    0.25f * arr(idx(2*x+1, 2*y-1, 2*width, 2*height));
+        //    0.50f * arr(idx(2*x-1, 2*y+0, 2*width, 2*height));
+        //            arr(idx(2*x  , 2*y  , 2*width, 2*height));
+        //    0.50f * arr(idx(2*x+1, 2*y+0, 2*width, 2*height));
+        //    0.25f * arr(idx(2*x-1, 2*y+1, 2*width, 2*height));
+        //    0.50f * arr(idx(2*x+0, 2*y+1, 2*width, 2*height));
+        //    0.25f * arr(idx(2*x+1, 2*y+1, 2*width, 2*height));
+        //out(idx(x, y, width, height)) = result;
+    }
+}
+
+fn l2norm(img : Img) -> float {
+    // L2 norm: TODO
+    let mut l2sum = 0.0f;
+    for y in $iterate(0, img.height) {
+        for x in $iterate(0, img.width) {
+            let value = img.data(y * img.width + x);
+            l2sum += value*value;
+        }
+    }
+    sqrtf(l2sum)/(img.width*img.height as float)
+}
+
+fn interpolate(SolC : Img, SolF : Img) -> () {
+    let interpolate_mask = Mask {
+        data : [[0.25f, 0.50f, 0.25f],
+                [0.50f, 1.00f, 0.50f],
+                [0.25f, 0.50f, 0.25f]],
+        size_x : 3, size_y : 3
+    };
+    // Interpolate: arr = size/2 x size/2; out = size x size; coarse -> fine
+    // fine += Stencil * coarse:
+    // FIXME: this will not run correctly on accelerators such as GPUs due to
+    // their memory consistency model
+    /*
+    let solc_acc = Acc { img : SolC, o_x : 0, o_y : 0, region : 10 };
+    let solf_acc = Acc { img : SolF, o_x : 0, o_y : 0, region : 10 };
+    for y in $iterate(1, SolC.height-1) {
+        for x in $iterate(1, SolC.width-1) {
+            let value = get_pixel(solc_acc, x, y);
+            set_pixel(solf_acc, 2*x-1, 2*y-1, get_pixel(solf_acc, 2*x-1, 2*y-1) + 0.25f * value);
+            set_pixel(solf_acc, 2*x+0, 2*y-1, get_pixel(solf_acc, 2*x+0, 2*y-1) + 0.50f * value);
+            set_pixel(solf_acc, 2*x+1, 2*y-1, get_pixel(solf_acc, 2*x+1, 2*y-1) + 0.25f * value);
+            set_pixel(solf_acc, 2*x-1, 2*y+0, get_pixel(solf_acc, 2*x-1, 2*y+0) + 0.50f * value);
+            set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) +         value);
+            set_pixel(solf_acc, 2*x+1, 2*y+0, get_pixel(solf_acc, 2*x+1, 2*y+0) + 0.50f * value);
+            set_pixel(solf_acc, 2*x-1, 2*y+1, get_pixel(solf_acc, 2*x-1, 2*y+1) + 0.25f * value);
+            set_pixel(solf_acc, 2*x+0, 2*y+1, get_pixel(solf_acc, 2*x+0, 2*y+1) + 0.50f * value);
+            set_pixel(solf_acc, 2*x+1, 2*y+1, get_pixel(solf_acc, 2*x+1, 2*y+1) + 0.25f * value);
+        }
+    }
+    */
+    let solc_acc = Acc { img : SolC, o_x : 0, o_y : 0, region : 10 };
+    let solf_acc = Acc { img : SolF, o_x : 0, o_y : 0, region : 10 };
+    // TODO: boundary handling
+    for y in $iterate(1, SolC.height-1) {
+        for x in $iterate(1, SolC.width-1) {
+            let value = get_pixel(solc_acc, x, y);
+            set_pixel(solf_acc, 2*x-1, 2*y  , get_pixel(solf_acc, 2*x-1, 2*y  ) + value);
+            set_pixel(solf_acc, 2*x  , 2*y-1, get_pixel(solf_acc, 2*x  , 2*y-1) + value);
+            set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) + value);
+            set_pixel(solf_acc, 2*x-1, 2*y-1, get_pixel(solf_acc, 2*x-1, 2*y-1) + value);
+        }
+    }
+    //for x, y, mask, solc_acc, solf_acc in @iteration(interpolate_mask, SolC, SolF) {
+    //    let value = get_pixel(solc_acc, x, y);
+    //    set_pixel(solf_acc, 2*x-1, 2*y-1, get_pixel(solf_acc, 2*x-1, 2*y-1) + 0.25f * value);
+    //    set_pixel(solf_acc, 2*x+0, 2*y-1, get_pixel(solf_acc, 2*x+0, 2*y-1) + 0.50f * value);
+    //    set_pixel(solf_acc, 2*x+1, 2*y-1, get_pixel(solf_acc, 2*x+1, 2*y-1) + 0.25f * value);
+    //    set_pixel(solf_acc, 2*x-1, 2*y+0, get_pixel(solf_acc, 2*x-1, 2*y+0) + 0.50f * value);
+    //    set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) +         value);
+    //    set_pixel(solf_acc, 2*x+1, 2*y+0, get_pixel(solf_acc, 2*x+1, 2*y+0) + 0.50f * value);
+    //    set_pixel(solf_acc, 2*x-1, 2*y+1, get_pixel(solf_acc, 2*x-1, 2*y+1) + 0.25f * value);
+    //    set_pixel(solf_acc, 2*x+0, 2*y+1, get_pixel(solf_acc, 2*x+0, 2*y+1) + 0.50f * value);
+    //    set_pixel(solf_acc, 2*x+1, 2*y+1, get_pixel(solf_acc, 2*x+1, 2*y+1) + 0.25f * value);
+    //    //let v = arr(idx(x, y, width, height));
+    //    //out(idx(2*x-1, 2*y-1, 2*width, 2*height)) += 0.25f * v;
+    //    //out(idx(2*x+0, 2*y-1, 2*width, 2*height)) += 0.50f * v;
+    //    //out(idx(2*x+1, 2*y-1, 2*width, 2*height)) += 0.25f * v;
+    //    //out(idx(2*x-1, 2*y+0, 2*width, 2*height)) += 0.50f * v;
+    //    //out(idx(2*x  , 2*y  , 2*width, 2*height)) +=         v;
+    //    //out(idx(2*x+1, 2*y+0, 2*width, 2*height)) += 0.50f * v;
+    //    //out(idx(2*x-1, 2*y+1, 2*width, 2*height)) += 0.25f * v;
+    //    //out(idx(2*x+0, 2*y+1, 2*width, 2*height)) += 0.50f * v;
+    //    //out(idx(2*x+1, 2*y+1, 2*width, 2*height)) += 0.25f * v;
+    //}
+}
+
+
+extern
+fn thorin_vcycle(img_data : &[float], out_data : &[float], c_width : int, c_height : int) -> () {
+    let width  = 512;
+    let height = 512;
+    let omega  = 0.8f;
+    let levels = 6;
+    let img    = Img { data : img_data , width : width, height : height };
+    let out    = Img { data : out_data , width : width, height : height };
+    let mut RHS : [Img * 6];
+    let mut Sol : [Img * 6];
+    let mut Tmp : [Img * 6];
+    let mut Res : [Img * 6];
+    Sol(0) = out;
+    for level in @range(0, levels) { RHS(level) = Img { data : ~[width*height >> (2*level) : float], width : width >> level, height : height >> level }; }
+    for level in @range(0, levels) { Res(level) = Img { data : ~[width*height >> (2*level) : float], width : width >> level, height : height >> level }; }
+    for level in @range(1, levels) { Sol(level) = Img { data : ~[width*height >> (2*level) : float], width : width >> level, height : height >> level }; }
+    for level in @range(0, levels) { Tmp(level) = Img { data : ~[width*height >> (2*level) : float], width : width >> level, height : height >> level }; }
+    for level in @range(0, levels) { $init_zero(Tmp(level).data, Tmp(level).width, Tmp(level).height); }
+
+
+    @deriv2D(img, RHS(0));
+
+    let ssteps = 2;
+    let vsteps = 2;
+    fn vcycle(level : int) -> () {
+        if level == levels-1 {
+            for i in range(0, ssteps) {
+                // smooth
+                if i>0 { let tmp = Sol; Sol = Tmp; Tmp = tmp; }
+                jacobi(RHS(level), Tmp(level), Sol(level), omega);
+            }
+        } else {
+            // pre-smooth
+            for i in range(0, ssteps) {
+                if i>0 { let tmp = Sol; Sol = Tmp; Tmp = tmp; }
+                jacobi(RHS(level), Tmp(level), Sol(level), omega);
+            }
+
+            residual(Sol(level), Res(level), RHS(level));
+            restrict(Res(level), RHS(level+1));
+
+            if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
+
+            $init_zero(Tmp(level+1).data, Tmp(level+1).width, Tmp(level+1).height);
+            vcycle(level+1);
+
+            interpolate(Sol(level+1), Sol(level));
+
+            // post-smooth
+            for i in range(0, ssteps) {
+                if i>0 { let tmp = Sol; Sol = Tmp; Tmp = tmp; }
+                jacobi(RHS(level), Tmp(level), Sol(level), omega);
+            }
+        }
+    }
+    for i in range(0, vsteps) {
+        @vcycle(0);
+    }
+}
+
