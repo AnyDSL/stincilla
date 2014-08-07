@@ -1,12 +1,5 @@
-struct Mask {
-    data : [[float * 5] * 5],
-    size_x : int,
-    size_y : int,
-}
-struct MaskSep {
-    data : [float * 5],
-    size : int,
-}
+type Mask = Mask5;
+type MaskSep = Mask5Sep;
 
 fn bilateral_filter_mask(mask : Mask, acc : Acc, sigma_d : int, c_r : float, mut x : int, mut y : int) -> float {
     let mut k = 0.0f;

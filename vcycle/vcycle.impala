@@ -1,12 +1,5 @@
-struct Mask {
-    data : [[float * 3] * 3],
-    size_x : int,
-    size_y : int,
-}
-struct MaskSep {
-    data : [float * 3],
-    size : int,
-}
+type Mask = Mask3;
+type MaskSep = Mask3Sep;
 
 fn get_pixel(acc : Acc, x : int, y : int) -> float {
     acc.img.data((acc.o_y + y)*acc.img.width + acc.o_x + x)

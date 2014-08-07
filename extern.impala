@@ -66,14 +66,21 @@ struct Acc {
     o_y : int,
     region : int,
 }
-/*
-struct Mask {
+struct Mask3 {
+    data : [[float * 3] * 3],
+    size_x : int,
+    size_y : int,
+}
+struct Mask3Sep {
+    data : [float * 3],
+    size : int,
+}
+struct Mask5 {
     data : [[float * 5] * 5],
     size_x : int,
     size_y : int,
 }
-struct MaskSep {
+struct Mask5Sep {
     data : [float * 5],
     size : int,
 }
-*/

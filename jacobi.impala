@@ -1,12 +1,5 @@
-struct Mask {
-    data : [[float * 3] * 3],
-    size_x : int,
-    size_y : int,
-}
-struct MaskSep {
-    data : [float * 3],
-    size : int,
-}
+type Mask = Mask3;
+type MaskSep = Mask3Sep;
 
 fn apply_stencil(stencil : Mask, acc : Acc, x : int, y : int) -> float {
     let mut sum = 0.0f;
