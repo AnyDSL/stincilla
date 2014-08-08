@@ -1,0 +1,539 @@
+// CUDA
+extern "device" {
+    fn atomicAdd(&float, float) -> ();
+    fn __any(int) -> int;
+}
+fn acc_atomic_add_f32_local(a: &float, b: float) -> () { atomicAdd(a, b) }
+fn acc_atomic_add_f32_global(a: &float, b: float) -> () { atomicAdd(a, b) }
+fn acc_any(a: int) -> int { __any(a) }
+
+//// NVVM
+//extern "device" {
+//    fn "llvm.nvvm.atomic.load.add.f32.p1f32" nvvm_atomic_load_add_f32_p1f32(&float, float) -> ();
+//    fn "llvm.nvvm.atomic.load.add.f32.p3f32" nvvm_atomic_load_add_f32_p3f32(&float, float) -> ();
+//}
+//fn acc_atomic_add_f32_local(a: &float, b: float) -> () { nvvm_atomic_load_add_f32_p1f32(a, b) }
+//fn acc_atomic_add_f32_global(a: &float, b: float) -> () { nvvm_atomic_load_add_f32_p3f32(a, b) }
+
+struct float3 {
+    x : float,
+    y : float,
+    z : float,
+}
+struct float4 {
+    x : float,
+    y : float,
+    z : float,
+    w : float,
+}
+struct shift_consts_t {
+    c2 : float,
+    c3 : float,
+    cpot : float,
+}
+struct switch_consts_t {
+    c3 : float,
+    c4 : float,
+    c5 : float,
+}
+struct nbnxn_im_ei_t {
+    imask : uint,          /* The i-cluster interactions mask for 1 warp  */
+    excl_ind : int,        /* Index into the exclusion array for 1 warp   */
+}
+/* Grouped pair-list i-unit */
+struct nbnxn_sci_t {
+    sci : int,            /* i-super-cluster       */
+    shift : int,          /* Shift vector index plus possible flags */
+    cj4_ind_start : int,  /* Start index into cj4  */
+    cj4_ind_end : int,    /* End index into cj4    */
+}
+struct nbnxn_cj4_t {
+    cj : [int * 4],        /* The 4 j-clusters                            */
+    imei : [nbnxn_im_ei_t * 2], /* The i-cluster mask data       for 2 warps   */
+}
+struct nbnxn_excl_t {
+    pair : [uint * 32],    /* Topology exclusion interaction bits for one warp,
+                            * each unsigned has bitS for 4*8 i clusters
+                            */
+}
+
+struct cu_atomdata_t {
+    natoms : int,            /**< number of atoms                              */
+    natoms_local : int,      /**< number of local atoms                        */
+    nalloc : int,            /**< allocation size for the atom data (xq, f)    */
+
+    xq : &[float4],          /**< atom coordinates + charges, size natoms      */
+    f : &[float3],           /**< force output array, size natoms              */
+
+    e_lj : &float,           /**< LJ energy output, size 1                     */
+    e_el : &float,           /**< Electrostatics energy input, size 1          */
+
+    fshift : &[float3],      /**< shift forces                                 */
+
+    ntypes : int,            /**< number of atom types                         */
+    atom_types : &[int],     /**< atom type indices, size natoms               */
+
+    shift_vec : &[float3],   /**< shifts                                       */
+    bShiftVecUploaded : bool,/**< true if the shift vector has been uploaded   */
+}
+
+struct cu_nbparam_t {
+    eeltype : int,            /**< type of electrostatics, takes values from #eelCu */
+    vdwtype : int,            /**< type of VdW impl., takes values from #evdwCu     */
+
+    epsfac : float,           /**< charge multiplication factor                      */
+    c_rf : float,             /**< Reaction-field/plain cutoff electrostatics const. */
+    two_k_rf : float,         /**< Reaction-field electrostatics constant            */
+    ewald_beta : float,       /**< Ewald/PME parameter                               */
+    sh_ewald : float,         /**< Ewald/PME correction term substracted from the direct-space potential */
+    sh_lj_ewald : float,      /**< LJ-Ewald/PME correction term added to the correction potential        */
+    ewaldcoeff_lj : float,    /**< LJ-Ewald/PME coefficient                          */
+
+    rcoulomb_sq : float,      /**< Coulomb cut-off squared                           */
+
+    rvdw_sq : float,          /**< VdW cut-off squared                               */
+    rvdw_switch : float,      /**< VdW switched cut-off                              */
+    rlist_sq : float,         /**< pair-list cut-off squared                         */
+
+    dispersion_shift: shift_consts_t, /**< VdW shift dispersion constants           */
+    repulsion_shift: shift_consts_t,  /**< VdW shift repulsion constants            */
+    vdw_switch : switch_consts_t,     /**< VdW switch constants                     */
+
+    /* LJ non-bonded parameters - accessed through texture memory */
+    nbfp : &[float],          /**< nonbonded parameter table with C6/C12 pairs per atom type-pair, 2*ntype^2 elements */
+    nbfp_texobj : u64,        /**< texture object bound to nbfp                                                       */
+    nbfp_comb : &[float],     /**< nonbonded parameter table per atom type, 2*ntype elements                          */
+    nbfp_comb_texobj : u64,   /**< texture object bound to nbfp_texobj                                                */
+
+    /* Ewald Coulomb force table data - accessed through texture memory */
+    coulomb_tab_size : int,   /**< table size (s.t. it fits in texture cache) */
+    coulomb_tab_scale : float,/**< table scale/spacing                        */
+    coulomb_tab : &[float],   /**< pointer to the table in the device memory  */
+    coulomb_tab_texobj : u64, /**< texture object bound to coulomb_tab        */
+}
+
+struct cu_plist_t {
+    na_c : int,               /**< number of atoms per cluster                  */
+
+    nsci : int,               /**< size of sci, # of i clusters in the list     */
+    sci_nalloc : int,         /**< allocation size of sci                       */
+    sci : &[nbnxn_sci_t],     /**< list of i-cluster ("super-clusters")         */
+
+    ncj4 : int,               /**< total # of 4*j clusters                      */
+    cj4_nalloc : int,         /**< allocation size of cj4                       */
+    cj4 : &[nbnxn_cj4_t],     /**< 4*j cluster list, contains j cluster number
+                                   and index into the i cluster list            */
+    excl : &[nbnxn_excl_t],   /**< atom interaction bits                        */
+    nexcl : int,              /**< count for excl                               */
+    excl_nalloc : int,        /**< allocation size of excl                      */
+
+    bDoPrune : bool,          /**< true if pair-list pruning needs to be
+                                   done during the  current step                */
+}
+
+
+extern
+fn thorin_non_bonded_f(atdat : cu_atomdata_t, nbparam : cu_nbparam_t, plist : cu_plist_t, bCalcFshift : bool) -> () {
+    let dim = (1024, 1024, 1);
+    let block = (32, 8, 1);
+    //for i in @range(0, 1) {
+    //    acc(0, block, dim, || -> () {
+            @non_bonded_f(atdat, nbparam, plist, bCalcFshift);
+    //    });
+    //}
+}
+
+//
+// nbnxn_kernel_ElecEwQSTab_VdwLJ_VF_prune_cuda -> EL_EWALD_TAB
+//
+// nbnxn_kernel_ElecEw_VdwLJ_VF_prune_cuda -> EL_EWALD_ANA
+//
+fn is_el_ewald_ana() -> bool { true }
+fn is_el_ewald_tab() -> bool { false }
+fn get_ncl_per_supercl() -> int { 2*2*2 } // NCL_PER_SUPERCL
+fn get_cl_size() -> int { 8 } // CL_SIZE
+fn get_cl_size_sq() -> int { get_cl_size() * get_cl_size() } // CL_SIZE_SQ
+fn get_central() -> int { ((2*1 +1)*(2*1 +1)*(2*2 +1))/2 } // CENTRAL
+fn get_m_float_1_sqrtpi() -> float { 0.564189583547756f } // M_FLOAT_1_SQRTPI
+fn get_nbnxn_gpu_jgroup_size() -> int { 4 } // NBNXN_GPU_JGROUP_SIZE
+fn get_nbnxn_avoid_sing_r2_inc_float() -> float { 1.0e-12f } // NBNXN_AVOID_SING_R2_INC
+fn get_nbnxn_avoid_sing_r2_inc_double() -> double { 1.0e-36 } // NBNXN_AVOID_SING_R2_INC
+fn get_one_twelveth_f() -> float { 0.08333333f } // ONE_TWELVETH_F
+fn get_one_sixth_f() -> float { 0.16666667f } // ONE_SIXTH_F
+fn get_fbuf_stride() -> int { get_cl_size_sq() } // FBUF_STRIDE
+fn get_warp_size() -> int { 32 } // WARP_SIZE
+fn get_warp_size_pow2_exponent() -> int { 5 } // WARP_SIZE_POW2_EXPONENT
+
+fn norm2(a: float3) -> float { a.x * a.x + a.y * a.y + a.z * a.z }
+fn pmecorrF(z2 : float) -> float {
+    let FN6 = -1.7357322914161492954e-8f;
+    let FN5 = 1.4703624142580877519e-6f;
+    let FN4 = -0.000053401640219807709149f;
+    let FN3 = 0.0010054721316683106153f;
+    let FN2 = -0.019278317264888380590f;
+    let FN1 = 0.069670166153766424023f;
+    let FN0 = -0.75225204789749321333f;
+
+    let FD4 = 0.0011193462567257629232f;
+    let FD3 = 0.014866955030185295499f;
+    let FD2 = 0.11583842382862377919f;
+    let FD1 = 0.50736591960530292870f;
+    let FD0 = 1.0f;
+
+    let z4  = z2*z2;
+
+    let mut polyFD0 = FD4*z4 + FD2;
+    let polyFD1     = FD3*z4 + FD1;
+    polyFD0         = polyFD0*z4 + FD0;
+    polyFD0         = polyFD1*z2 + polyFD0;
+
+    polyFD0         = 1.0f/polyFD0;
+
+    let mut polyFN0 = FN6*z4 + FN4;
+    let mut polyFN1 = FN5*z4 + FN3;
+    polyFN0         = polyFN0*z4 + FN2;
+    polyFN1         = polyFN1*z4 + FN1;
+    polyFN0         = polyFN0*z4 + FN0;
+    polyFN0         = polyFN1*z2 + polyFN0;
+
+    polyFN0*polyFD0
+}
+fn interpolate_coulomb_force_r(r: float, scale: float, coulomb_tab: &[float]) -> float {
+    let normalized = scale * r;
+    let index      = normalized as int;
+    let fract2     = normalized - index as float;
+    let fract1     = 1.0f - fract2;
+
+    fract1 * coulomb_tab(index) + fract2 * coulomb_tab(index + 1)
+}
+/*! Final j-force reduction; this generic implementation works with
+ *  arbitrary array sizes.
+ */
+fn reduce_force_j_generic(f_buf: &[float], mut fout: &[float3],
+                          tidxi: int, tidxj: int, aidx: int) -> () {
+    if (tidxi == 0) {
+        let mut f = float3 { x : 0.0f, y : 0.0f, z : 0.0f };
+        for j in range(tidxj * get_cl_size(), (tidxj + 1) * get_cl_size()) {
+            f.x += f_buf(                        j);
+            f.y += f_buf(    get_fbuf_stride() + j);
+            f.z += f_buf(2 * get_fbuf_stride() + j);
+        }
+        acc_atomic_add_f32_local(&(fout(aidx).x), f.x);
+        acc_atomic_add_f32_local(&(fout(aidx).y), f.y);
+        acc_atomic_add_f32_local(&(fout(aidx).z), f.z);
+    }
+}
+/*! Final i-force reduction; this generic implementation works with
+ *  arbitrary array sizes.
+ */
+fn reduce_force_i_generic(f_buf: &[float], mut fout: &[float3],
+                          mut fshift_buf: &float3, bCalcFshift: bool,
+                          tidxi: int, tidxj: int, aidx: int) -> () {
+    if (tidxj == 0) {   
+        let mut f = float3 { x : 0.0f, y : 0.0f, z : 0.0f };
+        for j in range_step(tidxi, get_cl_size_sq(), get_cl_size()) {   
+            f.x += f_buf(                        j);
+            f.y += f_buf(    get_fbuf_stride() + j);
+            f.z += f_buf(2 * get_fbuf_stride() + j);
+        }
+
+        acc_atomic_add_f32_local(&(fout(aidx).x), f.x);
+        acc_atomic_add_f32_local(&(fout(aidx).y), f.y);
+        acc_atomic_add_f32_local(&(fout(aidx).z), f.z);
+
+        if (bCalcFshift) {   
+            (*fshift_buf).x += f.x;
+            (*fshift_buf).y += f.y;
+            (*fshift_buf).z += f.z;
+        }
+    }
+}
+
+/*! Final i-force reduction wrapper; calls the generic or pow2 reduction depending
+ *  on whether the size of the array to be reduced is power of two or not.
+ */
+fn reduce_force_i(f_buf: &[float], f: &[float3],
+                  fshift_buf: &float3, bCalcFshift: bool,
+                  tidxi: int, tidxj: int, ai: int) -> () {
+    //if ((get_cl_size() & (get_cl_size() - 1))) {
+        reduce_force_i_generic(f_buf, f, fshift_buf, bCalcFshift, tidxi, tidxj, ai);
+    //} else {
+    // TODO:
+    //    reduce_force_i_pow2(f_buf, f, fshift_buf, bCalcFshift, tidxi, tidxj, ai);
+    //}
+}
+
+/*! Energy reduction; this implementation works only with power of two
+ *  array sizes.
+ */
+fn reduce_energy_pow2(mut buf: &[float], offset: int, e_lj: &float, e_el: &float, tidx: int) -> () {
+    let mut i = get_warp_size()/2;
+    /* Can't just use i as loop variable because than nvcc refuses to unroll. */
+    // # pragma unroll 10
+    for j in range_rev(get_warp_size_pow2_exponent() - 1, 0) {
+        if (tidx < i) {
+            buf(                    offset + tidx) += buf(                    offset + tidx + i);
+            buf(get_fbuf_stride() + offset + tidx) += buf(get_fbuf_stride() + offset + tidx + i);
+        }
+        i >>= 1;
+    }
+
+    /* last reduction step, writing to global mem */
+    if (tidx == 0) {
+        let e1 = buf(                    offset + tidx) + buf(                    offset + tidx + i);
+        let e2 = buf(get_fbuf_stride() + offset + tidx) + buf(get_fbuf_stride() + offset + tidx + i);
+
+        acc_atomic_add_f32_local(e_lj, e1);
+        acc_atomic_add_f32_local(e_el, e2);
+    }
+}
+
+
+/*
+   Kernel launch parameters:
+    - #blocks   = #pair lists, blockId = pair list Id
+    - #threads  = CL_SIZE^2
+    - shmem     = CL_SIZE^2 * sizeof(float)
+
+    Each thread calculates an i force-component taking one pair of i-j atoms.
+ */
+
+fn non_bonded_f(mut atdat : cu_atomdata_t, nbparam : cu_nbparam_t, plist : cu_plist_t, mut bCalcFshift : bool) -> () {
+    /* convenience variables */
+    let pl_sci : &[nbnxn_sci_t]     = plist.sci;
+    let mut pl_cj4 : &[nbnxn_cj4_t] = plist.cj4;
+    let excl : &[nbnxn_excl_t]      = plist.excl;
+    let atom_types : &[int]         = atdat.atom_types;
+    let ntypes : int                = atdat.ntypes;
+    let xq : &[float4]              = atdat.xq;
+    let f : &[float3]               = atdat.f;
+    let shift_vec : &[float3]       = atdat.shift_vec;
+    let rcoulomb_sq : float         = nbparam.rcoulomb_sq;
+    //#ifdef EL_EWALD_TAB
+    let coulomb_tab_scale : float   = nbparam.coulomb_tab_scale;
+    let coulomb_tab : &[float]      = nbparam.coulomb_tab;
+    //#endif
+    //#ifdef EL_EWALD_ANA
+    let beta2 :float                = nbparam.ewald_beta*nbparam.ewald_beta;
+    let beta3 :float                = nbparam.ewald_beta*nbparam.ewald_beta*nbparam.ewald_beta;
+    //#endif
+    let rlist_sq : float            = nbparam.rlist_sq;
+
+    let beta : float                = nbparam.ewald_beta;
+    let ewald_shift: float          = nbparam.sh_ewald;
+    let e_lj : &float               = atdat.e_lj;
+    let e_el : &float               = atdat.e_el;
+
+    /* thread/block/warp id-s */
+    let tidxi  = acc_tidx();
+    let tidxj  = acc_tidy();
+    let tidx   = acc_gidx();
+    let bidx   = acc_bidx();
+    let widx   = tidx / acc_vector_length(); /* warp index */
+
+    /* shmem buffer for i x+q pre-loading */
+    let mut xqib : &[float4] = ~[64:float4]; // 2 * 2 * 2 * 8 * 16 => 64 * float4
+    /* shmem buffer for cj, for both warps separately */
+    let mut cjs : &[int] = ~[8:int]; // 2 * 4 * 4 => 8 * int
+    /* shmem j force buffer */
+    let mut f_buf : &[float] = ~[192:float]; // 8 * 8 * 3 * 4 => 192 * float
+
+    let nb_sci : nbnxn_sci_t = pl_sci(bidx);         /* my i super-cluster's index = current bidx */
+    let sci : int            = nb_sci.sci;           /* super-cluster */
+    let cij4_start : int     = nb_sci.cj4_ind_start; /* first ...*/
+    let cij4_end : int       = nb_sci.cj4_ind_end;   /* and last index of j clusters */
+
+    /* Pre-load i-atom x and q into shared memory */
+    let mut ci : int = sci * get_ncl_per_supercl() + tidxj;
+    let mut ai : int = ci * get_cl_size() + tidxi;
+    xqib(tidxj * get_cl_size() + tidxi).x = xq(ai).x + shift_vec(nb_sci.shift).x;
+    xqib(tidxj * get_cl_size() + tidxi).y = xq(ai).y + shift_vec(nb_sci.shift).y;
+    xqib(tidxj * get_cl_size() + tidxi).z = xq(ai).z + shift_vec(nb_sci.shift).z;
+    xqib(tidxj * get_cl_size() + tidxi).w = xq(ai).w;
+    acc_barrier();
+
+    //let fci_buf : [float3 * get_ncl_per_supercl()]; /* i force buffer */
+    let mut fci_buf : [float3 * 8]; /* i force buffer; NCL_PER_SUPERCL: 2 * 2 * 2 -> 8 */
+    for ci_offset in range(0, get_ncl_per_supercl()) {
+        fci_buf(ci_offset) = float3 { x : 0.0f, y : 0.0f, z : 0.0f };
+    }
+
+    let mut E_lj : float = 0.0f;
+    let mut E_el : float = 0.0f;
+
+    if (nb_sci.shift == get_central() && pl_cj4(cij4_start).cj(0) == sci*get_ncl_per_supercl()) {
+        /* we have the diagonal: add the charge and LJ self interaction energy term */
+        for i in range(0, get_ncl_per_supercl()) {
+            let qi : float = xqib(i * get_cl_size() + tidxi).w;
+            E_el += qi*qi;
+        }
+
+        E_el /= get_cl_size() as float;
+        E_el *= -nbparam.epsfac*beta*get_m_float_1_sqrtpi(); /* last factor 1/sqrt(pi) */
+    }
+
+
+    /* skip central shifts when summing shift forces */
+    if (nb_sci.shift == get_central()) {
+        bCalcFshift = false;
+    }
+
+    let mut fshift_buf = float3 { x : 0.0f, y : 0.0f, z : 0.0f };
+
+    /* loop over the j clusters = seen by any of the atoms in the current super-cluster */
+    for j4 in range(cij4_start, cij4_end) {
+        let wexcl_idx : int = pl_cj4(j4).imei(widx).excl_ind;
+        let mut imask : uint= pl_cj4(j4).imei(widx).imask;
+        let wexcl : uint    = excl(wexcl_idx).pair((tidx) & (acc_vector_length() - 1));
+
+        if imask != 0u {
+            /* Pre-load cj into shared memory on both warps separately */
+            if ((tidxj == 0 || tidxj == 4) && tidxi < get_nbnxn_gpu_jgroup_size()) {
+                cjs(tidxi + tidxj * get_nbnxn_gpu_jgroup_size() / 4) = pl_cj4(j4).cj(tidxi);
+            }
+
+            /* Unrolling this loop
+               - with pruning leads to register spilling;
+               - on Kepler is much slower;
+               - doesn't work on CUDA <v4.1
+               Tested with nvcc 3.2 - 5.0.7 */
+            for jm in range(0, get_nbnxn_gpu_jgroup_size()) {
+                let supercl_interaction_mask : uint = ((1u << (get_ncl_per_supercl() as uint)) - 1u);
+                if (imask & (supercl_interaction_mask << ((jm * get_ncl_per_supercl()) as uint))) != 0u {
+                    let mut mask_ji : uint  = 1u << ((jm * get_ncl_per_supercl()) as uint);
+
+                    let cj : int        = cjs(jm + (tidxj & 4) * get_nbnxn_gpu_jgroup_size() / 4);
+                    let aj : int        = cj * get_cl_size() + tidxj;
+
+                    /* load j atom data */
+                    let mut xqbuf : float4  = xq(aj);
+                    let xj : float3     = float3 { x : xqbuf.x, y : xqbuf.y, z : xqbuf.z };
+                    let qj_f : float    = nbparam.epsfac * xqbuf.w;
+                    let typej : int     = atom_types(aj);
+
+                    let mut fcj_buf : float3 = float3 { x : 0.0f, y : 0.0f, z : 0.0f };
+
+                    /* The PME and RF kernels don't unroll with CUDA <v4.1. */
+                    for i in range(0, get_ncl_per_supercl()) {
+                        if (imask & mask_ji) != 0u {
+                            let ci_offset = i;                     /* i force buffer offset */
+
+                            ci      = sci * get_ncl_per_supercl() + i; /* i cluster index */
+                            ai      = ci * get_cl_size() + tidxi;      /* i atom index */
+
+                            /* all threads load an atom from i cluster ci into shmem! */
+                            xqbuf   = xqib(i * get_cl_size() + tidxi);
+                            let xi : float3 = float3 { x : xqbuf.x, y : xqbuf.y, z : xqbuf.z };
+
+                            /* distance between i and j atoms */
+                            let rv : float3 = float3 { x : xi.x - xj.x, y : xi.y - xj.y, z : xi.z - xj.z };
+                            let mut r2 : float  = norm2(rv);
+
+                            /* If _none_ of the atoms pairs are in cutoff range,
+                               the bit corresponding to the current
+                               cluster-pair in imask gets set to 0. */
+                            // TODO: __any ...
+                            if acc_any((r2 < rlist_sq) as int) == 0 {
+                                imask &= !mask_ji; // ~mask -> !mask
+                            }
+
+                            let int_bit : float     = if (wexcl & mask_ji) != 0u { 1.0f } else { 0.0f };
+
+                            /* cutoff & exclusion check */
+                            if (r2 < rcoulomb_sq *
+                                ((nb_sci.shift != get_central() || ci != cj || tidxj > tidxi) as float)) {
+                                /* load the rest of the i-atom parameters */
+                                let qi : float      = xqbuf.w;
+                                let typei : int     = atom_types(ai);
+
+                                /* LJ 6*C6 and 12*C12 */
+                                let c6 : float      = nbparam.nbfp(2 * (ntypes * typei + typej));
+                                let c12 : float     = nbparam.nbfp(2 * (ntypes * typei + typej) + 1);
+
+
+                                /* avoid NaN for excluded pairs at r=0 */
+                                r2      += (1.0f - int_bit) * get_nbnxn_avoid_sing_r2_inc_float();
+
+                                let inv_r : float   = rsqrtf(r2);
+                                let inv_r2 : float  = inv_r * inv_r;
+                                let mut inv_r6 : float  = inv_r2 * inv_r2 * inv_r2;
+                                /* We could mask inv_r2, but with Ewald
+                                 * masking both inv_r6 and F_invr is faster */
+                                inv_r6  *= int_bit;
+
+                                let mut F_invr : float  = inv_r6 * (c12 * inv_r6 - c6) * inv_r2;
+                                let E_lj_p : float  = int_bit * (c12 * (inv_r6 * inv_r6 + nbparam.repulsion_shift.cpot)*get_one_twelveth_f() -
+                                                     c6 * (inv_r6 + nbparam.dispersion_shift.cpot)*get_one_sixth_f());
+                                E_lj    += E_lj_p;
+
+
+                                if is_el_ewald_ana() {
+                                    F_invr  += qi * qj_f * (int_bit*inv_r2*inv_r + pmecorrF(beta2*r2)*beta3);
+                                }
+                                if is_el_ewald_tab() {
+                                F_invr  += qi * qj_f * (int_bit*inv_r2 -
+                                                        interpolate_coulomb_force_r(r2 * inv_r, coulomb_tab_scale, coulomb_tab)
+                                                        ) * inv_r;
+                                }
+
+                                /* 1.0f - erff is faster than erfcf */
+                                E_el    += qi * qj_f * (inv_r * (int_bit - erff(r2 * inv_r * beta)) - int_bit * ewald_shift);
+                                let f_ij : float3  = float3 { x : rv.x * F_invr, y : rv.y * F_invr, z : rv.z * F_invr };
+
+                                /* accumulate j forces in registers */
+                                fcj_buf.x -= f_ij.x;
+                                fcj_buf.y -= f_ij.y;
+                                fcj_buf.z -= f_ij.z;
+
+                                /* accumulate i forces in registers */
+                                fci_buf(ci_offset).x += f_ij.x;
+                                fci_buf(ci_offset).y += f_ij.y;
+                                fci_buf(ci_offset).z += f_ij.z;
+                            }
+                        }
+
+                        /* shift the mask bit by 1 */
+                        mask_ji += mask_ji;
+                    }
+
+                    /* reduce j forces */
+                    /* store j forces in shmem */
+                    f_buf(                        tidx) = fcj_buf.x;
+                    f_buf(    get_fbuf_stride() + tidx) = fcj_buf.y;
+                    f_buf(2 * get_fbuf_stride() + tidx) = fcj_buf.z;
+
+                    reduce_force_j_generic(f_buf, f, tidxi, tidxj, aj);
+                }
+            }
+            /* Update the imask with the new one which does not contain the
+               out of range clusters anymore. */
+            pl_cj4(j4).imei(widx).imask = imask;
+        }
+    }
+
+    /* reduce i forces */
+    for ci_offset in range(0, get_ncl_per_supercl()) {
+        ai  = (sci * get_ncl_per_supercl() + ci_offset) * get_cl_size() + tidxi;
+        f_buf(                        tidx) = fci_buf(ci_offset).x;
+        f_buf(    get_fbuf_stride() + tidx) = fci_buf(ci_offset).y;
+        f_buf(2 * get_fbuf_stride() + tidx) = fci_buf(ci_offset).z;
+        acc_barrier();
+        reduce_force_i(f_buf, f,
+                       &fshift_buf, bCalcFshift,
+                       tidxi, tidxj, ai);
+        acc_barrier();
+    }
+
+    /* add up local shift forces into global mem */
+    if (bCalcFshift && tidxj == 0) {
+        acc_atomic_add_f32_global(&atdat.fshift(nb_sci.shift).x, fshift_buf.x);
+        acc_atomic_add_f32_global(&atdat.fshift(nb_sci.shift).y, fshift_buf.y);
+        acc_atomic_add_f32_global(&atdat.fshift(nb_sci.shift).z, fshift_buf.z);
+    }
+
+    /* flush the energies to shmem and reduce them */
+    f_buf(                    tidx) = E_lj;
+    f_buf(get_fbuf_stride() + tidx) = E_el;
+    reduce_energy_pow2(f_buf, tidx & acc_vector_length(), e_lj, e_el, tidx & !acc_vector_length());
+}
+
