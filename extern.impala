@@ -1,24 +1,23 @@
-fn iterate(a : int, b : int, yield : fn(int, fn())) -> () {
+fn iterate_step(a : int, b : int, step : int, yield : fn(int, fn())) -> () {
     if a < b {
         yield(a);
-        iterate(a+1, b, yield, return)
+        iterate_step(a+step, b, step, yield, return)
     }
 }
 
-fn iterate_rev(a : int, b : int, yield : fn(int, fn())) -> () {
+fn iterate_step_rev(a : int, b : int, step : int, yield : fn(int, fn())) -> () {
     if a > b {
         yield(a);
-        iterate(a-1, b, yield, return)
+        iterate_step_rev(a-step, b, step, yield, return)
     }
 }
 
-fn range(a : int, b : int, yield : fn(int, fn())) -> () {
-    iterate(a, b, yield)
-}
-
-fn range_rev(a : int, b : int, yield : fn(int, fn())) -> () {
-    iterate_rev(a, b, yield)
-}
+fn iterate(a : int, b : int, yield : fn(int, fn())) -> () { iterate_step(a, b, 1, yield) }
+fn iterate_rev(a : int, b : int, yield : fn(int, fn())) -> () { iterate_step_rev(a, b, 1, yield) }
+fn range(a : int, b : int, yield : fn(int, fn())) -> () { iterate(a, b, yield) }
+fn range_step(a : int, b : int, step : int, yield : fn(int, fn())) -> () { iterate_step(a, b, step, yield) }
+fn range_rev(a : int, b : int, yield : fn(int, fn())) -> () { iterate_rev(a, b, yield) }
+fn range_step_rev(a : int, b : int, step : int, yield : fn(int, fn())) -> () { iterate_step_rev(a, b, step, yield) }
 
 fn force_unroll(a : int, b : int, yield : fn(int, fn())) -> () {
     if a < b {
