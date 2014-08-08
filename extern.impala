@@ -4,8 +4,20 @@ fn iterate(a : int, b : int, yield : fn(int, fn())) -> () {
         iterate(a+1, b, yield, return)
     }
 }
+
+fn iterate_rev(a : int, b : int, yield : fn(int, fn())) -> () {
+    if a > b {
+        yield(a);
+        iterate(a-1, b, yield, return)
+    }
+}
+
 fn range(a : int, b : int, yield : fn(int, fn())) -> () {
     iterate(a, b, yield)
+}
+
+fn range_rev(a : int, b : int, yield : fn(int, fn())) -> () {
+    iterate_rev(a, b, yield)
 }
 
 fn force_unroll(a : int, b : int, yield : fn(int, fn())) -> () {
