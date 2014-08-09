@@ -16,13 +16,6 @@ fn matmul_golden(mut C: Mat, A: Mat, B: Mat) -> () {
     }
 }
 
-fn range_step(a : int, b : int, step : int, yield : fn(int, fn())) -> () {
-    if a < b {
-        yield(a);
-        range_step(a + step, b, step, yield, return)
-    }
-}
-
 fn get_step(lvl : int) -> int {
     // 2048 -> 256 -> 1 -> 0
     if lvl == 0 {
