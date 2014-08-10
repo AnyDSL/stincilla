@@ -243,9 +243,9 @@ fn reduce_force_i_generic(f_buf: &[float], mut fout: &[float3],
         acc_atomic_add_f32_local(&(fout(aidx).z), f.z);
 
         if (bCalcFshift) {
-            (*fshift_buf).x += f.x;
-            (*fshift_buf).y += f.y;
-            (*fshift_buf).z += f.z;
+            fshift_buf.x += f.x;
+            fshift_buf.y += f.y;
+            fshift_buf.z += f.z;
         }
     }
 }
