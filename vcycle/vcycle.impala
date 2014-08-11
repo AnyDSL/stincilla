@@ -76,6 +76,21 @@ fn deriv2D(img : Img, RHS : Img) -> () {
     }
 }
 
+// Jacobi
+static omega = 0.8f;
+static jacobi_mask = Mask {
+    data : [[0.00f, 0.25f, 0.00f],
+            [0.25f, 0.00f, 0.25f],
+            [0.00f, 0.25f, 0.00f]],
+    size_x : 3, size_y : 3
+};
+fn jacobi_solver(x : int, y : int, mask : Mask, RHS : Acc, Tmp : Acc, Sol : Acc) -> () {
+    let val = (1.0f - omega) * get_pixel(Tmp, x, y) +
+              0.25f * omega  * get_pixel(RHS, x, y) +
+              apply_stencil(mask, Tmp, x, y);
+    set_pixel(Sol, x, y, val);
+}
+
 fn jacobi(RHS : Img, Tmp : Img, Sol : Img, omega : float) -> () {
     // Jacobi
     let mask = Mask {
@@ -253,8 +268,45 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], c_width : int, c_heig
             }
         }
     }
+    //for i in range(0, vsteps) {
+    //    @vcycle(0);
+    //}
+
+    fn vcycle_dsl(level : int,
+              solver : fn(int, int, Mask, Acc, Acc, Acc) -> ()
+             ) -> () {
+        if level == levels-1 {
+            for i in range(0, ssteps) {
+                // smooth
+                if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
+                jacobi(RHS(level), Tmp(level), Sol(level), omega);
+            }
+        } else {
+            // pre-smooth
+            for i in range(0, ssteps) {
+                if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
+                jacobi(RHS(level), Tmp(level), Sol(level), omega);
+            }
+
+            residual(Sol(level), Res(level), RHS(level));
+            restrict(Res(level), RHS(level+1));
+
+            if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
+
+            $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height + pad_y);
+            vcycle_dsl(level+1, solver);
+
+            interpolate(Sol(level+1), Sol(level));
+
+            // post-smooth
+            for i in range(0, ssteps) {
+                if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
+                jacobi(RHS(level), Tmp(level), Sol(level), omega);
+            }
+        }
+    }
     for i in range(0, vsteps) {
-        @vcycle(0);
+        @vcycle_dsl(0, jacobi_solver);
     }
 
     let mut out = Img { data : out_data , width : width, height : height, stride : width };
