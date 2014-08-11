@@ -302,13 +302,13 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], c_width : int, c_heig
         if level == levels-1 {
             for i in range(0, ssteps) {
                 // smooth
-                if i>0 { let tmp = Sol; Sol = Tmp; Tmp = tmp; }
+                if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 jacobi(RHS(level), Tmp(level), Sol(level), omega);
             }
         } else {
             // pre-smooth
             for i in range(0, ssteps) {
-                if i>0 { let tmp = Sol; Sol = Tmp; Tmp = tmp; }
+                if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 jacobi(RHS(level), Tmp(level), Sol(level), omega);
             }
 
@@ -324,7 +324,7 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], c_width : int, c_heig
 
             // post-smooth
             for i in range(0, ssteps) {
-                if i>0 { let tmp = Sol; Sol = Tmp; Tmp = tmp; }
+                if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 jacobi(RHS(level), Tmp(level), Sol(level), omega);
             }
         }
