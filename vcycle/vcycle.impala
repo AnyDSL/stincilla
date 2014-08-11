@@ -2,10 +2,10 @@ type Mask = Mask3;
 type MaskSep = Mask3Sep;
 
 fn get_pixel(acc : Acc, x : int, y : int) -> float {
-    acc.img.data((acc.o_y + y)*acc.img.width + acc.o_x + x)
+    acc.img.data((acc.o_y + y + 1)*acc.img.stride + 8 + acc.o_x + x)
 }
 fn set_pixel(mut acc : Acc, x : int, y : int, val : float) -> () {
-    acc.img.data((acc.o_y + y)*acc.img.width + acc.o_x + x) = val;
+    acc.img.data((acc.o_y + y + 1)*acc.img.stride + 8 + acc.o_x + x) = val;
 }
 
 fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
@@ -93,7 +93,7 @@ fn jacobi(RHS : Img, Tmp : Img, Sol : Img, omega : float) -> () {
     };
     for x, y, mask, tmp_acc, sol_acc in @iteration(mask, Tmp, Sol) {
         // TODO: RHS is not mapped in iteration
-        let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, region : 10 };
+        let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, width : RHS.width, height : RHS.height, region : 10 };
         let val = (1.0f - omega) * get_pixel(tmp_acc, x, y) +
                   0.25f * omega  * get_pixel(rhs_acc, x, y) +
                   apply_stencil(mask, tmp_acc, x, y);
@@ -120,7 +120,7 @@ fn residual(Sol : Img, Res : Img, RHS : Img) -> () {
     };
     for x, y, mask, sol_acc, res_acc in @iteration(mask, Sol, Res) {
         // TODO: RHS is not mapped in iteration
-        let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, region : 10 };
+        let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, width : RHS.width, height: RHS.height, region : 10 };
         let val = get_pixel(rhs_acc, x, y) +
                   apply_stencil(mask, sol_acc, x, y);
         set_pixel(res_acc, x, y, val);
@@ -173,7 +173,7 @@ fn l2norm(img : Img) -> float {
     let mut l2sum = 0.0f;
     for y in $iterate(0, img.height) {
         for x in $iterate(0, img.width) {
-            let value = img.data(y * img.width + x);
+            let value = img.data((y+1) * img.stride + x + 8);
             l2sum += value*value;
         }
     }
@@ -192,8 +192,8 @@ fn interpolate(SolC : Img, SolF : Img) -> () {
     // FIXME: this will not run correctly on accelerators such as GPUs due to
     // their memory consistency model
     /*
-    let solc_acc = Acc { img : SolC, o_x : 0, o_y : 0, region : 10 };
-    let solf_acc = Acc { img : SolF, o_x : 0, o_y : 0, region : 10 };
+    let solc_acc = Acc { img : SolC, o_x : 0, o_y : 0, width : SolC.width, height : SolC.height, region : 10 };
+    let solf_acc = Acc { img : SolF, o_x : 0, o_y : 0, width : SolF.width, height : SolF.height, region : 10 };
     for y in $iterate(1, SolC.height-1) {
         for x in $iterate(1, SolC.width-1) {
             let value = get_pixel(solc_acc, x, y);
@@ -209,8 +209,8 @@ fn interpolate(SolC : Img, SolF : Img) -> () {
         }
     }
     */
-    let solc_acc = Acc { img : SolC, o_x : 0, o_y : 0, region : 10 };
-    let solf_acc = Acc { img : SolF, o_x : 0, o_y : 0, region : 10 };
+    let solc_acc = Acc { img : SolC, o_x : 0, o_y : 0, width : SolC.width, height : SolC.height, region : 10 };
+    let solf_acc = Acc { img : SolF, o_x : 0, o_y : 0, width : SolF.width, height : SolF.height, region : 10 };
     // TODO: boundary handling
     for y in $iterate(1, SolC.height-1) {
         for x in $iterate(1, SolC.width-1) {
@@ -317,7 +317,7 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], c_width : int, c_heig
 
             if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
 
-            $init_zero(Tmp(level+1).data, Tmp(level+1).width, Tmp(level+1).height);
+            $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height + pad_y);
             vcycle(level+1);
 
             interpolate(Sol(level+1), Sol(level));
