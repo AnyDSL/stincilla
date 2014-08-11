@@ -84,9 +84,10 @@ fn jacobi(RHS : Img, Tmp : Img, Sol : Img, omega : float) -> () {
                 [0.00f, 0.25f, 0.00f]],
         size_x : 3, size_y : 3
     };
-    for x, y, mask, tmp_acc, sol_acc in @iteration(mask, Tmp, Sol) {
+    for x, y, mask, mut tmp_acc, sol_acc in @iteration(mask, Tmp, Sol) {
         // TODO: RHS is not mapped in iteration
         let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, width : RHS.width, height : RHS.height, region : 10 };
+        tmp_acc.region = 4; // no bh
         let val = (1.0f - omega) * get_pixel(tmp_acc, x, y) +
                   0.25f * omega  * get_pixel(rhs_acc, x, y) +
                   apply_stencil(mask, tmp_acc, x, y);
@@ -101,9 +102,10 @@ fn residual(Sol : Img, Res : Img, RHS : Img) -> () {
                 [0.0f,  1.0f, 0.0f]],
         size_x : 3, size_y : 3
     };
-    for x, y, mask, sol_acc, res_acc in @iteration(mask, Sol, Res) {
+    for x, y, mask, mut sol_acc, res_acc in @iteration(mask, Sol, Res) {
         // TODO: RHS is not mapped in iteration
         let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, width : RHS.width, height: RHS.height, region : 10 };
+        sol_acc.region = 4; // no bh
         let val = get_pixel(rhs_acc, x, y) +
                   apply_stencil(mask, sol_acc, x, y);
         set_pixel(res_acc, x, y, val);
