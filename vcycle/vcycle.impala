@@ -73,13 +73,6 @@ fn deriv2D(img : Img, RHS : Img) -> () {
     for x, y, mask, img_acc, rhs_acc in @iteration(mask, img, RHS) {
         let val = apply_stencil(mask, img_acc, x, y);
         set_pixel(rhs_acc, x, y, val);
-        //let result = - (
-        //    1.0f * arr(idx(x+0, y+1, width, height)) +
-        //    1.0f * arr(idx(x-1, y+0, width, height)) +
-        //   -4.0f * arr(idx(x  , y  , width, height)) +
-        //    1.0f * arr(idx(x+1, y+0, width, height)) +
-        //    1.0f * arr(idx(x+0, y-1, width, height)));
-        //out(idx(x, y, width, height)) = result;
     }
 }
 
@@ -98,16 +91,6 @@ fn jacobi(RHS : Img, Tmp : Img, Sol : Img, omega : float) -> () {
                   0.25f * omega  * get_pixel(rhs_acc, x, y) +
                   apply_stencil(mask, tmp_acc, x, y);
         set_pixel(sol_acc, x, y, val);
-        //let result =
-        //    (1.0f - omega) * Sol(idx(x, y, width, height)) +
-        //    0.25f * omega  * (
-        //        Sol(idx(x+0, y+1, width, height)) +
-        //        Sol(idx(x-1, y+0, width, height)) +
-        //        RHS(idx(x  , y  , width, height)) +
-        //        Sol(idx(x+1, y+0, width, height)) +
-        //        Sol(idx(x+0, y-1, width, height))
-        //    );
-        //out(idx(x, y, width, height)) = result;
     }
 }
 
@@ -124,14 +107,6 @@ fn residual(Sol : Img, Res : Img, RHS : Img) -> () {
         let val = get_pixel(rhs_acc, x, y) +
                   apply_stencil(mask, sol_acc, x, y);
         set_pixel(res_acc, x, y, val);
-        //let result =
-        //            RHS(idx(x,   y,   width, height)) +
-        //     1.0f * Sol(idx(x+0, y+1, width, height)) +
-        //     1.0f * Sol(idx(x-1, y+0, width, height)) +
-        //    -4.0f * Sol(idx(x  , y  , width, height)) +
-        //     1.0f * Sol(idx(x+1, y+0, width, height)) +
-        //     1.0f * Sol(idx(x+0, y-1, width, height));
-        //out(idx(x, y, width, height)) = result;
     }
 }
 
@@ -154,17 +129,6 @@ fn restrict(Res : Img, RHS : Img) -> () {
                   get_pixel(res_acc, 2*x,   2*y-1) +
                   get_pixel(res_acc, 2*x-1, 2*y-1);
         set_pixel(rhs_acc, x, y, val);
-        //let result =
-        //    0.25f * arr(idx(2*x-1, 2*y-1, 2*width, 2*height));
-        //    0.50f * arr(idx(2*x+0, 2*y-1, 2*width, 2*height));
-        //    0.25f * arr(idx(2*x+1, 2*y-1, 2*width, 2*height));
-        //    0.50f * arr(idx(2*x-1, 2*y+0, 2*width, 2*height));
-        //            arr(idx(2*x  , 2*y  , 2*width, 2*height));
-        //    0.50f * arr(idx(2*x+1, 2*y+0, 2*width, 2*height));
-        //    0.25f * arr(idx(2*x-1, 2*y+1, 2*width, 2*height));
-        //    0.50f * arr(idx(2*x+0, 2*y+1, 2*width, 2*height));
-        //    0.25f * arr(idx(2*x+1, 2*y+1, 2*width, 2*height));
-        //out(idx(x, y, width, height)) = result;
     }
 }
 
@@ -189,26 +153,6 @@ fn interpolate(SolC : Img, SolF : Img) -> () {
     };
     // Interpolate: arr = size/2 x size/2; out = size x size; coarse -> fine
     // fine += Stencil * coarse:
-    // FIXME: this will not run correctly on accelerators such as GPUs due to
-    // their memory consistency model
-    /*
-    let solc_acc = Acc { img : SolC, o_x : 0, o_y : 0, width : SolC.width, height : SolC.height, region : 10 };
-    let solf_acc = Acc { img : SolF, o_x : 0, o_y : 0, width : SolF.width, height : SolF.height, region : 10 };
-    for y in $iterate(1, SolC.height-1) {
-        for x in $iterate(1, SolC.width-1) {
-            let value = get_pixel(solc_acc, x, y);
-            set_pixel(solf_acc, 2*x-1, 2*y-1, get_pixel(solf_acc, 2*x-1, 2*y-1) + 0.25f * value);
-            set_pixel(solf_acc, 2*x+0, 2*y-1, get_pixel(solf_acc, 2*x+0, 2*y-1) + 0.50f * value);
-            set_pixel(solf_acc, 2*x+1, 2*y-1, get_pixel(solf_acc, 2*x+1, 2*y-1) + 0.25f * value);
-            set_pixel(solf_acc, 2*x-1, 2*y+0, get_pixel(solf_acc, 2*x-1, 2*y+0) + 0.50f * value);
-            set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) +         value);
-            set_pixel(solf_acc, 2*x+1, 2*y+0, get_pixel(solf_acc, 2*x+1, 2*y+0) + 0.50f * value);
-            set_pixel(solf_acc, 2*x-1, 2*y+1, get_pixel(solf_acc, 2*x-1, 2*y+1) + 0.25f * value);
-            set_pixel(solf_acc, 2*x+0, 2*y+1, get_pixel(solf_acc, 2*x+0, 2*y+1) + 0.50f * value);
-            set_pixel(solf_acc, 2*x+1, 2*y+1, get_pixel(solf_acc, 2*x+1, 2*y+1) + 0.25f * value);
-        }
-    }
-    */
     let solc_acc = Acc { img : SolC, o_x : 0, o_y : 0, width : SolC.width, height : SolC.height, region : 10 };
     let solf_acc = Acc { img : SolF, o_x : 0, o_y : 0, width : SolF.width, height : SolF.height, region : 10 };
     // TODO: boundary handling
@@ -221,28 +165,6 @@ fn interpolate(SolC : Img, SolF : Img) -> () {
             set_pixel(solf_acc, 2*x-1, 2*y-1, get_pixel(solf_acc, 2*x-1, 2*y-1) + value);
         }
     }
-    //for x, y, mask, solc_acc, solf_acc in @iteration(interpolate_mask, SolC, SolF) {
-    //    let value = get_pixel(solc_acc, x, y);
-    //    set_pixel(solf_acc, 2*x-1, 2*y-1, get_pixel(solf_acc, 2*x-1, 2*y-1) + 0.25f * value);
-    //    set_pixel(solf_acc, 2*x+0, 2*y-1, get_pixel(solf_acc, 2*x+0, 2*y-1) + 0.50f * value);
-    //    set_pixel(solf_acc, 2*x+1, 2*y-1, get_pixel(solf_acc, 2*x+1, 2*y-1) + 0.25f * value);
-    //    set_pixel(solf_acc, 2*x-1, 2*y+0, get_pixel(solf_acc, 2*x-1, 2*y+0) + 0.50f * value);
-    //    set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) +         value);
-    //    set_pixel(solf_acc, 2*x+1, 2*y+0, get_pixel(solf_acc, 2*x+1, 2*y+0) + 0.50f * value);
-    //    set_pixel(solf_acc, 2*x-1, 2*y+1, get_pixel(solf_acc, 2*x-1, 2*y+1) + 0.25f * value);
-    //    set_pixel(solf_acc, 2*x+0, 2*y+1, get_pixel(solf_acc, 2*x+0, 2*y+1) + 0.50f * value);
-    //    set_pixel(solf_acc, 2*x+1, 2*y+1, get_pixel(solf_acc, 2*x+1, 2*y+1) + 0.25f * value);
-    //    //let v = arr(idx(x, y, width, height));
-    //    //out(idx(2*x-1, 2*y-1, 2*width, 2*height)) += 0.25f * v;
-    //    //out(idx(2*x+0, 2*y-1, 2*width, 2*height)) += 0.50f * v;
-    //    //out(idx(2*x+1, 2*y-1, 2*width, 2*height)) += 0.25f * v;
-    //    //out(idx(2*x-1, 2*y+0, 2*width, 2*height)) += 0.50f * v;
-    //    //out(idx(2*x  , 2*y  , 2*width, 2*height)) +=         v;
-    //    //out(idx(2*x+1, 2*y+0, 2*width, 2*height)) += 0.50f * v;
-    //    //out(idx(2*x-1, 2*y+1, 2*width, 2*height)) += 0.25f * v;
-    //    //out(idx(2*x+0, 2*y+1, 2*width, 2*height)) += 0.50f * v;
-    //    //out(idx(2*x+1, 2*y+1, 2*width, 2*height)) += 0.25f * v;
-    //}
 }
 
 
