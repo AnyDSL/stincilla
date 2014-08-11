@@ -62,6 +62,12 @@ fn mirror_lower(idx : int, lower : int) -> int {
 fn mirror_upper(idx : int, upper : int) -> int {
     if idx >= upper { upper - (idx+1 - upper) } else { idx }
 }
+fn repeat_lower(idx : int, lower : int, stride : int) {
+    if idx < lower { idx + stride } else { idx }
+}
+fn repeat_upper(idx : int, int upper : int stride : int) {
+    if idx >= upper { idx - stride } else { idx }
+}
 
 // nearest multiple of num
 fn round_up(num : int, multiple : int) -> int {
