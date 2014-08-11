@@ -70,11 +70,14 @@ struct Img {
     data : &[float],
     width : int,
     height : int,
+    stride : int,
 }
 struct Acc {
     img : Img,
     o_x : int,
     o_y : int,
+    width: int,
+    height : int,
     region : int,
 }
 struct Mask3 {

@@ -1,8 +1,8 @@
 fn iteration(mask : Mask, arr : Img, out : Img,
              body : fn(int, int, Mask, Acc, Acc) -> ()
             ) -> () {
-    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 10 };
-    let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 10 };
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, width : arr.width, height : arr.height, region : 10 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0, width : out.width, height : out.height, region : 10 };
     let start = thorin_get_micro_time();
     for y in $iterate(0, out.height) {
         for x in $inner_loop(0, out.width) {
@@ -37,8 +37,8 @@ fn iteration_bounds(mask : Mask, arr : Img, out : Img,
     let start = thorin_get_micro_time();
     for region in @iterate(0, 9) {
         let bounds = Bounds2D(region);
-        let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : region };
-        let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : region };
+        let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, width : arr.width, height : arr.height, region : region };
+        let out_acc = Acc { img : out, o_x : 0, o_y : 0, width : out.width, height : out.height, region : region };
 
         for y in $iterate(bounds(2), bounds(3)) {
             for x in $inner_loop(bounds(0), bounds(1)) {
@@ -60,11 +60,11 @@ fn iteration_sep(mask: MaskSep, arr : Img, out : Img,
                  body : fn(int, int, MaskSep, Acc, Acc, bool) -> ()
                 ) -> () {
     // allocate temporary array
-    let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
-    init_zero(tmp.data, $tmp.width, $tmp.height);
-    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : 10 };
-    let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : 10 };
-    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : 10 };
+    let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height, stride : out.width };
+    init_zero(tmp.data, $tmp.stride, $tmp.height);
+    let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, width : arr.width, height : arr.height, region : 10 };
+    let out_acc = Acc { img : out, o_x : 0, o_y : 0, width : out.width, height : out.height, region : 10 };
+    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, width : tmp.width, height : tmp.height, region : 10 };
 
     let start = thorin_get_micro_time();
     for y in $iterate(0, out.height) {
@@ -87,8 +87,8 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
                         body : fn(int, int, MaskSep, Acc, Acc, bool) -> ()
                        ) -> () {
     // allocate temporary array
-    let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height };
-    init_zero(tmp.data, $tmp.width, $tmp.height);
+    let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height, stride : out.width };
+    init_zero(tmp.data, $tmp.stride, $tmp.height);
 
     let bhy = mask.size / 2;
     let bhx = @round_up(mask.size / 2, get_vector_length());
@@ -108,8 +108,8 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
     let start = thorin_get_micro_time();
     for region in @iterate(0, 3) {
         let bounds = Bounds2DCol(region);
-        let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, region : region };
-        let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : region };
+        let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, width : arr.width, height : arr.height, region : region };
+        let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, width : tmp.width, height : tmp.height, region : region };
         for y in $iterate(bounds(0), bounds(1)) {
             for x in $inner_loop(0, out.width) {
                 let is_row = false;
@@ -120,8 +120,8 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
 
     for region in @iterate(0, 3) {
         let bounds = Bounds2DRow(region);
-        let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : region };
-        let out_acc = Acc { img : out, o_x : 0, o_y : 0, region : region };
+        let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, width : tmp.width, height : tmp.height, region : region };
+        let out_acc = Acc { img : out, o_x : 0, o_y : 0, width : out.width, height : out.height, region : region };
         for y in $iterate(0, out.height) {
             for x in $inner_loop(bounds(0), bounds(1)) {
                 let is_row = true;
@@ -151,8 +151,8 @@ fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
     ];
 
     // allocate temporary array
-    let tmp = Img { data : ~[out.width:float], width : out.width, height : 1 };
-    init_zero(tmp.data, $tmp.width, $tmp.height);
+    let tmp = Img { data : ~[out.width:float], width : out.width, height : 1, stride : out.width };
+    init_zero(tmp.data, $tmp.stride, $tmp.height);
 
     let start = thorin_get_micro_time();
     for region_col in @iterate(0, 3) {
@@ -161,8 +161,8 @@ fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
             for x in $inner_loop(0, tmp.width) {
                 let is_row = false;
                 // index space: cache line
-                let arr_acc = Acc { img : arr, o_x : 0, o_y : y, region : region_col};
-                let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : region_col};
+                let arr_acc = Acc { img : arr, o_x : 0, o_y : y, width : arr.width, height : arr.height, region : region_col};
+                let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, width : tmp.width, height : tmp.height, region : region_col};
                 @body(x, 0, mask, arr_acc, tmp_acc, is_row);
             }
             for region_row in @iterate(0, 3) {
@@ -170,8 +170,8 @@ fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
                 for x in $inner_loop(bounds_row(0), bounds_row(1)) {
                     let is_row = true;
                     // index space: cache line
-                    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, region : region_row };
-                    let out_acc = Acc { img : out, o_x : 0, o_y : y, region : region_row };
+                    let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, width : tmp.width, height : tmp.height, region : region_row };
+                    let out_acc = Acc { img : out, o_x : 0, o_y : y, width : out.width, height : out.height, region : region_row };
                     @body(x, 0, mask, tmp_acc, out_acc, is_row);
                 }
             }

@@ -9,113 +9,107 @@ fn similarity(c_r : float, xi : float, x : float) -> float {
     expf(-c_r * diff * diff)
 }
 
-fn bilateral_filter(acc : Acc, sigma_d : int, c_d : float, c_r : float, mut x : int, mut y : int) -> float {
+fn bilateral_filter(acc : Acc, sigma_d : int, c_d : float, c_r : float, x : int, y : int) -> float {
     let mut k = 0.0f;
     let mut p = 0.0f;
 
-    x = x + acc.o_x;
-    y = y + acc.o_y;
-
     for yf in iterate(-2*sigma_d, 2*sigma_d+1) {
         for xf in iterate(-2*sigma_d, 2*sigma_d+1) {
-            let mut idx_x = x + xf;
-            let mut idx_y = y + yf;
+            let mut idx_x = acc.o_x + x + xf;
+            let mut idx_y = acc.o_y + y + yf;
 
             // 0 --- 1 --- 2
             // 3 --- 4 --- 5
             // 6 --- 7 --- 8
 
             // left
-            if acc.region == 0 { idx_x = clamp_lower(idx_x, 0); }
-            if acc.region == 3 { idx_x = clamp_lower(idx_x, 0); }
-            if acc.region == 6 { idx_x = clamp_lower(idx_x, 0); }
+            if acc.region == 0 { idx_x = clamp_lower(idx_x, acc.o_x); }
+            if acc.region == 3 { idx_x = clamp_lower(idx_x, acc.o_x); }
+            if acc.region == 6 { idx_x = clamp_lower(idx_x, acc.o_x); }
 
             // right
-            if acc.region == 2 { idx_x = clamp_upper(idx_x, acc.img.width); }
-            if acc.region == 5 { idx_x = clamp_upper(idx_x, acc.img.width); }
-            if acc.region == 8 { idx_x = clamp_upper(idx_x, acc.img.width); }
+            if acc.region == 2 { idx_x = clamp_upper(idx_x, acc.o_x + acc.width); }
+            if acc.region == 5 { idx_x = clamp_upper(idx_x, acc.o_x + acc.width); }
+            if acc.region == 8 { idx_x = clamp_upper(idx_x, acc.o_x + acc.width); }
 
             // top
-            if acc.region == 0 { idx_y = clamp_lower(idx_y, 0); }
-            if acc.region == 1 { idx_y = clamp_lower(idx_y, 0); }
-            if acc.region == 2 { idx_y = clamp_lower(idx_y, 0); }
+            if acc.region == 0 { idx_y = clamp_lower(idx_y, acc.o_y); }
+            if acc.region == 1 { idx_y = clamp_lower(idx_y, acc.o_y); }
+            if acc.region == 2 { idx_y = clamp_lower(idx_y, acc.o_y); }
 
             // bottom
-            if acc.region == 6 { idx_y = clamp_upper(idx_y, acc.img.height); }
-            if acc.region == 7 { idx_y = clamp_upper(idx_y, acc.img.height); }
-            if acc.region == 8 { idx_y = clamp_upper(idx_y, acc.img.height); }
+            if acc.region == 6 { idx_y = clamp_upper(idx_y, acc.o_y + acc.height); }
+            if acc.region == 7 { idx_y = clamp_upper(idx_y, acc.o_y + acc.height); }
+            if acc.region == 8 { idx_y = clamp_upper(idx_y, acc.o_y + acc.height); }
 
             // all in
             if acc.region == 10 {
-                idx_x = clamp_lower(idx_x, 0);
-                idx_x = clamp_upper(idx_x, acc.img.width);
-                idx_y = clamp_upper(idx_y, acc.img.height);
-                idx_y = clamp_lower(idx_y, 0);
+                idx_x = clamp_lower(idx_x, acc.o_x);
+                idx_x = clamp_upper(idx_x, acc.o_x + acc.width);
+                idx_y = clamp_upper(idx_y, acc.o_y + acc.height);
+                idx_y = clamp_lower(idx_y, acc.o_y);
             }
 
-            let diff = acc.img.data(idx_y * acc.img.width + idx_x) - acc.img.data(y * acc.img.width + x);
+            let diff = acc.img.data(idx_y * acc.img.stride + idx_x) - acc.img.data(y * acc.img.stride + x);
 
             let c = closeness(c_d, xf, yf);
-            let s = similarity(c_r, acc.img.data(idx_y * acc.img.width + idx_x), acc.img.data(y * acc.img.width + x));
+            let s = similarity(c_r, acc.img.data(idx_y * acc.img.stride + idx_x), acc.img.data(y * acc.img.stride + x));
             k += c * s;
-            p += c * s * acc.img.data(idx_y * acc.img.width + idx_x);
+            p += c * s * acc.img.data(idx_y * acc.img.stride + idx_x);
         }
     }
 
     p/k
 }
 
-fn bilateral_filter_mask(mask : Mask, acc : Acc, sigma_d : int, c_r : float, mut x : int, mut y : int) -> float {
+fn bilateral_filter_mask(mask : Mask, acc : Acc, sigma_d : int, c_r : float, x : int, y : int) -> float {
     let mut k = 0.0f;
     let mut p = 0.0f;
 
-    x = x + acc.o_x;
-    y = y + acc.o_y;
-
     for yf in iterate(-2*sigma_d, 2*sigma_d+1) {
         for xf in iterate(-2*sigma_d, 2*sigma_d+1) {
-            let mut idx_x = x + xf;
-            let mut idx_y = y + yf;
+            let mut idx_x = acc.o_x + x + xf;
+            let mut idx_y = acc.o_y + y + yf;
 
             // 0 --- 1 --- 2
             // 3 --- 4 --- 5
             // 6 --- 7 --- 8
 
             // left
-            if acc.region == 0 { idx_x = clamp_lower(idx_x, 0); }
-            if acc.region == 3 { idx_x = clamp_lower(idx_x, 0); }
-            if acc.region == 6 { idx_x = clamp_lower(idx_x, 0); }
+            if acc.region == 0 { idx_x = clamp_lower(idx_x, acc.o_x); }
+            if acc.region == 3 { idx_x = clamp_lower(idx_x, acc.o_x); }
+            if acc.region == 6 { idx_x = clamp_lower(idx_x, acc.o_x); }
 
             // right
-            if acc.region == 2 { idx_x = clamp_upper(idx_x, acc.img.width); }
-            if acc.region == 5 { idx_x = clamp_upper(idx_x, acc.img.width); }
-            if acc.region == 8 { idx_x = clamp_upper(idx_x, acc.img.width); }
+            if acc.region == 2 { idx_x = clamp_upper(idx_x, acc.o_x + acc.width); }
+            if acc.region == 5 { idx_x = clamp_upper(idx_x, acc.o_x + acc.width); }
+            if acc.region == 8 { idx_x = clamp_upper(idx_x, acc.o_x + acc.width); }
 
             // top
-            if acc.region == 0 { idx_y = clamp_lower(idx_y, 0); }
-            if acc.region == 1 { idx_y = clamp_lower(idx_y, 0); }
-            if acc.region == 2 { idx_y = clamp_lower(idx_y, 0); }
+            if acc.region == 0 { idx_y = clamp_lower(idx_y, acc.o_y); }
+            if acc.region == 1 { idx_y = clamp_lower(idx_y, acc.o_y); }
+            if acc.region == 2 { idx_y = clamp_lower(idx_y, acc.o_y); }
 
             // bottom
-            if acc.region == 6 { idx_y = clamp_upper(idx_y, acc.img.height); }
-            if acc.region == 7 { idx_y = clamp_upper(idx_y, acc.img.height); }
-            if acc.region == 8 { idx_y = clamp_upper(idx_y, acc.img.height); }
+            if acc.region == 6 { idx_y = clamp_upper(idx_y, acc.o_y + acc.height); }
+            if acc.region == 7 { idx_y = clamp_upper(idx_y, acc.o_y + acc.height); }
+            if acc.region == 8 { idx_y = clamp_upper(idx_y, acc.o_y + acc.height); }
 
             // all in
             if acc.region == 10 {
-                idx_x = clamp_lower(idx_x, 0);
-                idx_x = clamp_upper(idx_x, acc.img.width);
-                idx_y = clamp_upper(idx_y, acc.img.height);
-                idx_y = clamp_lower(idx_y, 0);
+                idx_x = clamp_lower(idx_x, acc.o_x);
+                idx_x = clamp_upper(idx_x, acc.o_x + acc.width);
+                idx_y = clamp_upper(idx_y, acc.o_y + acc.height);
+                idx_y = clamp_lower(idx_y, acc.o_y);
             }
 
 
-            let diff = acc.img.data(idx_y * acc.img.width + idx_x) - acc.img.data(y * acc.img.width + x);
+            let diff = acc.img.data(idx_y * acc.img.stride + idx_x) - acc.img.data(y * acc.img.stride + x);
 
             let s = expf(-c_r * diff*diff) * mask.data(xf + 2*sigma_d)(yf + 2*sigma_d);
 
             k += s;
-            p += s * acc.img.data(idx_y * acc.img.width + idx_x);
+            p += s * acc.img.data(idx_y * acc.img.stride + idx_x);
         }
     }
 
@@ -127,8 +121,8 @@ fn main() -> int {
     let height  = 1024;
     let sigma_r = 5.0f;
     let c_r     = 1.0f / (2.0f * sigma_r*sigma_r);
-    let arr     = Img { data : ~[width*height:float], width : width, height : height };
-    let out     = Img { data : ~[width*height:float], width : width, height : height };
+    let arr     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let out     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
 
     let mask = Mask {
         data : [[0.018316f, 0.082085f, 0.135335f, 0.082085f, 0.018316f],
@@ -175,20 +169,20 @@ fn main() -> int {
 
     // SS
     for x, y, mask, arr_acc, mut out_acc in @iteration(mask, arr, out) {
-        //out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter(arr_acc, sigma_d, c_d, c_r, x, y);
-        out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
+        //out_acc.img.data((out_acc.o_y + y)*out_acc.img.stride + out_acc.o_x + x) = bilateral_filter(arr_acc, sigma_d, c_d, c_r, x, y);
+        out_acc.img.data((out_acc.o_y + y)*out_acc.img.stride + out_acc.o_x + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
     }
 
     //// SS + BH
     //for x, y, mask, arr_acc, mut out_acc in @iteration_bounds(mask, arr, out) {
-    //    //out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter(arr_acc, sigma_d, c_d, c_r, x, y);
-    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
+    //    //out_acc.img.data((out_acc.o_y + y)*out_acc.img.stride + out_acc.o_x + x) = bilateral_filter(arr_acc, sigma_d, c_d, c_r, x, y);
+    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.stride + out_acc.o_x + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
     //}
 
     //// SS + SM
     //for x, y, mask, arr_acc, mut out_acc in @iteration_advanced(mask, arr, out) {
-    //    //out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter(arr_acc, sigma_d, c_d, c_r, x, y);
-    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.width + out_acc.o_x + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
+    //    //out_acc.img.data((out_acc.o_y + y)*out_acc.img.stride + out_acc.o_x + x) = bilateral_filter(arr_acc, sigma_d, c_d, c_r, x, y);
+    //    out_acc.img.data((out_acc.o_y + y)*out_acc.img.stride + out_acc.o_x + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
     //}
 
 
@@ -198,7 +192,7 @@ fn main() -> int {
     //let EPS = 0.02f;
     //for y in range(0, out.height) {
     //    for x in range(0, out.width) {
-    //        let acc = Acc { img : arr, o_x : 0, o_y : 0, region : 10 };
+    //        let acc = Acc { img : arr, o_x : 0, o_y : 0, width : arr.width, height : arr.height, region : 10 };
     //        let ref = @bilateral_filter_mask(mask, acc, sigma_d, c_r, x, y);
     //        let mut err = ref - out.data(y*width + x);
     //        rms_err += err*err;
