@@ -56,6 +56,12 @@ fn clamp_upper(idx : int, upper : int) -> int {
 fn clamp_none(idx : int, bound : int) -> int {
     idx
 }
+fn mirror_lower(idx : int, lower : int) -> int {
+    if idx < lower { lower + (lower - idx-1) } else { idx }
+}
+fn mirror_upper(idx : int, upper : int) -> int {
+    if idx >= upper { upper - (idx+1 - upper) } else { idx }
+}
 
 // nearest multiple of num
 fn round_up(num : int, multiple : int) -> int {

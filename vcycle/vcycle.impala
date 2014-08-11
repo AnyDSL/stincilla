@@ -25,31 +25,31 @@ fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
                 // 6 --- 7 --- 8
 
                 // left
-                if acc.region == 0 { idx_x = clamp_lower(idx_x, acc.o_x); }
-                if acc.region == 3 { idx_x = clamp_lower(idx_x, acc.o_x); }
-                if acc.region == 6 { idx_x = clamp_lower(idx_x, acc.o_x); }
+                if acc.region == 0 { idx_x = mirror_lower(idx_x, acc.o_x); }
+                if acc.region == 3 { idx_x = mirror_lower(idx_x, acc.o_x); }
+                if acc.region == 6 { idx_x = mirror_lower(idx_x, acc.o_x); }
 
                 // right
-                if acc.region == 2 { idx_x = clamp_upper(idx_x, acc.o_x + acc.width); }
-                if acc.region == 5 { idx_x = clamp_upper(idx_x, acc.o_x + acc.width); }
-                if acc.region == 8 { idx_x = clamp_upper(idx_x, acc.o_x + acc.width); }
+                if acc.region == 2 { idx_x = mirror_upper(idx_x, acc.o_x + acc.width); }
+                if acc.region == 5 { idx_x = mirror_upper(idx_x, acc.o_x + acc.width); }
+                if acc.region == 8 { idx_x = mirror_upper(idx_x, acc.o_x + acc.width); }
 
                 // top
-                if acc.region == 0 { idx_y = clamp_lower(idx_y, acc.o_y); }
-                if acc.region == 1 { idx_y = clamp_lower(idx_y, acc.o_y); }
-                if acc.region == 2 { idx_y = clamp_lower(idx_y, acc.o_y); }
+                if acc.region == 0 { idx_y = mirror_lower(idx_y, acc.o_y); }
+                if acc.region == 1 { idx_y = mirror_lower(idx_y, acc.o_y); }
+                if acc.region == 2 { idx_y = mirror_lower(idx_y, acc.o_y); }
 
                 // bottom
-                if acc.region == 6 { idx_y = clamp_upper(idx_y, acc.o_y + acc.height); }
-                if acc.region == 7 { idx_y = clamp_upper(idx_y, acc.o_y + acc.height); }
-                if acc.region == 8 { idx_y = clamp_upper(idx_y, acc.o_y + acc.height); }
+                if acc.region == 6 { idx_y = mirror_upper(idx_y, acc.o_y + acc.height); }
+                if acc.region == 7 { idx_y = mirror_upper(idx_y, acc.o_y + acc.height); }
+                if acc.region == 8 { idx_y = mirror_upper(idx_y, acc.o_y + acc.height); }
 
                 // all in
                 if acc.region == 10 {
-                    idx_x = clamp_lower(idx_x, acc.o_x);
-                    idx_x = clamp_upper(idx_x, acc.o_x + acc.width);
-                    idx_y = clamp_upper(idx_y, acc.o_y + acc.height);
-                    idx_y = clamp_lower(idx_y, acc.o_y);
+                    idx_x = mirror_lower(idx_x, acc.o_x);
+                    idx_x = mirror_upper(idx_x, acc.o_x + acc.width);
+                    idx_y = mirror_upper(idx_y, acc.o_y + acc.height);
+                    idx_y = mirror_lower(idx_y, acc.o_y);
                 }
 
                 sum += get_pixel(acc, idx_x, idx_y) * stencil_val;
