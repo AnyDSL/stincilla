@@ -273,19 +273,24 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], c_width : int, c_heig
     //}
 
     fn vcycle_dsl(level : int,
-              solver : fn(int, int, Mask, Acc, Acc, Acc) -> ()
+              solver : fn(int, int, Mask, Acc, Acc, Acc) -> (), solver_mask : Mask
              ) -> () {
+        let rhs_acc = Acc { img : RHS(level), o_x : 0, o_y : 0, width : RHS(level).width, height : RHS(level).height, region : 4 };
         if level == levels-1 {
             for i in range(0, ssteps) {
                 // smooth
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                jacobi(RHS(level), Tmp(level), Sol(level), omega);
+                for x, y, mask, tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
+                    jacobi_solver(x,y, mask, rhs_acc, tmp_acc, sol_acc);
+                }
             }
         } else {
             // pre-smooth
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                jacobi(RHS(level), Tmp(level), Sol(level), omega);
+                for x, y, mask, tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
+                    jacobi_solver(x,y, mask, rhs_acc, tmp_acc, sol_acc);
+                }
             }
 
             residual(Sol(level), Res(level), RHS(level));
@@ -294,19 +299,21 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], c_width : int, c_heig
             if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
 
             $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height + pad_y);
-            vcycle_dsl(level+1, solver);
+            vcycle_dsl(level+1, solver, solver_mask);
 
             interpolate(Sol(level+1), Sol(level));
 
             // post-smooth
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                jacobi(RHS(level), Tmp(level), Sol(level), omega);
+                for x, y, mask, tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
+                    jacobi_solver(x,y, mask, rhs_acc, tmp_acc, sol_acc);
+                }
             }
         }
     }
     for i in range(0, vsteps) {
-        @vcycle_dsl(0, jacobi_solver);
+        @vcycle_dsl(0, jacobi_solver, jacobi_mask);
     }
 
     let mut out = Img { data : out_data , width : width, height : height, stride : width };
