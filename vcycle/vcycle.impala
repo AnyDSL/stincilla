@@ -92,14 +92,7 @@ fn jacobi_solver(x : int, y : int, mask : Mask, RHS : Acc, Tmp : Acc, Sol : Acc)
 }
 
 fn jacobi(RHS : Img, Tmp : Img, Sol : Img, omega : float) -> () {
-    // Jacobi
-    let mask = Mask {
-        data : [[0.00f, 0.25f, 0.00f],
-                [0.25f, 0.00f, 0.25f],
-                [0.00f, 0.25f, 0.00f]],
-        size_x : 3, size_y : 3
-    };
-    for x, y, mask, mut tmp_acc, sol_acc in @iteration(mask, Tmp, Sol) {
+    for x, y, mask, mut tmp_acc, sol_acc in @iteration(jacobi_mask, Tmp, Sol) {
         // TODO: RHS is not mapped in iteration
         let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, width : RHS.width, height : RHS.height, region : 10 };
         tmp_acc.region = 4; // no bh
@@ -110,14 +103,21 @@ fn jacobi(RHS : Img, Tmp : Img, Sol : Img, omega : float) -> () {
     }
 }
 
+
+// Residual
+static residual_mask = Mask {
+    data : [[0.0f,  1.0f, 0.0f],
+            [1.0f, -4.0f, 1.0f],
+            [0.0f,  1.0f, 0.0f]],
+    size_x : 3, size_y : 3
+};
+fn residual_fun(x : int, y : int, mask : Mask, Sol : Acc, Res : Acc, RHS : Acc) -> () {
+    let val = get_pixel(RHS, x, y) + apply_stencil(mask, Sol, x, y);
+    set_pixel(Res, x, y, val);
+}
+
 fn residual(Sol : Img, Res : Img, RHS : Img) -> () {
-    let mask = Mask {
-        data : [[0.0f,  1.0f, 0.0f],
-                [1.0f, -4.0f, 1.0f],
-                [0.0f,  1.0f, 0.0f]],
-        size_x : 3, size_y : 3
-    };
-    for x, y, mask, mut sol_acc, res_acc in @iteration(mask, Sol, Res) {
+    for x, y, mask, mut sol_acc, res_acc in @iteration(residual_mask, Sol, Res) {
         // TODO: RHS is not mapped in iteration
         let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, width : RHS.width, height: RHS.height, region : 10 };
         sol_acc.region = 4; // no bh
@@ -126,6 +126,7 @@ fn residual(Sol : Img, Res : Img, RHS : Img) -> () {
         set_pixel(res_acc, x, y, val);
     }
 }
+
 
 fn restrict(Res : Img, RHS : Img) -> () {
     let mask = Mask {
@@ -262,47 +263,55 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
     //}
 
     fn vcycle_dsl(level : int,
-              solver : fn(int, int, Mask, Acc, Acc, Acc) -> (), solver_mask : Mask
+              solver : fn(int, int, Mask, Acc, Acc, Acc) -> (), solver_mask : Mask,
+              residual : fn(int, int, Mask, Acc, Acc, Acc) -> (), residual_mask : Mask
              ) -> () {
         let rhs_acc = Acc { img : RHS(level), o_x : 0, o_y : 0, width : RHS(level).width, height : RHS(level).height, region : 4 };
         if level == levels-1 {
             for i in range(0, ssteps) {
                 // smooth
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for x, y, mask, tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
-                    jacobi_solver(x,y, mask, rhs_acc, tmp_acc, sol_acc);
+                for x, y, mask, mut tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
+                    tmp_acc.region = 4; // no bh
+                    jacobi_solver(x, y, mask, rhs_acc, tmp_acc, sol_acc);
                 }
             }
         } else {
             // pre-smooth
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for x, y, mask, tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
-                    jacobi_solver(x,y, mask, rhs_acc, tmp_acc, sol_acc);
+                for x, y, mask, mut tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
+                    tmp_acc.region = 4; // no bh
+                    jacobi_solver(x, y, mask, rhs_acc, tmp_acc, sol_acc);
                 }
             }
 
-            residual(Sol(level), Res(level), RHS(level));
+            for x, y, mask, mut sol_acc, res_acc in iteration(residual_mask, Sol(level), Res(level)) {
+                sol_acc.region = 4; // no bh
+                residual_fun(x, y, mask, sol_acc, res_acc, rhs_acc);
+            }
+
             restrict(Res(level), RHS(level+1));
 
             if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
 
             $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height + pad_y);
-            vcycle_dsl(level+1, solver, solver_mask);
+            vcycle_dsl(level+1, solver, solver_mask, residual, residual_mask);
 
             interpolate(Sol(level+1), Sol(level));
 
             // post-smooth
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for x, y, mask, tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
-                    jacobi_solver(x,y, mask, rhs_acc, tmp_acc, sol_acc);
+                for x, y, mask, mut tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
+                    tmp_acc.region = 4; // no bh
+                    jacobi_solver(x, y, mask, rhs_acc, tmp_acc, sol_acc);
                 }
             }
         }
     }
     for i in range(0, vsteps) {
-        @vcycle_dsl(0, jacobi_solver, jacobi_mask);
+        @vcycle_dsl(0, jacobi_solver, jacobi_mask, residual_fun, residual_mask);
     }
 
     let mut out = Img { data : out_data , width : width, height : height, stride : width };
