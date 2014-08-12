@@ -62,8 +62,9 @@ fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
     sum
 }
 
+
+// Deriv 2D
 fn deriv2D(img : Img, RHS : Img) -> () {
-    // deriv 2D
     let mask = Mask {
         data : [[0.0f,  1.0f, 0.0f],
                 [1.0f, -4.0f, 1.0f],
@@ -75,6 +76,7 @@ fn deriv2D(img : Img, RHS : Img) -> () {
         set_pixel(rhs_acc, x, y, val);
     }
 }
+
 
 // Jacobi
 static omega = 0.8f;
@@ -154,6 +156,34 @@ fn restrict(Res : Img, RHS : Img) -> () {
     }
 }
 
+
+// Interpolate: arr = size/2 x size/2; out = size x size; coarse -> fine
+// fine += Stencil * coarse:
+static interpolate_mask = Mask {
+    data : [[0.25f, 0.50f, 0.25f],
+            [0.50f, 1.00f, 0.50f],
+            [0.25f, 0.50f, 0.25f]],
+    size_x : 3, size_y : 3
+};
+fn interpolate_fun(x : int, y : int, mask : Mask, SolC : Acc, SolF : Acc) -> () {
+    let value = get_pixel(SolC, x, y);
+    set_pixel(SolF, 2*x  , 2*y  , get_pixel(SolF, 2*x  , 2*y  ) + value);
+    set_pixel(SolF, 2*x+1, 2*y  , get_pixel(SolF, 2*x+1, 2*y  ) + value);
+    set_pixel(SolF, 2*x  , 2*y+1, get_pixel(SolF, 2*x  , 2*y+1) + value);
+    set_pixel(SolF, 2*x+1, 2*y+1, get_pixel(SolF, 2*x+1, 2*y+1) + value);
+}
+
+fn interpolate(SolC : Img, SolF : Img) -> () {
+    for x, y, mask, solf_acc, solc_acc in @iteration(interpolate_mask, SolF, SolC) {
+        let value = get_pixel(solc_acc, x, y);
+        set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) + value);
+        set_pixel(solf_acc, 2*x+1, 2*y  , get_pixel(solf_acc, 2*x+1, 2*y  ) + value);
+        set_pixel(solf_acc, 2*x  , 2*y+1, get_pixel(solf_acc, 2*x  , 2*y+1) + value);
+        set_pixel(solf_acc, 2*x+1, 2*y+1, get_pixel(solf_acc, 2*x+1, 2*y+1) + value);
+    }
+}
+
+
 fn l2norm(img : Img) -> float {
     // L2 norm: TODO
     let mut l2sum = 0.0f;
@@ -164,24 +194,6 @@ fn l2norm(img : Img) -> float {
         }
     }
     sqrtf(l2sum)/(img.width*img.height as float)
-}
-
-fn interpolate(SolC : Img, SolF : Img) -> () {
-    let interpolate_mask = Mask {
-        data : [[0.25f, 0.50f, 0.25f],
-                [0.50f, 1.00f, 0.50f],
-                [0.25f, 0.50f, 0.25f]],
-        size_x : 3, size_y : 3
-    };
-    // Interpolate: arr = size/2 x size/2; out = size x size; coarse -> fine
-    // fine += Stencil * coarse:
-    for x, y, mask, solf_acc, solc_acc in @iteration(interpolate_mask, SolF, SolC) {
-        let value = get_pixel(solc_acc, x, y);
-        set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) + value);
-        set_pixel(solf_acc, 2*x+1, 2*y  , get_pixel(solf_acc, 2*x+1, 2*y  ) + value);
-        set_pixel(solf_acc, 2*x  , 2*y+1, get_pixel(solf_acc, 2*x  , 2*y+1) + value);
-        set_pixel(solf_acc, 2*x+1, 2*y+1, get_pixel(solf_acc, 2*x+1, 2*y+1) + value);
-    }
 }
 
 
@@ -273,7 +285,8 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
     fn vcycle_dsl(level : int,
               solver : fn(int, int, Mask, Acc, Acc, Acc) -> (), solver_mask : Mask,
               residual : fn(int, int, Mask, Acc, Acc, Acc) -> (), residual_mask : Mask,
-              restrict : fn(int, int, Mask, Acc, Acc) -> (), restrict_mask : Mask
+              restrict : fn(int, int, Mask, Acc, Acc) -> (), restrict_mask : Mask,
+              interpolate : fn (int, int, Mask, Acc, Acc) -> (), interpolate_mask : Mask
              ) -> () {
         let rhs_acc = Acc { img : RHS(level), o_x : 0, o_y : 0, width : RHS(level).width, height : RHS(level).height, region : 4 };
         if level == levels-1 {
@@ -307,9 +320,11 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
             if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
 
             $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height + pad_y);
-            vcycle_dsl(level+1, solver, solver_mask, residual, residual_mask, restrict, restrict_mask);
+            vcycle_dsl(level+1, solver, solver_mask, residual, residual_mask, restrict, restrict_mask, interpolate, interpolate_mask);
 
-            interpolate(Sol(level+1), Sol(level));
+            for x, y, mask, solf_acc, solc_acc in iteration(interpolate_mask, Sol(level), Sol(level+1)) {
+                interpolate(x, y, mask, solc_acc, solf_acc);
+            }
 
             // post-smooth
             for i in range(0, ssteps) {
@@ -322,7 +337,7 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
         }
     }
     for i in range(0, vsteps) {
-        @vcycle_dsl(0, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, restrict_mask);
+        @vcycle_dsl(0, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, restrict_mask, interpolate_fun, interpolate_mask);
     }
 
     let mut out = Img { data : out_data , width : width, height : height, stride : width };
