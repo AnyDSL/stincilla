@@ -7,8 +7,7 @@ fn iteration_merge(Sol : Img, Res : Img, RHSF : Img, RHSC : Img,
     let gpu_rhsf = mmap(RHSF.data, dev, 1,         0, RHSF.stride * (RHSF.height+pad_y));
     let gpu_rhsc = mmap(RHSC.data, dev, 1,         0, RHSC.stride * (RHSC.height+pad_y));
 
-    let unroll = 1;
-    let dim = (Res.width, Res.height/unroll, 1);
+    let dim = (Res.width, Res.height, 1);
     let block = (64, 2, 1); // must be x2
 
     acc(dev, dim, block, || {
@@ -17,7 +16,7 @@ fn iteration_merge(Sol : Img, Res : Img, RHSF : Img, RHSC : Img,
         let bdim_x = acc_bdimx();
         let bdim_y = acc_bdimy();
         let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+        let gid_y = acc_gidy();
 
         let lstride = block(0) + pad_x;
         let lheight = block(1) + pad_y/2;
