@@ -56,7 +56,7 @@ fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
                     idx_y = mirror_lower(idx_y, acc.o_y);
                 }
 
-                sum += get_pixel(acc, idx_x, idx_y) * stencil_val;
+                sum += get_pixel(acc, idx_x-acc.o_x, idx_y-acc.o_y) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
