@@ -322,13 +322,71 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
                 }
             }
 
-            for x, y, mask, mut sol_acc, res_acc in iteration(residual_mask, Sol(level), Res(level)) {
-                sol_acc.region = 4; // no bh
-                residual(x, y, mask, sol_acc, res_acc, rhs_acc);
-            }
+            let merge = true;
+            if merge == true {
+                fn iteration_merge(mask0 : Mask, Sol : Img, Res : Img, RHSF : Img, RHSC : Img,
+                                   residual : fn(int, int, Mask, Acc, Acc, Acc) -> (),  // RHS + sum(Sol) -> Res
+                                   restrict : fn(int, int, Mask, Acc, Acc) -> ()        // Res -> RHS(+1)
+                                  ) -> () {
 
-            for x, y, mask, res_acc, rhs_acc in iteration(residual_mask, Res(level), RHS(level+1)) {
-                restrict(x, y, mask, res_acc, rhs_acc);
+                    let dev = acc_dev();
+                    let gpu_sol  = mmap(Sol.data,  dev, acc_tex(), 0, Sol.width * Sol.height);
+                    let gpu_res  = mmap(Res.data,  dev, 1,         0, Res.width * Res.height);
+                    let gpu_rhsf = mmap(RHSF.data, dev, 1,         0, RHSF.width * RHSF.height);
+                    let gpu_rhsc = mmap(RHSC.data, dev, 1,         0, RHSC.width * RHSC.height);
+
+                    let unroll = 1;
+                    let dim = (Res.width, Res.height/unroll, 1);
+                    let block = (32, 4, 1);
+
+                    acc(dev, dim, block, || {
+                        let tid_x = acc_tidx();
+                        let tid_y = acc_tidy();
+                        let bdim_x = acc_bdimx();
+                        let bdim_y = acc_bdimy();
+                        let gid_x = acc_gidx();
+                        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+
+                        let m_range = 1;
+                        let lstride = block(0) + 2 * m_range;
+                        let lheight_col = block(1) * unroll + 2 * m_range;
+                        let lheight_row = block(1) * unroll;
+                        let mut smem_res = mmap(Res.data, dev, 3, 0, lstride * lheight_col);
+                        let smem_img = Img { data : smem_res, width : lstride,  height : lheight_row, stride : lstride };
+                        let rhsc_img = Img { data : gpu_rhsc, width : RHSC.width, height : RHSC.height, stride : RHSC.stride };
+
+                        // residual
+                        // TODO
+                        //
+
+                        acc_barrier();
+
+                        // restrict
+                        if gid_x < RHSC.width && gid_y < RHSC.height {
+                            // index space: block
+                            let out_acc = Acc { img : rhsc_img,
+                                                o_x : acc_bdimx() * acc_bidx(),
+                                                o_y : acc_bdimy() * acc_bidy(),
+                                                width : rhsc_img.width, height : rhsc_img.height, region : 1 /* no bh */ };
+                            let arr_acc = Acc { img : smem_img,
+                                                o_x : m_range,
+                                                o_y : bdim_y,
+                                                width : smem_img.width, height : smem_img.height, region : 1 /* no bh */ };
+                            restrict(tid_x, tid_y, mask0, arr_acc, out_acc);
+                        }
+                    });
+                }
+                iteration_merge(residual_mask, Sol(level), Res(level), RHS(level), RHS(level+1), residual, restrict);
+
+            } else {
+                for x, y, mask, mut sol_acc, res_acc in iteration(residual_mask, Sol(level), Res(level)) {
+                    sol_acc.region = 4; // no bh
+                    residual(x, y, mask, sol_acc, res_acc, rhs_acc);
+                }
+
+                for x, y, mask, res_acc, rhs_acc in iteration(residual_mask, Res(level), RHS(level+1)) {
+                    restrict(x, y, mask, res_acc, rhs_acc);
+                }
             }
 
             if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
