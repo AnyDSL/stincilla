@@ -1,11 +1,15 @@
 type Mask = Mask3;
 type MaskSep = Mask3Sep;
 
+// data layout padded for Dirichlet
+// image: (8 + width + 8) x (1 + height + 1)
+static pad_x = 2*8;
+static pad_y = 2;
 fn get_pixel(acc : Acc, x : int, y : int) -> float {
-    acc.img.data((acc.o_y + y + 1)*acc.img.stride + 8 + acc.o_x + x)
+    acc.img.data((acc.o_y + y + pad_y/2)*acc.img.stride + acc.o_x + x + pad_x/2)
 }
 fn set_pixel(mut acc : Acc, x : int, y : int, val : float) -> () {
-    acc.img.data((acc.o_y + y + 1)*acc.img.stride + 8 + acc.o_x + x) = val;
+    acc.img.data((acc.o_y + y + pad_y/2)*acc.img.stride + acc.o_x + x + pad_x/2) = val;
 }
 
 fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
@@ -189,7 +193,7 @@ fn l2norm(img : Img) -> float {
     let mut l2sum = 0.0f;
     for y in $iterate(0, img.height) {
         for x in $iterate(0, img.width) {
-            let value = img.data((y+1) * img.stride + x + 8);
+            let value = img.data((y+pad_y/2) * img.stride + x+pad_x/2);
             l2sum += value*value;
         }
     }
@@ -197,57 +201,35 @@ fn l2norm(img : Img) -> float {
 }
 
 
-extern
-fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height : int) -> () {
-    let omega  = 0.8f;
-    let levels = 6;
-    let mut RHS : [Img * 6];
-    let mut Sol : [Img * 6];
-    let mut Tmp : [Img * 6];
-    let mut Res : [Img * 6];
-    let pad_x = 2*8;
-    let pad_y = 2;
+// normal V-Cycle, components are hard-coded
+fn vcycle(RHS0 : Img, levels : int, vsteps : int, ssteps : int) -> Img {
+    let width   = RHS0.width;
+    let height  = RHS0.height;
+    let mut RHS = ~[levels:Img];
+    let mut Sol = ~[levels:Img];
+    let mut Tmp = ~[levels:Img];
+    let mut Res = ~[levels:Img];
     for level in @range(0, levels) {
-        // image: (8 + width + 8) x (1 + height + 1)
-        RHS(level) = Img {
-            data : ~[((width >> level) + pad_x) * ((height >> level) + pad_y): float],
-            width : width >> level,
-            height : height >> level,
-            stride : (width >> level) + pad_x
-        };
-        Sol(level) = Img {
-            data : ~[((width >> level) + pad_x) * ((height >> level) + pad_y): float],
-            width : width >> level,
-            height : height >> level,
-            stride : (width >> level) + pad_x
-        };
-        Res(level) = Img {
-            data : ~[((width >> level) + pad_x) * ((height >> level) + pad_y): float],
-            width : width >> level,
-            height : height >> level,
-            stride : (width >> level) + pad_x
-        };
-        Tmp(level) = Img {
-            data : ~[((width >> level) + pad_x) * ((height >> level) + pad_y): float],
-            width : width >> level,
-            height : height >> level,
-            stride : (width >> level) + pad_x
-        };
+        fn init_img(level : int) -> Img {
+            Img {
+                data : ~[((width >> level) + pad_x) * ((height >> level) + pad_y): float],
+                width : width >> level,
+                height : height >> level,
+                stride : (width >> level) + pad_x
+            }
+        }
+        if level == 0 {
+            RHS(level) = RHS0;
+        } else {
+            RHS(level) = init_img(level);
+        }
+        Sol(level) = init_img(level);
+        Res(level) = init_img(level);
+        Tmp(level) = init_img(level);
         $init_zero(Tmp(level).data, Tmp(level).stride, Tmp(level).height + pad_y);
     }
 
-    let mut img = Img { data : ~[(width + pad_x) * (height + pad_y): float], width : width, height : height, stride : width + pad_x};
-    for y in range(0, img.height) {
-        for x in range(0, img.width) {
-            img.data((1 + y)*img.stride + 8 + x) = img_data(y*img.width + x);
-        }
-    }
-
-    @deriv2D(img, RHS(0));
-
-    let ssteps = 2;
-    let vsteps = 2;
-    fn vcycle(level : int) -> () {
+    fn vcycle_intern(level : int) -> () {
         if level == levels-1 {
             for i in range(0, ssteps) {
                 // smooth
@@ -267,7 +249,7 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
             if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
 
             $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height + pad_y);
-            vcycle(level+1);
+            vcycle_intern(level+1);
 
             interpolate(Sol(level+1), Sol(level));
 
@@ -278,16 +260,48 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
             }
         }
     }
-    //for i in range(0, vsteps) {
-    //    @vcycle(0);
-    //}
+    for i in range(0, vsteps) {
+        @vcycle_intern(0);
+    }
 
-    fn vcycle_dsl(level : int,
-              solver : fn(int, int, Mask, Acc, Acc, Acc) -> (), solver_mask : Mask,
-              residual : fn(int, int, Mask, Acc, Acc, Acc) -> (), residual_mask : Mask,
-              restrict : fn(int, int, Mask, Acc, Acc) -> (), restrict_mask : Mask,
-              interpolate : fn (int, int, Mask, Acc, Acc) -> (), interpolate_mask : Mask
-             ) -> () {
+    Sol(0)
+}
+
+
+// V-Cycle DSL: solver, etc. can be provided by the user
+fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
+          solver : fn(int, int, Mask, Acc, Acc, Acc) -> (), solver_mask : Mask,
+          residual : fn(int, int, Mask, Acc, Acc, Acc) -> (), residual_mask : Mask,
+          restrict : fn(int, int, Mask, Acc, Acc) -> (), restrict_mask : Mask,
+          interpolate : fn (int, int, Mask, Acc, Acc) -> (), interpolate_mask : Mask
+         ) -> Img {
+    let width   = RHS0.width;
+    let height  = RHS0.height;
+    let mut RHS = ~[levels:Img];
+    let mut Sol = ~[levels:Img];
+    let mut Tmp = ~[levels:Img];
+    let mut Res = ~[levels:Img];
+    for level in @range(0, levels) {
+        fn init_img(level : int) -> Img {
+            Img {
+                data : ~[((width >> level) + pad_x) * ((height >> level) + pad_y): float],
+                width : width >> level,
+                height : height >> level,
+                stride : (width >> level) + pad_x
+            }
+        }
+        if level == 0 {
+            RHS(level) = RHS0;
+        } else {
+            RHS(level) = init_img(level);
+        }
+        Sol(level) = init_img(level);
+        Res(level) = init_img(level);
+        Tmp(level) = init_img(level);
+        $init_zero(Tmp(level).data, Tmp(level).stride, Tmp(level).height + pad_y);
+    }
+
+    fn vcycle_dsl_intern(level : int) -> () {
         let rhs_acc = Acc { img : RHS(level), o_x : 0, o_y : 0, width : RHS(level).width, height : RHS(level).height, region : 4 };
         if level == levels-1 {
             for i in range(0, ssteps) {
@@ -295,7 +309,7 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 for x, y, mask, mut tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
                     tmp_acc.region = 4; // no bh
-                    jacobi_solver(x, y, mask, rhs_acc, tmp_acc, sol_acc);
+                    solver(x, y, mask, rhs_acc, tmp_acc, sol_acc);
                 }
             }
         } else {
@@ -304,7 +318,7 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 for x, y, mask, mut tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
                     tmp_acc.region = 4; // no bh
-                    jacobi_solver(x, y, mask, rhs_acc, tmp_acc, sol_acc);
+                    solver(x, y, mask, rhs_acc, tmp_acc, sol_acc);
                 }
             }
 
@@ -320,7 +334,7 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
             if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
 
             $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height + pad_y);
-            vcycle_dsl(level+1, solver, solver_mask, residual, residual_mask, restrict, restrict_mask, interpolate, interpolate_mask);
+            vcycle_dsl_intern(level+1);
 
             for x, y, mask, solf_acc, solc_acc in iteration(interpolate_mask, Sol(level), Sol(level+1)) {
                 interpolate(x, y, mask, solc_acc, solf_acc);
@@ -331,19 +345,43 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 for x, y, mask, mut tmp_acc, sol_acc in iteration(solver_mask, Tmp(level), Sol(level)) {
                     tmp_acc.region = 4; // no bh
-                    jacobi_solver(x, y, mask, rhs_acc, tmp_acc, sol_acc);
+                    solver(x, y, mask, rhs_acc, tmp_acc, sol_acc);
                 }
             }
         }
     }
     for i in range(0, vsteps) {
-        @vcycle_dsl(0, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, restrict_mask, interpolate_fun, interpolate_mask);
+        @vcycle_dsl_intern(0);
     }
 
+    Sol(0)
+}
+
+
+extern
+fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height : int) -> () {
+    let RHS     = Img { data : ~[(width + pad_x) * (height + pad_y): float], width : width, height : height, stride : width + pad_x };
+    let mut img = Img { data : ~[(width + pad_x) * (height + pad_y): float], width : width, height : height, stride : width + pad_x };
     let mut out = Img { data : out_data , width : width, height : height, stride : width };
+
+    for y in range(0, img.height) {
+        for x in range(0, img.width) {
+            img.data((y+pad_y/2)*img.stride + x+pad_x/2) = img_data(y*img.width + x);
+        }
+    }
+
+    @deriv2D(img, RHS);
+
+    let levels = 3;
+    let vsteps = 2;
+    let ssteps = 2;
+
+    let result = @vcycle_dsl(RHS, levels, vsteps, ssteps, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, restrict_mask, interpolate_fun, interpolate_mask);
+    //let result = @vcycle(RHS, levels, vsteps, ssteps);
+
     for y in range(0, out.height) {
         for x in range(0, out.width) {
-            out.data(y*out.width + x) = Sol(0).data((y+pad_y/2)*Sol(0).stride + x + pad_x/2);
+            out.data(y*out.width + x) = result.data((y+pad_y/2)*result.stride + x+pad_x/2);
         }
     }
 }
