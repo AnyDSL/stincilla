@@ -177,9 +177,7 @@ fn interpolate(SolC : Img, SolF : Img) -> () {
 
 
 extern
-fn thorin_vcycle(img_data : &[float], out_data : &[float], c_width : int, c_height : int) -> () {
-    let width  = 512;
-    let height = 512;
+fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height : int) -> () {
     let omega  = 0.8f;
     let levels = 6;
     let mut RHS : [Img * 6];
