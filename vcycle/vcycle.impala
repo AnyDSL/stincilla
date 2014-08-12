@@ -137,14 +137,10 @@ fn restrict(Res : Img, RHS : Img) -> () {
     // Restrict: arr = size x size; out = size/2 x size/2; fine -> coarse
     // coarse = Stencil * fine;
     for x, y, mask, res_acc, rhs_acc in @iteration(mask, Res, RHS) {
-        /*
-        let val = apply_stencil(mask, res_acc, 2*x, 2*y)/4.0f;
-        set_pixel(rhs_acc, x, y, val);
-        */
         let val = get_pixel(res_acc, 2*x,   2*y  ) +
-                  get_pixel(res_acc, 2*x-1, 2*y  ) +
-                  get_pixel(res_acc, 2*x,   2*y-1) +
-                  get_pixel(res_acc, 2*x-1, 2*y-1);
+                  get_pixel(res_acc, 2*x+1, 2*y  ) +
+                  get_pixel(res_acc, 2*x,   2*y+1) +
+                  get_pixel(res_acc, 2*x+1, 2*y+1);
         set_pixel(rhs_acc, x, y, val);
     }
 }
@@ -172,9 +168,9 @@ fn interpolate(SolC : Img, SolF : Img) -> () {
     // fine += Stencil * coarse:
     for x, y, mask, solf_acc, solc_acc in @iteration(interpolate_mask, SolF, SolC) {
         let value = get_pixel(solc_acc, x, y);
+        set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) + value);
         set_pixel(solf_acc, 2*x+1, 2*y  , get_pixel(solf_acc, 2*x+1, 2*y  ) + value);
         set_pixel(solf_acc, 2*x  , 2*y+1, get_pixel(solf_acc, 2*x  , 2*y+1) + value);
-        set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) + value);
         set_pixel(solf_acc, 2*x+1, 2*y+1, get_pixel(solf_acc, 2*x+1, 2*y+1) + value);
     }
 }
