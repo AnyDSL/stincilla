@@ -170,17 +170,12 @@ fn interpolate(SolC : Img, SolF : Img) -> () {
     };
     // Interpolate: arr = size/2 x size/2; out = size x size; coarse -> fine
     // fine += Stencil * coarse:
-    let solc_acc = Acc { img : SolC, o_x : 0, o_y : 0, width : SolC.width, height : SolC.height, region : 10 };
-    let solf_acc = Acc { img : SolF, o_x : 0, o_y : 0, width : SolF.width, height : SolF.height, region : 10 };
-    // TODO: boundary handling
-    for y in $iterate(1, SolC.height-1) {
-        for x in $iterate(1, SolC.width-1) {
-            let value = get_pixel(solc_acc, x, y);
-            set_pixel(solf_acc, 2*x-1, 2*y  , get_pixel(solf_acc, 2*x-1, 2*y  ) + value);
-            set_pixel(solf_acc, 2*x  , 2*y-1, get_pixel(solf_acc, 2*x  , 2*y-1) + value);
-            set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) + value);
-            set_pixel(solf_acc, 2*x-1, 2*y-1, get_pixel(solf_acc, 2*x-1, 2*y-1) + value);
-        }
+    for x, y, mask, solf_acc, solc_acc in @iteration(interpolate_mask, SolF, SolC) {
+        let value = get_pixel(solc_acc, x, y);
+        set_pixel(solf_acc, 2*x+1, 2*y  , get_pixel(solf_acc, 2*x+1, 2*y  ) + value);
+        set_pixel(solf_acc, 2*x  , 2*y+1, get_pixel(solf_acc, 2*x  , 2*y+1) + value);
+        set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) + value);
+        set_pixel(solf_acc, 2*x+1, 2*y+1, get_pixel(solf_acc, 2*x+1, 2*y+1) + value);
     }
 }
 
