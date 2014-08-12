@@ -33,6 +33,7 @@ int main(int argc, const char **argv) {
 
     fprintf(stderr, "Calculating V-Cycle in AnyDSL ...\n");
     thorin_vcycle(input, output, width, height);
+    thorin_print_total_timing();
 
     // write image
     for (int y=0; y<height; ++y) {
