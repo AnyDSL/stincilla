@@ -1,0 +1,27 @@
+fn iteration_merge(Sol : Img, Res : Img, RHSF : Img, RHSC : Img,
+                   residual : fn(int, int, Mask, Acc, Acc, Acc) -> (), residual_mask : Mask, // RHS + sum(Sol) -> Res
+                   restrict : fn(int, int, Mask, Acc, Acc) -> (), restrict_mask : Mask       // Res -> RHS(+1)
+                  ) -> () {
+    // allocate temporary array
+    let tmp = Img { data : ~[Res.stride*(4+pad_y/2):float], width : Res.width, height : 4+pad_y/2, stride : Res.stride };
+    init_zero(tmp.data, $tmp.stride, $tmp.height);
+
+    let start = thorin_get_micro_time();
+    for y in $iterate_step(0, Res.height, 2) {
+        for x in $inner_loop(0, Res.width) {
+            // index space: cache line
+            let out_acc  = Acc { img : tmp,  o_x : 0, o_y : 0, width : tmp.width,  height : tmp.height,  region : 4 };
+            let rhsf_acc = Acc { img : RHSF, o_x : 0, o_y : y, width : RHSF.width, height : RHSF.height, region : 4 };
+            let sol_acc  = Acc { img : Sol,  o_x : 0, o_y : y, width : Sol.width,  height : Sol.height,  region : 4 };
+            @residual(x, 0, residual_mask, sol_acc, out_acc, rhsf_acc);
+            @residual(x, 1, residual_mask, sol_acc, out_acc, rhsf_acc);
+        }
+        for x in $iterate(0, RHSC.width) {
+            // index space: cache line
+            let out_acc = Acc { img : RHSC, o_x : 0, o_y : y/2, width : RHSC.width, height : RHSC.height, region : 4 };
+            let arr_acc = Acc { img : tmp,  o_x : 0, o_y : 0,   width : tmp.width,  height : tmp.height,  region : 4 };
+            @restrict(x, 0, restrict_mask, arr_acc, out_acc);
+        }
+    }
+    thorin_print_micro_time(thorin_get_micro_time()-start);
+}
