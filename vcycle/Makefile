@@ -5,7 +5,7 @@ INC_DIRS   = -I $(CUDA_DIR)/include \
              -I .
 LIB_DIRS   = $(CUDA_DIR)/lib64 $(CUDA_DIR)/nvvm/lib64
 CXX_FLAGS := -std=c++11 -Wall -Wunused
-OPT_FLAGS := -O3
+OPT_FLAGS := -O3 -fno-vectorize -fno-slp-vectorize -fno-slp-vectorize-aggressive
 DBG_FLAGS :=
 RPATH_PRE := -Wl,-rpath,
 OS        := $(shell uname -s)
