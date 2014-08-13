@@ -91,7 +91,7 @@ fn apply_stencil_sep(mask : MaskSep, acc : Acc, row : bool, x : int, y : int) ->
                 idx_y = clamp_upper(idx_y, acc.o_y + acc.height);
             }
         }
-        sum += acc.img.data(idx_y * acc.stride + idx_x) * stencil_val;
+        sum += acc.img.data(idx_y * acc.img.stride + idx_x) * stencil_val;
     }
 
     sum
