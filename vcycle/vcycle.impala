@@ -188,8 +188,9 @@ fn interpolate(SolC : Img, SolF : Img) -> () {
 }
 
 
+// L2 norm
 fn l2norm(img : Img) -> float {
-    // L2 norm: TODO
+    // TODO: runs only on the CPU atm
     let mut l2sum = 0.0f;
     for y in $iterate(0, img.height) {
         for x in $iterate(0, img.width) {
@@ -246,7 +247,7 @@ fn vcycle(RHS0 : Img, levels : int, vsteps : int, ssteps : int) -> Img {
             residual(Sol(level), Res(level), RHS(level));
             restrict(Res(level), RHS(level+1));
 
-            if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
+            //if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
 
             $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height + pad_y);
             vcycle_intern(level+1);
@@ -336,7 +337,7 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
                 }
             }
 
-            if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
+            //if level == 0 { thorin_print_gflops(l2norm(Res(level))); }
 
             $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height + pad_y);
             vcycle_dsl_intern(level+1);
