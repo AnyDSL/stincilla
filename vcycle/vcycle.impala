@@ -273,7 +273,7 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
           solver : fn(int, int, Mask, Acc, Acc, Acc) -> (), solver_mask : Mask,
           residual : fn(int, int, Mask, Acc, Acc, Acc) -> (), residual_mask : Mask,
           restrict : fn(int, int, Mask, Acc, Acc) -> (), restrict_mask : Mask,
-          interpolate : fn (int, int, Mask, Acc, Acc) -> (), interpolate_mask : Mask
+          interpolate : fn(int, int, Mask, Acc, Acc) -> (), interpolate_mask : Mask
          ) -> Img {
     let width   = RHS0.width;
     let height  = RHS0.height;
