@@ -136,10 +136,10 @@ struct cu_plist_t {
 
 extern
 fn thorin_non_bonded_f(atdat : cu_atomdata_t, nbparam : cu_nbparam_t, plist : cu_plist_t, bCalcFshift : bool) -> () {
-    let dim = (1024, 1024, 1);
+    let grid  = (1024, 1024, 1);
     let block = (32, 8, 1);
     //for i in @range(0, 1) {
-    //    acc(0, block, dim, || -> () {
+    //    acc(0, block, grid, || -> () {
             @non_bonded_f(atdat, nbparam, plist, bCalcFshift);
     //    });
     //}

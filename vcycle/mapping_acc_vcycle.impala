@@ -7,10 +7,10 @@ fn iteration_merge(Sol : Img, Res : Img, RHSF : Img, RHSC : Img,
     let gpu_rhsf = mmap(RHSF.data, dev, 1,         0, RHSF.stride * (RHSF.height+pad_y));
     let gpu_rhsc = mmap(RHSC.data, dev, 1,         0, RHSC.stride * (RHSC.height+pad_y));
 
-    let dim = (Res.width, Res.height, 1);
+    let grid  = (Res.width, Res.height, 1);
     let block = (64, 2, 1); // must be x2
 
-    acc(dev, dim, block, || {
+    acc(dev, grid, block, || {
         let tid_x = acc_tidx();
         let tid_y = acc_tidy();
         let bdim_x = acc_bdimx();

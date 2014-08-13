@@ -2,13 +2,13 @@ fn iteration_multi(width : int, height : int,
                    arr : &[float], out : &[float],
                    body : fn(int, int, &[float], &[float]) -> ()
                   ) -> () {
-    let dim = (width, height/2, 1);
+    let grid  = (width, height/2, 1);
     let block = (128, 1, 1);
 
     let map_arr_CPU = mmap(arr, 1, 0, 0,                width * height/2);
     let map_out_CPU = mmap(out, 1, 0, 0,                width * height/2);
 
-    acc(1, dim, block, || -> () {
+    acc(1, grid, block, || -> () {
         let gid_x = acc_gidx();
         let gid_y = acc_gidy();
 
@@ -18,7 +18,7 @@ fn iteration_multi(width : int, height : int,
     let map_arr_GPU = mmap(arr, 2, 0, width * height/2, width * height/2);
     let map_out_GPU = mmap(out, 2, 0, width * height/2, width * height/2);
 
-    acc(2, dim, block, || -> () {
+    acc(2, grid, block, || -> () {
         let gid_x = acc_gidx();
         let gid_y = acc_gidy();
 

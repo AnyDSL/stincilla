@@ -18,10 +18,10 @@ fn range(a : int, b : int, yield : fn(int, fn())) -> () {
 fn iteration(width : int, height : int,
              body : fn(int, int) -> ()
             ) -> () {
-    let dim = (width, height, 1);
+    let grid  = (width, height, 1);
     let block = (128, 1, 1);
     let dev = 1;
-    spir(dev, dim, block, || -> () {
+    spir(dev, grid, block, || -> () {
         let gid_x = acc_gidx();
         let gid_y = acc_gidy();
 

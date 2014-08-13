@@ -1,6 +1,6 @@
 // synchronization ...
 fn iteration_mapped(width : int, height : int, img : &[float], body : fn(int, int, &[float]) -> ()) -> () {
-    let dim = (width, height/2, 1);
+    let grid  = (width, height/2, 1);
     let block = (32, 4, 1);
 
     // explicit verstion
@@ -25,7 +25,7 @@ fn iteration_mapped(width : int, height : int, img : &[float], body : fn(int, in
     let mut h = [int * 2];
     
     @iterate(0, 2+1, |i : int| -> () {
-        h[i] = opencl(i+1, dim, block, || -> () {
+        h[i] = opencl(i+1, grid, block, || -> () {
             let tid_x = global_id(0);
             let tid_y = global_id(1);
 
@@ -48,11 +48,11 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
     let gpu_img1 = mmap<GPU1>(cpu_slice1);
     let gpu_img2 = mmap<GPU2>(cpu_slice2);
 
-    let dim = (width/2, height, 1);
+    let grid  = (width/2, height, 1);
     let block = (32, 4, 1);
 
     let handle1 = async(|| -> () {
-        nvvm(1, dim, block, || -> () {
+        nvvm(1, grid, block, || -> () {
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -61,7 +61,7 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
     });
 
     let handle2 = async(|| -> () {
-        nvvm(1, dim, block, || -> () {
+        nvvm(1, grid, block, || -> () {
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -77,7 +77,7 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
     iterate(0, num_devices+1, |i : int| -> () {
         body(tid_x, tid_y + i * nvvm_read_ptx_sreg_ntid_y());
         handles[i] = async(|| -> () {
-            nvvm(1, dim, block, || -> () {
+            nvvm(1, grid, block, || -> () {
                 let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
                 let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -102,11 +102,11 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
     let gpu_img1 = mmap<GPU1>(cpu_slice1);
     let gpu_img2 = mmap<GPU2>(cpu_slice2);
 
-    let dim = (width/2, height, 1);
+    let grid  = (width/2, height, 1);
     let block = (32, 4, 1);
 
     let handle1 = async(|| -> () {
-        nvvm(1, dim, block, || -> () {
+        nvvm(1, grid, block, || -> () {
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 
@@ -125,7 +125,7 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
     });
 
     let handle2 = async(|| -> () {
-        nvvm(1, dim, block, || -> () {
+        nvvm(1, grid, block, || -> () {
             let tid_x = nvvm_read_ptx_sreg_tid_x() + nvvm_read_ptx_sreg_ntid_x() * nvvm_read_ptx_sreg_ctaid_x();
             let tid_y = nvvm_read_ptx_sreg_tid_y() + nvvm_read_ptx_sreg_ntid_y() * nvvm_read_ptx_sreg_ctaid_y();
 

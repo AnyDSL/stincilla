@@ -24,10 +24,10 @@ fn iteration(mask : Mask, arr : Img, out : Img,
             ) -> () {
     let unroll = 1;
     let config = @compute_config((mask.size_x/2, mask.size_y/2), unroll);
-    let dim = (out.width, out.height/unroll, 1);
-    let block = config(0);
+    let grid   = (out.width, out.height/unroll, 1);
+    let block  = config(0);
 
-    acc(acc_dev(), dim, block, || {
+    acc(acc_dev(), grid, block, || {
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
@@ -46,17 +46,17 @@ fn iteration_bounds(mask : Mask, arr : Img, out : Img,
     // compute the number of blocks required for boundary handling
     let unroll = 1;
     let config = @compute_config((mask.size_x/2, mask.size_y/2), unroll);
-    let block = config(0);
-    let bx = config(1)(0);
-    let by = config(1)(1);
+    let block  = config(0);
+    let bx     = config(1)(0);
+    let by     = config(1)(1);
 
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
 
     if big_kernel {
-        let dim = (out.width, out.height/unroll, 1);
+        let grid = (out.width, out.height/unroll, 1);
 
-        acc(acc_dev(), dim, block, || {
+        acc(acc_dev(), grid, block, || {
             let bid_x = acc_bidx();
             let bid_y = acc_bidy();
             let bdim_y = acc_bdimy();
@@ -158,12 +158,12 @@ fn iteration_bounds(mask : Mask, arr : Img, out : Img,
 
         for region in @iterate(0, 9) {
             let bounds = Bounds2D(region);
-            let dim = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
+            let grid   = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
 
             let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, width : arr.width, height : arr.height, region : region };
             let out_acc = Acc { img : out, o_x : 0, o_y : 0, width : out.width, height : out.height, region : region };
 
-            acc(acc_dev(), dim, block, || {
+            acc(acc_dev(), grid, block, || {
                 let gid_x = bounds(0) +
                             acc_tidx() + acc_bdimx() * acc_bidx();
                 let gid_y = bounds(2) * unroll +
@@ -182,8 +182,8 @@ fn iteration_advanced(mask : Mask, arr : Img, out : Img,
                      ) -> () {
     let unroll = 1;
     let config = @compute_config((mask.size_x/2, mask.size_y/2), unroll);
-    let dim = (out.width, out.height/unroll, 1);
-    let block = config(0);
+    let grid   = (out.width, out.height/unroll, 1);
+    let block  = config(0);
 
     // compute number of steps required to stage data to shared memory
     let m_range_x = mask.size_x / 2;
@@ -201,7 +201,7 @@ fn iteration_advanced(mask : Mask, arr : Img, out : Img,
     let gpu_arr = mmap(arr.data, dev, acc_tex(), 0, arr.width * arr.height);
     let gpu_out = mmap(out.data, dev, 1,         0, out.width * out.height);
 
-    acc(dev, dim, block, || {
+    acc(dev, grid, block, || {
         let tid_x = acc_tidx();
         let tid_y = acc_tidy();
         let bdim_x = acc_bdimx();
@@ -248,8 +248,8 @@ fn iteration_sep(mask : MaskSep, arr : Img, out : Img,
                 ) -> () {
     let unroll = 1;
     let config = @compute_config((mask.size/2, mask.size/2), unroll);
-    let dim = (out.width, out.height/unroll, 1);
-    let block = config(0);
+    let grid   = (out.width, out.height/unroll, 1);
+    let block  = config(0);
 
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height, stride : out.width };
@@ -259,7 +259,7 @@ fn iteration_sep(mask : MaskSep, arr : Img, out : Img,
     let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, width : tmp.width, height : tmp.height, region : 10 };
 
     let dev = acc_dev();
-    acc(dev, dim, block, || {
+    acc(dev, grid, block, || {
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
         let is_row = false;
@@ -268,7 +268,7 @@ fn iteration_sep(mask : MaskSep, arr : Img, out : Img,
             body(gid_x, gid_y + i * acc_bdimy(), mask, arr_acc, tmp_acc, is_row);
         }
     });
-    acc(dev, dim, block, || {
+    acc(dev, grid, block, || {
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
         let is_row = true;
@@ -285,9 +285,9 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
     // compute the number of blocks required for boundary handling
     let unroll = 1;
     let config = @compute_config((mask.size/2, mask.size/2), unroll);
-    let block = config(0);
-    let bx = config(1)(0);
-    let by = config(1)(1);
+    let block  = config(0);
+    let bx     = config(1)(0);
+    let by     = config(1)(1);
 
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height, stride : out.width };
@@ -297,10 +297,10 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
     let big_kernel = false;
 
     if big_kernel {
-        let dim = (out.width, out.height/unroll, 1);
+        let grid = (out.width, out.height/unroll, 1);
 
         // column component
-        acc(acc_dev(), dim, block, || {
+        acc(acc_dev(), grid, block, || {
             let bid_y = acc_bidy();
             let bdim_y = acc_bdimy();
             let gdim_y = acc_gdimy();
@@ -336,7 +336,7 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
         });
 
         // row component
-        acc(acc_dev(), dim, block, || {
+        acc(acc_dev(), grid, block, || {
             let bid_x = acc_bidx();
             let bdim_y = acc_bdimy();
             let gdim_x = acc_gdimx();
@@ -378,12 +378,12 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
 
         for region in @iterate(0, 3) {
             let bounds = Bounds2DCol(region);
-            let dim = (out.width, bounds(1) - bounds(0), 1);
+            let grid   = (out.width, bounds(1) - bounds(0), 1);
 
             let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, width : arr.width, height : arr.height, region : region };
             let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, width : tmp.width, height : tmp.height, region : region };
 
-            acc(acc_dev(), dim, block, || {
+            acc(acc_dev(), grid, block, || {
                 let gid_x = acc_gidx();
                 let gid_y = bounds(0) * unroll +
                             acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
@@ -403,12 +403,12 @@ fn iteration_sep_bounds(mask : MaskSep, arr : Img, out : Img,
 
         for region in @iterate(0, 3) {
             let bounds = Bounds2DRow(region);
-            let dim = (bounds(1) - bounds(0), out.height/unroll, 1);
+            let grid   = (bounds(1) - bounds(0), out.height/unroll, 1);
 
             let tmp_acc = Acc { img : tmp, o_x : 0, o_y : 0, width : tmp.width, height : tmp.height, region : region };
             let out_acc = Acc { img : out, o_x : 0, o_y : 0, width : out.width, height : out.height, region : region };
 
-            acc(acc_dev(), dim, block, || {
+            acc(acc_dev(), grid, block, || {
                 let gid_x = bounds(0) + acc_gidx();
                 let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
                 let is_row = true;
@@ -426,8 +426,8 @@ fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
                          ) -> () {
     let unroll = 1;
     let config = @compute_config((mask.size/2, mask.size/2), unroll);
-    let dim = (out.width, out.height/unroll, 1);
-    let block = config(0);
+    let grid   = (out.width, out.height/unroll, 1);
+    let block  = config(0);
 
     // compute number of steps required to stage data to shared memory
     let m_range = mask.size / 2;
@@ -444,7 +444,7 @@ fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
     let gpu_arr = mmap(arr.data, dev, acc_tex(), 0, arr.width * out.height);
     let gpu_out = mmap(out.data, dev, 1,         0, out.width * out.height);
 
-    acc(dev, dim, block, || {
+    acc(dev, grid, block, || {
         let tid_x = acc_tidx();
         let tid_y = acc_tidy();
         let bdim_x = acc_bdimx();
@@ -519,14 +519,14 @@ fn iteration_multi(width : int, height : int,
                    arr : &[float], out : &[float],
                    body : fn(int, int, &[float], &[float]) -> ()
                   ) -> () {
-    let dim = (width, height/2, 1);
+    let grid  = (width, height/2, 1);
     let block = (128, 1, 1);
 
     let dev_gpu1 = 0;
     let map_arr_GPU1 = mmap(arr, dev_gpu1, 1, 0, width * height/2);
     let map_out_GPU1 = mmap(out, dev_gpu1, 1, 0, width * height/2);
 
-    acc(dev_gpu1, dim, block, || {
+    acc(dev_gpu1, grid, block, || {
         let gid_x = acc_gidx();
         let gid_y = acc_gidy();
 
@@ -537,7 +537,7 @@ fn iteration_multi(width : int, height : int,
     let map_arr_GPU2 = mmap(arr, dev_gpu2, 1, width * height/2, width * height/2);
     let map_out_GPU2 = mmap(out, dev_gpu2, 1, width * height/2, width * height/2);
 
-    acc(dev_gpu2, dim, block, || {
+    acc(dev_gpu2, grid, block, || {
         let gid_x = acc_gidx();
         let gid_y = acc_gidy();
 
