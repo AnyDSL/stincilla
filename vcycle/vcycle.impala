@@ -379,7 +379,7 @@ fn thorin_vcycle(img_data : &[float], out_data : &[float], width : int, height :
     @deriv2D(img, RHS);
 
     let levels = 3;
-    let vsteps = 2;
+    let vsteps = 1;
     let ssteps = 2;
 
     let result = @vcycle_dsl(RHS, levels, vsteps, ssteps, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, restrict_mask, interpolate_fun, interpolate_mask);
