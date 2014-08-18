@@ -77,6 +77,17 @@ fn round_up(num : int, multiple : int) -> int {
     if rem == 0 { num } else { num + multiple - rem }
 }
 
+fn benchmark(body: fn() -> ()) -> () {
+    let mut times = ~[7:i64];
+    for i in $range(0, 7) {
+        let start = thorin_get_micro_time();
+        @body();
+        times(i) = thorin_get_micro_time()-start;
+    }
+    sort(7, times as &[i64]);
+    thorin_print_micro_time(times(3));
+}
+
 fn sort(num : int, mut arr : &[i64]) -> () {
     // insertion sort
     for i in range(1, num) {
