@@ -77,6 +77,19 @@ fn round_up(num : int, multiple : int) -> int {
     if rem == 0 { num } else { num + multiple - rem }
 }
 
+fn sort(num : int, mut arr : &[i64]) -> () {
+    // insertion sort
+    for i in range(1, num) {
+        let x = arr(i);
+        let mut j = i;
+        while j > 0 && arr(j-1) > x {
+            arr(j) = arr(j-1);
+            j = j - 1;
+        }
+        arr(j) = x;
+    }
+}
+
 // structs for images and accessors
 struct Img {
     data : &[float],

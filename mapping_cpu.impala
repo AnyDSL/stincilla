@@ -3,13 +3,19 @@ fn iteration(mask : Mask, arr : Img, out : Img,
             ) -> () {
     let arr_acc = Acc { img : arr, o_x : 0, o_y : 0, width : arr.width, height : arr.height, region : 10 };
     let out_acc = Acc { img : out, o_x : 0, o_y : 0, width : out.width, height : out.height, region : 10 };
+
+    let mut times = ~[7:i64];
+    for i in @range(0, 7) {
     let start = thorin_get_micro_time();
     for y in $iterate(0, out.height) {
         for x in $inner_loop(0, out.width) {
             @body(x, y, mask, arr_acc, out_acc);
         }
     }
-    thorin_print_micro_time(thorin_get_micro_time()-start);
+    times(i) = thorin_get_micro_time()-start;
+    }
+    sort(7, times);
+    thorin_print_micro_time(times(3));
 }
 
 fn iteration_bounds(mask : Mask, arr : Img, out : Img,
