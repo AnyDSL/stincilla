@@ -210,7 +210,7 @@ fn vcycle(RHS0 : Img, levels : int, vsteps : int, ssteps : int) -> Img {
     let mut Sol = ~[levels:Img];
     let mut Tmp = ~[levels:Img];
     let mut Res = ~[levels:Img];
-    for level in @range(0, levels) {
+    for level in range(0, levels) {
         fn init_img(level : int) -> Img {
             Img {
                 data : ~[((width >> level) + pad_x) * ((height >> level) + pad_y): float],
@@ -262,7 +262,7 @@ fn vcycle(RHS0 : Img, levels : int, vsteps : int, ssteps : int) -> Img {
         }
     }
     for i in range(0, vsteps) {
-        @vcycle_intern(0);
+        vcycle_intern(0);
     }
 
     Sol(0)
@@ -282,7 +282,7 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
     let mut Sol = ~[levels:Img];
     let mut Tmp = ~[levels:Img];
     let mut Res = ~[levels:Img];
-    for level in @range(0, levels) {
+    for level in range(0, levels) {
         fn init_img(level : int) -> Img {
             Img {
                 data : ~[((width >> level) + pad_x) * ((height >> level) + pad_y): float],
@@ -357,7 +357,7 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
         }
     }
     for i in range(0, vsteps) {
-        @vcycle_dsl_intern(0);
+        vcycle_dsl_intern(0);
     }
 
     Sol(0)
