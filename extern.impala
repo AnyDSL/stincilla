@@ -102,18 +102,26 @@ fn sort(num : int, mut arr : &[i64]) -> () {
 }
 
 // structs for images and accessors
+fn get_acc(img : Img, region : int) -> Acc {
+    Acc { img : img, roi : RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, rox : 0, roy : 0, region : region }
+}
 struct Img {
     data : &[float],
     width : int,
     height : int,
     stride : int,
 }
-struct Acc {
-    img : Img,
+struct RoI {
     o_x : int,
     o_y : int,
-    width: int,
-    height : int,
+    width : int,
+    height : int
+}
+struct Acc {
+    img : Img,
+    roi : RoI,
+    rox : int,
+    roy : int,
     region : int,
 }
 struct Mask3 {
