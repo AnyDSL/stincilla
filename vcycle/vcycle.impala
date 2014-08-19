@@ -6,10 +6,10 @@ type MaskSep = Mask3Sep;
 static pad_x = 2*8;
 static pad_y = 2;
 fn get_pixel(acc : Acc, x : int, y : int) -> float {
-    acc.img.data((acc.o_y + y + pad_y/2)*acc.img.stride + acc.o_x + x + pad_x/2)
+    acc.img.data((acc.roi.o_y + acc.roy + y + pad_y/2)*acc.img.stride + acc.roi.o_x + acc.rox + x + pad_x/2)
 }
 fn set_pixel(mut acc : Acc, x : int, y : int, val : float) -> () {
-    acc.img.data((acc.o_y + y + pad_y/2)*acc.img.stride + acc.o_x + x + pad_x/2) = val;
+    acc.img.data((acc.roi.o_y + acc.roy + y + pad_y/2)*acc.img.stride + acc.roi.o_x + acc.rox + x + pad_x/2) = val;
 }
 
 fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
@@ -21,42 +21,42 @@ fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
         for i in iterate(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
             if stencil_val != 0.0f {
-                let mut idx_x = acc.o_x + x + i;
-                let mut idx_y = acc.o_y + y + j;
+                let mut idx_x = acc.roi.o_x + acc.rox + x + i;
+                let mut idx_y = acc.roi.o_y + acc.roy + y + j;
 
                 // 0 --- 1 --- 2
                 // 3 --- 4 --- 5
                 // 6 --- 7 --- 8
 
                 // left
-                if acc.region == 0 { idx_x = mirror_lower(idx_x, acc.o_x); }
-                if acc.region == 3 { idx_x = mirror_lower(idx_x, acc.o_x); }
-                if acc.region == 6 { idx_x = mirror_lower(idx_x, acc.o_x); }
+                if acc.region == 0 { idx_x = mirror_lower(idx_x, acc.roi.o_x); }
+                if acc.region == 3 { idx_x = mirror_lower(idx_x, acc.roi.o_x); }
+                if acc.region == 6 { idx_x = mirror_lower(idx_x, acc.roi.o_x); }
 
                 // right
-                if acc.region == 2 { idx_x = mirror_upper(idx_x, acc.o_x + acc.width); }
-                if acc.region == 5 { idx_x = mirror_upper(idx_x, acc.o_x + acc.width); }
-                if acc.region == 8 { idx_x = mirror_upper(idx_x, acc.o_x + acc.width); }
+                if acc.region == 2 { idx_x = mirror_upper(idx_x, acc.roi.o_x + acc.roi.width); }
+                if acc.region == 5 { idx_x = mirror_upper(idx_x, acc.roi.o_x + acc.roi.width); }
+                if acc.region == 8 { idx_x = mirror_upper(idx_x, acc.roi.o_x + acc.roi.width); }
 
                 // top
-                if acc.region == 0 { idx_y = mirror_lower(idx_y, acc.o_y); }
-                if acc.region == 1 { idx_y = mirror_lower(idx_y, acc.o_y); }
-                if acc.region == 2 { idx_y = mirror_lower(idx_y, acc.o_y); }
+                if acc.region == 0 { idx_y = mirror_lower(idx_y, acc.roi.o_y); }
+                if acc.region == 1 { idx_y = mirror_lower(idx_y, acc.roi.o_y); }
+                if acc.region == 2 { idx_y = mirror_lower(idx_y, acc.roi.o_y); }
 
                 // bottom
-                if acc.region == 6 { idx_y = mirror_upper(idx_y, acc.o_y + acc.height); }
-                if acc.region == 7 { idx_y = mirror_upper(idx_y, acc.o_y + acc.height); }
-                if acc.region == 8 { idx_y = mirror_upper(idx_y, acc.o_y + acc.height); }
+                if acc.region == 6 { idx_y = mirror_upper(idx_y, acc.roi.o_y + acc.roi.height); }
+                if acc.region == 7 { idx_y = mirror_upper(idx_y, acc.roi.o_y + acc.roi.height); }
+                if acc.region == 8 { idx_y = mirror_upper(idx_y, acc.roi.o_y + acc.roi.height); }
 
                 // all in
                 if acc.region == 10 {
-                    idx_x = mirror_lower(idx_x, acc.o_x);
-                    idx_x = mirror_upper(idx_x, acc.o_x + acc.width);
-                    idx_y = mirror_upper(idx_y, acc.o_y + acc.height);
-                    idx_y = mirror_lower(idx_y, acc.o_y);
+                    idx_x = mirror_lower(idx_x, acc.roi.o_x);
+                    idx_x = mirror_upper(idx_x, acc.roi.o_x + acc.roi.width);
+                    idx_y = mirror_upper(idx_y, acc.roi.o_y + acc.roi.height);
+                    idx_y = mirror_lower(idx_y, acc.roi.o_y);
                 }
 
-                sum += get_pixel(acc, idx_x-acc.o_x, idx_y-acc.o_y) * stencil_val;
+                sum += acc.img.data((idx_y + pad_y/2) * acc.img.stride + idx_x + pad_x/2) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
@@ -100,7 +100,7 @@ fn jacobi_solver(x : int, y : int, mask : Mask, RHS : Acc, Tmp : Acc, Sol : Acc)
 fn jacobi(RHS : Img, Tmp : Img, Sol : Img, omega : float) -> () {
     for x, y, mask, mut tmp_acc, sol_acc in @iteration(jacobi_mask, Tmp, Sol) {
         // TODO: RHS is not mapped in iteration
-        let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, width : RHS.width, height : RHS.height, region : 10 };
+        let rhs_acc = get_acc(RHS, 10);
         tmp_acc.region = 4; // no bh
         let val = (1.0f - omega) * get_pixel(tmp_acc, x, y) +
                   0.25f * omega  * get_pixel(rhs_acc, x, y) +
@@ -125,7 +125,7 @@ fn residual_fun(x : int, y : int, mask : Mask, Sol : Acc, Res : Acc, RHS : Acc) 
 fn residual(Sol : Img, Res : Img, RHS : Img) -> () {
     for x, y, mask, mut sol_acc, res_acc in @iteration(residual_mask, Sol, Res) {
         // TODO: RHS is not mapped in iteration
-        let rhs_acc = Acc { img : RHS, o_x : 0, o_y : 0, width : RHS.width, height: RHS.height, region : 10 };
+        let rhs_acc = get_acc(RHS, 10);
         sol_acc.region = 4; // no bh
         let val = get_pixel(rhs_acc, x, y) +
                   apply_stencil(mask, sol_acc, x, y);
@@ -303,7 +303,7 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
     }
 
     fn vcycle_dsl_intern(level : int) -> () {
-        let rhs_acc = Acc { img : RHS(level), o_x : 0, o_y : 0, width : RHS(level).width, height : RHS(level).height, region : 4 };
+        let rhs_acc = get_acc(RHS(level), 4);
         if level == levels-1 {
             for i in range(0, ssteps) {
                 // smooth

@@ -29,9 +29,11 @@ fn iteration_merge(Sol : Img, Res : Img, RHSF : Img, RHSC : Img,
         // residual
         for i in @range(0, 1) { // force partial evaluation
             // index space: block
-            let out_acc  = Acc { img : smem_img, o_x : 0,                        o_y : 0,                        width : smem_img.width, height : smem_img.height, region : 4 /* no bh */ };
-            let rhsf_acc = Acc { img : rhsf_img, o_x : acc_bdimx() * acc_bidx(), o_y : acc_bdimy() * acc_bidy(), width : rhsf_img.width, height : rhsf_img.height, region : 4 /* no bh */ };
-            let sol_acc  = Acc { img : sol_img,  o_x : acc_bdimx() * acc_bidx(), o_y : acc_bdimy() * acc_bidy(), width : sol_img.width,  height : sol_img.height,  region : 4 /* no bh */ };
+            let out_acc  = get_acc(smem_img, 4 /* no bh */);
+            let rhsf_acc = Acc { img : rhsf_img, roi : RoI { o_x : 0, o_y : 0, width : rhsf_img.width, height : rhsf_img.height },
+                                                 rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy(), region : 4 /* no bh */ };
+            let sol_acc  = Acc { img : sol_img,  roi : RoI { o_x : 0, o_y : 0, width : sol_img.width,  height : sol_img.height },
+                                                 rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy(), region : 4 /* no bh */ };
             residual(tid_x, tid_y, residual_mask, sol_acc, out_acc, rhsf_acc);
         }
 
@@ -41,12 +43,9 @@ fn iteration_merge(Sol : Img, Res : Img, RHSF : Img, RHSC : Img,
         if tid_x <= block(0)/2 && gid_y % 2 == 0 {
             for i in @range(0, 1) { // force partial evaluation
                 // index space: block
-                let out_acc = Acc { img : rhsc_img,
-                                    o_x : acc_bdimx() * acc_bidx()/2,
-                                    o_y : acc_bdimy() * acc_bidy()/2,
-                                    width : rhsc_img.width, height : rhsc_img.height, region : 4 /* no bh */ };
-                let arr_acc = Acc { img : smem_img, o_x : 0, o_y : 0,
-                                    width : smem_img.width, height : smem_img.height, region : 4 /* no bh */ };
+                let out_acc = Acc { img : rhsc_img, roi : RoI { o_x : 0, o_y : 0, width : rhsc_img.width, height : rhsc_img.height },
+                                                    rox : acc_bdimx() * acc_bidx()/2, roy : acc_bdimy() * acc_bidy()/2, region : 4 /* no bh */ };
+                let arr_acc = get_acc(smem_img, 4 /* no bh */);
                 restrict(tid_x, tid_y, restrict_mask, arr_acc, out_acc);
             }
         }
