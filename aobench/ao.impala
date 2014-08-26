@@ -273,7 +273,6 @@ fn init_scene() -> () {
     plane.n.x = 0.0;
     plane.n.y = 1.0;
     plane.n.z = 0.0;
-
 }
 
 extern
