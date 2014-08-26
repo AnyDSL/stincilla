@@ -15,9 +15,8 @@ int main(int argc, const char **argv) {
     thorin_init();
 
     // Lena test image
-    short int *image;
     int width, height;
-    image = read_image(&width, &height, argc > 1 ? argv[1] : "lena.pgm");
+    uint8_t *image = read_pgm_image(&width, &height, argc > 1 ? argv[1] : "lena.pgm");
 
     // host memory for image of width x height pixels
     // use thorin_malloc from AnyDSL runtime for memory allocation
@@ -37,10 +36,10 @@ int main(int argc, const char **argv) {
     // write image
     for (int y=0; y<height; ++y) {
         for (int x=0; x<width; ++x) {
-            image[y*width + x] = (short int)output[y*width + x];
+            image[y*width + x] = (uint8_t)output[y*width + x];
         }
     }
-    write_image(image, width, height, "lena_out.pgm");
+    write_pgm_image(image, width, height, "lena_out.pgm");
 
     // memory cleanup
     thorin_free(input);

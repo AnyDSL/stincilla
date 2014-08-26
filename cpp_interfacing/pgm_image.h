@@ -1,161 +1,110 @@
-/*
- * Copyright (C) 2010 Richard Membarth <richard.membarth@cs.fau.de>
- *
- * Read/Write pgm files
- */
-
 #ifndef __PGM_IMAGE_H__
 #define __PGM_IMAGE_H__
 
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
-/*************************************************************************
- * read pgm file in GIMP pgm ascii format from hard disk                 *
- *************************************************************************/
-short int *read_image(int *width, int *height, const char *filename) {
-    int x, y, max;
-    int mincolor = 255, maxcolor = 0;
-    int tmp;
-    char buf[1024];
-    char *ret;
-    FILE *fp;
-    short int *img;
+enum class pgm_t { P1=1, P2, P3, P4, P5, P6 };
 
-    fp = fopen(filename, "rb");
-    if (fp == NULL) {
-        fprintf(stderr, "cannot open %s for reading %s", filename, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+uint8_t *read_pgm_image(int *width, int *height, std::string filename) {
+    pgm_t format;
+    std::ifstream in(filename);
+    std::string line;
+    std::stringstream ss;
 
     /* first line = image format */
-    ret = fgets(buf, sizeof(buf), fp);
-    if (!ret) {
-        fprintf(stderr, "read_image: ret == NULL\n");
+    getline(in, line);
+    if (line.length() < 2 || line[0]!='P' || (int)(line[1]-'0')>6) {
+        std::cerr << "read_pgm_image: expected image format specification" << std::endl;
         exit(EXIT_FAILURE);
-    } else {
-        buf[strlen(buf)-1] = '\0';
-        if (!strcasecmp(buf, "P2")) fprintf(stderr, "read_image(%s): buf='%s'\n", filename, buf);
-        else {
-            fprintf(stderr, "ERROR: image not in ASCII (P2) PGM format: '%s'!\n", buf);
-            exit(EXIT_FAILURE);
-        }
     }
+    format = (pgm_t)(line[1]-'0');
+
     /* second line = comment */
-    ret = fgets(buf, sizeof(buf), fp);
-    if (!ret) {
-        fprintf(stderr, "read_image: ret == NULL\n");
+    getline(in, line);
+    if (line.length() < 1  || line[0] != '#') {
+        std::cerr << "read_pgm_image: comment expected in second line" << std::endl;
         exit(EXIT_FAILURE);
-    } else {
-        buf[strlen(buf)-1] = '\0';
-        if (buf[0] == '#') fprintf(stderr, "read_image(%s): buf='%s'\n", filename, buf);
-        else {
-            fprintf(stderr, "ERROR: comment expected in second line!\n");
-            exit(EXIT_FAILURE);
-        }
     }
+
     /* third line = width and height of image */
-    ret = fgets(buf, sizeof(buf), fp);
-    if (!ret) {
-        fprintf(stderr, "read_image: ret == NULL\n");
-        exit(EXIT_FAILURE);
-    } else {
-        buf[strlen(buf)-1] = '\0';
-        if ((tmp=sscanf(buf, "%u %u", width, height)) != 2) {
-            fprintf(stderr, "ERROR: can not parse buf='%s': %d %s\n", buf, tmp, strerror(errno));
-            exit(EXIT_FAILURE);
-        } else {
-            fprintf(stderr, "read_image(%s): buf='%s'\n", filename, buf);
-        }
-    }
     /* forth line = max. value for intensity */
-    ret = fgets(buf, sizeof(buf), fp);
-    if (!ret) {
-        fprintf(stderr, "read_image: ret == NULL\n");
-        exit(EXIT_FAILURE);
-    } else {
-        buf[strlen(buf)-1] = '\0';
-        if ((tmp=sscanf(buf, "%u", &max)) != 1) {
-            fprintf(stderr, "ERROR: can not parse buf='%s': %d %s\n", buf, tmp, strerror(errno));
-            exit(EXIT_FAILURE);
-        } else {
-            fprintf(stderr, "read_image(%s): buf='%s'\n", filename, buf);
-        }
-    }
-    img = (short int *)malloc((*width**height) * sizeof(short int));
+    int max;
+    ss << in.rdbuf();
+    ss >> *width >> *height >> max;
 
-    for (y=0; y<*height; y++) {
-        for (x=0; x<*width; x++) {
-            ret = fgets(buf, sizeof(buf), fp);
-            if (!ret) {
-                fprintf(stderr, "read_image: ret == NULL\n");
-                exit(EXIT_FAILURE);
-            } else {
-                buf[strlen(buf)-1] = '\0';
-                if (sscanf(buf, "%d", &tmp) != 1) {
-                    fprintf(stderr, "can not parse buf='%s'\n", buf);
-                    exit(EXIT_FAILURE);
-                }
-                if (tmp > maxcolor) {
-                    maxcolor = tmp;
-                }
-                if (tmp < mincolor) {
-                    mincolor = tmp;
-                }
-                img[y**width + x] = (short int) tmp;
-            }
-        }
+    size_t elems = *width * *height;
+    switch (format) {
+        default: break;
+        case pgm_t::P3: case pgm_t::P6: elems *= 3; break;
     }
-    fprintf(stderr, "read_image(%s): mincolor=%d, maxcolor=%d\n", filename, mincolor, maxcolor);
 
-    fclose(fp);
+    uint8_t *img = new uint8_t[elems];
+
+    // data
+    switch (format) {
+        default:
+            for (size_t i=0; i<elems; ++i) ss >> img[i];
+            break;
+        case pgm_t::P4: case pgm_t::P5: case pgm_t::P6:
+            in.read((char *)img, elems); break;
+    }
+
+    int mincolor = 255, maxcolor = 0;
+    for (size_t i=0; i<elems; ++i) {
+        auto tmp = img[i];
+        if (tmp > maxcolor) { maxcolor = tmp; }
+        if (tmp < mincolor) { mincolor = tmp; }
+    }
+    std::cerr << "read_pgm_image('" << filename << "', P" << (int)format << ", "
+              << *width << "x" << *height << " [" << mincolor << ".."
+              << maxcolor << "]|" << max << "|)" << std::endl;
+    in.close();
+
     return img;
 }
 
 
-/*************************************************************************
- * write pgm file in GIMP pgm ascii format to hard disk                  *
- *************************************************************************/
-void write_image(short int *img, int width, int height, const char *filename) {
-    int x, y;
-    FILE *fp;
-    int mincolor = 255, maxcolor = 0, offset = 0, tmp;
-
-    fp = fopen(filename, "wb");
-    if (fp == NULL) {
-        fprintf(stderr, "cannot open %s for writing %s", filename, strerror(errno));
-        exit(EXIT_FAILURE);
+void write_pgm_image(const uint8_t *img, int width, int height, std::string filename, pgm_t format=pgm_t::P2) {
+    size_t elems = width * height;
+    switch (format) {
+        default: break;
+        case pgm_t::P3: case pgm_t::P6: elems *= 3; break;
     }
 
-    for (y=0; y<height; y++) {
-        for (x=0; x<width; x++) {
-            tmp = (int) img[y*width + x];
-            if (tmp > maxcolor) {
-                maxcolor = tmp;
-            }
-            if (tmp < mincolor) {
-                mincolor = tmp;
-            }
-        }
+    int mincolor = 255, maxcolor = 0;
+    for (size_t i=0; i<elems; ++i) {
+        auto tmp = img[i];
+        if (tmp > maxcolor) { maxcolor = tmp; }
+        if (tmp < mincolor) { mincolor = tmp; }
+    }
+    std::cerr << "write_pgm_image('" << filename << "', P" << (int)format << ", "
+              << width << "x" << height << " [" << mincolor << ".."
+              << maxcolor << "])" << std::endl;
+
+    std::ofstream out(filename);
+    out << "P" << (int)format << std::endl
+        << "# custom PNM reader/writer" << std::endl
+        << width << " " << height << std::endl;
+
+    // depth
+    switch (format) {
+        default:          out << maxcolor << std::endl; break;
+        case pgm_t::P1: case pgm_t::P4: out << "1" << std::endl;      break;
     }
 
-    offset = (mincolor < 0) ? -mincolor : 0;
-    fprintf(stderr, "write_image(%s): mincolor=%d, maxcolor=%d, offset=%d -> %d..%d\n", filename, mincolor, maxcolor, offset, mincolor+offset, maxcolor+offset);
-    fprintf(fp, "P2\n");
-    fprintf(fp, "# bla\n");
-    fprintf(fp, "%u %u\n", width, height);
-    fprintf(fp, "%d\n", maxcolor+offset);
-    for (y=0; y<height; y++) {
-        for (x=0; x<width; x++) {
-            //fprintf(fp, "%d\n", abs((int) img[y*width + x] + offset));
-            fprintf(fp, "%d\n", offset + (int) img[y*width + x]);
-        }
+    // data
+    switch (format) {
+        default:
+            for (size_t i=0; i<elems; ++i) out << " " << img[i];
+            break;
+        case pgm_t::P4: case pgm_t::P5: case pgm_t::P6:
+            out.write((const char *)img, elems); break;
     }
 
-    fclose(fp);
+    out.close();
 }
 
 #endif /* __PGM_IMAGE_H__ */
