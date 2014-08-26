@@ -9,7 +9,7 @@ DBG_FLAGS :=
 RPATH_PRE := -Wl,-rpath,
 OS        := $(shell uname -s)
 CPP        = $(shell echo *.cpp)
-IMPALA     = $(shell echo vcycle.impala)
+IMPALA     = $(shell echo ao.impala)
 NVVM       = $(IMPALA:%.impala=%.nvvm)
 OBJS       = $(CPP:%.cpp=%.o)
 OBJS      += $(IMPALA:%.impala=%.o)
