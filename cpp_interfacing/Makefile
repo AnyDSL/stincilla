@@ -4,12 +4,13 @@ INC_DIRS   = -I $(CUDA_DIR)/include \
              -I $(CUDA_DIR)/nvvm/libnvvm-samples/common/include \
              -I .
 CXX_FLAGS := -std=c++11 -Wall -Wunused
-OPT_FLAGS := -O3
+OPT_FLAGS := -O3 -fno-vectorize -fno-slp-vectorize -fno-slp-vectorize-aggressive
 DBG_FLAGS :=
 RPATH_PRE := -Wl,-rpath,
 OS        := $(shell uname -s)
 CPP        = $(shell echo *.cpp)
-IMPALA     = $(shell echo *.impala)
+IMPALA     = $(shell echo bilateral.impala)
+NVVM       = $(IMPALA:%.impala=%.nvvm)
 OBJS       = $(CPP:%.cpp=%.o)
 OBJS      += $(IMPALA:%.impala=%.o)
 
@@ -29,8 +30,11 @@ endif
 all: main.out
 	@echo "Running main.out ..."
 	@# remove attribute from asm
-	@CUDA_VISIBLE_DEVICES=0 ./main.out
-	@CUDA_VISIBLE_DEVICES=1 ./main.out
+	@if [ -f $(NVVM) ]; then \
+		sed -i $(SED_EXT) '/attributes #0/d' $(NVVM); \
+		sed -i $(SED_EXT) 's/#0//' $(NVVM); \
+	fi
+	./main.out
 
 %.o: %.cpp
 	clang++ $(CXX_FLAGS) -DNVCC_BIN='"$(CUDA_DIR)/bin/nvcc"' -DLIBDEVICE_DIR='"$(CUDA_DIR)/nvvm/libdevice/"' $(DBG_FLAGS) $(OPT_FLAGS) $(INC_DIRS) -c -o $@ $^
