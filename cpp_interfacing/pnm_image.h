@@ -48,8 +48,14 @@ uint8_t *read_pnm_image(int *width, int *height, std::string filename) {
         default:
             for (size_t i=0; i<elems; ++i) ss >> img[i];
             break;
-        case pnm_t::P4: case pnm_t::P5: case pnm_t::P6:
-            in.read((char *)img, elems); break;
+        case pnm_t::P4: case pnm_t::P5: case pnm_t::P6: {
+            auto pos = ss.tellg();
+            in.close();
+            in.open(filename, std::ios_base::binary);
+            in.seekg(pos);
+            in.read((char *)img, elems);
+            break;
+        }
     }
 
     int mincolor = 255, maxcolor = 0;
