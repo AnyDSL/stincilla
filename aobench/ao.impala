@@ -146,7 +146,7 @@ fn ambient_occlusion(mut col: &vec, isect: &Isect) -> () {
         z : isect.p.z + eps * isect.n.z
     };
 
-    let mut basis = [3:vec];
+    let mut basis : [vec * 3];
     orthoBasis(&basis, isect.n);
 
     let mut occlusion = 0.0;
