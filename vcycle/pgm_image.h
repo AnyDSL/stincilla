@@ -1,1 +1,0 @@
-../cpp_interfacing/pgm_image.h

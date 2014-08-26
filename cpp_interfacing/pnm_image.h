@@ -1,15 +1,15 @@
-#ifndef __PGM_IMAGE_H__
-#define __PGM_IMAGE_H__
+#ifndef __PNM_IMAGE_H__
+#define __PNM_IMAGE_H__
 
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 
-enum class pgm_t { P1=1, P2, P3, P4, P5, P6 };
+enum class pnm_t { P1=1, P2, P3, P4, P5, P6 };
 
-uint8_t *read_pgm_image(int *width, int *height, std::string filename) {
-    pgm_t format;
+uint8_t *read_pnm_image(int *width, int *height, std::string filename) {
+    pnm_t format;
     std::ifstream in(filename);
     std::string line;
     std::stringstream ss;
@@ -17,15 +17,15 @@ uint8_t *read_pgm_image(int *width, int *height, std::string filename) {
     /* first line = image format */
     getline(in, line);
     if (line.length() < 2 || line[0]!='P' || (int)(line[1]-'0')>6) {
-        std::cerr << "read_pgm_image: expected image format specification" << std::endl;
+        std::cerr << "read_pnm_image: expected image format specification" << std::endl;
         exit(EXIT_FAILURE);
     }
-    format = (pgm_t)(line[1]-'0');
+    format = (pnm_t)(line[1]-'0');
 
     /* second line = comment */
     getline(in, line);
     if (line.length() < 1  || line[0] != '#') {
-        std::cerr << "read_pgm_image: comment expected in second line" << std::endl;
+        std::cerr << "read_pnm_image: comment expected in second line" << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -38,7 +38,7 @@ uint8_t *read_pgm_image(int *width, int *height, std::string filename) {
     size_t elems = *width * *height;
     switch (format) {
         default: break;
-        case pgm_t::P3: case pgm_t::P6: elems *= 3; break;
+        case pnm_t::P3: case pnm_t::P6: elems *= 3; break;
     }
 
     uint8_t *img = new uint8_t[elems];
@@ -48,7 +48,7 @@ uint8_t *read_pgm_image(int *width, int *height, std::string filename) {
         default:
             for (size_t i=0; i<elems; ++i) ss >> img[i];
             break;
-        case pgm_t::P4: case pgm_t::P5: case pgm_t::P6:
+        case pnm_t::P4: case pnm_t::P5: case pnm_t::P6:
             in.read((char *)img, elems); break;
     }
 
@@ -58,7 +58,7 @@ uint8_t *read_pgm_image(int *width, int *height, std::string filename) {
         if (tmp > maxcolor) { maxcolor = tmp; }
         if (tmp < mincolor) { mincolor = tmp; }
     }
-    std::cerr << "read_pgm_image('" << filename << "', P" << (int)format << ", "
+    std::cerr << "read_pnm_image('" << filename << "', P" << (int)format << ", "
               << *width << "x" << *height << " [" << mincolor << ".."
               << maxcolor << "]|" << max << "|)" << std::endl;
     in.close();
@@ -67,11 +67,11 @@ uint8_t *read_pgm_image(int *width, int *height, std::string filename) {
 }
 
 
-void write_pgm_image(const uint8_t *img, int width, int height, std::string filename, pgm_t format=pgm_t::P2) {
+void write_pnm_image(const uint8_t *img, int width, int height, std::string filename, pnm_t format=pnm_t::P2) {
     size_t elems = width * height;
     switch (format) {
         default: break;
-        case pgm_t::P3: case pgm_t::P6: elems *= 3; break;
+        case pnm_t::P3: case pnm_t::P6: elems *= 3; break;
     }
 
     int mincolor = 255, maxcolor = 0;
@@ -80,7 +80,7 @@ void write_pgm_image(const uint8_t *img, int width, int height, std::string file
         if (tmp > maxcolor) { maxcolor = tmp; }
         if (tmp < mincolor) { mincolor = tmp; }
     }
-    std::cerr << "write_pgm_image('" << filename << "', P" << (int)format << ", "
+    std::cerr << "write_pnm_image('" << filename << "', P" << (int)format << ", "
               << width << "x" << height << " [" << mincolor << ".."
               << maxcolor << "])" << std::endl;
 
@@ -92,7 +92,7 @@ void write_pgm_image(const uint8_t *img, int width, int height, std::string file
     // depth
     switch (format) {
         default:          out << maxcolor << std::endl; break;
-        case pgm_t::P1: case pgm_t::P4: out << "1" << std::endl;      break;
+        case pnm_t::P1: case pnm_t::P4: out << "1" << std::endl;      break;
     }
 
     // data
@@ -100,12 +100,12 @@ void write_pgm_image(const uint8_t *img, int width, int height, std::string file
         default:
             for (size_t i=0; i<elems; ++i) out << " " << img[i];
             break;
-        case pgm_t::P4: case pgm_t::P5: case pgm_t::P6:
+        case pnm_t::P4: case pnm_t::P5: case pnm_t::P6:
             out.write((const char *)img, elems); break;
     }
 
     out.close();
 }
 
-#endif /* __PGM_IMAGE_H__ */
+#endif /* __PNM_IMAGE_H__ */
 

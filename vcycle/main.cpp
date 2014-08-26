@@ -3,7 +3,7 @@
 #include <sys/time.h>
 #include <thorin_runtime.h>
 
-#include "pgm_image.h"
+#include "pnm_image.h"
 
 extern "C" void thorin_vcycle(float *, float *, int, int);
 
@@ -16,7 +16,7 @@ int main(int argc, const char **argv) {
 
     // Lena test image
     int width, height;
-    uint8_t *image = read_pgm_image(&width, &height, argc > 1 ? argv[1] : "lena.pgm");
+    uint8_t *image = read_pnm_image(&width, &height, argc > 1 ? argv[1] : "lena.pgm");
 
     // host memory for image of width x height pixels
     // use thorin_malloc from AnyDSL runtime for memory allocation
@@ -40,7 +40,7 @@ int main(int argc, const char **argv) {
             image[y*width + x] = (uint8_t)output[y*width + x];
         }
     }
-    write_pgm_image(image, width, height, "lena_out.pgm");
+    write_pnm_image(image, width, height, "lena_out.pgm");
 
     // memory cleanup
     thorin_free(input);
