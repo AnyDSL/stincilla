@@ -10,7 +10,6 @@ static NSUBSAMPLES = 2;
 static NAO_SAMPLES = 8;
 static M_PI        = 3.14159265358979323846;
 
-
 struct vec {
     x: f64,
     y: f64,
@@ -134,7 +133,6 @@ fn orthoBasis(mut basis: &[vec], n: vec) -> () {
     vnormalize(&basis(1));
 }
 
-
 fn ambient_occlusion(mut col: &vec, isect: &Isect) -> () {
     let ntheta = NAO_SAMPLES;
     let nphi   = NAO_SAMPLES;
@@ -199,7 +197,6 @@ fn clamp(f: f64) -> u8 {
     i as u8
 }
 
-
 fn render(mut img: &[u8], w: int, h: int, nsubsamples: int) -> () {
     let mut fimg = ~[w*h*3:f64];
     memset(fimg as &i8, 0, (w*h*3*8) as u64);
@@ -254,21 +251,21 @@ fn init_scene() -> () {
     spheres(0).center.x = -2.0;
     spheres(0).center.y =  0.0;
     spheres(0).center.z = -3.5;
-    spheres(0).radius = 0.5;
+    spheres(0).radius   =  0.5;
     
     spheres(1).center.x = -0.5;
     spheres(1).center.y =  0.0;
     spheres(1).center.z = -3.0;
-    spheres(1).radius = 0.5;
+    spheres(1).radius   =  0.5;
     
     spheres(2).center.x =  1.0;
     spheres(2).center.y =  0.0;
     spheres(2).center.z = -2.2;
-    spheres(2).radius = 0.5;
+    spheres(2).radius   =  0.5;
 
-    plane.p.x = 0.0;
+    plane.p.x =  0.0;
     plane.p.y = -0.5;
-    plane.p.z = 0.0;
+    plane.p.z =  0.0;
 
     plane.n.x = 0.0;
     plane.n.y = 1.0;

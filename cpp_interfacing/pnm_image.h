@@ -24,7 +24,7 @@ uint8_t *read_pnm_image(int *width, int *height, std::string filename) {
 
     /* second line = comment */
     getline(in, line);
-    if (line.length() < 1  || line[0] != '#') {
+    if (line.length() < 1 || line[0] != '#') {
         std::cerr << "read_pnm_image: comment expected in second line" << std::endl;
         exit(EXIT_FAILURE);
     }
@@ -97,7 +97,7 @@ void write_pnm_image(const uint8_t *img, int width, int height, std::string file
 
     // depth
     switch (format) {
-        default:          out << maxcolor << std::endl; break;
+        default:                        out << maxcolor << std::endl; break;
         case pnm_t::P1: case pnm_t::P4: out << "1" << std::endl;      break;
     }
 
