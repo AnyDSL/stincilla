@@ -8,7 +8,7 @@ fn compute_config(m_range : (int, int), unroll : int) -> ((int, int, int), (int,
     }
 
     let config_y_max = 4;   // must be 1 for CPU on Mac OS X
-    let config_x_max = 128; // use 256 for AMD GPUs
+    let config_x_max = 128; // use 256 for AMD GPUs; 512 for Intel MIC
 
     let threads_y = compute_config_y(config_y_max);
     let threads_x = config_x_max / threads_y;
