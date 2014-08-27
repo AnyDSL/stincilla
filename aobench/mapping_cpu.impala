@@ -1,0 +1,12 @@
+fn iteration(arr : Imgf64, out : Imgu8,
+             body : fn(int, int, Imgf64, Imgu8) -> ()
+            ) -> () {
+    for benchmark() {
+        for y in $iterate(0, out.height) {
+            for x in $inner_loop(0, out.width) {
+                @body(x, y, arr, out);
+            }
+        }
+    }
+}
+

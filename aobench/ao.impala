@@ -4,6 +4,19 @@ extern "C" {
     fn saveppm(&[u8], i32, i32) -> ();
 }
 
+struct Imgf64 {
+    data : &[f64],
+    width : int,
+    height : int,
+    stride : int,
+}
+struct Imgu8 {
+    data : &[u8],
+    width : int,
+    height : int,
+    stride : int,
+}
+
 static WIDTH       = 256;
 static HEIGHT      = 256;
 static NSUBSAMPLES = 2;
@@ -20,7 +33,7 @@ struct Isect {
     t: f64,
     p: vec,
     n: vec,
-    hit: int, 
+    hit: int,
 }
 
 struct Sphere {
@@ -74,11 +87,11 @@ fn ray_sphere_intersect(mut isect: &Isect, ray: &Ray, sphere: &Sphere) -> () {
 
     if D > 0.0 {
         let t = -B - sqrt(D);
-        
+
         if (t > 0.0) && (t < isect.t) {
             isect.t = t;
             isect.hit = 1;
-            
+
             isect.p.x = ray.org.x + ray.dir.x * t;
             isect.p.y = ray.org.y + ray.dir.y * t;
             isect.p.z = ray.org.z + ray.dir.z * t;
@@ -103,7 +116,7 @@ fn ray_plane_intersect(mut isect: &Isect, ray: &Ray, plane: &Plane) -> () {
     if (t > 0.0) && (t < isect.t) {
         isect.t = t;
         isect.hit = 1;
-        
+
         isect.p.x = ray.org.x + ray.dir.x * t;
         isect.p.y = ray.org.y + ray.dir.y * t;
         isect.p.z = ray.org.z + ray.dir.z * t;
@@ -172,10 +185,10 @@ fn ambient_occlusion(mut col: &vec, isect: &Isect) -> () {
             occIsect.t   = 1.0e+17;
             occIsect.hit = 0;
 
-            ray_sphere_intersect(&occIsect, &ray, &spheres(0)); 
-            ray_sphere_intersect(&occIsect, &ray, &spheres(1)); 
-            ray_sphere_intersect(&occIsect, &ray, &spheres(2)); 
-            ray_plane_intersect (&occIsect, &ray, &plane); 
+            ray_sphere_intersect(&occIsect, &ray, &spheres(0));
+            ray_sphere_intersect(&occIsect, &ray, &spheres(1));
+            ray_sphere_intersect(&occIsect, &ray, &spheres(2));
+            ray_plane_intersect (&occIsect, &ray, &plane);
 
             if occIsect.hit == 1 { occlusion += 1.0; }
         }
@@ -197,53 +210,54 @@ fn clamp(f: f64) -> u8 {
     i as u8
 }
 
-fn render(mut img: &[u8], w: int, h: int, nsubsamples: int) -> () {
-    let mut fimg = ~[w*h*3:f64];
-    memset(fimg as &i8, 0, (w*h*3*8) as u64);
+fn render(img_data: &[u8], w: int, h: int, nsubsamples: int) -> () {
+    let fimg_data = ~[w*h*3:f64];
+    memset(fimg_data as &i8, 0, (w*h*3*8) as u64);
 
-    for y in range(0, h) {
-        for x in range(0, w) {
-            for v in range(0, nsubsamples) {
-                for u in range(0, nsubsamples) {
-                    let px =  (x as f64 + (u as f64 / (nsubsamples as f64)) - (w as f64 / 2.0)) / (w as f64 / 2.0);
-                    let py = -(y as f64 + (v as f64 / (nsubsamples as f64)) - (h as f64 / 2.0)) / (h as f64 / 2.0);
+    let fimg = Imgf64 { data : fimg_data, width : w, height : h, stride : w };
+    let  img = Imgu8  { data : img_data,  width : w, height : h, stride : w };
 
-                    let mut ray = Ray {
-                        org : vec { x : 0.0, y : 0.0, z : 0.0 },
-                        dir : vec { x : px,  y : py,  z : -1.0 }
-                    };
+    for x, y, mut fimg, mut img in iteration(fimg, img) {
+        for v in range(0, nsubsamples) {
+            for u in range(0, nsubsamples) {
+                let px =  (x as f64 + (u as f64 / (nsubsamples as f64)) - (w as f64 / 2.0)) / (w as f64 / 2.0);
+                let py = -(y as f64 + (v as f64 / (nsubsamples as f64)) - (h as f64 / 2.0)) / (h as f64 / 2.0);
 
-                    vnormalize(&(ray.dir));
+                let mut ray = Ray {
+                    org : vec { x : 0.0, y : 0.0, z : 0.0 },
+                    dir : vec { x : px,  y : py,  z : -1.0 }
+                };
 
-                    let mut isect: Isect;
-                    isect.t   = 1.0e+17;
-                    isect.hit = 0;
+                vnormalize(&(ray.dir));
 
-                    ray_sphere_intersect(&isect, &ray, &spheres(0));
-                    ray_sphere_intersect(&isect, &ray, &spheres(1));
-                    ray_sphere_intersect(&isect, &ray, &spheres(2));
-                    ray_plane_intersect (&isect, &ray, &plane);
+                let mut isect: Isect;
+                isect.t   = 1.0e+17;
+                isect.hit = 0;
 
-                    if isect.hit == 1 {
-                        let mut col: vec;
-                        ambient_occlusion(&col, &isect);
+                ray_sphere_intersect(&isect, &ray, &spheres(0));
+                ray_sphere_intersect(&isect, &ray, &spheres(1));
+                ray_sphere_intersect(&isect, &ray, &spheres(2));
+                ray_plane_intersect (&isect, &ray, &plane);
 
-                        fimg(3 * (y * w + x) + 0) += col.x;
-                        fimg(3 * (y * w + x) + 1) += col.y;
-                        fimg(3 * (y * w + x) + 2) += col.z;
-                    }
+                if isect.hit == 1 {
+                    let mut col: vec;
+                    ambient_occlusion(&col, &isect);
 
+                    fimg.data(3 * (y * w + x) + 0) += col.x;
+                    fimg.data(3 * (y * w + x) + 1) += col.y;
+                    fimg.data(3 * (y * w + x) + 2) += col.z;
                 }
-            }
 
-            fimg(3 * (y * w + x) + 0) /= (nsubsamples * nsubsamples) as f64;
-            fimg(3 * (y * w + x) + 1) /= (nsubsamples * nsubsamples) as f64;
-            fimg(3 * (y * w + x) + 2) /= (nsubsamples * nsubsamples) as f64;
-        
-            img(3 * (y * w + x) + 0) = clamp(fimg(3 *(y * w + x) + 0));
-            img(3 * (y * w + x) + 1) = clamp(fimg(3 *(y * w + x) + 1));
-            img(3 * (y * w + x) + 2) = clamp(fimg(3 *(y * w + x) + 2));
+            }
         }
+
+        fimg.data(3 * (y * w + x) + 0) /= (nsubsamples * nsubsamples) as f64;
+        fimg.data(3 * (y * w + x) + 1) /= (nsubsamples * nsubsamples) as f64;
+        fimg.data(3 * (y * w + x) + 2) /= (nsubsamples * nsubsamples) as f64;
+
+        img.data(3 * (y * w + x) + 0) = clamp(fimg.data(3 *(y * w + x) + 0));
+        img.data(3 * (y * w + x) + 1) = clamp(fimg.data(3 *(y * w + x) + 1));
+        img.data(3 * (y * w + x) + 2) = clamp(fimg.data(3 *(y * w + x) + 2));
     }
 }
 
@@ -252,12 +266,12 @@ fn init_scene() -> () {
     spheres(0).center.y =  0.0;
     spheres(0).center.z = -3.5;
     spheres(0).radius   =  0.5;
-    
+
     spheres(1).center.x = -0.5;
     spheres(1).center.y =  0.0;
     spheres(1).center.z = -3.0;
     spheres(1).radius   =  0.5;
-    
+
     spheres(2).center.x =  1.0;
     spheres(2).center.y =  0.0;
     spheres(2).center.z = -2.2;
