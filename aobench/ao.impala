@@ -4,19 +4,6 @@ extern "C" {
     fn saveppm(&[u8], i32, i32) -> ();
 }
 
-struct Imgf64 {
-    data : &[f64],
-    width : int,
-    height : int,
-    stride : int,
-}
-struct Imgu8 {
-    data : &[u8],
-    width : int,
-    height : int,
-    stride : int,
-}
-
 static WIDTH       = 256;
 static HEIGHT      = 256;
 static NSUBSAMPLES = 2;
@@ -210,14 +197,8 @@ fn clamp(f: f64) -> u8 {
     i as u8
 }
 
-fn render(img_data: &[u8], w: int, h: int, nsubsamples: int) -> () {
-    let fimg_data = ~[w*h*3:f64];
-    memset(fimg_data as &i8, 0, (w*h*3*8) as u64);
-
-    let fimg = Imgf64 { data : fimg_data, width : w, height : h, stride : w };
-    let  img = Imgu8  { data : img_data,  width : w, height : h, stride : w };
-
-    for x, y, mut fimg, mut img in iteration(fimg, img) {
+fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
+    for x, y, mut img in iteration(img, w, h) {
         for v in range(0, nsubsamples) {
             for u in range(0, nsubsamples) {
                 let px =  (x as f64 + (u as f64 / (nsubsamples as f64)) - (w as f64 / 2.0)) / (w as f64 / 2.0);

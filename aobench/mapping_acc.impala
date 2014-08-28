@@ -1,8 +1,8 @@
-fn iteration(arr : Imgf64, out : Imgu8,
-             body : fn(int, int, Imgf64, Imgu8) -> ()
+fn iteration(out : &[u8], width : int, height : int,
+             body : fn(int, int, &[u8]) -> ()
             ) -> () {
     let unroll = 1;
-    let grid   = (out.width, out.height/unroll, 1);
+    let grid   = (width, height/unroll, 1);
     let block  = (32, 4, 1);
 
     acc(acc_dev(), grid, block, || {
@@ -10,7 +10,7 @@ fn iteration(arr : Imgf64, out : Imgu8,
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
         for i in @iterate(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy(), arr, out);
+            body(gid_x, gid_y + i * acc_bdimy(), out);
         }
     });
 }
