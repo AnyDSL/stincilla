@@ -199,6 +199,9 @@ fn clamp(f: f64) -> u8 {
 
 fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
     for x, y, mut img in iteration(img, w, h) {
+        let mut r = 0.0;
+        let mut g = 0.0;
+        let mut b = 0.0;
         for v in range(0, nsubsamples) {
             for u in range(0, nsubsamples) {
                 let px =  (x as f64 + (u as f64 / (nsubsamples as f64)) - (w as f64 / 2.0)) / (w as f64 / 2.0);
@@ -224,20 +227,20 @@ fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
                     let mut col: vec;
                     ambient_occlusion(&col, &isect);
 
-                    fimg.data(3 * (y * w + x) + 0) += col.x;
-                    fimg.data(3 * (y * w + x) + 1) += col.y;
-                    fimg.data(3 * (y * w + x) + 2) += col.z;
+                    r += col.x;
+                    g += col.y;
+                    b += col.z;
                 }
             }
         }
 
-        fimg.data(3 * (y * w + x) + 0) /= (nsubsamples * nsubsamples) as f64;
-        fimg.data(3 * (y * w + x) + 1) /= (nsubsamples * nsubsamples) as f64;
-        fimg.data(3 * (y * w + x) + 2) /= (nsubsamples * nsubsamples) as f64;
+        r /= (nsubsamples * nsubsamples) as f64;
+        g /= (nsubsamples * nsubsamples) as f64;
+        b /= (nsubsamples * nsubsamples) as f64;
 
-        img.data(3 * (y * w + x) + 0) = clamp(fimg.data(3 *(y * w + x) + 0));
-        img.data(3 * (y * w + x) + 1) = clamp(fimg.data(3 *(y * w + x) + 1));
-        img.data(3 * (y * w + x) + 2) = clamp(fimg.data(3 *(y * w + x) + 2));
+        img(3 * (y * w + x) + 0) = clamp(r);
+        img(3 * (y * w + x) + 1) = clamp(g);
+        img(3 * (y * w + x) + 2) = clamp(b);
     }
 }
 
