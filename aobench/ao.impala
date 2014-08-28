@@ -247,7 +247,6 @@ fn render(img_data: &[u8], w: int, h: int, nsubsamples: int) -> () {
                     fimg.data(3 * (y * w + x) + 1) += col.y;
                     fimg.data(3 * (y * w + x) + 2) += col.z;
                 }
-
             }
         }
 
