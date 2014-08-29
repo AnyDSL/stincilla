@@ -32,8 +32,11 @@ uint8_t *read_pnm_image(int *width, int *height, std::string filename) {
     /* third line = width and height of image */
     /* forth line = max. value for intensity */
     int max;
+    auto pos = in.tellg();
     ss << in.rdbuf();
     ss >> *width >> *height >> max;
+    pos += ss.tellg();
+    pos += 1;
 
     size_t elems = *width * *height;
     switch (format) {
@@ -49,7 +52,6 @@ uint8_t *read_pnm_image(int *width, int *height, std::string filename) {
             for (size_t i=0; i<elems; ++i) { int tmp; ss >> tmp; img[i] = tmp; }
             break;
         case pnm_t::P4: case pnm_t::P5: case pnm_t::P6: {
-            auto pos = ss.tellg();
             in.close();
             in.open(filename, std::ios_base::binary);
             in.seekg(pos);
