@@ -104,7 +104,7 @@ void write_pnm_image(const uint8_t *img, int width, int height, std::string file
     // data
     switch (format) {
         default:
-            for (size_t i=0; i<elems; ++i) out << " " << img[i];
+            for (size_t i=0; i<elems; ++i) out << " " << (int)img[i];
             break;
         case pnm_t::P4: case pnm_t::P5: case pnm_t::P6:
             out.write((const char *)img, elems); break;
