@@ -242,6 +242,8 @@ fn iteration_advanced(mask : Mask, arr : Img, out : Img,
             body(tid_x, tid_y, mask, arr_acc, out_acc);
         }
     });
+    munmap(gpu_arr, dev, 1);
+    munmap(gpu_out, dev, 1);
 }
 
 fn iteration_sep(mask : MaskSep, arr : Img, out : Img,
