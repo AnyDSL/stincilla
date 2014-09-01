@@ -1,6 +1,4 @@
-#include <stdio.h>
-#include <string.h>
-#include <sys/time.h>
+#include <iostream>
 #include <thorin_runtime.h>
 
 #include "pnm_image.h"
@@ -24,21 +22,13 @@ int main(int argc, const char **argv) {
     float *output = (float *)thorin_malloc(width * height * sizeof(float));
 
     // initialize data
-    for (int y=0; y<height; ++y) {
-        for (int x=0; x<width; ++x) {
-            input[y*width + x] = (float)image[y*width + x];
-        }
-    }
+    for (size_t i=0; i<width*height; ++i) input[i] = (float)image[i];
 
-    fprintf(stderr, "Calculating filter in AnyDSL ...\n");
+    std::cout << "Calculating filter in AnyDSL ..." << std::endl;
     thorin_bilateral(input, output, width, height);
 
     // write image
-    for (int y=0; y<height; ++y) {
-        for (int x=0; x<width; ++x) {
-            image[y*width + x] = (uint8_t)output[y*width + x];
-        }
-    }
+    for (size_t i=0; i<width*height; ++i) image[i] = (uint8_t)output[i];
     write_pnm_image(image, width, height, "lena_out.pgm");
 
     // memory cleanup
