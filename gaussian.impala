@@ -131,10 +131,10 @@ fn main() -> int {
     //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(mask, arr_acc, x, y);
     //}
 
-    // SS + SM
-    for x, y, mask, arr_acc, mut out_acc in @iteration_advanced(mask, arr, out) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(mask, arr_acc, x, y);
-    }
+    //// SS + SM
+    //for x, y, mask, arr_acc, mut out_acc in @iteration_advanced(mask, arr, out) {
+    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(mask, arr_acc, x, y);
+    //}
 
 
     //// SEP + SS
@@ -142,10 +142,10 @@ fn main() -> int {
     //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(mask, arr_acc, is_row, x, y);
     //}
 
-    //// SEP + SS + BH
-    //for x, y, mask, arr_acc, mut out_acc, is_row in @iteration_sep_bounds(mask_sep, arr, out) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(mask, arr_acc, is_row, x, y);
-    //}
+    // SEP + SS + BH
+    for x, y, mask, arr_acc, mut out_acc, is_row in @iteration_sep_bounds(mask_sep, arr, out) {
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(mask, arr_acc, is_row, x, y);
+    }
 
     //// SEP + SS + SM
     //for x, y, mask, arr_acc, mut out_acc, is_row in @iteration_sep_advanced(mask_sep, arr, out) {
