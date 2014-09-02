@@ -94,19 +94,22 @@ void write_pnm_image(const uint8_t *img, int width, int height, std::string file
 
     std::ofstream out(filename);
     out << "P" << (int)format << std::endl
-        << "# custom PNM reader/writer" << std::endl
+        << "# C++ PNM reader/writer" << std::endl
         << width << " " << height << std::endl;
 
     // depth
     switch (format) {
         default:                        out << maxcolor << std::endl; break;
-        case pnm_t::P1: case pnm_t::P4: out << "1" << std::endl;      break;
+        case pnm_t::P1: case pnm_t::P4: out << "1"      << std::endl; break;
     }
 
     // data
     switch (format) {
         default:
-            for (size_t i=0; i<elems; ++i) out << " " << (int)img[i];
+            for (size_t y=0; y<height; ++y) {
+                for (size_t x=0; x<width; ++x) out << " " << (int)img[y*width + x];
+                out << std::endl; // newline after each line required
+            }
             break;
         case pnm_t::P4: case pnm_t::P5: case pnm_t::P6:
             out.write((const char *)img, elems); break;
