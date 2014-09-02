@@ -47,14 +47,12 @@ fn init_rand(mut arr : &[float], width : int, height : int) -> () {
 }
 
 // border handling specialization
+fn nobh_center(idx : int, bound : int) -> int { idx }
 fn clamp_lower(idx : int, lower : int) -> int {
     if idx < lower { lower } else { idx }
 }
 fn clamp_upper(idx : int, upper : int) -> int {
     if idx >= upper { upper - 1 } else { idx }
-}
-fn clamp_none(idx : int, bound : int) -> int {
-    idx
 }
 fn mirror_lower(idx : int, lower : int) -> int {
     if idx < lower { lower + (lower - idx-1) } else { idx }
