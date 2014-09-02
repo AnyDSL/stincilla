@@ -30,10 +30,7 @@ endif
 all: main.out
 	@echo "Running main.out ..."
 	@# remove attribute from asm
-	@if [ -f $(NVVM) ]; then \
-		sed -i $(SED_EXT) '/attributes #0/d' $(NVVM); \
-		sed -i $(SED_EXT) 's/#0//' $(NVVM); \
-	fi
+	@./post-patcher nvvm $(IMPALA:%.impala=%)
 	./main.out
 
 %.o: %.cpp
