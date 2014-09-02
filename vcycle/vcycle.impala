@@ -9,7 +9,7 @@ fn get_pixel(acc : Acc, x : int, y : int) -> float {
     acc.img.data((acc.roi.o_y + acc.roy + y + pad_y/2)*acc.img.stride + acc.roi.o_x + acc.rox + x + pad_x/2)
 }
 fn set_pixel(mut acc : Acc, x : int, y : int, val : float) -> () {
-    acc.img.data((acc.roi.o_y + acc.roy + y + pad_y/2)*acc.img.stride + acc.roi.o_x + acc.rox + x + pad_x/2) = val;
+    acc.img.data((acc.roi.o_y + acc.roy + y + pad_y/2)*acc.img.stride + acc.roi.o_x + acc.rox + x + pad_x/2) = val
 }
 
 fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
