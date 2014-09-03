@@ -4,8 +4,8 @@ fn iteration_merge(Sol : Img, Res : Img, RHSF : Img, RHSC : Img,
                   ) -> () {
     let dev = acc_dev();
     let gpu_sol  = mmap(Sol.data,  dev, acc_tex(), 0, Sol.stride  * (Sol.height+pad_y));
-    let gpu_rhsf = mmap(RHSF.data, dev, 1,         0, RHSF.stride * (RHSF.height+pad_y));
-    let gpu_rhsc = mmap(RHSC.data, dev, 1,         0, RHSC.stride * (RHSC.height+pad_y));
+    let gpu_rhsf = mmap(RHSF.data, dev, acc_mem(), 0, RHSF.stride * (RHSF.height+pad_y));
+    let gpu_rhsc = mmap(RHSC.data, dev, acc_mem(), 0, RHSC.stride * (RHSC.height+pad_y));
 
     let grid  = (Res.width, Res.height, 1);
     let block = (64, 2, 1); // must be x2

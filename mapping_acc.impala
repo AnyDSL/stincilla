@@ -198,7 +198,7 @@ fn iteration_advanced(mask : Mask, arr : Img, out : Img,
     // 4 -> constant
     let dev = acc_dev();
     let gpu_arr = mmap(arr.data, dev, acc_tex(), 0, arr.width * arr.height);
-    let gpu_out = mmap(out.data, dev, 1,         0, out.width * out.height);
+    let gpu_out = mmap(out.data, dev, acc_mem(), 0, out.width * out.height);
 
     acc(dev, grid, block, || {
         let tid_x = acc_tidx();
@@ -445,7 +445,7 @@ fn iteration_sep_advanced(mask : MaskSep, arr : Img, out : Img,
     // 4 -> constant
     let dev = acc_dev();
     let gpu_arr = mmap(arr.data, dev, acc_tex(), 0, arr.width * out.height);
-    let gpu_out = mmap(out.data, dev, 1,         0, out.width * out.height);
+    let gpu_out = mmap(out.data, dev, acc_mem(), 0, out.width * out.height);
 
     acc(dev, grid, block, || {
         let tid_x = acc_tidx();
@@ -531,8 +531,8 @@ fn iteration_multi(width : int, height : int,
     let block = (128, 1, 1);
 
     let dev_gpu1 = 0;
-    let map_arr_GPU1 = mmap(arr, dev_gpu1, 1, 0, width * height/2);
-    let map_out_GPU1 = mmap(out, dev_gpu1, 1, 0, width * height/2);
+    let map_arr_GPU1 = mmap(arr, dev_gpu1, acc_mem(), 0, width * height/2);
+    let map_out_GPU1 = mmap(out, dev_gpu1, acc_mem(), 0, width * height/2);
 
     acc(dev_gpu1, grid, block, || {
         let gid_x = acc_gidx();
@@ -545,8 +545,8 @@ fn iteration_multi(width : int, height : int,
     //munmap(map_out_GPU1);
 
     let dev_gpu2 = 1;
-    let map_arr_GPU2 = mmap(arr, dev_gpu2, 1, width * height/2, width * height/2);
-    let map_out_GPU2 = mmap(out, dev_gpu2, 1, width * height/2, width * height/2);
+    let map_arr_GPU2 = mmap(arr, dev_gpu2, acc_mem(), width * height/2, width * height/2);
+    let map_out_GPU2 = mmap(out, dev_gpu2, acc_mem(), width * height/2, width * height/2);
 
     acc(dev_gpu2, grid, block, || {
         let gid_x = acc_gidx();
