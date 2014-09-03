@@ -1,5 +1,4 @@
 extern "C" {
-    fn drand48() -> f64;
     fn saveppm(&[u8], i32, i32) -> ();
 }
 
