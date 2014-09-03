@@ -1,3 +1,6 @@
+fn magic_plane_id(plane: Plane) -> Plane { plane }
+fn magic_spheres_id(spheres: [Sphere * 3]) -> [Sphere * 3] { spheres }
+
 fn iteration(out : &[u8], width : int, height : int,
              body : fn(int, int, &[u8]) -> ()
             ) -> () {

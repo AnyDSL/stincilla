@@ -132,7 +132,7 @@ fn orthoBasis(mut basis: &[vec], n: vec) -> () {
     vnormalize(&basis(1));
 }
 
-fn ambient_occlusion(mut col: &vec, isect: &Isect) -> () {
+fn ambient_occlusion(mut col: &vec, isect: &Isect, mut spheres: &[Sphere * 3], plane: &Plane) -> () {
     let ntheta = NAO_SAMPLES;
     let nphi   = NAO_SAMPLES;
     let eps    = 0.0001;
@@ -174,7 +174,7 @@ fn ambient_occlusion(mut col: &vec, isect: &Isect) -> () {
             ray_sphere_intersect(&occIsect, &ray, &spheres(0));
             ray_sphere_intersect(&occIsect, &ray, &spheres(1));
             ray_sphere_intersect(&occIsect, &ray, &spheres(2));
-            ray_plane_intersect (&occIsect, &ray, &plane);
+            ray_plane_intersect (&occIsect, &ray, plane);
 
             if occIsect.hit == 1 { occlusion += 1.0; }
         }
@@ -197,7 +197,15 @@ fn clamp(f: f64) -> u8 {
 }
 
 fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
+    let plane_ : Plane = Plane { p : vec { x : plane.p.x, y : plane.p.y, z : plane.p.z }, n : vec { x : plane.n.x, y : plane.n.y, z : plane.n.z } };
+    let spheres_ = [
+        Sphere { center : vec { x : spheres(0).center.x, y : spheres(0).center.y, z : spheres(0).center.z }, radius : spheres(0).radius }, 
+        Sphere { center : vec { x : spheres(1).center.x, y : spheres(1).center.y, z : spheres(1).center.z }, radius : spheres(1).radius },
+        Sphere { center : vec { x : spheres(2).center.x, y : spheres(2).center.y, z : spheres(2).center.z }, radius : spheres(2).radius }
+    ];
     for x, y, mut img in iteration(img, w, h) {
+        let mut plane = magic_plane_id(plane_);
+        let mut spheres = magic_spheres_id(spheres_);
         let mut r = 0.0;
         let mut g = 0.0;
         let mut b = 0.0;
@@ -224,7 +232,7 @@ fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
 
                 if isect.hit == 1 {
                     let mut col: vec;
-                    ambient_occlusion(&col, &isect);
+                    ambient_occlusion(&col, &isect, &spheres, &plane);
 
                     r += col.x;
                     g += col.y;
@@ -272,7 +280,7 @@ extern
 fn thorin_ao() -> () {
     let img = ~[WIDTH*HEIGHT*3:u8];
     init_scene();
-    render(img, WIDTH, HEIGHT, NSUBSAMPLES);
+    @render(img, WIDTH, HEIGHT, NSUBSAMPLES);
     saveppm(img, WIDTH, HEIGHT);
 }
 
