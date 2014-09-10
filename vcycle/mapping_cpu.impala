@@ -3,7 +3,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
                    restrict: fn(int, int, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
     // allocate temporary array
-    let tmp = Img { data : ~[Sol.stride*(2+pad_y/2):float], width : Sol.width, height : 2+pad_y/2, stride : Sol.stride };
+    let tmp = Img { data : ~[Sol.stride*2:float], width : Sol.width, height : 2, stride : Sol.stride };
     $init_zero(tmp.data, tmp.stride, tmp.height);
     let tmp_acc  = get_acc(tmp, 4);
 
