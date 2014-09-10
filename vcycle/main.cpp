@@ -1,6 +1,5 @@
-#include <stdio.h>
-#include <string.h>
-#include <sys/time.h>
+#include <cfloat>
+#include <iostream>
 #include <thorin_runtime.h>
 
 #include "pnm_image.h"
@@ -24,22 +23,20 @@ int main(int argc, const char **argv) {
     float *output = (float *)thorin_malloc(width * height * sizeof(float));
 
     // initialize data
-    for (int y=0; y<height; ++y) {
-        for (int x=0; x<width; ++x) {
-            input[y*width + x] = (float)image[y*width + x];
-        }
-    }
+    for (size_t i=0; i<width*height; ++i) input[i] = (float)image[i];
 
-    fprintf(stderr, "Calculating V-Cycle in AnyDSL ...\n");
+    std::cout << "Calculating V-Cycle in AnyDSL ..." << std::endl;
     thorin_vcycle(input, output, width, height);
     thorin_print_total_timing();
 
+    // compute offset to shift image range
+    float min = FLT_MAX;
+    uint8_t offset = 0;
+    for (size_t i=0; i<width*height; ++i) if (output[i] < min) min = output[i];
+    if (min < 0) offset = -min;
+
     // write image
-    for (int y=0; y<height; ++y) {
-        for (int x=0; x<width; ++x) {
-            image[y*width + x] = (uint8_t)output[y*width + x];
-        }
-    }
+    for (size_t i=0; i<width*height; ++i) image[i] = (uint8_t)output[i] + offset;
     write_pnm_image(image, width, height, "lena_out.pgm");
 
     // memory cleanup
