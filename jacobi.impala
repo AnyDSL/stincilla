@@ -73,17 +73,17 @@ fn main() -> int {
     };
 
     // SS
-    for x, y, stencil, arr_acc, mut out_acc in @iteration(stencil, arr, out) {
+    for x, y, mut out_acc, arr_acc, stencil in @iteration(out, arr, stencil) {
         out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(stencil, arr_acc, x, y);
     }
 
     //// SS + BH
-    //for x, y, stencil, arr_acc, mut out_acc in @iteration_bounds(stencil, arr, out) {
+    //for x, y, mut out_acc, arr_acc, stencil in @iteration_bounds(out, arr, stencil) {
     //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(stencil, arr_acc, x, y);
     //}
 
     //// SS + SM
-    //for x, y, stencil, arr_acc, mut out_acc in @iteration_advanced(stencil, arr, out) {
+    //for x, y, mut out_acc, arr_acc, stencil in @iteration_advanced(out, arr, stencil) {
     //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(stencil, arr_acc, x, y);
     //}
 

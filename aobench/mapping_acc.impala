@@ -10,8 +10,8 @@ extern "thorin" {
     fn "munmap" munmap_u8(&[u8]) -> ();
 }
 
-fn iteration(out : &[u8], width : int, height : int,
-             body : fn(int, int, &[u8]) -> ()
+fn iteration(out: &[u8], width: int, height: int,
+             body: fn(int, int, &[u8]) -> ()
             ) -> () {
     let grid   = (width, height, 1);
     let block  = (32, 4, 1);

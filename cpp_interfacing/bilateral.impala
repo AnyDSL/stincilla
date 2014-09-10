@@ -73,7 +73,7 @@ fn thorin_bilateral(arr_data : &[float], out_data : &[float], width : int, heigh
         size_x : 5, size_y : 5
     };
 
-    for x, y, mask, arr_acc, mut out_acc in @iteration(mask, arr, out) {
+    for x, y, mut out_acc, arr_acc, mask in @iteration(out, arr, mask) {
         out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
     }
 }

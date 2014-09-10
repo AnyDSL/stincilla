@@ -168,19 +168,19 @@ fn main() -> int {
 
 
     // SS
-    for x, y, mask, arr_acc, mut out_acc in @iteration(mask, arr, out) {
+    for x, y, mut out_acc, arr_acc, mask in @iteration(out, arr, mask) {
         //out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter(arr_acc, sigma_d, c_d, c_r, x, y);
         out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
     }
 
     //// SS + BH
-    //for x, y, mask, arr_acc, mut out_acc in @iteration_bounds(mask, arr, out) {
+    //for x, y, mut out_acc, arr_acc, mask in @iteration_bounds(out, arr, mask) {
     //    //out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter(arr_acc, sigma_d, c_d, c_r, x, y);
     //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
     //}
 
     //// SS + SM
-    //for x, y, mask, arr_acc, mut out_acc in @iteration_advanced(mask, arr, out) {
+    //for x, y, mut out_acc, arr_acc, mask in @iteration_advanced(out, arr, mask) {
     //    //out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter(arr_acc, sigma_d, c_d, c_r, x, y);
     //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
     //}
