@@ -66,6 +66,12 @@ fn repeat_lower(idx : int, lower : int, stride : int) -> int {
 fn repeat_upper(idx : int, upper : int, stride : int) -> int {
     if idx >= upper { idx - stride } else { idx }
 }
+fn const_lower(idx: int, lower: int, cval: f32, out: fn(f32)) -> int {
+    if idx < lower { out(cval) } else { idx }
+}
+fn const_upper(idx: int, upper: int, cval: f32, out: fn(f32)) -> int {
+    if idx >= upper { out(cval) } else { idx }
+}
 
 // nearest multiple of num
 fn round_up(num : int, multiple : int) -> int {
