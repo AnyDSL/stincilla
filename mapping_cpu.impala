@@ -1,3 +1,6 @@
+static Region2DCol = [ 1, 4, 7 ];
+static Region2DRow = [ 3, 4, 5 ];
+
 fn iteration(out: Img, arr: Img, mask: Mask,
              body: fn(int, int, Acc, Acc, Mask) -> ()
             ) -> () {
@@ -107,8 +110,9 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
     ];
 
     for benchmark() {
-        for region in @iterate(0, 3) {
-            let bounds = Bounds2DCol(region);
+        for iter in @iterate(0, 3) {
+            let bounds = Bounds2DCol(iter);
+            let region = Region2DCol(iter);
             let arr_acc = get_acc(arr, region);
             let tmp_acc = get_acc(tmp, region);
             for y in $iterate(bounds(0), bounds(1)) {
@@ -119,8 +123,9 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             }
         }
 
-        for region in @iterate(0, 3) {
-            let bounds = Bounds2DRow(region);
+        for iter in @iterate(0, 3) {
+            let bounds = Bounds2DRow(iter);
+            let region = Region2DRow(iter);
             let tmp_acc = get_acc(tmp, region);
             let out_acc = get_acc(out, region);
             for y in $iterate(0, out.height) {
@@ -156,8 +161,9 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
     $init_zero(tmp.data, tmp.stride, tmp.height);
 
     for benchmark() {
-        for region_col in @iterate(0, 3) {
-            let bounds_col = Bounds2DCol(region_col);
+        for iter_col in @iterate(0, 3) {
+            let bounds_col = Bounds2DCol(iter_col);
+            let region_col = Region2DCol(iter_col);
             let tmp_acc = get_acc(tmp, region_col);
             for y in $iterate(bounds_col(0), bounds_col(1)) {
                 for x in $inner_loop(0, tmp.width) {
@@ -166,8 +172,9 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
                     let arr_acc = Acc { img : arr, roi : RoI { o_x : 0, o_y : 0, width : arr.width, height : arr.height }, rox : 0, roy : y, region : region_col};
                     @body(x, 0, tmp_acc, arr_acc, mask, is_row);
                 }
-                for region_row in @iterate(0, 3) {
-                    let bounds_row = Bounds2DRow(region_row);
+                for iter_row in @iterate(0, 3) {
+                    let bounds_row = Bounds2DRow(iter_row);
+                    let region_row = Region2DRow(iter_row);
                     let tmp_acc = get_acc(tmp, region_row);
                     for x in $inner_loop(bounds_row(0), bounds_row(1)) {
                         let is_row = true;
