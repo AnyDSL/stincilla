@@ -1,9 +1,9 @@
 type Mask = Mask5;
 type MaskSep = Mask5Sep;
 
-fn get_pixel_(acc: Acc, x: int, y: int,
-              bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
-             ) -> float {
+fn get_pixel(acc: Acc, x: int, y: int,
+             bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
+            ) -> float {
     let mut idx_x = acc.roi.o_x + acc.rox + x;
     let mut idx_y = acc.roi.o_y + acc.roy + y;
 
@@ -39,27 +39,19 @@ fn get_pixel_(acc: Acc, x: int, y: int,
     }
     acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x)
 }
-fn get_pixel(acc: Acc, x: int, y: int,
-             bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int
-            ) -> float {
-    get_pixel_(acc, x, y, |i, j, _| bh_lower(i, j), |i, j, _| bh_upper(i, j))
-}
 
-fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask) -> float {
+fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
+                 bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
+                ) -> float {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
-
-    /*
-    fn c_lower(idx: int, lower: int) -> int { const_lower(idx, lower, 0.0f, return) }
-    fn c_upper(idx: int, upper: int) -> int { const_lower(idx, upper, 0.0f, return) }
-    */
 
     for j in iterate(-half_range_y, half_range_y+1) {
         for i in iterate(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
             if stencil_val != 0.0f {
-                sum += get_pixel(acc, x + i, y + j, clamp_lower, clamp_upper) * stencil_val;
+                sum += get_pixel(acc, x + i, y + j, bh_lower, bh_upper) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
@@ -68,15 +60,17 @@ fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask) -> float {
 
     sum
 }
-fn apply_stencil_sep(x: int, y: int, acc: Acc, mask: MaskSep, row: bool) -> float {
+fn apply_stencil_sep(x: int, y: int, acc: Acc, mask: MaskSep, row: bool,
+                     bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
+                    ) -> float {
     let mut sum = 0.0f;
     let half_range = mask.size / 2;
     for i in iterate(-half_range, half_range+1) {
         let stencil_val = mask.data(i + half_range);
         if row {
-            sum += get_pixel(acc, x + i, y, clamp_lower, clamp_upper) * stencil_val;
+            sum += get_pixel(acc, x + i, y, bh_lower, bh_upper) * stencil_val;
         } else {
-            sum += get_pixel(acc, x, y + i, clamp_lower, clamp_upper) * stencil_val;
+            sum += get_pixel(acc, x, y + i, bh_lower, bh_upper) * stencil_val;
         }
     }
 
@@ -106,36 +100,38 @@ fn main() -> int {
         size_x : 5, size_y : 5
     };
 
+    let lower = wrap_const_fun(const_lower, 0.0f);
+    let upper = wrap_const_fun(const_upper, 0.0f);
 
     //// SS
     //for x, y, mut out_acc, arr_acc, mask in @iteration(out, arr, mask) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask);
+    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
     //}
 
     //// SS + BH
     //for x, y, mut out_acc, arr_acc, mask in @iteration_bounds(out, arr, mask) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask);
+    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
     //}
 
     //// SS + SM
     //for x, y, mut out_acc, arr_acc, mask in @iteration_advanced(out, arr, mask) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask);
+    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
     //}
 
 
     //// SEP + SS
     //for x, y, mut out_acc, arr_acc, mask, is_row in @iteration_sep(out, arr, mask_sep) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(x, y, arr_acc, mask, is_row);
+    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(x, y, arr_acc, mask, is_row, lower, upper);
     //}
 
     // SEP + SS + BH
     for x, y, mut out_acc, arr_acc, mask, is_row in @iteration_sep_bounds(out, arr, mask_sep) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(x, y, arr_acc, mask, is_row);
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(x, y, arr_acc, mask, is_row, lower, upper);
     }
 
     //// SEP + SS + SM
     //for x, y, mut out_acc, arr_acc, mask, is_row in @iteration_sep_advanced(out, arr, mask_sep) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(x, y, arr_acc, mask, is_row);
+    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(x, y, arr_acc, mask, is_row, lower, upper);
     //}
 
 
@@ -144,7 +140,7 @@ fn main() -> int {
         let arr_acc = get_acc(arr, 10);
         for y in $iterate(0, out.height) {
             for x in $iterate(0, out.width) {
-                let ref = @apply_stencil(x, y, arr_acc, mask);
+                let ref = @apply_stencil(x, y, arr_acc, mask, lower, upper);
                 let mut diff = ref - out.data(y*out.stride + x);
                 if diff < 0.0f  { diff = -diff; }
                 if diff > 0.01f { passed = 42; }

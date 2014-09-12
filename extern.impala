@@ -47,23 +47,23 @@ fn init_rand(mut arr : &[float], width : int, height : int) -> () {
 }
 
 // border handling specialization
-fn nobh_center(idx : int, bound : int) -> int { idx }
-fn clamp_lower(idx : int, lower : int) -> int {
+fn nobh_center(idx: int, bound: int, out: fn(f32)) -> int { idx }
+fn clamp_lower(idx: int, lower: int, out: fn(f32)) -> int {
     if idx < lower { lower } else { idx }
 }
-fn clamp_upper(idx : int, upper : int) -> int {
+fn clamp_upper(idx: int, upper: int, out: fn(f32)) -> int {
     if idx >= upper { upper - 1 } else { idx }
 }
-fn mirror_lower(idx : int, lower : int) -> int {
+fn mirror_lower(idx: int, lower: int, out: fn(f32)) -> int {
     if idx < lower { lower + (lower - idx-1) } else { idx }
 }
-fn mirror_upper(idx : int, upper : int) -> int {
+fn mirror_upper(idx: int, upper: int, out: fn(f32)) -> int {
     if idx >= upper { upper - (idx+1 - upper) } else { idx }
 }
-fn repeat_lower(idx : int, lower : int, stride : int) -> int {
+fn repeat_lower(idx: int, lower: int, stride : int, out: fn(f32)) -> int {
     if idx < lower { idx + stride } else { idx }
 }
-fn repeat_upper(idx : int, upper : int, stride : int) -> int {
+fn repeat_upper(idx: int, upper: int, stride: int, out: fn(f32)) -> int {
     if idx >= upper { idx - stride } else { idx }
 }
 fn const_lower(idx: int, lower: int, cval: f32, out: fn(f32)) -> int {
@@ -71,6 +71,9 @@ fn const_lower(idx: int, lower: int, cval: f32, out: fn(f32)) -> int {
 }
 fn const_upper(idx: int, upper: int, cval: f32, out: fn(f32)) -> int {
     if idx >= upper { out(cval) } else { idx }
+}
+fn wrap_const_fun(fun: fn(int, int, f32, fn(f32)) -> int, cval: float) -> fn(int, int, fn(f32)) -> int {
+    |idx, bound, out| fun(idx, bound, cval, out)
 }
 
 // nearest multiple of num
