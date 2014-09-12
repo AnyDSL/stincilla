@@ -10,6 +10,7 @@ fn get_pixel(acc: Acc, x: int, y: int,
     // 0 --- 1 --- 2
     // 3 --- 4 --- 5
     // 6 --- 7 --- 8
+
     // left
     if acc.region == 0 { idx_x = bh_lower(idx_x, acc.roi.o_x, return); }
     if acc.region == 3 { idx_x = bh_lower(idx_x, acc.roi.o_x, return); }
@@ -37,6 +38,7 @@ fn get_pixel(acc: Acc, x: int, y: int,
         idx_y = bh_upper(idx_y, acc.roi.o_y + acc.roi.height, return);
         idx_y = bh_lower(idx_y, acc.roi.o_y, return);
     }
+
     acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x)
 }
 
@@ -100,8 +102,10 @@ fn main() -> int {
         size_x : 5, size_y : 5
     };
 
-    let lower = wrap_const_fun(const_lower, 0.0f);
-    let upper = wrap_const_fun(const_upper, 0.0f);
+    //let lower = wrap_const_fun(const_lower, 0.0f);
+    //let upper = wrap_const_fun(const_upper, 0.0f);
+    let lower = clamp_lower;
+    let upper = clamp_upper;
 
     //// SS
     //for x, y, mut out_acc, arr_acc, mask in @iteration(out, arr, mask) {
