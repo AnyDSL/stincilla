@@ -1,7 +1,9 @@
 type Mask = Mask3;
 type MaskSep = Mask3Sep;
 
-fn apply_stencil(stencil : Mask, acc : Acc, x : int, y : int) -> float {
+fn apply_stencil(x: int, y: int, acc: Acc, stencil: Mask,
+                 bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
+                ) -> float {
     let mut sum = 0.0f;
     let half_range_y = stencil.size_y / 2;
     let half_range_x = stencil.size_x / 2;
@@ -10,42 +12,7 @@ fn apply_stencil(stencil : Mask, acc : Acc, x : int, y : int) -> float {
         for i in iterate(-half_range_x, half_range_x+1) {
             let stencil_val = stencil.data(j + half_range_y)(i + half_range_x);
             if stencil_val != 0.0f {
-                let mut idx_x = acc.roi.o_x + acc.rox + x + i;
-                let mut idx_y = acc.roi.o_y + acc.roy + y + j;
-
-                // 0 --- 1 --- 2
-                // 3 --- 4 --- 5
-                // 6 --- 7 --- 8
-
-                // left
-                if acc.region == 0 { idx_x = clamp_lower(idx_x, acc.roi.o_x); }
-                if acc.region == 3 { idx_x = clamp_lower(idx_x, acc.roi.o_x); }
-                if acc.region == 6 { idx_x = clamp_lower(idx_x, acc.roi.o_x); }
-
-                // right
-                if acc.region == 2 { idx_x = clamp_upper(idx_x, acc.roi.o_x + acc.roi.width); }
-                if acc.region == 5 { idx_x = clamp_upper(idx_x, acc.roi.o_x + acc.roi.width); }
-                if acc.region == 8 { idx_x = clamp_upper(idx_x, acc.roi.o_x + acc.roi.width); }
-
-                // top
-                if acc.region == 0 { idx_y = clamp_lower(idx_y, acc.roi.o_y); }
-                if acc.region == 1 { idx_y = clamp_lower(idx_y, acc.roi.o_y); }
-                if acc.region == 2 { idx_y = clamp_lower(idx_y, acc.roi.o_y); }
-
-                // bottom
-                if acc.region == 6 { idx_y = clamp_upper(idx_y, acc.roi.o_y + acc.roi.height); }
-                if acc.region == 7 { idx_y = clamp_upper(idx_y, acc.roi.o_y + acc.roi.height); }
-                if acc.region == 8 { idx_y = clamp_upper(idx_y, acc.roi.o_y + acc.roi.height); }
-
-                // all in
-                if acc.region == 10 {
-                    idx_x = clamp_lower(idx_x, acc.roi.o_x);
-                    idx_x = clamp_upper(idx_x, acc.roi.o_x + acc.roi.width);
-                    idx_y = clamp_upper(idx_y, acc.roi.o_y + acc.roi.height);
-                    idx_y = clamp_lower(idx_y, acc.roi.o_y);
-                }
-
-                sum += acc.img.data(idx_y * acc.img.stride + idx_x) * stencil_val;
+                sum += get_pixel(acc, x + i, y + j, bh_lower, bh_upper) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
@@ -72,19 +39,22 @@ fn main() -> int {
         size_x : 3, size_y : 3
     };
 
+    let lower = clamp_lower;
+    let upper = clamp_upper;
+
     // SS
     for x, y, mut out_acc, arr_acc, stencil in @iteration(out, arr, stencil) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(stencil, arr_acc, x, y);
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, stencil, lower, upper);
     }
 
     //// SS + BH
     //for x, y, mut out_acc, arr_acc, stencil in @iteration_bounds(out, arr, stencil) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(stencil, arr_acc, x, y);
+    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, stencil, lower, upper);
     //}
 
     //// SS + SM
     //for x, y, mut out_acc, arr_acc, stencil in @iteration_advanced(out, arr, stencil) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(stencil, arr_acc, x, y);
+    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, stencil, lower, upper);
     //}
 
 
@@ -93,7 +63,7 @@ fn main() -> int {
         let arr_acc = get_acc(arr, 10);
         for y in $iterate(0, out.height) {
             for x in $iterate(0, out.width) {
-                let ref = @apply_stencil(stencil, arr_acc, x, y);
+                let ref = @apply_stencil(x, y, arr_acc, stencil, lower, upper);
                 let mut diff = ref - out.data(y*out.stride + x);
                 if diff < 0.0f  { diff = -diff; }
                 if diff > 0.01f { passed = 42; }
