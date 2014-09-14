@@ -116,7 +116,7 @@ fn get_pixel(acc: Acc, x: int, y: int,
         idx_y = bh_lower(idx_y, acc.roi.o_y, return);
     }
 
-    acc.img.data(idx_x*acc.img.stride + idx_x)
+    acc.img.data(idx_y*acc.img.stride + idx_x)
 }
 
 
