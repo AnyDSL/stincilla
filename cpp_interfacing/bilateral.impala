@@ -9,7 +9,7 @@ fn bilateral_filter_mask(x: int, y: int, acc: Acc, mask: Mask, sigma_d: int, c_r
 
     for yf in iterate(-2*sigma_d, 2*sigma_d+1) {
         for xf in iterate(-2*sigma_d, 2*sigma_d+1) {
-            let diff = get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper) - pixel_at(acc, acc.roi.o_x + acc.rox, acc.roi.o_y + acc.roy + y);
+            let diff = get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper) - pixel_at(acc, x, y);
 
             let c = mask.data(xf + 2*sigma_d)(yf + 2*sigma_d);
             let s = expf(-c_r * diff*diff);

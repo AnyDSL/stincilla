@@ -76,7 +76,7 @@ fn wrap_const_fun(fun: fn(int, int, f32, fn(f32)) -> int, cval: float) -> fn(int
     |idx, bound, out| fun(idx, bound, cval, out)
 }
 fn pixel_at(acc: Acc, x: int, y: int) -> float {
-    acc.img.data(y*acc.img.stride + x)
+    acc.img.data((acc.roi.o_y + acc.roy + y) * acc.img.stride + acc.roi.o_x + acc.rox + x)
 }
 fn get_pixel(acc: Acc, x: int, y: int,
              bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
@@ -116,7 +116,7 @@ fn get_pixel(acc: Acc, x: int, y: int,
         idx_y = bh_lower(idx_y, acc.roi.o_y, return);
     }
 
-    pixel_at(acc, idx_x, idx_y)
+    acc.img.data(idx_x*acc.img.stride + idx_x)
 }
 
 
