@@ -1,22 +1,9 @@
 type Mask = Mask3;
 type MaskSep = Mask3Sep;
 
-// Dirichlet boundary handling -> 0
-fn get_pixel(acc : Acc, x : int, y : int) -> float {
-    if x + acc.rox <  acc.roi.o_x ||
-       x + acc.rox >= acc.roi.o_x + acc.roi.width ||
-       y + acc.roy <  acc.roi.o_y ||
-       y + acc.roy >= acc.roi.o_y + acc.roi.height {
-        0.0f
-    } else {
-        acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x)
-    }
-}
-fn set_pixel(mut acc : Acc, x : int, y : int, val : float) -> () {
-    acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
-}
-
-fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
+fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
+                 bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
+                ) -> float {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
@@ -25,42 +12,7 @@ fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
         for i in iterate(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
             if stencil_val != 0.0f {
-                let mut idx_x = acc.roi.o_x + acc.rox + x + i;
-                let mut idx_y = acc.roi.o_y + acc.roy + y + j;
-
-                // 0 --- 1 --- 2
-                // 3 --- 4 --- 5
-                // 6 --- 7 --- 8
-
-                // left
-                if acc.region == 0 { idx_x = mirror_lower(idx_x, acc.roi.o_x); }
-                if acc.region == 3 { idx_x = mirror_lower(idx_x, acc.roi.o_x); }
-                if acc.region == 6 { idx_x = mirror_lower(idx_x, acc.roi.o_x); }
-
-                // right
-                if acc.region == 2 { idx_x = mirror_upper(idx_x, acc.roi.o_x + acc.roi.width); }
-                if acc.region == 5 { idx_x = mirror_upper(idx_x, acc.roi.o_x + acc.roi.width); }
-                if acc.region == 8 { idx_x = mirror_upper(idx_x, acc.roi.o_x + acc.roi.width); }
-
-                // top
-                if acc.region == 0 { idx_y = mirror_lower(idx_y, acc.roi.o_y); }
-                if acc.region == 1 { idx_y = mirror_lower(idx_y, acc.roi.o_y); }
-                if acc.region == 2 { idx_y = mirror_lower(idx_y, acc.roi.o_y); }
-
-                // bottom
-                if acc.region == 6 { idx_y = mirror_upper(idx_y, acc.roi.o_y + acc.roi.height); }
-                if acc.region == 7 { idx_y = mirror_upper(idx_y, acc.roi.o_y + acc.roi.height); }
-                if acc.region == 8 { idx_y = mirror_upper(idx_y, acc.roi.o_y + acc.roi.height); }
-
-                // all in
-                if acc.region == 10 {
-                    idx_x = mirror_lower(idx_x, acc.roi.o_x);
-                    idx_x = mirror_upper(idx_x, acc.roi.o_x + acc.roi.width);
-                    idx_y = mirror_upper(idx_y, acc.roi.o_y + acc.roi.height);
-                    idx_y = mirror_lower(idx_y, acc.roi.o_y);
-                }
-
-                sum += acc.img.data(idx_y * acc.img.stride + idx_x) * stencil_val;
+                sum += get_pixel(acc, x + i, y + j, bh_lower, bh_upper) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
@@ -68,6 +20,10 @@ fn apply_stencil(mask : Mask, acc : Acc, x : int, y : int) -> float {
     }
 
     sum
+}
+
+fn set_pixel(mut acc : Acc, x : int, y : int, val : float) -> () {
+    acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
 }
 
 
@@ -80,7 +36,7 @@ fn deriv2D(RHS: Img, img: Img) -> () {
         size_x : 3, size_y : 3
     };
     for x, y, rhs_acc, img_acc, mask in @iteration(RHS, img, mask) {
-        let val = apply_stencil(mask, img_acc, x, y);
+        let val = apply_stencil(x, y, img_acc, mask, mirror_lower, mirror_upper);
         set_pixel(rhs_acc, x, y, val);
     }
 }
@@ -94,10 +50,13 @@ static jacobi_mask = Mask {
             [0.00f, 0.25f, 0.00f]],
     size_x : 3, size_y : 3
 };
+// Dirichlet boundary handling -> 0
+static dirichlet_lower = wrap_const_fun(const_lower, 0.0f);
+static dirichlet_upper = wrap_const_fun(const_upper, 0.0f);
 fn jacobi_solver(x: int, y: int, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> () {
-    let val = (1.0f - omega) * get_pixel(Tmp, x, y) +
-              0.25f * omega  * get_pixel(RHS, x, y) +
-              apply_stencil(mask, Tmp, x, y);
+    let val = (1.0f - omega) * pixel_at(Tmp, x, y) +
+              0.25f * omega  * pixel_at(RHS, x, y) +
+              apply_stencil(x, y, Tmp, mask, dirichlet_lower, dirichlet_upper);
     set_pixel(Sol, x, y, val);
 }
 
@@ -105,9 +64,9 @@ fn jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: float) -> () {
     for x, y, sol_acc, tmp_acc, mask in @iteration(Sol, Tmp, jacobi_mask) {
         // TODO: RHS is not mapped in iteration
         let rhs_acc = get_acc(RHS, 10);
-        let val = (1.0f - omega) * get_pixel(tmp_acc, x, y) +
-                  0.25f * omega  * get_pixel(rhs_acc, x, y) +
-                  apply_stencil(mask, tmp_acc, x, y);
+        let val = (1.0f - omega) * pixel_at(tmp_acc, x, y) +
+                  0.25f * omega  * pixel_at(rhs_acc, x, y) +
+                  apply_stencil(x, y, tmp_acc, mask, dirichlet_lower, dirichlet_upper);
         set_pixel(sol_acc, x, y, val);
     }
 }
@@ -121,7 +80,7 @@ static residual_mask = Mask {
     size_x : 3, size_y : 3
 };
 fn residual_fun(x: int, y: int, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
-    let val = get_pixel(RHS, x, y) + apply_stencil(mask, Sol, x, y);
+    let val = pixel_at(RHS, x, y) + apply_stencil(x, y, Sol, mask, dirichlet_lower, dirichlet_upper);
     set_pixel(Res, x, y, val);
 }
 
@@ -129,8 +88,7 @@ fn residual(Res: Img, Sol: Img, RHS: Img) -> () {
     for x, y, res_acc, sol_acc, mask in @iteration(Res, Sol, residual_mask) {
         // TODO: RHS is not mapped in iteration
         let rhs_acc = get_acc(RHS, 10);
-        let val = get_pixel(rhs_acc, x, y) +
-                  apply_stencil(mask, sol_acc, x, y);
+        let val = pixel_at(rhs_acc, x, y) + apply_stencil(x, y, sol_acc, mask, dirichlet_lower, dirichlet_upper);
         set_pixel(res_acc, x, y, val);
     }
 }
@@ -145,19 +103,19 @@ static restrict_mask = Mask {
     size_x : 3, size_y : 3
 };
 fn restrict_fun(x: int, y: int, RHS: Acc, Res: Acc, mask: Mask) -> () {
-    let val = get_pixel(Res, 2*x,   2*y  ) +
-              get_pixel(Res, 2*x+1, 2*y  ) +
-              get_pixel(Res, 2*x,   2*y+1) +
-              get_pixel(Res, 2*x+1, 2*y+1);
+    let val = pixel_at(Res, 2*x,   2*y  ) +
+              pixel_at(Res, 2*x+1, 2*y  ) +
+              pixel_at(Res, 2*x,   2*y+1) +
+              pixel_at(Res, 2*x+1, 2*y+1);
     set_pixel(RHS, x, y, val);
 }
 
 fn restrict(RHS: Img, Res: Img) -> () {
     for x, y, rhs_acc, res_acc, mask in @iteration(RHS, Res, restrict_mask) {
-        let val = get_pixel(res_acc, 2*x,   2*y  ) +
-                  get_pixel(res_acc, 2*x+1, 2*y  ) +
-                  get_pixel(res_acc, 2*x,   2*y+1) +
-                  get_pixel(res_acc, 2*x+1, 2*y+1);
+        let val = pixel_at(res_acc, 2*x,   2*y  ) +
+                  pixel_at(res_acc, 2*x+1, 2*y  ) +
+                  pixel_at(res_acc, 2*x,   2*y+1) +
+                  pixel_at(res_acc, 2*x+1, 2*y+1);
         set_pixel(rhs_acc, x, y, val);
     }
 }
@@ -172,21 +130,21 @@ static interpolate_mask = Mask {
     size_x : 3, size_y : 3
 };
 fn interpolate_fun(x: int, y: int, SolF: Acc, SolC: Acc, mask: Mask) -> () {
-    let value = get_pixel(SolC, x, y);
-    set_pixel(SolF, 2*x  , 2*y  , get_pixel(SolF, 2*x  , 2*y  ) + value);
-    set_pixel(SolF, 2*x+1, 2*y  , get_pixel(SolF, 2*x+1, 2*y  ) + value);
-    set_pixel(SolF, 2*x  , 2*y+1, get_pixel(SolF, 2*x  , 2*y+1) + value);
-    set_pixel(SolF, 2*x+1, 2*y+1, get_pixel(SolF, 2*x+1, 2*y+1) + value);
+    let value = pixel_at(SolC, x, y);
+    set_pixel(SolF, 2*x  , 2*y  , pixel_at(SolF, 2*x  , 2*y  ) + value);
+    set_pixel(SolF, 2*x+1, 2*y  , pixel_at(SolF, 2*x+1, 2*y  ) + value);
+    set_pixel(SolF, 2*x  , 2*y+1, pixel_at(SolF, 2*x  , 2*y+1) + value);
+    set_pixel(SolF, 2*x+1, 2*y+1, pixel_at(SolF, 2*x+1, 2*y+1) + value);
 }
 
 fn interpolate(SolF: Img, SolC: Img) -> () {
     // use iteration space of SolC, compute 4x elements
     for x, y, solc_acc, solf_acc, mask in @iteration(SolC, SolF, interpolate_mask) {
-        let value = get_pixel(solc_acc, x, y);
-        set_pixel(solf_acc, 2*x  , 2*y  , get_pixel(solf_acc, 2*x  , 2*y  ) + value);
-        set_pixel(solf_acc, 2*x+1, 2*y  , get_pixel(solf_acc, 2*x+1, 2*y  ) + value);
-        set_pixel(solf_acc, 2*x  , 2*y+1, get_pixel(solf_acc, 2*x  , 2*y+1) + value);
-        set_pixel(solf_acc, 2*x+1, 2*y+1, get_pixel(solf_acc, 2*x+1, 2*y+1) + value);
+        let value = pixel_at(solc_acc, x, y);
+        set_pixel(solf_acc, 2*x  , 2*y  , pixel_at(solf_acc, 2*x  , 2*y  ) + value);
+        set_pixel(solf_acc, 2*x+1, 2*y  , pixel_at(solf_acc, 2*x+1, 2*y  ) + value);
+        set_pixel(solf_acc, 2*x  , 2*y+1, pixel_at(solf_acc, 2*x  , 2*y+1) + value);
+        set_pixel(solf_acc, 2*x+1, 2*y+1, pixel_at(solf_acc, 2*x+1, 2*y+1) + value);
     }
 }
 
