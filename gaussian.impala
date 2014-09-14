@@ -1,6 +1,9 @@
 type Mask = Mask5;
 type MaskSep = Mask5Sep;
 
+fn pixel_at(acc: Acc, x: int, y: int) -> float {
+    acc.img.data(y*acc.img.stride + x)
+}
 fn get_pixel(acc: Acc, x: int, y: int,
              bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
             ) -> float {
@@ -39,7 +42,7 @@ fn get_pixel(acc: Acc, x: int, y: int,
         idx_y = bh_lower(idx_y, acc.roi.o_y, return);
     }
 
-    acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x)
+    pixel_at(idx_x, idx_y, acc);
 }
 
 fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
