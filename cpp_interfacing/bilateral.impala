@@ -1,54 +1,21 @@
 type Mask = Mask5;
 type MaskSep = Mask5Sep;
 
-fn bilateral_filter_mask(mask : Mask, acc : Acc, sigma_d : int, c_r : float, x : int, y : int) -> float {
+fn bilateral_filter_mask(x: int, y: int, acc: Acc, mask: Mask, sigma_d: int, c_r: float,
+                         bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
+                        ) -> float {
     let mut k = 0.0f;
     let mut p = 0.0f;
 
     for yf in iterate(-2*sigma_d, 2*sigma_d+1) {
         for xf in iterate(-2*sigma_d, 2*sigma_d+1) {
-            let mut idx_x = acc.roi.o_x + acc.rox + x + xf;
-            let mut idx_y = acc.roi.o_y + acc.roy + y + yf;
+            let diff = get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper) - pixel_at(acc, acc.roi.o_x + acc.rox, acc.roi.o_y + acc.roy + y);
 
-            // 0 --- 1 --- 2
-            // 3 --- 4 --- 5
-            // 6 --- 7 --- 8
+            let c = mask.data(xf + 2*sigma_d)(yf + 2*sigma_d);
+            let s = expf(-c_r * diff*diff);
 
-            // left
-            if acc.region == 0 { idx_x = clamp_lower(idx_x, acc.roi.o_x); }
-            if acc.region == 3 { idx_x = clamp_lower(idx_x, acc.roi.o_x); }
-            if acc.region == 6 { idx_x = clamp_lower(idx_x, acc.roi.o_x); }
-
-            // right
-            if acc.region == 2 { idx_x = clamp_upper(idx_x, acc.roi.o_x + acc.roi.width); }
-            if acc.region == 5 { idx_x = clamp_upper(idx_x, acc.roi.o_x + acc.roi.width); }
-            if acc.region == 8 { idx_x = clamp_upper(idx_x, acc.roi.o_x + acc.roi.width); }
-
-            // top
-            if acc.region == 0 { idx_y = clamp_lower(idx_y, acc.roi.o_y); }
-            if acc.region == 1 { idx_y = clamp_lower(idx_y, acc.roi.o_y); }
-            if acc.region == 2 { idx_y = clamp_lower(idx_y, acc.roi.o_y); }
-
-            // bottom
-            if acc.region == 6 { idx_y = clamp_upper(idx_y, acc.roi.o_y + acc.roi.height); }
-            if acc.region == 7 { idx_y = clamp_upper(idx_y, acc.roi.o_y + acc.roi.height); }
-            if acc.region == 8 { idx_y = clamp_upper(idx_y, acc.roi.o_y + acc.roi.height); }
-
-            // all in
-            if acc.region == 10 {
-                idx_x = clamp_lower(idx_x, acc.roi.o_x);
-                idx_x = clamp_upper(idx_x, acc.roi.o_x + acc.roi.width);
-                idx_y = clamp_upper(idx_y, acc.roi.o_y + acc.roi.height);
-                idx_y = clamp_lower(idx_y, acc.roi.o_y);
-            }
-
-
-            let diff = acc.img.data(idx_y * acc.img.stride + idx_x) - acc.img.data((acc.roi.o_y + acc.roy + y) * acc.img.stride + acc.roi.o_x + acc.rox + x);
-
-            let s = expf(-c_r * diff*diff) * mask.data(xf + 2*sigma_d)(yf + 2*sigma_d);
-
-            k += s;
-            p += s * acc.img.data(idx_y * acc.img.stride + idx_x);
+            k += c * s;
+            p += c * s * get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper);
         }
     }
 
@@ -56,13 +23,16 @@ fn bilateral_filter_mask(mask : Mask, acc : Acc, sigma_d : int, c_r : float, x :
 }
 
 extern 
-fn thorin_bilateral(arr_data : &[float], out_data : &[float], width : int, height : int) -> () {
+fn thorin_bilateral(arr_data: &[float], out_data: &[float], width: int, height: int) -> () {
     let sigma_r = 5.0f;
     let sigma_d = 1;
     let c_d     = 1.0f / (2.0f * (sigma_d*sigma_d as float));
     let c_r     = 1.0f / (2.0f * sigma_r*sigma_r);
     let arr     = Img { data : arr_data, width : width, height : height, stride : width };
     let out     = Img { data : out_data, width : width, height : height, stride : width };
+
+    let lower = clamp_lower;
+    let upper = clamp_upper;
 
     let mask    = Mask {
         data : [[0.018316f, 0.082085f, 0.135335f, 0.082085f, 0.018316f],
@@ -74,7 +44,7 @@ fn thorin_bilateral(arr_data : &[float], out_data : &[float], width : int, heigh
     };
 
     for x, y, mut out_acc, arr_acc, mask in @iteration(out, arr, mask) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(mask, arr_acc, sigma_d, c_r, x, y);
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_r, lower, upper);
     }
 }
 
