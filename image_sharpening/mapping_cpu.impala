@@ -67,3 +67,16 @@ fn reduce(tmp: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
     }
     sum
 }
+fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
+    let mut bins = ~[256: int];
+    for i in $range(0, 256) { bins(i) = 0; }
+    for y in $iterate(0, img.height) {
+        for x in $iterate(0, img.width) {
+            for i in @range(0, 1) {
+                let bin = body(x, y, img);
+                bins(bin)++;
+            }
+        }
+    }
+    bins
+}

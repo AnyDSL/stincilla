@@ -366,6 +366,10 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
 
         // calculate histogram
         //[count,x]=imhist(img_pad_qcod);
+        let hist =
+            for x, y, map in hist(map) {
+                (map.data(y * tmp.stride + x) * 255.0f) as i32
+            };
 
         // cumulative sum of the QCOD values
         //sum_count=cumsum(count');
