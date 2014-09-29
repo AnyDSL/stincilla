@@ -2,7 +2,7 @@ type Mask = Mask5;
 type MaskSep = Mask5Sep;
 
 fn bilateral_filter_mask(x: int, y: int, acc: Acc, mask: Mask, sigma_d: int, c_r: float,
-                         bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
+                         bh_lower: fn(int, int, int, fn(f32)) -> int, bh_upper: fn(int, int, int, fn(f32)) -> int
                         ) -> float {
     let mut k = 0.0f;
     let mut p = 0.0f;

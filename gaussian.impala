@@ -2,7 +2,7 @@ type Mask = Mask5;
 type MaskSep = Mask5Sep;
 
 fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
-                 bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
+                 bh_lower: fn(int, int, int, fn(f32)) -> int, bh_upper: fn(int, int, int, fn(f32)) -> int
                 ) -> float {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
@@ -22,7 +22,7 @@ fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
     sum
 }
 fn apply_stencil_sep(x: int, y: int, acc: Acc, mask: MaskSep, row: bool,
-                     bh_lower: fn(int, int, fn(f32)) -> int, bh_upper: fn(int, int, fn(f32)) -> int
+                     bh_lower: fn(int, int, int, fn(f32)) -> int, bh_upper: fn(int, int, int, fn(f32)) -> int
                     ) -> float {
     let mut sum = 0.0f;
     let half_range = mask.size / 2;

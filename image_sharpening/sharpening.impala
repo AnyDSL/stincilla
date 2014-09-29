@@ -19,41 +19,46 @@ fn get_acc_i16(img: Imgi16, region : int) -> Acci16 {
     Acci16 { img : img, roi : RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, rox : 0, roy : 0, region : region }
 }
 fn get_pixel_i16(acc: Acci16, x: int, y: int,
-                 bh_lower: fn(int, int, fn(i16)) -> int, bh_upper: fn(int, int, fn(i16)) -> int
+                 bh_lower: fn(int, int, int, fn(i16)) -> int, bh_upper: fn(int, int, int, fn(i16)) -> int
                 ) -> i16 {
     let mut idx_x = acc.roi.o_x + acc.rox + x;
     let mut idx_y = acc.roi.o_y + acc.roy + y;
+
+    let lower_x = acc.roi.o_x;
+    let lower_y = acc.roi.o_y;
+    let upper_x = acc.roi.o_x + acc.roi.width;
+    let upper_y = acc.roi.o_y + acc.roi.height;
 
     // 0 --- 1 --- 2
     // 3 --- 4 --- 5
     // 6 --- 7 --- 8
 
     // left
-    if acc.region == 0 { idx_x = bh_lower(idx_x, acc.roi.o_x, return); }
-    if acc.region == 3 { idx_x = bh_lower(idx_x, acc.roi.o_x, return); }
-    if acc.region == 6 { idx_x = bh_lower(idx_x, acc.roi.o_x, return); }
+    if acc.region == 0 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
+    if acc.region == 3 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
+    if acc.region == 6 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
 
     // right
-    if acc.region == 2 { idx_x = bh_upper(idx_x, acc.roi.o_x + acc.roi.width, return); }
-    if acc.region == 5 { idx_x = bh_upper(idx_x, acc.roi.o_x + acc.roi.width, return); }
-    if acc.region == 8 { idx_x = bh_upper(idx_x, acc.roi.o_x + acc.roi.width, return); }
+    if acc.region == 2 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
+    if acc.region == 5 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
+    if acc.region == 8 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
 
     // top
-    if acc.region == 0 { idx_y = bh_lower(idx_y, acc.roi.o_y, return); }
-    if acc.region == 1 { idx_y = bh_lower(idx_y, acc.roi.o_y, return); }
-    if acc.region == 2 { idx_y = bh_lower(idx_y, acc.roi.o_y, return); }
+    if acc.region == 0 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
+    if acc.region == 1 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
+    if acc.region == 2 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
 
     // bottom
-    if acc.region == 6 { idx_y = bh_upper(idx_y, acc.roi.o_y + acc.roi.height, return); }
-    if acc.region == 7 { idx_y = bh_upper(idx_y, acc.roi.o_y + acc.roi.height, return); }
-    if acc.region == 8 { idx_y = bh_upper(idx_y, acc.roi.o_y + acc.roi.height, return); }
+    if acc.region == 6 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
+    if acc.region == 7 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
+    if acc.region == 8 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
 
     // all in
     if acc.region == 10 {
-        idx_x = bh_lower(idx_x, acc.roi.o_x, return);
-        idx_x = bh_upper(idx_x, acc.roi.o_x + acc.roi.width, return);
-        idx_y = bh_upper(idx_y, acc.roi.o_y + acc.roi.height, return);
-        idx_y = bh_lower(idx_y, acc.roi.o_y, return);
+        idx_x = bh_lower(idx_x, lower_x, upper_x, return);
+        idx_x = bh_upper(idx_x, lower_x, upper_x, return);
+        idx_y = bh_lower(idx_y, lower_y, upper_y, return);
+        idx_y = bh_upper(idx_y, lower_y, upper_y, return);
     }
 
     acc.img.data(idx_y*acc.img.stride + idx_x)
@@ -67,17 +72,17 @@ fn get_pixel_f32(acc: Acc, x: int, y: int) -> f32 {
 fn set_pixel_f32(mut acc: Acc, x: int, y: int, val: f32) -> () {
     acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
 }
-fn nobh_center_i16(idx: int, bound: int, out: fn(i16)) -> int { idx }
-fn clamp_lower_i16(idx: int, lower: int, out: fn(i16)) -> int {
+fn nobh_center_i16 (idx: int, lower: int, upper: int, out: fn(i16)) -> int { idx }
+fn clamp_lower_i16 (idx: int, lower: int, upper: int, out: fn(i16)) -> int {
     if idx < lower { lower } else { idx }
 }
-fn clamp_upper_i16(idx: int, upper: int, out: fn(i16)) -> int {
+fn clamp_upper_i16 (idx: int, lower: int, upper: int, out: fn(i16)) -> int {
     if idx >= upper { upper - 1 } else { idx }
 }
-fn mirror_lower_i16(idx: int, lower: int, out: fn(i16)) -> int {
+fn mirror_lower_i16(idx: int, lower: int, upper: int, out: fn(i16)) -> int {
     if idx < lower { lower + (lower - idx-1) } else { idx }
 }
-fn mirror_upper_i16(idx: int, upper: int, out: fn(i16)) -> int {
+fn mirror_upper_i16(idx: int, lower: int, upper: int, out: fn(i16)) -> int {
     if idx >= upper { upper - (idx+1 - upper) } else { idx }
 }
 
@@ -363,11 +368,11 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
         //[count,x]=imhist(img_pad_qcod);
 
         // cumulative sum of the QCOD values
-        //sum_count=cumsum(count'); 
+        //sum_count=cumsum(count');
         //[~,l1]=find(sum_count > BW_Count);
 
         // threshold calculation
-        //Thresh = x(l1(1)-1); 
+        //Thresh = x(l1(1)-1);
         //let threshold = 25.0f;
 
         //// apply filter
