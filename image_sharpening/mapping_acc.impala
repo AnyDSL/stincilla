@@ -143,10 +143,10 @@ fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
         for y in $iterate(0, img.height) {
             for i in @range(0, 1) {
                 let bin = body(acc_gidx(), y, img);
-                atomic_add(&sm_bins(bin), 1);
+                atomic_add_local(&sm_bins(bin), 1);
             }
         }
-        atomic_add(&gpu_bins(acc_tidx()), sm_bins(acc_tidx()));
+        atomic_add_global(&gpu_bins(acc_tidx()), sm_bins(acc_tidx()));
         }
     });
 
