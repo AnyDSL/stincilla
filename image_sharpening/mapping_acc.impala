@@ -128,3 +128,27 @@ fn reduce(img: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
     let sum = tmp_mem(0);
     sum
 }
+fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
+    let mut bins = ~[256: int];
+    for i in $range(0, 256) { bins(i) = 0; }
+
+    // create histogram in shared memory first and store then to global memory
+    let mut gpu_bins = mmap_i32(bins, acc_dev(), acc_mem(), 0, 0);
+
+    let grid1  = (img.width, 1, 1);
+    let block1 = (256, 1, 1);
+    acc(acc_dev(), grid1, block1, || {
+        for i in @range(0, 1) {
+        let mut sm_bins = mmap_i32(bins, acc_dev(), acc_spm(), 256, 1);
+        for y in $iterate(0, img.height) {
+            for i in @range(0, 1) {
+                let bin = body(acc_gidx(), y, img);
+                atomic_add(&sm_bins(bin), 1);
+            }
+        }
+        atomic_add(&gpu_bins(acc_tidx()), sm_bins(acc_tidx()));
+        }
+    });
+
+    bins
+}
