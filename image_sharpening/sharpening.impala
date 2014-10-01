@@ -368,25 +368,27 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
 
 
         // calculate histogram
-        //[count,x]=imhist(img_pad_qcod);
         let hist =
             for x, y, map in hist(map) {
                 (map.data(y * tmp.stride + x) * 255.0f) as i32
             };
 
-        // cumulative sum of the QCOD values
-        //sum_count=cumsum(count');
-        //[~,l1]=find(sum_count > BW_Count);
+        // cumulative sum of the QCOD values (prefix sum)
+        let sum_count =
+            for x, arr in prefix_sum(hist, 256) {
+                arr(x)
+            };
+        let bin =
+            for x, arr in find_position(sum_count, 256) {
+                if arr(x) > bw_count { 1 } else { 0 }
+            };
 
-        // threshold calculation
-        //Thresh = x(l1(1)-1);
-        //let threshold = 25.0f;
-
-        //// apply filter
-        //for x, y, tmp, img, map in iteration2i1m(tmp, img, map) {
-        //    let ksize = 5;
-        //    filter(x, y, tmp, img, map, threshold, ksize);
-        //}
+        // apply filter
+        let threshold = bin as float / 256.0f;
+        for x, y, tmp, img, map in iteration2i1m(tmp, img, map) {
+            let ksize = 5;
+            filter(x, y, tmp, img, map, threshold, ksize);
+        }
 
         // sharpen image
         for x, y, out, img, tmp in iteration3i(out, img, tmp) {
