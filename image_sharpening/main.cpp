@@ -1,14 +1,11 @@
+#include <algorithm>
 #include <iostream>
+#include <limits>
 #include <thorin_runtime.h>
 
 #include "pnm_image.h"
 
 extern "C" void thorin_sharpening(short *, short *, int, int);
-
-extern "C"
-void saveppm(uint8_t *img, int width, int height) {
-    write_pnm_image(img, width, height, "output.ppm", pnm_t::P6);
-}
 
 /*************************************************************************
  * Main function                                                         *
@@ -34,7 +31,7 @@ int main(int argc, const char **argv) {
     thorin_print_total_timing();
 
     // write image
-    for (size_t i=0; i<width*height; ++i) image[i] = (uint8_t)output[i];
+    for (size_t i=0; i<width*height; ++i) image[i] = std::min<short>(std::max<short>(output[i], 0), 255);
     write_pnm_image(image, width, height, "goldhill_out.pgm");
 
     // memory cleanup
