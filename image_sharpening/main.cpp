@@ -31,6 +31,7 @@ int main(int argc, const char **argv) {
 
     std::cout << "Calculating sharpening filter in AnyDSL ..." << std::endl;
     thorin_sharpening(input, output, width, height);
+    thorin_print_total_timing();
 
     // write image
     for (size_t i=0; i<width*height; ++i) image[i] = (uint8_t)output[i];

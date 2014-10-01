@@ -19,6 +19,7 @@ int main(int argc, const char **argv) {
 
     std::cout << "Calculating aobench in AnyDSL ..." << std::endl;
     thorin_ao();
+    thorin_print_total_timing();
 
     return EXIT_SUCCESS;
 }

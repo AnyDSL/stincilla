@@ -26,6 +26,7 @@ int main(int argc, const char **argv) {
 
     std::cout << "Calculating filter in AnyDSL ..." << std::endl;
     thorin_bilateral(input, output, width, height);
+    thorin_print_total_timing();
 
     // write image
     for (size_t i=0; i<width*height; ++i) image[i] = (uint8_t)output[i];
