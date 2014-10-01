@@ -334,8 +334,9 @@ fn filter(x: int, y: int, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ks
 }
 
 fn sharpen(x: int, y: int, out: Acci16, img: Acci16, blur: Acci16) -> () {
-    let val = get_pixel_i16(img, x, y, nobh_center_i16, nobh_center_i16);
-    set_pixel(out, x, y, val + (val - get_pixel_i16(blur, x, y, nobh_center_i16, nobh_center_i16)));
+    let val_img  = get_pixel_i16(img,  x, y, nobh_center_i16, nobh_center_i16);
+    let val_blur = get_pixel_i16(blur, x, y, nobh_center_i16, nobh_center_i16);
+    set_pixel(out, x, y, val_img + (val_img - val_blur));
 }
 
 
