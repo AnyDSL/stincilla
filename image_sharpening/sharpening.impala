@@ -324,7 +324,7 @@ fn filter(x: int, y: int, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ks
                 sum += get_pixel_i16(img, x + xm, y + ym, mirror_lower_i16, mirror_upper_i16);
             }
         }
-        set_pixel(tmp, x, y, (sum as float / ((ksizeh * ksizeh) as float)) as i16);
+        set_pixel(tmp, x, y, (sum as float / ((ksize * ksize) as float)) as i16);
         }
     } else {
         for i in @range(0, 1) {
