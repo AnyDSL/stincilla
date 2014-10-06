@@ -280,13 +280,13 @@ fn inclusive_scan(img: &[int], size: int, body: fn(int, &[int]) -> int) -> &[int
     arr
 }
 fn find_position(img: &[int], size: int, body: fn(int, &[int]) -> int) -> int {
-    let elem = ~[1: int];
+    let mut elem = ~[1: int];
     elem(0) = size;
 
     // create global array for the element
     let mut gpu_elem = mmap_i32(elem, acc_dev(), acc_mem(), 0, 0);
 
-    let grid1  = (img.width, 1, 1);
+    let grid1  = (size, 1, 1);
     let block1 = (256, 1, 1);
     acc(acc_dev(), grid1, block1, || {
         for i in @range(0, 1) {
