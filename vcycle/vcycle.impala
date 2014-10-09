@@ -35,7 +35,7 @@ fn deriv2D(RHS: Img, img: Img) -> () {
                 [0.0f,  1.0f, 0.0f]],
         size_x : 3, size_y : 3
     };
-    for x, y, rhs_acc, img_acc, mask in @iteration(RHS, img, mask) {
+    for x, y, rhs_acc, img_acc, mask in iteration(RHS, img, mask) {
         let val = apply_stencil(x, y, img_acc, mask, mirror_lower, mirror_upper);
         set_pixel(rhs_acc, x, y, val);
     }
@@ -63,7 +63,7 @@ fn jacobi_solver(x: int, y: int, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> ()
 }
 
 fn jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: float) -> () {
-    for x, y, sol_acc, tmp_acc, mask in @iteration(Sol, Tmp, jacobi_mask) {
+    for x, y, sol_acc, tmp_acc, mask in iteration(Sol, Tmp, jacobi_mask) {
         // TODO: RHS is not mapped in iteration
         let rhs_acc = get_acc(RHS, 10);
         let val = (1.0f - omega) * pixel_at(tmp_acc, x, y) +
@@ -87,7 +87,7 @@ fn residual_fun(x: int, y: int, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () 
 }
 
 fn residual(Res: Img, Sol: Img, RHS: Img) -> () {
-    for x, y, res_acc, sol_acc, mask in @iteration(Res, Sol, residual_mask) {
+    for x, y, res_acc, sol_acc, mask in iteration(Res, Sol, residual_mask) {
         // TODO: RHS is not mapped in iteration
         let rhs_acc = get_acc(RHS, 10);
         let val = pixel_at(rhs_acc, x, y) + apply_stencil(x, y, sol_acc, mask, dirichlet_lower, dirichlet_upper);
@@ -113,7 +113,7 @@ fn restrict_fun(x: int, y: int, RHS: Acc, Res: Acc, mask: Mask) -> () {
 }
 
 fn restrict(RHS: Img, Res: Img) -> () {
-    for x, y, rhs_acc, res_acc, mask in @iteration(RHS, Res, restrict_mask) {
+    for x, y, rhs_acc, res_acc, mask in iteration(RHS, Res, restrict_mask) {
         let val = pixel_at(res_acc, 2*x,   2*y  ) +
                   pixel_at(res_acc, 2*x+1, 2*y  ) +
                   pixel_at(res_acc, 2*x,   2*y+1) +
@@ -141,7 +141,7 @@ fn interpolate_fun(x: int, y: int, SolF: Acc, SolC: Acc, mask: Mask) -> () {
 
 fn interpolate(SolF: Img, SolC: Img) -> () {
     // use iteration space of SolC, compute 4x elements
-    for x, y, solc_acc, solf_acc, mask in @iteration(SolC, SolF, interpolate_mask) {
+    for x, y, solc_acc, solf_acc, mask in iteration(SolC, SolF, interpolate_mask) {
         let value = pixel_at(solc_acc, x, y);
         set_pixel(solf_acc, 2*x  , 2*y  , pixel_at(solf_acc, 2*x  , 2*y  ) + value);
         set_pixel(solf_acc, 2*x+1, 2*y  , pixel_at(solf_acc, 2*x+1, 2*y  ) + value);
