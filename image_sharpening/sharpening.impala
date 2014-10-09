@@ -89,10 +89,10 @@ fn mirror_upper_i16(idx: int, lower: int, upper: int, out: fn(i16)) -> int {
 
 // conditional swap using pointers
 fn swap_if(mut a: &i16, mut b: &i16) -> () {
-    if *a < *b {
-        let tmp = a;
-        a = b;
-        b = tmp;
+    if *a > *b {
+        let tmp = *a;
+        *a = *b;
+        *b = tmp;
     }
 }
 
