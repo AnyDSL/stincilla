@@ -368,7 +368,7 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
         // counting number of non-edge pixels
         let bw_count =
             for x, y, tmp in reduce(tmp) {
-                if tmp.data(y * tmp.stride + x) == 0i16 { 1 } else { 0 }
+                if tmp.data(y * tmp.stride + x) == 0i16 { 0 } else { 1 }
             };
         thorin_print_gflops(bw_count as f32);
 
