@@ -10,7 +10,7 @@ enum class pnm_t { P1=1, P2, P3, P4, P5, P6 };
 
 uint8_t *read_pnm_image(int *width, int *height, std::string filename) {
     pnm_t format;
-    std::ifstream in(filename);
+    std::ifstream in(filename, std::ios_base::in);
     std::string line;
     std::stringstream ss;
 
@@ -106,8 +106,8 @@ void write_pnm_image(const uint8_t *img, int width, int height, std::string file
     // data
     switch (format) {
         default:
-            for (size_t y=0; y<height; ++y) {
-                for (size_t x=0; x<width; ++x) out << " " << (int)img[y*width + x];
+            for (size_t y=0; y<(size_t)height; ++y) {
+                for (size_t x=0; x<(size_t)width; ++x) out << " " << (int)img[y*width + x];
                 out << std::endl; // newline after each line required
             }
             break;
