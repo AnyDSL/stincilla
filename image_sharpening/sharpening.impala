@@ -355,12 +355,12 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
     let mask    = Mask   { data : [[1.0f, .. 5], .. 5], size_x : 5, size_y : 5 };
 
     fn sharpening() -> () {
-        // first step: compute quartile coefficient of dispersion (QCOD)
+        // compute quartile coefficient of dispersion (QCOD)
         for x, y, map, img in iteration1f1i(map, img) {
             qcod(x, y, map, img);
         }
 
-        // second step: TODO: apply Canny
+        // edge detector - TODO: use Canny
         for x, y, tmp, img in iteration2i(tmp, img) {
             sobel(x, y, tmp, img);
         }
