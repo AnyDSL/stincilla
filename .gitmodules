@@ -1,0 +1,3 @@
+[submodule "common/pnm_image"]
+	path = common/pnm_image
+	url = git://github.com/richardmembarth/pnm_image.git

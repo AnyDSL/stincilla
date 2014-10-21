@@ -1,1 +1,1 @@
-../cpp_interfacing/pnm_image.h
+../common/pnm_image/pnm_image.h
