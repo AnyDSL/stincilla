@@ -1,10 +1,10 @@
-fn oddeven_merge_sort(length: int, input: &[float]) -> float {
-    let mut arr: [float * 5];
-    for i in range(0, length) {
-        arr(i) = input(i);
-    }
+extern "C" {
+  fn print(i32, i32) -> ();
+}
 
+fn oddeven_merge_sort(length: int, mut arr: [float * 5]) -> () {
     fn compare_and_swap(i: int, j: int) -> () {
+        //print(i, j);
         if arr(i) > arr(j) {
             let tmp = arr(i);
             arr(i) = arr(j);
@@ -35,13 +35,22 @@ fn oddeven_merge_sort(length: int, input: &[float]) -> float {
     }
 
     oddeven_merge_sort_range(0, length - 1);
-
-    arr((length - 1) / 2)
 }
 
 fn main(input: &[float]) -> float {
     let length = 5;
-    let median = @oddeven_merge_sort(length, input);
-    median
+
+    fn median() -> float {
+        let mut arr: [float * 5];
+        for i in range(0, length) {
+            arr(i) = input(i);
+        }
+
+        oddeven_merge_sort(length, arr);
+
+        // return median
+        arr((length -1) / 2)
+    }
+    @median()
 }
 
