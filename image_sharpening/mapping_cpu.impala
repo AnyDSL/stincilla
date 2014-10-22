@@ -5,7 +5,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     let arr_acc = get_acc_i16(arr, 10);
 
     for benchmark() {
-        for y in $iterate(0, out.height) {
+        for y in $range(0, out.height) {
             for x in $inner_loop(0, out.width) {
                 @body(x, y, out_acc, arr_acc);
             }
@@ -19,7 +19,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     let arr_acc = get_acc_i16(arr, 10);
 
     for benchmark() {
-        for y in $iterate(0, out.height) {
+        for y in $range(0, out.height) {
             for x in $inner_loop(0, out.width) {
                 @body(x, y, out_acc, arr_acc);
             }
@@ -34,7 +34,7 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
     let map_acc = get_acc    (map, 10);
 
     for benchmark() {
-        for y in $iterate(0, out.height) {
+        for y in $range(0, out.height) {
             for x in $inner_loop(0, out.width) {
                 @body(x, y, out_acc, img_acc, map_acc);
             }
@@ -49,7 +49,7 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     let tmp_acc = get_acc_i16(tmp, 10);
 
     for benchmark() {
-        for y in $iterate(0, out.height) {
+        for y in $range(0, out.height) {
             for x in $inner_loop(0, out.width) {
                 @body(x, y, out_acc, img_acc, tmp_acc);
             }
@@ -58,9 +58,9 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
 }
 fn reduce(tmp: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
     let mut sum = 0;
-    for y in $iterate(0, tmp.height) {
+    for y in $range(0, tmp.height) {
         for x in $inner_loop(0, tmp.width) {
-            for i in @range(0, 1) {
+            for dummy in @range(0, 1) { // force partial evaluation
                 sum += body(x, y, tmp);
             }
         }
@@ -70,9 +70,9 @@ fn reduce(tmp: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
 fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
     let mut bins = ~[256: int];
     for i in $range(0, 256) { bins(i) = 0; }
-    for y in $iterate(0, img.height) {
-        for x in $iterate(0, img.width) {
-            for i in @range(0, 1) {
+    for y in $range(0, img.height) {
+        for x in $range(0, img.width) {
+            for dummy in @range(0, 1) { // force partial evaluation
                 let bin = body(x, y, img);
                 bins(bin)++;
             }

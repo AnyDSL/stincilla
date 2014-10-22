@@ -8,7 +8,7 @@ fn iteration(out: Img, arr: Img, mask: Mask,
     let out_acc = get_acc(out, 10);
 
     for benchmark() {
-        for y in $iterate(0, out.height) {
+        for y in $range(0, out.height) {
             for x in $inner_loop(0, out.width) {
                 @body(x, y, out_acc, arr_acc, mask);
             }
@@ -21,7 +21,7 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
                    ) -> () {
     // compute the number of vector strides for boundary handling
     let bhy = mask.size_y / 2;
-    let bhx = @round_up(mask.size_x / 2, get_vector_length());
+    let bhx = round_up(mask.size_x / 2, get_vector_length());
 
     // (minx, maxx, miny, maxy)
     let Bounds2D = [
@@ -39,12 +39,12 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
     ];
 
     for benchmark() {
-        for region in @iterate(0, 9) {
+        for region in @range(0, 9) {
             let bounds = Bounds2D(region);
             let arr_acc = get_acc(arr, region);
             let out_acc = get_acc(out, region);
 
-            for y in $iterate(bounds(2), bounds(3)) {
+            for y in $range(bounds(2), bounds(3)) {
                 for x in $inner_loop(bounds(0), bounds(1)) {
                     @body(x, y, out_acc, arr_acc, mask);
                 }
@@ -57,7 +57,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
                       body: fn(int, int, Acc, Acc, Mask) -> ()
                      ) -> () {
     // TODO: blocked loop
-    @iteration_bounds(out, arr, mask, body)
+    iteration_bounds(out, arr, mask, body)
 }
 
 fn iteration_sep(out: Img, arr: Img, mask: MaskSep,
@@ -71,14 +71,14 @@ fn iteration_sep(out: Img, arr: Img, mask: MaskSep,
     let tmp_acc = get_acc(tmp, 10);
 
     for benchmark() {
-        for y in $iterate(0, out.height) {
+        for y in $range(0, out.height) {
             for x in $inner_loop(0, out.width) {
                 let is_row = false;
                 @body(x, y, tmp_acc, arr_acc, mask, is_row);
             }
         }
 
-        for y in $iterate(0, out.height) {
+        for y in $range(0, out.height) {
             for x in $inner_loop(0, out.width) {
                 let is_row = true;
                 @body(x, y, out_acc, tmp_acc, mask, is_row);
@@ -95,7 +95,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
     $init_zero(tmp.data, tmp.stride, tmp.height);
 
     let bhy = mask.size / 2;
-    let bhx = @round_up(mask.size / 2, get_vector_length());
+    let bhx = round_up(mask.size / 2, get_vector_length());
 
     let Bounds2DCol = [
         (0               , bhy),
@@ -110,12 +110,12 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
     ];
 
     for benchmark() {
-        for iter in @iterate(0, 3) {
+        for iter in @range(0, 3) {
             let bounds = Bounds2DCol(iter);
             let region = Region2DCol(iter);
             let arr_acc = get_acc(arr, region);
             let tmp_acc = get_acc(tmp, region);
-            for y in $iterate(bounds(0), bounds(1)) {
+            for y in $range(bounds(0), bounds(1)) {
                 for x in $inner_loop(0, out.width) {
                     let is_row = false;
                     @body(x, y, tmp_acc, arr_acc, mask, is_row);
@@ -123,12 +123,12 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             }
         }
 
-        for iter in @iterate(0, 3) {
+        for iter in @range(0, 3) {
             let bounds = Bounds2DRow(iter);
             let region = Region2DRow(iter);
             let tmp_acc = get_acc(tmp, region);
             let out_acc = get_acc(out, region);
-            for y in $iterate(0, out.height) {
+            for y in $range(0, out.height) {
                 for x in $inner_loop(bounds(0), bounds(1)) {
                     let is_row = true;
                     @body(x, y, out_acc, tmp_acc, mask, is_row);
@@ -142,7 +142,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
                           body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
                          ) -> () {
     let bhy = mask.size / 2;
-    let bhx = @round_up(mask.size / 2, get_vector_length());
+    let bhx = round_up(mask.size / 2, get_vector_length());
 
     let Bounds2DCol = [
         (0               , bhy),
@@ -161,18 +161,18 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
     $init_zero(tmp.data, tmp.stride, tmp.height);
 
     for benchmark() {
-        for iter_col in @iterate(0, 3) {
+        for iter_col in @range(0, 3) {
             let bounds_col = Bounds2DCol(iter_col);
             let region_col = Region2DCol(iter_col);
             let tmp_acc = get_acc(tmp, region_col);
-            for y in $iterate(bounds_col(0), bounds_col(1)) {
+            for y in $range(bounds_col(0), bounds_col(1)) {
                 for x in $inner_loop(0, tmp.width) {
                     let is_row = false;
                     // index space: cache line
                     let arr_acc = Acc { img : arr, roi : RoI { o_x : 0, o_y : 0, width : arr.width, height : arr.height }, rox : 0, roy : y, region : region_col};
                     @body(x, 0, tmp_acc, arr_acc, mask, is_row);
                 }
-                for iter_row in @iterate(0, 3) {
+                for iter_row in @range(0, 3) {
                     let bounds_row = Bounds2DRow(iter_row);
                     let region_row = Region2DRow(iter_row);
                     let tmp_acc = get_acc(tmp, region_row);
