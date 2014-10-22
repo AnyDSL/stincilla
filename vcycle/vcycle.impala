@@ -8,8 +8,8 @@ fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
 
-    for j in iterate(-half_range_y, half_range_y+1) {
-        for i in iterate(-half_range_x, half_range_x+1) {
+    for j in range(-half_range_y, half_range_y+1) {
+        for i in range(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
             if stencil_val != 0.0f {
                 sum += get_pixel(acc, x + i, y + j, bh_lower, bh_upper) * stencil_val;
@@ -155,8 +155,8 @@ fn interpolate(SolF: Img, SolC: Img) -> () {
 fn l2norm(img : Img) -> float {
     // TODO: runs only on the CPU atm
     let mut l2sum = 0.0f;
-    for y in $iterate(0, img.height) {
-        for x in $iterate(0, img.width) {
+    for y in $range(0, img.height) {
+        for x in $range(0, img.width) {
             let value = img.data(y * img.stride + x);
             l2sum += value*value;
         }

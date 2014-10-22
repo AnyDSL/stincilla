@@ -5,10 +5,10 @@ struct Mat {
 }
 
 fn matmul_golden(mut C: Mat, A: Mat, B: Mat) -> () {
-    for i in $iterate(0, C.rows) {
-        for k in $iterate(0, C.cols) {
+    for i in $range(0, C.rows) {
+        for k in $range(0, C.cols) {
             let mut sum = 0 as float;
-            for j in $iterate(0, A.cols) {
+            for j in $range(0, A.cols) {
                 sum += A.data(index(A, j, i)) * B.data(index(B, k, j));
             }
             C.data(index(C, k, i)) = sum;
@@ -48,12 +48,12 @@ fn index(M: Mat, x: int, y: int) -> int {
 fn matmul_tiled(mut C: Mat, A: Mat, B: Mat) -> () {
     /*
     // initialize C with zeros
-    for i in iterate(0, C.rows * C.cols) {
+    for i in range(0, C.rows * C.cols) {
         C.data(i) = 0 as float;
     }
     */
-    for i in $iterate(0, C.rows) {
-        for k in $iterate(0, C.cols) {
+    for i in $range(0, C.rows) {
+        for k in $range(0, C.cols) {
             let mut sum = 0 as float;
             for j in @tiled_loop(A.cols) {
                 //C(index(C, i, k) += C(index(C, i, k) + A(index(A, i, j) * B(index(B, j, k);

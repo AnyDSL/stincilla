@@ -15,8 +15,8 @@ fn bilateral_filter(x: int, y: int, acc: Acc, sigma_d: int, c_d: float, c_r: flo
     let mut k = 0.0f;
     let mut p = 0.0f;
 
-    for yf in iterate(-2*sigma_d, 2*sigma_d+1) {
-        for xf in iterate(-2*sigma_d, 2*sigma_d+1) {
+    for yf in range(-2*sigma_d, 2*sigma_d+1) {
+        for xf in range(-2*sigma_d, 2*sigma_d+1) {
             let diff = get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper) - pixel_at(acc, x, y);
 
             let c = closeness(c_d, xf, yf);
@@ -36,8 +36,8 @@ fn bilateral_filter_mask(x: int, y: int, acc: Acc, mask: Mask, sigma_d: int, c_r
     let mut k = 0.0f;
     let mut p = 0.0f;
 
-    for yf in iterate(-2*sigma_d, 2*sigma_d+1) {
-        for xf in iterate(-2*sigma_d, 2*sigma_d+1) {
+    for yf in range(-2*sigma_d, 2*sigma_d+1) {
+        for xf in range(-2*sigma_d, 2*sigma_d+1) {
             let diff = get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper) - pixel_at(acc, x, y);
 
             let c = mask.data(xf + 2*sigma_d)(yf + 2*sigma_d);
@@ -130,8 +130,8 @@ fn main() -> int {
         //let mut rms_err = 0.0f;   // RMS error
         //let EPS = 0.02f;
         //let arr_acc = get_acc(arr, 10);
-        //for y in $iterate(0, out.height) {
-        //    for x in $iterate(0, out.width) {
+        //for y in $range(0, out.height) {
+        //    for x in $range(0, out.width) {
         //        let ref = @bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_r, lower, upper);
         //        let mut err = ref - out.data(y*out.stride + x);
         //        rms_err += err*err;

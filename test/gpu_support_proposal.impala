@@ -24,7 +24,7 @@ fn iteration_mapped(width : int, height : int, img : &[float], body : fn(int, in
     let g = [ g1, g2 ];
     let mut h = [int * 2];
     
-    @iterate(0, 2+1, |i : int| -> () {
+    @range(0, 2+1, |i : int| -> () {
         h[i] = opencl(i+1, grid, block, || -> () {
             let tid_x = global_id(0);
             let tid_y = global_id(1);
@@ -74,7 +74,7 @@ fn iteration(width : int, height : int, img : &[float], body : fn(int, int, &[fl
     gpu_mems[1] = gpu_img2;
     let num_devices = 2;
     let handles = [float * 2];
-    iterate(0, num_devices+1, |i : int| -> () {
+    range(0, num_devices+1, |i : int| -> () {
         body(tid_x, tid_y + i * nvvm_read_ptx_sreg_ntid_y());
         handles[i] = async(|| -> () {
             nvvm(1, grid, block, || -> () {
