@@ -1,0 +1,30 @@
+fn main() -> int {
+    let length = 5;
+    let width  = 4096;
+    let height = 4096;
+    let arr    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let out    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    init_rand(arr.data, arr.stride, out.height);
+    init_zero(out.data, out.stride, out.height);
+
+    for x, y, mut out_acc, arr_acc in @iteration(out, arr) {
+        fn median() -> float {
+            let mut tmp_arr: [float * 5];
+            for i in iterate(-2, 2+1) {
+                let x_clamped = clamp_upper(clamp_lower(x + i, 0, arr_acc.img.width, return), 0, arr_acc.img.width, return);
+                tmp_arr(i + 2) = arr_acc.img.data(y * arr_acc.img.stride + x_clamped);
+            }
+
+            oddeven_merge_sort(length, tmp_arr);
+
+            tmp_arr((length - 1) / 2)
+        }
+        out_acc.img.data(y * out_acc.img.stride + x) = @median();
+    }
+
+    fn reference() -> int {
+        let mut passed = 0;
+        passed
+    }
+    @reference()
+}

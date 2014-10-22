@@ -37,7 +37,8 @@ fn oddeven_merge_sort(length: int, mut arr: [float * 5]) -> () {
     oddeven_merge_sort_range(0, length - 1);
 }
 
-fn main(input: &[float]) -> float {
+extern
+fn test_main(input: &[float]) -> float {
     let length = 5;
 
     fn median() -> float {

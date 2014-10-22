@@ -1,0 +1,14 @@
+fn iteration(out: Img, arr: Img,
+             body: fn(int, int, Acc, Acc) -> ()
+            ) -> () {
+    let arr_acc = get_acc(arr, 10);
+    let out_acc = get_acc(out, 10);
+
+    for benchmark() {
+        for y in $iterate(0, out.height) {
+            for x in $inner_loop(0, out.width) {
+                @body(x, y, out_acc, arr_acc);
+            }
+        }
+    }
+}
