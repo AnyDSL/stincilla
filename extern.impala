@@ -141,11 +141,23 @@ fn benchmark(body: fn() -> ()) -> () {
         @body();
         times(i) = thorin_get_micro_time()-start;
     }
-    sort(7, times as &[i64]);
+    sort_i64(7, times as &[i64]);
     thorin_print_micro_time(times(3));
 }
 
-fn sort(num : int, mut arr : &[i64]) -> () {
+fn sort_i64(num: int, mut arr: &[i64]) -> () {
+    // insertion sort
+    for i in range(1, num) {
+        let x = arr(i);
+        let mut j = i;
+        while j > 0 && arr(j-1) > x {
+            arr(j) = arr(j-1);
+            j = j - 1;
+        }
+        arr(j) = x;
+    }
+}
+fn sort_f32(num: int, mut arr: &[f32]) -> () {
     // insertion sort
     for i in range(1, num) {
         let x = arr(i);

@@ -21,6 +21,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 add_subdirectory(aobench)
 add_subdirectory(test)
 add_subdirectory(image_sharpening)
+add_subdirectory(sorting_networks)
 add_subdirectory(vcycle)
 
 # simple CPU-based examples
