@@ -1,5 +1,5 @@
 fn main() -> int {
-    let length = 5;
+    let length = 4;
     let width  = 4096;
     let height = 4096;
     let arr    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
@@ -9,10 +9,10 @@ fn main() -> int {
 
     for x, y, mut out_acc, arr_acc in @iteration(out, arr) {
         fn median() -> float {
-            let mut tmp_arr: [float * 5];
-            for i in range(-2, 2+1) {
+            let mut tmp_arr: [float * 4];
+            for i in range(-length/2, +length/2 + 1) {
                 let x_clamped = clamp_upper(clamp_lower(x + i, 0, arr_acc.img.width, return), 0, arr_acc.img.width, return);
-                tmp_arr(i + 2) = arr_acc.img.data(y * arr_acc.img.stride + x_clamped);
+                tmp_arr(i + length / 2) = arr_acc.img.data(y * arr_acc.img.stride + x_clamped);
             }
 
             oddeven_merge_sort(length, tmp_arr);

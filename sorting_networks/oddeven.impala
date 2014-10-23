@@ -2,7 +2,8 @@ extern "C" {
   fn print(i32, i32) -> ();
 }
 
-fn oddeven_merge_sort(length: int, mut arr: [float * 5]) -> () {
+// odd-even merge sort works only for power of two
+fn oddeven_merge_sort(length: int, mut arr: [float * 4]) -> () {
     fn compare_and_swap(i: int, j: int) -> () {
         //print(i, j);
         if arr(i) > arr(j) {
@@ -12,12 +13,12 @@ fn oddeven_merge_sort(length: int, mut arr: [float * 5]) -> () {
         }
     }
 
-    fn oddeven_merge(lo: int, hi: int, r: int) -> () {
-        let step = r * 2;
-        if step < hi - lo {
-            oddeven_merge(lo, hi, step);
-            oddeven_merge(lo + r, hi, step);
-            for i in range_step(lo + r, hi - r, step) {
+    fn oddeven_merge(lo: int, n: int, r: int) -> () {
+        let m = r * 2;
+        if m < n {
+            oddeven_merge(lo, n, m);        // even subsequence
+            oddeven_merge(lo + r, n, m);    // odd subsequence
+            for i in range_step(lo + r, lo + n - r, m) {
                 compare_and_swap(i, i + r);
             }
         } else {
@@ -25,24 +26,24 @@ fn oddeven_merge_sort(length: int, mut arr: [float * 5]) -> () {
         }
     }
 
-    fn oddeven_merge_sort_range(lo: int, hi: int) -> () {
-        if (hi - lo) >= 1 {
-            let mid = lo + ((hi - lo) / 2);
-            oddeven_merge_sort_range(lo, mid);
-            oddeven_merge_sort_range(mid + 1, hi);
-            oddeven_merge(lo, hi, 1);
+    fn oddeven_merge_sort_range(lo: int, n: int) -> () {
+        if n > 1 {
+            let m = n / 2;
+            oddeven_merge_sort_range(lo, m);
+            oddeven_merge_sort_range(lo + m, m);
+            oddeven_merge(lo, n, 1);
         }
     }
 
-    oddeven_merge_sort_range(0, length - 1);
+    oddeven_merge_sort_range(0, length);
 }
 
 extern
 fn test_main(input: &[float]) -> float {
-    let length = 5;
+    let length = 4;
 
     fn median() -> float {
-        let mut arr: [float * 5];
+        let mut arr: [float * 4];
         for i in range(0, length) {
             arr(i) = input(i);
         }
@@ -50,7 +51,7 @@ fn test_main(input: &[float]) -> float {
         oddeven_merge_sort(length, arr);
 
         // return median
-        arr((length -1) / 2)
+        arr((length - 1) / 2)
     }
     @median()
 }
