@@ -322,8 +322,7 @@ fn sobel(x: int, y: int, tmp: Acci16, img: Acci16) -> () {
 fn filter(x: int, y: int, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ksize: int) -> () {
     let val = get_pixel_f32(map, x, y);
     let ksizeh = ksize / 2;
-    if val > threshold {
-        for i in @range(0, 1) {
+    if val > threshold @{
         let mut sum = 0i16;
         for ym in range(-ksizeh, ksizeh+1) {
             for xm in range(-ksizeh, ksizeh+1) {
@@ -331,11 +330,8 @@ fn filter(x: int, y: int, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ks
             }
         }
         set_pixel(tmp, x, y, (sum as float / ((ksize * ksize) as float)) as i16);
-        }
-    } else {
-        for i in @range(0, 1) {
+    } else @{
         set_pixel(tmp, x, y, get_pixel_i16(img, x, y, nobh_center_i16, nobh_center_i16));
-        }
     }
 }
 

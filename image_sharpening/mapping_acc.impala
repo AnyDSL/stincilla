@@ -96,32 +96,24 @@ fn reduce(img: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
     // reduce all lines to temporary memory
     let grid1  = (img.width, 1, 1);
     let block1 = (128, 1, 1);
-    acc(acc_dev(), grid1, block1, || {
-        for dummy in @range(0, 1) { // force partial evaluation
-            let mut sum = 0;
-            for y in $range(0, img.height) {
-                for dummy in @range(0, 1) { // force partial evaluation
-                    let img_acc = get_acc_i16(img, 4);
-                    sum += body(acc_gidx(), y, img);
-                }
-            }
-            tmp(acc_gidx()) = sum;
+    acc(acc_dev(), grid1, block1, || @{
+        let mut sum = 0;
+        for y in $range(0, img.height) @{
+            let img_acc = get_acc_i16(img, 4);
+            sum += body(acc_gidx(), y, img);
         }
+        tmp(acc_gidx()) = sum;
     });
 
     // reduce temporary memory
     let grid2  = (img.width, 1, 1);
     let block2 = (128, 1, 1);
-    acc(acc_dev(), grid2, block2, || {
-        for dummy in @range(0, 1) { // force partial evaluation
-            let mut sum = 0;
-            for x in $range(0, img.width) {
-                for dummy in @range(0, 1) { // force partial evaluation
-                    sum += tmp(x);
-                }
-            }
-            tmp(0) = sum;
+    acc(acc_dev(), grid2, block2, || @{
+        let mut sum = 0;
+        for x in $range(0, img.width) @{
+            sum += tmp(x);
         }
+        tmp(0) = sum;
     });
 
     // return sum stored in first element
@@ -137,17 +129,13 @@ fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
 
     let grid1  = (img.width, 1, 1);
     let block1 = (256, 1, 1);
-    acc(acc_dev(), grid1, block1, || {
-        for dummy in @range(0, 1) { // force partial evaluation
-            let mut sm_bins = mmap_i32(bins, acc_dev(), acc_spm(), 256, 1);
-            for y in $range(0, img.height) {
-                for dummy in @range(0, 1) { // force partial evaluation
-                    let bin = body(acc_gidx(), y, img);
-                    atomic_add_local(&sm_bins(bin), 1);
-                }
-            }
-            atomic_add_global(&gpu_bins(acc_tidx()), sm_bins(acc_tidx()));
+    acc(acc_dev(), grid1, block1, || @{
+        let mut sm_bins = mmap_i32(bins, acc_dev(), acc_spm(), 256, 1);
+        for y in $range(0, img.height) @{
+            let bin = body(acc_gidx(), y, img);
+            atomic_add_local(&sm_bins(bin), 1);
         }
+        atomic_add_global(&gpu_bins(acc_tidx()), sm_bins(acc_tidx()));
     });
 
     bins
@@ -177,109 +165,97 @@ fn inclusive_scan(img: &[int], size: int, body: fn(int, &[int]) -> int) -> &[int
 
     let grid0  = (size / 2, 1, 1);
     let block0 = (block_size, 1, 1);
-    acc(acc_dev(), grid0, block0, || {
-        for dummy in @range(0, 1) { // force partial evaluation
-            let gid = acc_gidx();
-            let tid = acc_tidx();
-            let sm_size = 2 * block_size;
-            let mut sm_arr = mmap_i32(arr, acc_dev(), acc_spm(), sm_size, 1);
+    acc(acc_dev(), grid0, block0, || @{
+        let gid = acc_gidx();
+        let tid = acc_tidx();
+        let sm_size = 2 * block_size;
+        let mut sm_arr = mmap_i32(arr, acc_dev(), acc_spm(), sm_size, 1);
 
-            // load input into shared memory
-            sm_arr(2 * tid)     = gpu_arr(2 * gid);
-            sm_arr(2 * tid + 1) = gpu_arr(2 * gid + 1);
+        // load input into shared memory
+        sm_arr(2 * tid)     = gpu_arr(2 * gid);
+        sm_arr(2 * tid + 1) = gpu_arr(2 * gid + 1);
 
-            let mut offset = 1;
-            for d in for_shift_down(sm_size>>1, 0) { // build sum in place up the tree
-                acc_barrier();
-                if tid < d {
-                    let ai = offset * (2 * tid + 1) - 1;
-                    let bi = offset * (2 * tid + 2) - 1;
-                    sm_arr(bi) += sm_arr(ai);
-                }
-                offset *= 2;
-            }
-
-            // clear the last element: exclusive scan only
-            // if tid == 0 { sm_arr(sm_size - 1) = 0; }
-
-            // traverse down tree & build scan
-            for d in for_shift_up(1, sm_size) {
-                offset >>= 1;
-                acc_barrier();
-                if tid < d {
-                    let ai = offset * (2 * tid + 1) - 1;
-                    let bi = offset * (2 * tid + 2) - 1;
-                    let tmp = sm_arr(ai);
-                    sm_arr(ai) = sm_arr(bi);
-                    sm_arr(bi) += tmp;
-                }
-            }
-
+        let mut offset = 1;
+        for d in for_shift_down(sm_size>>1, 0) { // build sum in place up the tree
             acc_barrier();
-
-            // write results to device memory
-            if tid == 0 {
-                for dummy in @range(0, 1) { // force partial evaluation
-                    gpu_tmp(acc_bidx()) = sm_arr(sm_size - 1);
-                }
+            if tid < d @{
+                let ai = offset * (2 * tid + 1) - 1;
+                let bi = offset * (2 * tid + 2) - 1;
+                sm_arr(bi) += sm_arr(ai);
             }
-            gpu_arr(2 * gid)     = sm_arr(2 * tid);
-            gpu_arr(2 * gid + 1) = sm_arr(2 * tid + 1);
+            offset *= 2;
         }
+
+        // clear the last element: exclusive scan only
+        // if tid == 0 { sm_arr(sm_size - 1) = 0; }
+
+        // traverse down tree & build scan
+        for d in for_shift_up(1, sm_size) {
+            offset >>= 1;
+            acc_barrier();
+            if tid < d @{
+                let ai = offset * (2 * tid + 1) - 1;
+                let bi = offset * (2 * tid + 2) - 1;
+                let tmp = sm_arr(ai);
+                sm_arr(ai) = sm_arr(bi);
+                sm_arr(bi) += tmp;
+            }
+        }
+
+        acc_barrier();
+
+        // write results to device memory
+        if tid == 0 @{
+            gpu_tmp(acc_bidx()) = sm_arr(sm_size - 1);
+        }
+        gpu_arr(2 * gid)     = sm_arr(2 * tid);
+        gpu_arr(2 * gid + 1) = sm_arr(2 * tid + 1);
     });
 
     if num_blocks > 1 {
         // perform scan on block scan results
         let grid1 = (num_blocks, 1, 1);
         let block1 = (num_blocks, 1, 1);
-        acc(acc_dev(), grid1, block1, || {
-            for dummy in @range(0, 1) { // force partial evaluation
-                let tid = acc_tidx();
-                let sm_size = num_blocks;
-                let mut sm_arr = mmap_i32(arr, acc_dev(), acc_spm(), sm_size, 1);
+        acc(acc_dev(), grid1, block1, || @{
+            let tid = acc_tidx();
+            let sm_size = num_blocks;
+            let mut sm_arr = mmap_i32(arr, acc_dev(), acc_spm(), sm_size, 1);
 
-                // load input into shared memory
-                sm_arr(tid) = gpu_tmp(tid);
+            // load input into shared memory
+            sm_arr(tid) = gpu_tmp(tid);
 
-                acc_barrier();
+            acc_barrier();
 
-                if tid == 0 {
-                    for dummy in @range(0, 1) { // force partial evaluation
-                        let mut sum = sm_arr(0);
-                        for d in @range(1, sm_size) {
-                            sum += sm_arr(d);
-                            sm_arr(d) = sum;
-                        }
-                    }
+            if tid == 0 @{
+                let mut sum = sm_arr(0);
+                for d in range(1, sm_size) {
+                    sum += sm_arr(d);
+                    sm_arr(d) = sum;
                 }
-
-                acc_barrier();
-
-                // write results to device memory
-                gpu_tmp(tid) = sm_arr(tid);
             }
+
+            acc_barrier();
+
+            // write results to device memory
+            gpu_tmp(tid) = sm_arr(tid);
         });
 
         // add block scan results to array
         let grid2  = ((num_blocks-1) * block_size, 1, 1);
         let block2 = (block_size, 1, 1);
-        acc(acc_dev(), grid2, block2, || {
-            for dummy in @range(0, 1) { // force partial evaluation
-                let tid = acc_tidx();
-                let gid = acc_gidx() + block_size; // first block hold already the correct scan results
-                let mut add = mmap_i32(arr, acc_dev(), acc_spm(), 1, 1);
+        acc(acc_dev(), grid2, block2, || @{
+            let tid = acc_tidx();
+            let gid = acc_gidx() + block_size; // first block hold already the correct scan results
+            let mut add = mmap_i32(arr, acc_dev(), acc_spm(), 1, 1);
 
-                if tid == 0 {
-                    for dummy in @range(0, 1) { // force partial evaluation
-                        add(0) = gpu_tmp(acc_bidx());
-                    }
-                }
-
-                acc_barrier();
-
-                // write results to device memory
-                gpu_arr(gid) += add(0);
+            if tid == 0 @{
+                add(0) = gpu_tmp(acc_bidx());
             }
+
+            acc_barrier();
+
+            // write results to device memory
+            gpu_arr(gid) += add(0);
         });
     }
 
@@ -294,13 +270,9 @@ fn find_position(img: &[int], size: int, body: fn(int, &[int]) -> int) -> int {
 
     let grid1  = (size, 1, 1);
     let block1 = (256, 1, 1);
-    acc(acc_dev(), grid1, block1, || {
-        for dummy in @range(0, 1) { // force partial evaluation
-            if body(acc_gidx(), img) != 0 {
-                for dummy in @range(0, 1) { // force partial evaluation
-                    atomic_min_global(&gpu_elem(0), acc_gidx());
-                }
-            }
+    acc(acc_dev(), grid1, block1, || @{
+        if body(acc_gidx(), img) != 0 @{
+            atomic_min_global(&gpu_elem(0), acc_gidx());
         }
     });
 

@@ -10,39 +10,35 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
     let grid  = (Sol.width, Sol.height, 1);
     let block = (64, 2, 1); // must be x2
 
-    acc(dev, grid, block, || {
-        for dummy in @range(0, 1) { // force partial evaluation
-            let tid_x = acc_tidx();
-            let tid_y = acc_tidy();
-            let gid_y = acc_gidy();
+    acc(dev, grid, block, || @{
+        let tid_x = acc_tidx();
+        let tid_y = acc_tidy();
+        let gid_y = acc_gidy();
 
-            let lstride = block(0);
-            let lheight = block(1);
-            let smem_res = mmap(Sol.data, dev, acc_spm(), 0, lstride * lheight);
-            let smem_img = Img { data : smem_res, width : lstride,    height : lheight,     stride : lstride };
-            let rhsf_img = Img { data : gpu_rhsf, width : RHSF.width, height : RHSF.height, stride : RHSF.stride };
-            let rhsc_img = Img { data : gpu_rhsc, width : RHSC.width, height : RHSC.height, stride : RHSC.stride };
-            let sol_img  = Img { data : gpu_sol,  width : Sol.width,  height : Sol.height,  stride : Sol.stride };
+        let lstride = block(0);
+        let lheight = block(1);
+        let smem_res = mmap(Sol.data, dev, acc_spm(), 0, lstride * lheight);
+        let smem_img = Img { data : smem_res, width : lstride,    height : lheight,     stride : lstride };
+        let rhsf_img = Img { data : gpu_rhsf, width : RHSF.width, height : RHSF.height, stride : RHSF.stride };
+        let rhsc_img = Img { data : gpu_rhsc, width : RHSC.width, height : RHSC.height, stride : RHSC.stride };
+        let sol_img  = Img { data : gpu_sol,  width : Sol.width,  height : Sol.height,  stride : Sol.stride };
 
-            // residual: index space == block
-            let tmp_acc  = get_acc(smem_img, 4 /* no bh */);
-            let rhsf_acc = Acc { img : rhsf_img, roi : RoI { o_x : 0, o_y : 0, width : rhsf_img.width, height : rhsf_img.height },
-                                                 rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy(), region : 4 /* no bh */ };
-            let sol_acc  = Acc { img : sol_img,  roi : RoI { o_x : 0, o_y : 0, width : sol_img.width,  height : sol_img.height },
-                                                 rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy(), region : 4 /* no bh */ };
-            residual(tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
+        // residual: index space == block
+        let tmp_acc  = get_acc(smem_img, 4 /* no bh */);
+        let rhsf_acc = Acc { img : rhsf_img, roi : RoI { o_x : 0, o_y : 0, width : rhsf_img.width, height : rhsf_img.height },
+                                             rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy(), region : 4 /* no bh */ };
+        let sol_acc  = Acc { img : sol_img,  roi : RoI { o_x : 0, o_y : 0, width : sol_img.width,  height : sol_img.height },
+                                             rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy(), region : 4 /* no bh */ };
+        residual(tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
 
-            acc_barrier();
+        acc_barrier();
 
-            // restrict: index space == block
-            if tid_x <= block(0)/2 && gid_y % 2 == 0 {
-                for dummy in @range(0, 1) { // force partial evaluation
-                    let rhs_acc = Acc { img : rhsc_img, roi : RoI { o_x : 0, o_y : 0, width : rhsc_img.width, height : rhsc_img.height },
-                                                        rox : acc_bdimx() * acc_bidx()/2, roy : acc_bdimy() * acc_bidy()/2, region : 4 /* no bh */ };
-                    let tmp_acc = get_acc(smem_img, 4 /* no bh */);
-                    restrict(tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
-                }
-            }
+        // restrict: index space == block
+        if tid_x <= block(0)/2 && gid_y % 2 == 0 @{
+            let rhs_acc = Acc { img : rhsc_img, roi : RoI { o_x : 0, o_y : 0, width : rhsc_img.width, height : rhsc_img.height },
+                                                rox : acc_bdimx() * acc_bidx()/2, roy : acc_bdimy() * acc_bidy()/2, region : 4 /* no bh */ };
+            let tmp_acc = get_acc(smem_img, 4 /* no bh */);
+            restrict(tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
         }
     });
 }

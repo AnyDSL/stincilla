@@ -9,8 +9,8 @@ fn iteration(out: &[u8], width: int, height: int,
             ) -> () {
     for benchmark() {
         for y in $range(0, height) {
-            for x in $inner_loop(0, width) {
-                @body(x, y, out);
+            for x in $inner_loop(0, width) @{
+                body(x, y, out);
             }
         }
     }

@@ -19,14 +19,14 @@ fn main() -> int {
 
             tmp_arr((length - 1) / 2)
         }
-        out_acc.img.data(y * out_acc.img.stride + x) = @median();
+        out_acc.img.data(y * out_acc.img.stride + x) = median();
     }
 
     fn reference() -> int {
         let mut passed = 0;
         let mut tmp_arr = ~[length:f32];
         for y in $range(0, out.height) {
-            for x in $range(0, out.width) {
+            for x in $range(0, out.width) @{
                 fn median() -> float {
                     for i in range(-length/2, +length/2 + 1) {
                         let x_clamped = clamp_upper(clamp_lower(x + i, 0, arr.width, return), 0, arr.width, return);
@@ -35,7 +35,7 @@ fn main() -> int {
                     sort_f32(length, tmp_arr);
                     tmp_arr((length - 1) / 2)
                 }
-                let ref = @median();
+                let ref = median();
                 if ref != out.data(y * out.stride + x) {
                     passed++;
                 }
