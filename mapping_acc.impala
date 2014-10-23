@@ -27,12 +27,13 @@ fn iteration(out: Img, arr: Img, mask: Mask,
     let grid   = (out.width, out.height/unroll, 1);
     let block  = config(0);
 
-    acc(acc_dev(), grid, block, || {
-        for i in @range(0, unroll) {
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let arr_acc = get_acc(arr, 10);
-            let out_acc = get_acc(out, 10);
+    acc(acc_dev(), grid, block, || @{
+        let gid_x = acc_gidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+        let arr_acc = get_acc(arr, 10);
+        let out_acc = get_acc(out, 10);
+
+        for i in range(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc, mask);
         }
     });
@@ -54,7 +55,7 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
     if big_kernel {
         let grid = (out.width, out.height/unroll, 1);
 
-        acc(acc_dev(), grid, block, || {
+        acc(acc_dev(), grid, block, || @{
             let bid_x = acc_bidx();
             let bid_y = acc_bidy();
             let bdim_y = acc_bdimy();
@@ -162,13 +163,13 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
             let arr_acc = get_acc(arr, region);
             let out_acc = get_acc(out, region);
 
-            acc(acc_dev(), grid, block, || {
+            acc(acc_dev(), grid, block, || @{
                 let gid_x = bounds(0) +
                             acc_tidx() + acc_bdimx() * acc_bidx();
                 let gid_y = bounds(2) * unroll +
                             acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-                for i in @range(0, unroll) {
+                for i in range(0, unroll) {
                     body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc, mask);
                 }
             });
@@ -205,7 +206,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
 
         let lstride = block(0) + 2 * m_range_x;
         let lheight = block(1) * unroll + 2 * m_range_y;
-        let mut smem = mmap(arr.data, dev, acc_spm(), 0, lstride * lheight); // TODO: why do we need an @ here?
+        let mut smem = mmap(arr.data, dev, @acc_spm(), 0, lstride * lheight); // TODO: why do we need an @ here?
         let sma_img = Img { data : smem,    width : lstride,   height : lheight,    stride : lstride };
         let out_img = Img { data : gpu_out, width : out.width, height : out.height, stride : out.width };
 
@@ -233,7 +234,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
 
         acc_barrier();
 
-        for i in @range(0, unroll) {
+        for i in range(0, unroll) {
             // index space: block
             let out_acc = Acc { img : out_img, roi : RoI { o_x : 0, o_y : 0, width : out_img.width, height : out_img.height },
                                                rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy() * unroll + i * bdim_y, region : region };
@@ -262,19 +263,21 @@ fn iteration_sep(out: Img, arr: Img, mask: MaskSep,
     let tmp_acc = get_acc(tmp, 10);
 
     let dev = acc_dev();
-    acc(dev, grid, block, || {
-        for i in @range(0, unroll) {
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let is_row = false;
+    acc(dev, grid, block, || @{
+        let gid_x = acc_gidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+        let is_row = false;
+
+        for i in range(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, arr_acc, mask, is_row);
         }
     });
-    acc(dev, grid, block, || {
-        for i in @range(0, unroll) {
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let is_row = true;
+    acc(dev, grid, block, || @{
+        let gid_x = acc_gidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+        let is_row = true;
+
+        for i in range(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, tmp_acc, mask, is_row);
         }
     });
@@ -386,12 +389,13 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             let arr_acc = get_acc(arr, region);
             let tmp_acc = get_acc(tmp, region);
 
-            acc(acc_dev(), grid, block, || {
-                for i in @range(0, unroll) {
-                    let gid_x = acc_gidx();
-                    let gid_y = bounds(0) * unroll +
-                                acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-                    let is_row = false;
+            acc(acc_dev(), grid, block, || @{
+                let gid_x = acc_gidx();
+                let gid_y = bounds(0) * unroll +
+                            acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+                let is_row = false;
+
+                for i in range(0, unroll) {
                     body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, arr_acc, mask, is_row);
                 }
             });
@@ -411,11 +415,12 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             let tmp_acc = get_acc(tmp, region);
             let out_acc = get_acc(out, region);
 
-            acc(acc_dev(), grid, block, || {
-                for i in @range(0, unroll) {
-                    let gid_x = bounds(0) + acc_gidx();
-                    let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-                    let is_row = true;
+            acc(acc_dev(), grid, block, || @{
+                let gid_x = bounds(0) + acc_gidx();
+                let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+                let is_row = true;
+
+                for i in range(0, unroll) {
                     body(gid_x, gid_y + i * acc_bdimy(), out_acc, tmp_acc, mask, is_row);
                 }
             });
@@ -452,8 +457,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
         let lstride = block(0) + 2 * m_range;
         let lheight_col = block(1) * unroll + 2 * m_range;
         let lheight_row = block(1) * unroll;
-        let mut smem_col = mmap(arr.data, dev, acc_spm(), 0, lstride * lheight_col); // TODO: why do we need an @ here?
-        let     smem_row = mmap(arr.data, dev, acc_spm(), 0, lstride * lheight_row); // TODO: why do we need an @ here?
+        let mut smem_col = mmap(arr.data, dev, @acc_spm(), 0, lstride * lheight_col); // TODO: why do we need an @ here?
+        let     smem_row = mmap(arr.data, dev, @acc_spm(), 0, lstride * lheight_row); // TODO: why do we need an @ here?
         let smr_img = Img { data : smem_row, width : lstride,  height : lheight_row, stride : lstride };
         let smc_img = Img { data : smem_col, width : lstride,  height : lheight_col, stride : lstride };
         let out_img = Img { data : gpu_out,  width : out.width, height : out.height, stride : out.width };
@@ -482,7 +487,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
 
         acc_barrier();
 
-        for i in @range(0, unroll) {
+        for i in range(0, unroll) {
             let is_row = false;
             {
                 // index space: block
@@ -512,7 +517,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
 
         acc_barrier();
 
-        for i in @range(0, unroll) {
+        for i in range(0, unroll) {
             // index space: block
             let is_row = true;
             let out_acc = Acc { img : out_img, roi : RoI { o_x : 0, o_y : 0, width : out_img.width, height : out_img.height },
