@@ -202,7 +202,7 @@ fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
         Sphere { center : vec { x : spheres(1).center.x, y : spheres(1).center.y, z : spheres(1).center.z }, radius : spheres(1).radius },
         Sphere { center : vec { x : spheres(2).center.x, y : spheres(2).center.y, z : spheres(2).center.z }, radius : spheres(2).radius }
     ];
-    for x, y, mut img in iteration(img, w, h) {
+    for x, y, mut img in @iteration(img, w, h) {
         let mut plane = magic_plane_id(plane_);
         let mut spheres = magic_spheres_id(spheres_);
         let mut r = 0.0;
@@ -229,7 +229,7 @@ fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
                 ray_sphere_intersect(&isect, &ray, &spheres(2));
                 ray_plane_intersect (&isect, &ray, &plane);
 
-                if isect.hit == 1 {
+                if isect.hit == 1 @{
                     let mut col: vec;
                     ambient_occlusion(&col, &isect, &spheres, &plane);
 
