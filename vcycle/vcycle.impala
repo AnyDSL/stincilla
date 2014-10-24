@@ -35,7 +35,7 @@ fn deriv2D(RHS: Img, img: Img) -> () {
                 [0.0f,  1.0f, 0.0f]],
         size_x : 3, size_y : 3
     };
-    for x, y, rhs_acc, img_acc, mask in iteration(RHS, img, mask) {
+    for x, y, rhs_acc, img_acc, mask in iteration_bounds(RHS, img, mask) {
         let val = apply_stencil(x, y, img_acc, mask, mirror_lower, mirror_upper);
         set_pixel(rhs_acc, x, y, val);
     }
@@ -63,9 +63,8 @@ fn jacobi_solver(x: int, y: int, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> ()
 }
 
 fn jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: float) -> () {
-    for x, y, sol_acc, tmp_acc, mask in iteration(Sol, Tmp, jacobi_mask) {
-        // TODO: RHS is not mapped in iteration
-        let rhs_acc = get_acc(RHS, 10);
+    for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol, Tmp, jacobi_mask) {
+        let rhs_acc = get_acc(RHS, tmp_acc.region);
         let val = (1.0f - omega) * pixel_at(tmp_acc, x, y) +
                   0.25f * omega  * pixel_at(rhs_acc, x, y) +
                   apply_stencil(x, y, tmp_acc, mask, dirichlet_lower, dirichlet_upper);
@@ -87,9 +86,8 @@ fn residual_fun(x: int, y: int, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () 
 }
 
 fn residual(Res: Img, Sol: Img, RHS: Img) -> () {
-    for x, y, res_acc, sol_acc, mask in iteration(Res, Sol, residual_mask) {
-        // TODO: RHS is not mapped in iteration
-        let rhs_acc = get_acc(RHS, 10);
+    for x, y, res_acc, sol_acc, mask in iteration_bounds(Res, Sol, residual_mask) {
+        let rhs_acc = get_acc(RHS, sol_acc.region);
         let val = pixel_at(rhs_acc, x, y) + apply_stencil(x, y, sol_acc, mask, dirichlet_lower, dirichlet_upper);
         set_pixel(res_acc, x, y, val);
     }
@@ -266,12 +264,12 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
     }
 
     fn vcycle_dsl_intern(level : int) -> () {
-        let rhs_acc = get_acc(RHS(level), 4);
         if level == levels-1 {
             for i in range(0, ssteps) {
                 // smooth
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for x, y, sol_acc, tmp_acc, mask in iteration(Sol(level), Tmp(level), solver_mask) {
+                for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask) {
+                    let rhs_acc = get_acc(RHS(level), tmp_acc.region);
                     solver(x, y, sol_acc, tmp_acc, rhs_acc, mask);
                 }
             }
@@ -279,7 +277,8 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
             // pre-smooth
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for x, y, sol_acc, tmp_acc, mask in iteration(Sol(level), Tmp(level), solver_mask) {
+                for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask) {
+                    let rhs_acc = get_acc(RHS(level), tmp_acc.region);
                     solver(x, y, sol_acc, tmp_acc, rhs_acc, mask);
                 }
             }
@@ -288,7 +287,8 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
             if merge == true {
                 iteration_merge(RHS(level+1), Sol(level), RHS(level), residual, residual_mask, restrict, restrict_mask);
             } else {
-                for x, y, res_acc, sol_acc, mask in iteration(Res(level), Sol(level), residual_mask) {
+                for x, y, res_acc, sol_acc, mask in iteration_bounds(Res(level), Sol(level), residual_mask) {
+                    let rhs_acc = get_acc(RHS(level), sol_acc.region);
                     residual(x, y, res_acc, sol_acc, rhs_acc, mask);
                 }
 
@@ -310,7 +310,8 @@ fn vcycle_dsl(RHS0 : Img, levels : int, vsteps : int, ssteps : int,
             // post-smooth
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for x, y, sol_acc, tmp_acc, mask in iteration(Sol(level), Tmp(level), solver_mask) {
+                for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask) {
+                    let rhs_acc = get_acc(RHS(level), tmp_acc.region);
                     solver(x, y, sol_acc, tmp_acc, rhs_acc, mask);
                 }
             }

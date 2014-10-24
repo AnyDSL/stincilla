@@ -11,14 +11,14 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
         for y in $range_step(0, Sol.height, 2) {
             for x in $inner_loop(0, Sol.width) @{
                 // index space: cache line
-                let rhsf_acc = Acc { img : RHSF, roi : RoI { o_x : 0, o_y : 0, width : RHSF.width, height : RHSF.height }, rox : 0, roy : y, region : 4 };
-                let sol_acc  = Acc { img : Sol,  roi : RoI { o_x : 0, o_y : 0, width : Sol.width,  height : Sol.height },  rox : 0, roy : y, region : 4 };
+                let rhsf_acc = Acc { img : RHSF, roi : RoI { o_x : 0, o_y : 0, width : RHSF.width, height : RHSF.height }, rox : 0, roy : y, region : 10 }; // TODO: specialize boundary handling
+                let sol_acc  = Acc { img : Sol,  roi : RoI { o_x : 0, o_y : 0, width : Sol.width,  height : Sol.height },  rox : 0, roy : y, region : 10 }; // TODO: specialize boundary handling
                 residual(x, 0, tmp_acc, sol_acc, rhsf_acc, residual_mask);
                 residual(x, 1, tmp_acc, sol_acc, rhsf_acc, residual_mask);
             }
             for x in $range(0, RHSC.width) @{
                 // index space: cache line
-                let rhs_acc = Acc { img : RHSC, roi : RoI { o_x : 0, o_y : 0, width : RHSC.width, height : RHSC.height}, rox : 0, roy : y/2, region : 4 };
+                let rhs_acc = Acc { img : RHSC, roi : RoI { o_x : 0, o_y : 0, width : RHSC.width, height : RHSC.height}, rox : 0, roy : y/2, region : 4 /* no bh */ };
                 restrict(x, 0, rhs_acc, tmp_acc, restrict_mask);
             }
         }
