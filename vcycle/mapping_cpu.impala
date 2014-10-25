@@ -5,21 +5,48 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
     // allocate temporary array
     let tmp = Img { data : ~[Sol.stride*2:float], width : Sol.width, height : 2, stride : Sol.stride };
     $init_zero(tmp.data, tmp.stride, tmp.height);
-    let tmp_acc  = get_acc(tmp, 4);
+
+    // compute the number of vector strides for boundary handling
+    let step_size = 2;
+    let bhy = round_up(residual_mask.size_y / 2, step_size);
+    let bhx = round_up(residual_mask.size_x / 2, get_vector_length());
+
+    // (minx, maxx, miny, maxy)
+    let width  = Sol.width;
+    let height = Sol.height;
+    let Bounds2D = [
+        (0          , bhx        , 0           , bhy),
+        (bhx        , width - bhx, 0           , bhy),
+        (width - bhx, width      , 0           , bhy),
+
+        (0          , bhx        , bhy         , height - bhy),
+        (bhx        , width - bhx, bhy         , height - bhy),
+        (width - bhx, width      , bhy         , height - bhy),
+
+        (0          , bhx        , height - bhy, height),
+        (bhx        , width - bhx, height - bhy, height),
+        (width - bhx, width      , height - bhy, height)
+    ];
 
     for benchmark() {
-        for y in $range_step(0, Sol.height, 2) {
-            for x in $inner_loop(0, Sol.width) @{
-                // index space: cache line
-                let rhsf_acc = Acc { img : RHSF, roi : RoI { o_x : 0, o_y : 0, width : RHSF.width, height : RHSF.height }, rox : 0, roy : y, region : 10 }; // TODO: specialize boundary handling
-                let sol_acc  = Acc { img : Sol,  roi : RoI { o_x : 0, o_y : 0, width : Sol.width,  height : Sol.height },  rox : 0, roy : y, region : 10 }; // TODO: specialize boundary handling
-                residual(x, 0, tmp_acc, sol_acc, rhsf_acc, residual_mask);
-                residual(x, 1, tmp_acc, sol_acc, rhsf_acc, residual_mask);
-            }
-            for x in $range(0, RHSC.width) @{
-                // index space: cache line
-                let rhs_acc = Acc { img : RHSC, roi : RoI { o_x : 0, o_y : 0, width : RHSC.width, height : RHSC.height}, rox : 0, roy : y/2, region : 4 /* no bh */ };
-                restrict(x, 0, rhs_acc, tmp_acc, restrict_mask);
+        for iter in @range(0, 9) {
+            let bounds  = Bounds2D(iter);
+            let region  = Region2D(iter);
+            let tmp_acc = get_acc(tmp, 4 /* no bh */);
+
+            for y in $range_step(bounds(2), bounds(3), step_size) {
+                for x in $inner_loop(bounds(0), bounds(1)) @{
+                    // index space: cache line
+                    let rhsf_acc = Acc { img : RHSF, roi : RoI { o_x : 0, o_y : 0, width : RHSF.width, height : RHSF.height }, rox : 0, roy : y, region : region };
+                    let sol_acc  = Acc { img : Sol,  roi : RoI { o_x : 0, o_y : 0, width : Sol.width,  height : Sol.height },  rox : 0, roy : y, region : region };
+                    residual(x, 0, tmp_acc, sol_acc, rhsf_acc, residual_mask);
+                    residual(x, 1, tmp_acc, sol_acc, rhsf_acc, residual_mask);
+                }
+                for x in $range(0, RHSC.width) @{
+                    // index space: cache line
+                    let rhs_acc = Acc { img : RHSC, roi : RoI { o_x : 0, o_y : 0, width : RHSC.width, height : RHSC.height}, rox : 0, roy : y/2, region : 4 /* no bh */ };
+                    restrict(x, 0, rhs_acc, tmp_acc, restrict_mask);
+                }
             }
         }
     }

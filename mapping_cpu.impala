@@ -1,3 +1,6 @@
+static Region2D    = [ 0, 1, 2,
+                       3, 4, 5,
+                       6, 7, 8 ];
 static Region2DCol = [ 1, 4, 7 ];
 static Region2DRow = [ 3, 4, 5 ];
 
@@ -24,23 +27,26 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
     let bhx = round_up(mask.size_x / 2, get_vector_length());
 
     // (minx, maxx, miny, maxy)
+    let width  = out.width;
+    let height = out.height;
     let Bounds2D = [
-        (0              , bhx            , 0               , bhy),
-        (bhx            , out.width - bhx, 0               , bhy),
-        (out.width - bhx, out.width      , 0               , bhy),
+        (0          , bhx        , 0           , bhy),
+        (bhx        , width - bhx, 0           , bhy),
+        (width - bhx, width      , 0           , bhy),
 
-        (0              , bhx            , bhy             , out.height - bhy),
-        (bhx            , out.width - bhx, bhy             , out.height - bhy),
-        (out.width - bhx, out.width      , bhy             , out.height - bhy),
+        (0          , bhx        , bhy         , height - bhy),
+        (bhx        , width - bhx, bhy         , height - bhy),
+        (width - bhx, width      , bhy         , height - bhy),
 
-        (0              , bhx            , out.height - bhy, out.height),
-        (bhx            , out.width - bhx, out.height - bhy, out.height),
-        (out.width - bhx, out.width      , out.height - bhy, out.height)
+        (0          , bhx        , height - bhy, height),
+        (bhx        , width - bhx, height - bhy, height),
+        (width - bhx, width      , height - bhy, height)
     ];
 
     for benchmark() {
-        for region in @range(0, 9) {
-            let bounds = Bounds2D(region);
+        for iter in @range(0, 9) {
+            let bounds = Bounds2D(iter);
+            let region = Region2D(iter);
             let arr_acc = get_acc(arr, region);
             let out_acc = get_acc(out, region);
 
