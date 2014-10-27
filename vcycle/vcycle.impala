@@ -264,10 +264,10 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
     }
 
     fn vcycle_dsl_intern(level: int) -> () {
+        let rhs_level = RHS(level);
         if level == levels-1 {
             for i in range(0, ssteps) {
                 // smooth
-                let rhs_level = RHS(level);
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask) {
                     let rhs_acc = get_acc(rhs_level, tmp_acc.region);
@@ -277,7 +277,6 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
         } else {
             // pre-smooth
             for i in range(0, ssteps) {
-                let rhs_level = RHS(level);
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask) {
                     let rhs_acc = get_acc(rhs_level, tmp_acc.region);
@@ -289,7 +288,6 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
             if merge == true {
                 iteration_merge(RHS(level+1), Sol(level), RHS(level), residual, residual_mask, restrict, restrict_mask);
             } else {
-                let rhs_level = RHS(level);
                 for x, y, res_acc, sol_acc, mask in iteration_bounds(Res(level), Sol(level), residual_mask) {
                     let rhs_acc = get_acc(rhs_level, sol_acc.region);
                     residual(x, y, res_acc, sol_acc, rhs_acc, mask);
@@ -312,7 +310,6 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
 
             // post-smooth
             for i in range(0, ssteps) {
-                let rhs_level = RHS(level);
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask) {
                     let rhs_acc = get_acc(rhs_level, tmp_acc.region);
