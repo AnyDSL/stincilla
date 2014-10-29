@@ -1,6 +1,8 @@
 extern "thorin" {
     fn "mmap" mmap_i16(&[i16], int, int, int, int) -> &[i16];
     fn "mmap" mmap_i32(&[i32], int, int, int, int) -> &[i32];
+    fn "munmap" munmap_i16(&[i16]) -> ();
+    fn "munmap" munmap_i32(&[i32]) -> ();
 }
 fn iteration1f1i(out: Img, arr: Imgi16,
                  body : fn(int, int, Acc, Acci16) -> ()
@@ -21,6 +23,9 @@ fn iteration1f1i(out: Img, arr: Imgi16,
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc);
         }
     });
+
+    munmap    (out.data);
+    munmap_i16(arr.data);
 }
 fn iteration2i(out: Imgi16, arr: Imgi16,
                body : fn(int, int, Acci16, Acci16) -> ()
@@ -41,6 +46,9 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc);
         }
     });
+
+    munmap_i16(out.data);
+    munmap_i16(arr.data);
 }
 fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
                  body : fn(int, int, Acci16, Acci16, Acc) -> ()
@@ -63,6 +71,10 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, img_acc, map_acc);
         }
     });
+
+    munmap_i16(out.data);
+    munmap_i16(img.data);
+    munmap    (map.data);
 }
 fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
                body : fn(int, int, Acci16, Acci16, Acci16) -> ()
@@ -85,6 +97,10 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, img_acc, tmp_acc);
         }
     });
+
+    munmap_i16(out.data);
+    munmap_i16(img.data);
+    munmap_i16(tmp.data);
 }
 fn reduce(img: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
     // temporary memory for reduction
@@ -116,6 +132,9 @@ fn reduce(img: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
         tmp(0) = sum;
     });
 
+    munmap_i32(tmp);
+    munmap_i16(img.data);
+
     // return sum stored in first element
     let sum = tmp_mem(0);
     sum
@@ -137,6 +156,8 @@ fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
         }
         atomic_add_global(&gpu_bins(acc_tidx()), sm_bins(acc_tidx()));
     });
+
+    munmap_i32(gpu_bins);
 
     bins
 }
@@ -259,6 +280,9 @@ fn inclusive_scan(img: &[int], size: int, body: fn(int, &[int]) -> int) -> &[int
         });
     }
 
+    munmap_i32(gpu_arr);
+    munmap_i32(gpu_tmp);
+
     arr
 }
 fn find_position(img: &[int], size: int, body: fn(int, &[int]) -> int) -> int {
@@ -275,6 +299,8 @@ fn find_position(img: &[int], size: int, body: fn(int, &[int]) -> int) -> int {
             atomic_min_global(&gpu_elem(0), acc_gidx());
         }
     });
+
+    munmap_i32(gpu_elem);
 
     elem(0)
 }

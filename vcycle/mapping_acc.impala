@@ -41,4 +41,8 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
             restrict(tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
         }
     });
+
+    munmap(gpu_sol);
+    munmap(gpu_rhsf);
+    munmap(gpu_rhsc);
 }

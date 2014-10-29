@@ -243,8 +243,9 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
             body(tid_x, tid_y, out_acc, arr_acc, mask);
         }
     });
-    //munmap(gpu_arr);
-    //munmap(gpu_out);
+
+    munmap(gpu_arr);
+    munmap(gpu_out);
 }
 
 fn iteration_sep(out: Img, arr: Img, mask: MaskSep,
@@ -527,8 +528,9 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
             body(tid_x, tid_y, out_acc, arr_acc, mask, is_row);
         }
     });
-    //munmap(gpu_arr);
-    //munmap(gpu_out);
+
+    munmap(gpu_arr);
+    munmap(gpu_out);
 }
 
 fn iteration_multi(width: int, height: int,
@@ -557,6 +559,6 @@ fn iteration_multi(width: int, height: int,
         body(acc_gidx(), acc_gidy(), map_out_GPU2, map_arr_GPU2);
     });
 
-    //munmap(map_arr_GPU2);
-    //munmap(map_out_GPU2);
+    munmap(map_arr_GPU2);
+    munmap(map_out_GPU2);
 }

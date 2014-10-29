@@ -26,6 +26,11 @@ fn iteration_multi(width : int, height : int,
 
         body(gid_x, gid_y, map_arr_GPU, map_out_GPU);
     });
+
+    munmap(map_arr_CPU);
+    munmap(map_out_CPU);
+    munmap(map_arr_GPU);
+    munmap(map_out_GPU);
 }
 
 fn main() -> int {

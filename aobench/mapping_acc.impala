@@ -21,5 +21,7 @@ fn iteration(out: &[u8], width: int, height: int,
     acc(acc_dev(), grid, block, || @{
         body(acc_gidx(), acc_gidy(), out);
     });
+
+    munmap_u8(out);
 }
 
