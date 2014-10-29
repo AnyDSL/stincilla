@@ -301,6 +301,12 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height, stride : out.width };
     $init_zero(tmp.data, tmp.stride, tmp.height);
 
+    let dev = acc_dev();
+    let gpu_arr_ro = Img { data : mmap(arr.data, dev, acc_tex(), 0, arr.width * arr.height), width : arr.width, height : arr.height, stride : arr.stride };
+    let gpu_tmp_ro = Img { data : mmap(tmp.data, dev, acc_tex(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
+    let gpu_tmp_wo = Img { data : mmap(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
+    let gpu_out_wo = Img { data : mmap(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
+
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
 
@@ -308,7 +314,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
         let grid = (out.width, out.height/unroll, 1);
 
         // column component
-        acc(acc_dev(), grid, block, || @{
+        acc(dev, grid, block, || @{
             let bid_y = acc_bidy();
             let bdim_y = acc_bdimy();
             let gdim_y = acc_gdimy();
@@ -317,24 +323,24 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             let is_row = false;
 
             if bid_y < by @{                                // top: 1
-                let arr_acc = get_acc(arr, Region2DCol(0));
-                let tmp_acc = get_acc(tmp, Region2DCol(0));
+                let arr_acc = get_acc(gpu_arr_ro, Region2DCol(0));
+                let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(0));
                 for i in range(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask, is_row);
                 }
                 return()
             }
             if bid_y >= gdim_y-by @{                        // bottom: 7
-                let arr_acc = get_acc(arr, Region2DCol(2));
-                let tmp_acc = get_acc(tmp, Region2DCol(2));
+                let arr_acc = get_acc(gpu_arr_ro, Region2DCol(2));
+                let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(2));
                 for i in range(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask, is_row);
                 }
                 return()
             }
             @{                                              // center: 4
-                let arr_acc = get_acc(arr, Region2DCol(1));
-                let tmp_acc = get_acc(tmp, Region2DCol(1));
+                let arr_acc = get_acc(gpu_arr_ro, Region2DCol(1));
+                let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(1));
                 for i in range(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask, is_row);
                 }
@@ -351,24 +357,24 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             let is_row = true;
 
             if bid_x < bx @{                                // left: 3
-                let tmp_acc = get_acc(tmp, Region2DRow(0));
-                let out_acc = get_acc(out, Region2DRow(0));
+                let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(0));
+                let out_acc = get_acc(gpu_out_wo, Region2DRow(0));
                 for i in range(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask, is_row);
                 }
                 return()
             }
             if bid_x >= gdim_x-bx @{                        // right: 5
-                let tmp_acc = get_acc(tmp, Region2DRow(2));
-                let out_acc = get_acc(out, Region2DRow(2));
+                let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(2));
+                let out_acc = get_acc(gpu_out_wo, Region2DRow(2));
                 for i in range(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask, is_row);
                 }
                 return()
             }
-            {                                               // center: 4
-                let tmp_acc = get_acc(tmp, Region2DRow(1));
-                let out_acc = get_acc(out, Region2DRow(1));
+            @{                                               // center: 4
+                let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(1));
+                let out_acc = get_acc(gpu_out_wo, Region2DRow(1));
                 for i in range(0, unroll) {
                     body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask, is_row);
                 }
@@ -387,10 +393,10 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             let bounds = Bounds2DCol(iter);
             let grid   = (out.width, bounds(1) - bounds(0), 1);
 
-            let arr_acc = get_acc(arr, region);
-            let tmp_acc = get_acc(tmp, region);
+            let arr_acc = get_acc(gpu_arr_ro, region);
+            let tmp_acc = get_acc(gpu_tmp_wo, region);
 
-            acc(acc_dev(), grid, block, || @{
+            acc(dev, grid, block, || @{
                 let gid_x = acc_gidx();
                 let gid_y = bounds(0) * unroll +
                             acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
@@ -413,8 +419,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             let bounds = Bounds2DRow(iter);
             let grid   = (bounds(1) - bounds(0), out.height/unroll, 1);
 
-            let tmp_acc = get_acc(tmp, region);
-            let out_acc = get_acc(out, region);
+            let tmp_acc = get_acc(gpu_tmp_ro, region);
+            let out_acc = get_acc(gpu_out_wo, region);
 
             acc(acc_dev(), grid, block, || @{
                 let gid_x = bounds(0) + acc_gidx();
@@ -427,6 +433,11 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             });
         }
     }
+
+    munmap(gpu_arr_ro.data);
+    munmap(gpu_tmp_ro.data);
+    munmap(gpu_tmp_wo.data);
+    munmap(gpu_out_wo.data);
 }
 
 fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
