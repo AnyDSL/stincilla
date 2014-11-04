@@ -14,12 +14,13 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     let out = Img    { data : mmap    (out.data, acc_dev(), acc_mem(), 0, 0), width : out.width, height : out.height, stride : out.stride };
     let arr = Imgi16 { data : mmap_i16(arr.data, acc_dev(), acc_mem(), 0, 0), width : arr.width, height : arr.height, stride : arr.stride };
 
-    acc(acc_dev(), grid, block, || {
-        for i in @range(0, unroll) {
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let out_acc = get_acc    (out, 10);
-            let arr_acc = get_acc_i16(arr, 10);
+    acc(acc_dev(), grid, block, || @{
+        let gid_x = acc_gidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+        let out_acc = get_acc    (out, 10);
+        let arr_acc = get_acc_i16(arr, 10);
+
+        for i in range(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc);
         }
     });
@@ -37,12 +38,13 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     let out = Imgi16 { data : mmap_i16(out.data, acc_dev(), acc_mem(), 0, 0), width : out.width, height : out.height, stride : out.stride };
     let arr = Imgi16 { data : mmap_i16(arr.data, acc_dev(), acc_mem(), 0, 0), width : arr.width, height : arr.height, stride : arr.stride };
 
-    acc(acc_dev(), grid, block, || {
-        for i in @range(0, unroll) {
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let out_acc = get_acc_i16(out, 10);
-            let arr_acc = get_acc_i16(arr, 10);
+    acc(acc_dev(), grid, block, || @{
+        let gid_x = acc_gidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+        let out_acc = get_acc_i16(out, 10);
+        let arr_acc = get_acc_i16(arr, 10);
+
+        for i in range(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc);
         }
     });
@@ -61,13 +63,14 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
     let img = Imgi16 { data : mmap_i16(img.data, acc_dev(), acc_mem(), 0, 0), width : img.width, height : img.height, stride : img.stride };
     let map = Img    { data : mmap    (map.data, acc_dev(), acc_mem(), 0, 0), width : map.width, height : map.height, stride : map.stride };
 
-    acc(acc_dev(), grid, block, || {
-        for i in @range(0, unroll) {
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let out_acc = get_acc_i16(out, 10);
-            let img_acc = get_acc_i16(img, 10);
-            let map_acc = get_acc    (map, 10);
+    acc(acc_dev(), grid, block, || @{
+        let gid_x = acc_gidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+        let out_acc = get_acc_i16(out, 10);
+        let img_acc = get_acc_i16(img, 10);
+        let map_acc = get_acc    (map, 10);
+
+        for i in range(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, img_acc, map_acc);
         }
     });
@@ -87,13 +90,14 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     let img = Imgi16 { data : mmap_i16(img.data, acc_dev(), acc_mem(), 0, 0), width : img.width, height : img.height, stride : img.stride };
     let tmp = Imgi16 { data : mmap_i16(tmp.data, acc_dev(), acc_mem(), 0, 0), width : tmp.width, height : tmp.height, stride : tmp.stride };
 
-    acc(acc_dev(), grid, block, || {
-        for i in @range(0, unroll) {
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let out_acc = get_acc_i16(out, 10);
-            let img_acc = get_acc_i16(img, 10);
-            let tmp_acc = get_acc_i16(tmp, 10);
+    acc(acc_dev(), grid, block, || @{
+        let gid_x = acc_gidx();
+        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+        let out_acc = get_acc_i16(out, 10);
+        let img_acc = get_acc_i16(img, 10);
+        let tmp_acc = get_acc_i16(tmp, 10);
+
+        for i in range(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, img_acc, tmp_acc);
         }
     });
@@ -113,9 +117,9 @@ fn reduce(img: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
     let grid1  = (img.width, 1, 1);
     let block1 = (128, 1, 1);
     acc(acc_dev(), grid1, block1, || @{
+        let img_acc = get_acc_i16(img, 4);
         let mut sum = 0;
         for y in $range(0, img.height) @{
-            let img_acc = get_acc_i16(img, 4);
             sum += body(acc_gidx(), y, img);
         }
         tmp(acc_gidx()) = sum;
@@ -197,7 +201,7 @@ fn inclusive_scan(img: &[int], size: int, body: fn(int, &[int]) -> int) -> &[int
         sm_arr(2 * tid + 1) = gpu_arr(2 * gid + 1);
 
         let mut offset = 1;
-        for d in for_shift_down(sm_size>>1, 0) { // build sum in place up the tree
+        for d in for_shift_down(sm_size >> 1, 0) { // build sum in place up the tree
             acc_barrier();
             if tid < d @{
                 let ai = offset * (2 * tid + 1) - 1;
