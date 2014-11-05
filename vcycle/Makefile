@@ -1,7 +1,6 @@
 CUDA_DIR  ?= $(shell dirname $(shell dirname `which nvcc`))
 INC_DIRS   = -I $(CUDA_DIR)/include \
              -I $(CUDA_DIR)/nvvm/include \
-             -I $(CUDA_DIR)/nvvm/libnvvm-samples/common/include \
              -I .
 CXX_FLAGS := -std=c++11 -Wall -Wunused
 OPT_FLAGS := -O3 -fno-vectorize -fno-slp-vectorize -fno-slp-vectorize-aggressive
