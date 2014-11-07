@@ -147,7 +147,7 @@ fn ambient_occlusion(mut col: &vec, isect: &Isect, mut spheres: &[Sphere * 3], p
 
     let mut occlusion = 0.0;
 
-    for j in range(0, ntheta) {
+    for j in $range(0, ntheta) @{
         for i in range(0, nphi) {
             let theta = sqrt(drand48());
             let phi   = 2.0 * M_PI * drand48();
@@ -202,14 +202,14 @@ fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
         Sphere { center : vec { x : spheres(1).center.x, y : spheres(1).center.y, z : spheres(1).center.z }, radius : spheres(1).radius },
         Sphere { center : vec { x : spheres(2).center.x, y : spheres(2).center.y, z : spheres(2).center.z }, radius : spheres(2).radius }
     ];
-    for x, y, mut img in @iteration(img, w, h) {
+    for x, y, mut img in iteration(img, w, h) {
         let mut plane = magic_plane_id(plane_);
         let mut spheres = magic_spheres_id(spheres_);
         let mut r = 0.0;
         let mut g = 0.0;
         let mut b = 0.0;
-        for v in range(0, nsubsamples) {
-            for u in range(0, nsubsamples) {
+        for v in $range(0, nsubsamples) {
+            for u in $range(0, nsubsamples) @{
                 let px =  (x as f64 + (u as f64 / (nsubsamples as f64)) - (w as f64 / 2.0)) / (w as f64 / 2.0);
                 let py = -(y as f64 + (v as f64 / (nsubsamples as f64)) - (h as f64 / 2.0)) / (h as f64 / 2.0);
 
