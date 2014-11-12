@@ -131,14 +131,15 @@ fn round_up(num: int, multiple: int) -> int {
 }
 
 fn benchmark(body: fn() -> ()) -> () {
-    let mut times = ~[7:i64];
-    for i in $range(0, 7) @{
+    let num = 7;
+    let mut times = ~[num:i64];
+    for i in $range(0, num) @{
         let start = thorin_get_micro_time();
         body();
         times(i) = thorin_get_micro_time() - start;
     }
-    sort_i64(7, times as &[i64]);
-    thorin_print_micro_time(times(3));
+    sort_i64(num, times as &[i64]);
+    thorin_print_micro_time(times(num/2));
 }
 
 fn sort_i64(num: int, mut arr: &[i64]) -> () {
