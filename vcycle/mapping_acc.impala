@@ -34,7 +34,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
         acc_barrier();
 
         // restrict: index space == block
-        if tid_x <= block(0)/2 && gid_y % 2 == 0 @{
+        if tid_x < block(0)/2 && gid_y % 2 == 0 @{
             let rhs_acc = Acc { img : rhsc_img, roi : RoI { o_x : 0, o_y : 0, width : rhsc_img.width, height : rhsc_img.height },
                                                 rox : acc_bdimx() * acc_bidx()/2, roy : acc_bdimy() * acc_bidy()/2, region : 4 /* no bh */ };
             let tmp_acc = get_acc(smem_img, 4 /* no bh */);
