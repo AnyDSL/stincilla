@@ -2,7 +2,7 @@
 #include <iostream>
 #include <thorin_runtime.h>
 
-#include "pnm_image.h"
+#include "pnm_image/pnm_image.h"
 
 extern "C" void thorin_vcycle(float *, float *, int, int);
 

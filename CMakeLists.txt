@@ -15,8 +15,13 @@ else()
     set(DEVICE "acc")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+if(NOT MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif(NOT MSVC)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+
+set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common)
+include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
 add_subdirectory(aobench)
 add_subdirectory(test)
