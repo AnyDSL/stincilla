@@ -42,21 +42,13 @@ fn main() -> int {
     let lower = clamp_lower;
     let upper = clamp_upper;
 
-    // SS
-    for x, y, mut out_acc, arr_acc, stencil in @iteration(out, arr, stencil) {
+    let iteration_fun = iteration;                  // SS
+    //let iteration_fun = iteration_bounds;           // SS + BH
+    //let iteration_fun = iteration_advanced;         // SS + SM
+
+    for x, y, mut out_acc, arr_acc, stencil in @iteration_fun(out, arr, stencil) {
         out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, stencil, lower, upper);
     }
-
-    //// SS + BH
-    //for x, y, mut out_acc, arr_acc, stencil in @iteration_bounds(out, arr, stencil) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, stencil, lower, upper);
-    //}
-
-    //// SS + SM
-    //for x, y, mut out_acc, arr_acc, stencil in @iteration_advanced(out, arr, stencil) {
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, stencil, lower, upper);
-    //}
-
 
     fn reference() -> int {
         let mut passed = 0;

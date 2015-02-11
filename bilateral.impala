@@ -59,9 +59,6 @@ fn main() -> int {
     let arr     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
     let out     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
 
-    let lower = clamp_lower;
-    let upper = clamp_upper;
-
     let mask    = Mask {
         data : [[0.018316f, 0.082085f, 0.135335f, 0.082085f, 0.018316f],
                 [0.082085f, 0.367879f, 0.606531f, 0.367879f, 0.082085f],
@@ -104,25 +101,17 @@ fn main() -> int {
     let sigma_d = mask.size_x / 4;
     let c_d = 1.0f / (2.0f * (sigma_d*sigma_d as float));
 
+    let lower = clamp_lower;
+    let upper = clamp_upper;
 
-    // SS
-    for x, y, mut out_acc, arr_acc, mask in @iteration(out, arr, mask) {
+    let iteration_fun = iteration;                  // SS
+    //let iteration_fun = iteration_bounds;           // SS + BH
+    //let iteration_fun = iteration_advanced;         // SS + SM
+
+    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(out, arr, mask) {
         //out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter(x, y, arr_acc, sigma_d, c_d, c_r, lower, upper);
         out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_r, lower, upper);
     }
-
-    //// SS + BH
-    //for x, y, mut out_acc, arr_acc, mask in @iteration_bounds(out, arr, mask) {
-    //    //out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter(x, y, arr_acc, sigma_d, c_d, c_r, lower, upper);
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_r, lower, upper);
-    //}
-
-    //// SS + SM
-    //for x, y, mut out_acc, arr_acc, mask in @iteration_advanced(out, arr, mask) {
-    //    //out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter(x, y, arr_acc, sigma_d, c_d, c_r, lower, upper);
-    //    out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_r, lower, upper);
-    //}
-
 
     // compare results
     fn reference() -> int {
