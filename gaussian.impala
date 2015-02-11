@@ -28,10 +28,14 @@ fn apply_stencil_sep(x: int, y: int, acc: Acc, mask: MaskSep, row: bool,
     let half_range = mask.size / 2;
     for i in range(-half_range, half_range+1) {
         let stencil_val = mask.data(i + half_range);
-        if row {
-            sum += get_pixel(acc, x + i, y, bh_lower, bh_upper) * stencil_val;
+        if stencil_val != 0.0f {
+            if row {
+                sum += get_pixel(acc, x + i, y, bh_lower, bh_upper) * stencil_val;
+            } else {
+                sum += get_pixel(acc, x, y + i, bh_lower, bh_upper) * stencil_val;
+            }
         } else {
-            sum += get_pixel(acc, x, y + i, bh_lower, bh_upper) * stencil_val;
+            // additional logic for empty stencil value
         }
     }
 
