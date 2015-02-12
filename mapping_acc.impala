@@ -254,18 +254,18 @@ fn iteration_sep(out: Img, arr: Img, mask: MaskSep,
     $init_zero(tmp.data, tmp.stride, tmp.height);
 
     let dev = acc_dev();
-    let gpu_arr = Img { data : mmap(arr.data, dev, acc_tex(), 0, arr.width * arr.height), width : arr.width, height : arr.height, stride : arr.stride };
-    let gpu_tmp = Img { data : mmap(tmp.data, dev, acc_tex(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
-    let gpu_out = Img { data : mmap(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
-
-    let arr_acc = get_acc(gpu_arr, 10);
-    let out_acc = get_acc(gpu_out, 10);
-    let tmp_acc = get_acc(gpu_tmp, 10);
+    let gpu_arr_ro = Img { data : mmap(arr.data, dev, acc_tex(), 0, arr.width * arr.height), width : arr.width, height : arr.height, stride : arr.stride };
+    let gpu_tmp_ro = Img { data : mmap(tmp.data, dev, acc_tex(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
+    let gpu_tmp_wo = Img { data : mmap(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
+    let gpu_out_wo = Img { data : mmap(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
 
     acc(dev, grid, block, || @{
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
         let is_row = false;
+
+        let arr_acc = get_acc(gpu_arr_ro, 10);
+        let tmp_acc = get_acc(gpu_tmp_wo, 10);
 
         for i in range(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, arr_acc, mask, is_row);
@@ -276,14 +276,18 @@ fn iteration_sep(out: Img, arr: Img, mask: MaskSep,
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
         let is_row = true;
 
+        let tmp_acc = get_acc(gpu_tmp_ro, 10);
+        let out_acc = get_acc(gpu_out_wo, 10);
+
         for i in range(0, unroll) {
             body(gid_x, gid_y + i * acc_bdimy(), out_acc, tmp_acc, mask, is_row);
         }
     });
 
-    munmap(gpu_arr.data);
-    munmap(gpu_tmp.data);
-    munmap(gpu_out.data);
+    munmap(gpu_arr_ro.data);
+    munmap(gpu_tmp_ro.data);
+    munmap(gpu_tmp_wo.data);
+    munmap(gpu_out_wo.data);
 }
 
 fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
