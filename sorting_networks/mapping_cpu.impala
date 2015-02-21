@@ -5,7 +5,7 @@ fn iteration(out: Img, arr: Img,
     let out_acc = get_acc(out, 10);
 
     for benchmark() {
-        for y in $range(0, out.height) {
+        for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 body(x, y, out_acc, arr_acc);
             }
