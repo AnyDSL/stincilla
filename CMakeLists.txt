@@ -7,9 +7,7 @@ FIND_PACKAGE ( THORIN REQUIRED )
 include(${THORIN_RUNTIME_DIR}/cmake/ThorinRuntime.cmake)
 include_directories(${THORIN_RUNTIME_INCLUDE_DIR})
 
-set(RTTYPE "nvvm" CACHE STRING "The runtime-type of the tests")
-message("Using runtime-type ${RTTYPE}")
-if(RTTYPE STREQUAL "cpu" OR RTTYPE STREQUAL "avx")
+if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
 else()
     set(DEVICE "acc")
@@ -31,34 +29,34 @@ add_subdirectory(vcycle)
 
 # simple CPU-based examples
 THORIN_RUNTIME_WRAP(MATMUL_FILES MATMUL_LIBS
-	RTTYPE cpu
-	MAIN
-	FILES extern.impala matmul.impala)
+    BACKEND cpu
+    MAIN
+    FILES extern.impala matmul.impala)
 add_executable(matmul ${MATMUL_FILES})
 target_link_libraries(matmul ${MATMUL_LIBS})
 add_test("matmul" matmul)
 
 # examples based on the "mapping"
 THORIN_RUNTIME_WRAP(GAUSSIAN_FILES GAUSSIAN_LIBS
-	RTTYPE ${RTTYPE}
-	MAIN
-	FILES extern.impala mapping_${DEVICE}.impala gaussian.impala)
+    BACKEND ${BACKEND}
+    MAIN
+    FILES extern.impala mapping_${DEVICE}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_FILES})
 target_link_libraries(gaussian ${GAUSSIAN_LIBS})
 add_test("gaussian" gaussian)
 
 THORIN_RUNTIME_WRAP(BILATERAL_FILES BILATERAL_LIBS
-	RTTYPE ${RTTYPE}
-	MAIN
-	FILES extern.impala mapping_${DEVICE}.impala bilateral.impala)
+    BACKEND ${BACKEND}
+    MAIN
+    FILES extern.impala mapping_${DEVICE}.impala bilateral.impala)
 add_executable(bilateral ${BILATERAL_FILES})
 target_link_libraries(bilateral ${BILATERAL_LIBS})
 add_test("bilateral" bilateral)
 
 THORIN_RUNTIME_WRAP(JACOBI_FILES JACOBI_LIBS
-	RTTYPE ${RTTYPE}
-	MAIN
-	FILES extern.impala mapping_${DEVICE}.impala jacobi.impala)
+    BACKEND ${BACKEND}
+    MAIN
+    FILES extern.impala mapping_${DEVICE}.impala jacobi.impala)
 add_executable(jacobi ${JACOBI_FILES})
 target_link_libraries(jacobi ${JACOBI_LIBS})
 add_test("jacobi" jacobi)
