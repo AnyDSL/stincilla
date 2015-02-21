@@ -49,6 +49,8 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
             let region = Region2D(iter);
             let arr_acc = get_acc(arr, region);
             let out_acc = get_acc(out, region);
+            //let outer_loop_fun = if region == 4 { outer_loop } else { range };
+            // gets slower when computed in parallel
 
             for y in $range(bounds(2), bounds(3)) {
                 for x in $inner_loop(bounds(0), bounds(1)) @{
@@ -77,14 +79,14 @@ fn iteration_sep(out: Img, arr: Img, mask: MaskSep,
     let tmp_acc = get_acc(tmp, 10);
 
     for benchmark() {
-        for y in $range(0, out.height) {
+        for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 let is_row = false;
                 body(x, y, tmp_acc, arr_acc, mask, is_row);
             }
         }
 
-        for y in $range(0, out.height) {
+        for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 let is_row = true;
                 body(x, y, out_acc, tmp_acc, mask, is_row);
@@ -121,7 +123,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             let region = Region2DCol(iter);
             let arr_acc = get_acc(arr, region);
             let tmp_acc = get_acc(tmp, region);
-            for y in $range(bounds(0), bounds(1)) {
+            let outer_loop_fun = if region == 4 { outer_loop } else { range };
+            for y in $outer_loop_fun(bounds(0), bounds(1)) {
                 for x in $inner_loop(0, out.width) @{
                     let is_row = false;
                     body(x, y, tmp_acc, arr_acc, mask, is_row);
@@ -134,7 +137,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask: MaskSep,
             let region = Region2DRow(iter);
             let tmp_acc = get_acc(tmp, region);
             let out_acc = get_acc(out, region);
-            for y in $range(0, out.height) {
+            let outer_loop_fun = if region == 4 { outer_loop } else { range };
+            for y in $outer_loop_fun(0, out.height) {
                 for x in $inner_loop(bounds(0), bounds(1)) @{
                     let is_row = true;
                     body(x, y, out_acc, tmp_acc, mask, is_row);
@@ -171,9 +175,10 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
         for iter_col in @range(0, 3) {
             let bounds_col = Bounds2DCol(iter_col);
             let region_col = Region2DCol(iter_col);
+            let outer_col  = if iter_col == 1 { outer_loop_step } else { range_step };
             let inner_col  = if iter_col == 1 { inner_loop } else { range };
-            let tmp_acc = get_acc(tmp, region_col);
-            for y in $range_step(bounds_col(0), bounds_col(1), unroll) @{
+            let tmp_acc    = get_acc(tmp, region_col);
+            for y in $outer_col(bounds_col(0), bounds_col(1), unroll) @{
                 for x in $inner_col(0, tmp.width) @{
                     // index space: cache line
                     let is_row = false;
@@ -187,7 +192,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask: MaskSep,
                     let bounds_row = Bounds2DRow(iter_row);
                     let region_row = Region2DRow(iter_row);
                     let inner_row  = if iter_row == 1 { inner_loop } else { range };
-                    let tmp_acc = get_acc(tmp, region_row);
+                    let tmp_acc    = get_acc(tmp, region_row);
                     for x in $inner_row(bounds_row(0), bounds_row(1)) @{
                         // index space: cache line
                         let is_row = true;
