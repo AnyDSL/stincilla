@@ -1,36 +1,33 @@
-fn iteration_multi(width : int, height : int,
-                   arr : &[float], out : &[float],
-                   body : fn(int, int, &[float], &[float]) -> ()
+fn iteration_multi(width: int, height: int,
+                   out: &[float], arr: &[float],
+                   body: fn(int, int, &[float], &[float]) -> ()
                   ) -> () {
-    let grid  = (width, height/2, 1);
-    let block = (128, 1, 1);
+    let mut ids : [int * 2];
+    let mut map_arr : [&[f32] * 2];
+    let mut map_out : [&[f32] * 2];
 
-    let dev_gpu = 1;
-    let map_arr_CPU = mmap(arr, dev_gpu, acc_mem(), 0,                width * height/2);
-    let map_out_CPU = mmap(out, dev_gpu, acc_mem(), 0,                width * height/2);
+    for dev in @range(0, 2) {
+        let height_dev = height / 2;
+        let mem_size_dev = width * height_dev;
+        let offset = dev * mem_size_dev;
+        let grid  = (width, height_dev, 1);
+        let block = (128, 1, 1);
 
-    acc(dev_gpu, grid, block, || -> () {
-        let gid_x = acc_gidx();
-        let gid_y = acc_gidy();
+        map_arr(dev) = mmap(arr, dev, acc_tex(), offset, mem_size_dev);
+        map_out(dev) = mmap(out, dev, acc_mem(), offset, mem_size_dev);
 
-        body(gid_x, gid_y, map_arr_CPU, map_out_CPU);
-    });
+        ids(dev) = spawn(|| -> () @{
+            acc(dev, grid, block, || @{
+                body(acc_gidx(), acc_gidy(), map_out(dev), map_arr(dev));
+            });
+        });
+    }
 
-    let dev_cpu = 0;
-    let map_arr_GPU = mmap(arr, dev_cpu, acc_mem(), width * height/2, width * height/2);
-    let map_out_GPU = mmap(out, dev_cpu, acc_mem(), width * height/2, width * height/2);
-
-    acc(dev_cpu, grid, block, || -> () {
-        let gid_x = acc_gidx();
-        let gid_y = acc_gidy();
-
-        body(gid_x, gid_y, map_arr_GPU, map_out_GPU);
-    });
-
-    munmap(map_arr_CPU);
-    munmap(map_out_CPU);
-    munmap(map_arr_GPU);
-    munmap(map_out_GPU);
+    for dev in range(0, 2) {
+        sync(ids(dev));
+        munmap(map_arr(dev));
+        munmap(map_out(dev));
+    }
 }
 
 fn main() -> int {
@@ -41,7 +38,7 @@ fn main() -> int {
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
-    for x, y, arr, mut out in @iteration_multi(width, height, arr, out) {
+    for x, y, arr, mut out in @iteration_multi(width, height, out, arr) {
         out(x + y*width) = arr(x + y*width);
     }
 
