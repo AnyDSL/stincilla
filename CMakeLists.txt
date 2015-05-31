@@ -22,6 +22,7 @@ set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
 add_subdirectory(aobench)
+add_subdirectory(bilateral_grid)
 add_subdirectory(test)
 add_subdirectory(image_sharpening)
 add_subdirectory(sorting_networks)
