@@ -245,9 +245,11 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                  body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
                 ) -> () {
     let unroll = 1;
-    let config = compute_config((mask_row.size/2, mask_col.size/2), unroll);
     let grid   = (out.width, out.height/unroll, 1);
-    let block  = config(0);
+    let config_row = compute_config((mask_row.size/2, 1), unroll);
+    let config_col = compute_config((1, mask_col.size/2), unroll);
+    let block_row  = config_row(0);
+    let block_col  = config_col(0);
 
     // allocate temporary array
     let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height, stride : out.width };
@@ -259,7 +261,7 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
     let gpu_tmp_wo = Img { data : mmap(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
     let gpu_out_wo = Img { data : mmap(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
 
-    acc(dev, grid, block, || @{
+    acc(dev, grid, block_col, || @{
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
         let is_row = false;
@@ -271,7 +273,7 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
             body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, arr_acc, mask_col, is_row);
         }
     });
-    acc(dev, grid, block, || @{
+    acc(dev, grid, block_row, || @{
         let gid_x = acc_gidx();
         let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
         let is_row = true;
@@ -295,10 +297,12 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
                        ) -> () {
     // compute the number of blocks required for boundary handling
     let unroll = 1;
-    let config = compute_config((mask_row.size/2, mask_col.size/2), unroll);
-    let block  = config(0);
-    let bx     = config(1)(0);
-    let by     = config(1)(1);
+    let config_row = compute_config((mask_row.size/2, 1), unroll);
+    let config_col = compute_config((1, mask_col.size/2), unroll);
+    let block_row  = config_row(0);
+    let block_col  = config_col(0);
+    let bx         = config_row(1)(0);
+    let by         = config_col(1)(1);
 
     let Region2DCol = [ 1, 4, 7 ];
     let Region2DRow = [ 3, 4, 5 ];
@@ -320,7 +324,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         let grid = (out.width, out.height/unroll, 1);
 
         // column component
-        acc(dev, grid, block, || @{
+        acc(dev, grid, block_col, || @{
             let bid_y = acc_bidy();
             let bdim_y = acc_bdimy();
             let gdim_y = acc_gdimy();
@@ -354,7 +358,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         });
 
         // row component
-        acc(acc_dev(), grid, block, || @{
+        acc(acc_dev(), grid, block_row, || @{
             let bid_x = acc_bidx();
             let bdim_y = acc_bdimy();
             let gdim_x = acc_gdimx();
@@ -389,9 +393,9 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
     } else {
         let hu = out.height / unroll;
         let Bounds2DCol = [
-            (0               , by*block(1)),
-            (by*block(1)     , hu - by*block(1)),
-            (hu - by*block(1), hu)
+            (0                   , by*block_col(1)),
+            (by*block_col(1)     , hu - by*block_col(1)),
+            (hu - by*block_col(1), hu)
         ];
 
         for iter in @range(0, 3) {
@@ -402,7 +406,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
             let arr_acc = get_acc(gpu_arr_ro, region);
             let tmp_acc = get_acc(gpu_tmp_wo, region);
 
-            acc(dev, grid, block, || @{
+            acc(dev, grid, block_col, || @{
                 let gid_x = acc_gidx();
                 let gid_y = bounds(0) * unroll +
                             acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
@@ -415,9 +419,9 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         }
 
         let Bounds2DRow = [
-            (0                      , bx*block(0)),
-            (bx*block(0)            , out.width - bx*block(0)),
-            (out.width - bx*block(0), out.width)
+            (0                          , bx*block_row(0)),
+            (bx*block_row(0)            , out.width - bx*block_row(0)),
+            (out.width - bx*block_row(0), out.width)
         ];
 
         for iter in @range(0, 3) {
@@ -428,7 +432,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
             let tmp_acc = get_acc(gpu_tmp_ro, region);
             let out_acc = get_acc(gpu_out_wo, region);
 
-            acc(acc_dev(), grid, block, || @{
+            acc(acc_dev(), grid, block_row, || @{
                 let gid_x = bounds(0) + acc_gidx();
                 let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
                 let is_row = true;
