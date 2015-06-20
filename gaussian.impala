@@ -77,7 +77,7 @@ fn main() -> int {
         //let iteration_sep_fun = iteration_sep_bounds;   // SEP + SS + BH
         //let iteration_sep_fun = iteration_sep_advanced; // SEP + SS + SM
 
-        for x, y, mut out_acc, arr_acc, mask, is_row in @iteration_sep_fun(out, arr, mask_sep) {
+        for x, y, mut out_acc, arr_acc, mask, is_row in @iteration_sep_fun(out, arr, mask_sep, mask_sep) {
             out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil_sep(x, y, arr_acc, mask, is_row, lower, upper);
         }
     } else {
