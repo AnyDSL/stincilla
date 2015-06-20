@@ -1,5 +1,5 @@
 fn iteration1f1i(out: Img, arr: Imgi16,
-                 body : fn(int, int, Acc, Acci16) -> ()
+                 body: fn(int, int, Acc, Acci16) -> ()
                 ) -> () {
     let out_acc = get_acc    (out, 10);
     let arr_acc = get_acc_i16(arr, 10);
@@ -13,7 +13,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     }
 }
 fn iteration2i(out: Imgi16, arr: Imgi16,
-               body : fn(int, int, Acci16, Acci16) -> ()
+               body: fn(int, int, Acci16, Acci16) -> ()
               ) -> () {
     let out_acc = get_acc_i16(out, 10);
     let arr_acc = get_acc_i16(arr, 10);
@@ -27,7 +27,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     }
 }
 fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
-                 body : fn(int, int, Acci16, Acci16, Acc) -> ()
+                 body: fn(int, int, Acci16, Acci16, Acc) -> ()
                 ) -> () {
     let out_acc = get_acc_i16(out, 10);
     let img_acc = get_acc_i16(img, 10);
@@ -42,7 +42,7 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
     }
 }
 fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
-               body : fn(int, int, Acci16, Acci16, Acci16) -> ()
+               body: fn(int, int, Acci16, Acci16, Acci16) -> ()
               ) -> () {
     let out_acc = get_acc_i16(out, 10);
     let img_acc = get_acc_i16(img, 10);

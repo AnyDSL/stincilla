@@ -5,7 +5,7 @@ extern "thorin" {
     fn "munmap" munmap_i32(&[i32]) -> ();
 }
 fn iteration1f1i(out: Img, arr: Imgi16,
-                 body : fn(int, int, Acc, Acci16) -> ()
+                 body: fn(int, int, Acc, Acci16) -> ()
                 ) -> () {
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);
@@ -29,7 +29,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     munmap_i16(arr.data);
 }
 fn iteration2i(out: Imgi16, arr: Imgi16,
-               body : fn(int, int, Acci16, Acci16) -> ()
+               body: fn(int, int, Acci16, Acci16) -> ()
               ) -> () {
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);
@@ -53,7 +53,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     munmap_i16(arr.data);
 }
 fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
-                 body : fn(int, int, Acci16, Acci16, Acc) -> ()
+                 body: fn(int, int, Acci16, Acci16, Acc) -> ()
                 ) -> () {
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);
@@ -80,7 +80,7 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
     munmap    (map.data);
 }
 fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
-               body : fn(int, int, Acci16, Acci16, Acci16) -> ()
+               body: fn(int, int, Acci16, Acci16, Acci16) -> ()
               ) -> () {
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);

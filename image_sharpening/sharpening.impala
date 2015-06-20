@@ -15,7 +15,7 @@ struct Acci16 {
     region : int,
 }
 
-fn get_acc_i16(img: Imgi16, region : int) -> Acci16 {
+fn get_acc_i16(img: Imgi16, region: int) -> Acci16 {
     Acci16 { img : img, roi : RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, rox : 0, roy : 0, region : region }
 }
 fn get_pixel_i16(acc: Acci16, x: int, y: int,

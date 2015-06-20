@@ -1,33 +1,32 @@
 // DSL implementation
 
-fn range(a : int, b : int, yield : fn(int, fn())) -> () {
-    if a < b {
-        yield(a);
-        range(a+1, b, yield, return)
+fn range(lower: int, upper: int, yield: fn(int, fn())) -> () {
+    if lower < upper {
+        yield(lower);
+        range(lower+1, upper, yield, return)
     }
 }
 
-fn apply_bh(mut index : int,
-            bh_lower : fn(int, int) -> int, bh_upper : fn(int, int) -> int,
-            lb : int, ub : int) -> int {
+fn apply_bh(mut index: int,
+            bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int,
+            lb: int, ub: int) -> int {
     if index < lb   { index = bh_lower(index, lb); }
     if index >= ub  { index = bh_upper(index, ub); }
     index
 }
 
-fn apply_stencil(N : int, arr : &[float], mut out : &[float], stencil : [float * 3],
-                 bh_lower : fn(int, int) -> int, bh_upper : fn(int, int) -> int) -> () {
+fn apply_stencil(N: int, arr: &[float], mut out: &[float], stencil: [float * 3],
+                 bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int) -> () {
     let lb = [0, 1, N - 1];
     let ub = [1, N - 1, N];
     for region in @range(0, 3) {
-        let current_lb : int = lb(region);
-        let current_ub : int = ub(region);
+        let current_lb = lb(region);
+        let current_ub = ub(region);
         for index in $range(lb(region), ub(region)) {
             // apply stencil to pixel
-            let mut sum : float = 0.0f;
+            let mut sum = 0.0f;
             for j in @range(-1, 2) {
-                let adapted_j : int = apply_bh(index + j, bh_lower, bh_upper,
-                                               current_lb, current_ub);
+                let adapted_j = apply_bh(index + j, bh_lower, bh_upper, current_lb, current_ub);
                 sum += stencil(j + 1) * arr(adapted_j);
             }
             out(index) = sum as float;
@@ -38,11 +37,11 @@ fn apply_stencil(N : int, arr : &[float], mut out : &[float], stencil : [float *
 
 // DSL code
 
-fn bh_clamp_lower(index : int, lower : int) -> int {
+fn bh_clamp_lower(index: int, lower: int) -> int {
     if index < lower { lower } else { index }
 }
 
-fn bh_clamp_upper(index : int, upper : int) -> int {
+fn bh_clamp_upper(index: int, upper: int) -> int {
     if index >= upper { upper - 1 } else { index }
 }
 

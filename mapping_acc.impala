@@ -1,5 +1,5 @@
-fn compute_config(m_range : (int, int), unroll : int) -> ((int, int, int), (int, int)) {
-    fn compute_config_y (y_max : int) -> int {
+fn compute_config(m_range: (int, int), unroll: int) -> ((int, int, int), (int, int)) {
+    fn compute_config_y (y_max: int) -> int {
         if m_range(1) > 1 { return(y_max) }
         for n in range(1, y_max+1) {
             if n * unroll >= m_range(1) { return(n) }

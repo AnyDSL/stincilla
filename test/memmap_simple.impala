@@ -9,15 +9,15 @@ extern "device" {
 fn acc_gidx() -> int    { _Z13get_global_idj(0) as int }
 fn acc_gidy() -> int    { _Z13get_global_idj(1) as int }
 
-fn range(a : int, b : int, yield : fn(int, fn())) -> () {
-    if a < b {
-        yield(a);
-        range(a+1, b, yield, return)
+fn range(lower: int, upper: int, yield: fn(int, fn())) -> () {
+    if lower < upper {
+        yield(lower);
+        range(lower+1, upper, yield, return)
     }
 }
 
-fn iteration(width : int, height : int,
-             body : fn(int, int) -> ()
+fn iteration(width: int, height: int,
+             body: fn(int, int) -> ()
             ) -> () {
     let grid  = (width, height, 1);
     let block = (128, 1, 1);

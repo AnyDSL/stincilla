@@ -16,7 +16,7 @@ fn matmul_golden(mut C: Mat, A: Mat, B: Mat) -> () {
     }
 }
 
-fn get_step(lvl : int) -> int {
+fn get_step(lvl: int) -> int {
     // 2048 -> 256 -> 1 -> 0
     if lvl == 0 {
         1024
@@ -27,8 +27,8 @@ fn get_step(lvl : int) -> int {
     }
 }
 
-fn tiled_loop(upper : int, body : fn(int) -> ()) -> () {
-    fn tile(cur_lvl : int, a : int, b : int) -> () {
+fn tiled_loop(upper: int, body: fn(int) -> ()) -> () {
+    fn tile(cur_lvl: int, a: int, b: int) -> () {
         let step = get_step(cur_lvl);
         if step <= 0 {
             body(a)
