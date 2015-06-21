@@ -23,6 +23,7 @@ include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
 add_subdirectory(aobench)
 add_subdirectory(bilateral_grid)
+add_subdirectory(harris_corner)
 add_subdirectory(test)
 add_subdirectory(image_sharpening)
 add_subdirectory(sorting_networks)

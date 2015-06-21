@@ -4,6 +4,20 @@ static Region2D    = [ 0, 1, 2,
 static Region2DCol = [ 1, 4, 7 ];
 static Region2DRow = [ 3, 4, 5 ];
 
+fn iteration_point(out: Img,
+                   body: fn(int, int, Acc) -> ()
+                  ) -> () {
+    let out_acc = get_acc(out, 10);
+
+    for benchmark() {
+        for y in $outer_loop(0, out.height) {
+            for x in $inner_loop(0, out.width) @{
+                body(x, y, out_acc);
+            }
+        }
+    }
+}
+
 fn iteration(out: Img, arr: Img, mask: Mask,
              body: fn(int, int, Acc, Acc, Mask) -> ()
             ) -> () {

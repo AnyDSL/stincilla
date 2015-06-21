@@ -1,0 +1,150 @@
+/*
+ * Harris Corner
+ *
+ * A Combined Corner and Edge Detector
+ * Chris Harris and Mike Stephens - Alvey Vision Conference, 1988
+ *
+ */
+
+type Mask = Mask3;
+type MaskSep = Mask3Sep;
+
+fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
+                 bh_lower: fn(int, int, int, fn(f32)) -> int, bh_upper: fn(int, int, int, fn(f32)) -> int
+                ) -> float {
+    let mut sum = 0.0f;
+    let half_range_y = mask.size_y / 2;
+    let half_range_x = mask.size_x / 2;
+
+    for j in range(-half_range_y, half_range_y+1) {
+        for i in range(-half_range_x, half_range_x+1) {
+            let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
+            if stencil_val != 0.0f {
+                sum += get_pixel(acc, x + i, y + j, bh_lower, bh_upper) * stencil_val;
+            } else {
+                // additional logic for empty stencil value
+            }
+        }
+    }
+
+    sum
+}
+
+
+extern
+fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, height: int) -> () {
+    let input  = Img { data : img_data,              width : width, height : height, stride : width };
+    let harris = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let dx     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let dy     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let dxx    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let dxy    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let dyy    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let gxx    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let gxy    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let gyy    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+
+    // compute the first derivative using the Sobel operator
+    let mdx = Mask {
+        data : [[ -1.0f,  0.0f,  1.0f ],
+                [ -2.0f,  0.0f,  2.0f ],
+                [ -1.0f,  0.0f,  1.0f ]],
+        size_x : 3, size_y : 3
+    };
+    let mdy = Mask {
+        data : [[ -1.0f, -2.0f, -1.0f ],
+                [  0.0f,  0.0f,  0.0f ],
+                [  1.0f,  2.0f,  1.0f ]],
+        size_x : 3, size_y : 3
+    };
+
+    let lower = clamp_lower;
+    let upper = clamp_upper;
+    let iteration_fun = iteration;
+
+    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(dx, input, mdx) {
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    }
+    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(dy, input, mdy) {
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    }
+
+
+    // compute dxx, dyy, dxy
+    for x, y, mut out_acc in @iteration_point(dxx) {
+        let dx_acc = get_acc(dx, 10);
+        let dx = pixel_at(dx_acc, x, y);
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dx * dx;
+    }
+    for x, y, mut out_acc in @iteration_point(dyy) {
+        let dy_acc = get_acc(dy, 10);
+        let dy = pixel_at(dy_acc, x, y);
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dy * dy;
+    }
+    for x, y, mut out_acc in @iteration_point(dxy) {
+        let dx_acc = get_acc(dx, 10);
+        let dy_acc = get_acc(dy, 10);
+        let dx = pixel_at(dx_acc, x, y);
+        let dy = pixel_at(dy_acc, x, y);
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dx * dy;
+    }
+
+
+    // compute gxx, gyy, gxy using Gaussian blur
+    let mg = Mask {
+        data : [[ 0.057118f, 0.124758f, 0.057118f ],
+                [ 0.124758f, 0.272496f, 0.124758f ],
+                [ 0.057118f, 0.124758f, 0.057118f ]],
+        size_x : 3, size_y : 3
+    };
+
+    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(gxx, dxx, mg) {
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    }
+    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(gyy, dyy, mg) {
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    }
+    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(gxy, dxy, mg) {
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    }
+
+
+    // compute score for Harris corner
+    for x, y, mut out_acc in @iteration_point(harris) {
+        let gxx_acc = get_acc(gxx, 10);
+        let gyy_acc = get_acc(gyy, 10);
+        let gxy_acc = get_acc(gxy, 10);
+        let gxx = pixel_at(gxx_acc, x, y);
+        let gyy = pixel_at(gyy_acc, x, y);
+        let gxy = pixel_at(gxy_acc, x, y);
+        let det   = gxx * gyy - gxy * gxy;
+        let trace = gxx + gyy;
+        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = det - 0.04f * trace * trace;
+    }
+
+
+    // post-processing: mark corners
+    let threshold = 100000.0f;
+    for y in $range(0, height) {
+        for x in $range(0, width) @{
+            out_data(y*width + x) = img_data(y*width + x);
+        }
+    }
+    for y in $range(0, height) {
+        for x in $range(0, width) @{
+            if harris.data(y*width + x) > threshold {
+                for i in range(-5, 5+1) {
+                    if x+i >= 0 && x+i < width {
+                        out_data(y*width + x + i) = 255f;
+                    }
+                }
+                for i in range(-5, 5+1) {
+                    if y+i >= 0 && y+i < height {
+                        out_data((y + i)*width + x) = 255f;
+                    }
+                }
+            }
+        }
+    }
+}
+
