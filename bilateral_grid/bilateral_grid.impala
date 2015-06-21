@@ -94,26 +94,21 @@ fn thorin_bilateral_grid(img_data: &[float], mut out_data: &[float], width: int,
     let filter   = |x: int, y: int, z: int, c: int, grid: Grid| -> float { blury(x, y, z, c, grid) };
 
 
-    // TODO: move this to mapping
-    for benchmark() {
-        // init grid
-        for i in parallel(0, 0, grid.width*grid.height*grid.bins) @{
-            grid.data(i) = [0.0f, 0.0f];
+    // init grid
+    for x, y in iteration_grid(grid) @{
+        for z in range(-grid.padding, grid.bins-grid.padding) {
+            grid.data(grid_idx(x, y, z, grid)) = [0.0f, 0.0f];
         }
+    }
 
-        // compute grid
-        for y in parallel(0, 0, grid.height) {
-            for x in range(0, grid.width) @{
-                create_grid(x, y, grid, clamped);
-            }
-        }
+    // compute grid
+    for x, y in iteration_grid(grid) @{
+        create_grid(x, y, grid, clamped);
+    }
 
-        // slice grid
-        for y in parallel(0, 0, height) {
-            for x in range(0, width) @{
-                out_data(y*width + x) = slice_grid(x, y, grid, input, filter);
-            }
-        }
+    // slice grid
+    for x, y in iteration_space(width, height) @{
+        out_data(y*width + x) = slice_grid(x, y, grid, input, filter);
     }
 }
 

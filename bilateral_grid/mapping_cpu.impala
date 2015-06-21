@@ -1,0 +1,22 @@
+fn iteration_grid(bgrid: Grid,
+                  body: fn(int, int) -> ()
+                 ) -> () {
+    for benchmark() {
+        for y in $outer_loop(0, bgrid.height) {
+            for x in $inner_loop(0, bgrid.width) @{
+                body(x, y);
+            }
+        }
+    }
+}
+fn iteration_space(width: int, height: int,
+                   body: fn(int, int) -> ()
+                  ) -> () {
+    for benchmark() {
+        for y in $outer_loop(0, height) {
+            for x in $inner_loop(0, width) @{
+                body(x, y);
+            }
+        }
+    }
+}
