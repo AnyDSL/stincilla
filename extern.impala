@@ -37,7 +37,7 @@ fn init_zero(mut arr: &[float], width: int, height: int) -> () {
 fn init_rand(mut arr: &[float], width: int, height: int) -> () {
     for y in range(0, height) {
         for x in range(0, width) {
-            arr(y*width + x) = thorin_random_val(1024);
+            arr(y*width + x) = thorin_random_val() * 1024f;
         }
     }
 }
@@ -139,7 +139,8 @@ fn benchmark(body: fn() -> ()) -> () {
         times(i) = thorin_get_micro_time() - start;
     }
     sort_i64(num, times as &[i64]);
-    thorin_print_micro_time(times(num/2))
+    thorin_print_long(times(num/2));
+    thorin_print_char('\n')
 }
 
 fn sort_i64(num: int, mut arr: &[i64]) -> () {
