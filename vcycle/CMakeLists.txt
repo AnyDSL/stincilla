@@ -1,4 +1,4 @@
-THORIN_RUNTIME_WRAP(VCYCLE_FILES VCYCLE_LIBS
+thorin_runtime_wrap(VCYCLE_FILES VCYCLE_LIBS
     BACKEND ${BACKEND}
     FILES ../extern.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala vcycle.impala)
 add_executable(vcycle main.cpp ${VCYCLE_FILES})

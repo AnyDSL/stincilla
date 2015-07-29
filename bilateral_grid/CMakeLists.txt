@@ -1,4 +1,4 @@
-THORIN_RUNTIME_WRAP(BILATERAL_GRID_FILES BILATERAL_GRID_LIBS
+thorin_runtime_wrap(BILATERAL_GRID_FILES BILATERAL_GRID_LIBS
     BACKEND ${BACKEND}
     FILES ../extern.impala mapping_${DEVICE}.impala bilateral_grid.impala)
 add_executable(bilateral_grid main.cpp ${BILATERAL_GRID_FILES})

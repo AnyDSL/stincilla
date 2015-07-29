@@ -1,4 +1,4 @@
-THORIN_RUNTIME_WRAP(SHARPENING_FILES SHARPENING_LIBS
+thorin_runtime_wrap(SHARPENING_FILES SHARPENING_LIBS
     BACKEND ${BACKEND}
     FILES ../extern.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala sharpening.impala)
 add_executable(sharpening main.cpp ${SHARPENING_FILES})

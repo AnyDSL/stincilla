@@ -1,5 +1,5 @@
 # simple CPU-based examples
-THORIN_RUNTIME_WRAP(STENCIL_INT_FILES STENCIL_INT_LIBS
+thorin_runtime_wrap(STENCIL_INT_FILES STENCIL_INT_LIBS
     BACKEND cpu
     MAIN
     FILES stencil_int.impala)
@@ -8,7 +8,7 @@ target_link_libraries(stencil_int ${STENCIL_INT_LIBS})
 add_test("stencil_int" stencil_int)
 
 if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
-    THORIN_RUNTIME_WRAP(MULTI_GPU_FILES MULTI_GPU_LIBS
+    thorin_runtime_wrap(MULTI_GPU_FILES MULTI_GPU_LIBS
         BACKEND ${BACKEND}
         MAIN
         FILES ../extern.impala multi_gpu.impala)

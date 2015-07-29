@@ -1,4 +1,4 @@
-THORIN_RUNTIME_WRAP(HARRIS_CORNER_FILES HARRIS_CORNER_LIBS
+thorin_runtime_wrap(HARRIS_CORNER_FILES HARRIS_CORNER_LIBS
     BACKEND ${BACKEND}
     FILES ../extern.impala ../mapping_${DEVICE}.impala harris_corner.impala)
 add_executable(harris_corner main.cpp ${HARRIS_CORNER_FILES})
