@@ -11,9 +11,6 @@ int main(int argc, const char **argv) {
     thorin_init();
 
     std::cout << "Calculating median in AnyDSL ..." << std::endl;
-    auto ret = main_impala();
-    thorin_print_total_timing();
-
-    return ret;
+    return main_impala();
 }
 

@@ -208,7 +208,7 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
             residual(Res(level), Sol(level), RHS(level));
             restrict(RHS(level+1), Res(level));
 
-            //if level == 0 { thorin_print_float(l2norm(Res(level))); thorin_print_char('\n'); }
+            //if level == 0 { thorin_print_string("L2 norm: "); thorin_print_float(l2norm(Res(level))); thorin_print_char('\n'); }
 
             $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_intern(level+1);
@@ -298,7 +298,7 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
                 }
             }
 
-            //if level == 0 { thorin_print_float(l2norm(Res(level))); thorin_print_char('\n'); }
+            //if level == 0 { thorin_print_string("L2 norm: "); thorin_print_float(l2norm(Res(level))); thorin_print_char('\n'); }
 
             $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_dsl_intern(level+1);

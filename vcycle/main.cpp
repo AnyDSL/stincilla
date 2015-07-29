@@ -27,7 +27,6 @@ int main(int argc, const char **argv) {
 
     std::cout << "Calculating V-Cycle in AnyDSL ..." << std::endl;
     thorin_vcycle(input, output, width, height);
-    thorin_print_total_timing();
 
     // compute offset to shift image range
     float min = FLT_MAX;

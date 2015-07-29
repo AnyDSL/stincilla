@@ -27,7 +27,6 @@ int main(int argc, const char **argv) {
 
     std::cout << "Running Harris corner ..." << std::endl;
     thorin_harris_corner(input, output, width, height);
-    thorin_print_total_timing();
 
     // write image
     for (size_t i=0; i<width*height; ++i) image[i] = (uint8_t)output[i];

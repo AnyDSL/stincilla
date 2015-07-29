@@ -27,7 +27,6 @@ int main(int argc, const char **argv) {
 
     std::cout << "Running bilateral grid ..." << std::endl;
     thorin_bilateral_grid(input, output, width, height);
-    thorin_print_total_timing();
 
     // write image
     for (size_t i=0; i<width*height; ++i) image[i] = (uint8_t)(output[i]*255.0f);

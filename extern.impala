@@ -139,8 +139,11 @@ fn benchmark(body: fn() -> ()) -> () {
         times(i) = thorin_get_micro_time() - start;
     }
     sort_i64(num, times as &[i64]);
-    thorin_print_long(times(num/2));
-    thorin_print_char('\n')
+    thorin_print_string("Timing (median of ");
+    thorin_print_int(num);
+    thorin_print_string(" runs): ");
+    thorin_print_double(times(num/2) as f64 / 1000.0);
+    thorin_print_string(" ms\n")
 }
 
 fn sort_i64(num: int, mut arr: &[i64]) -> () {

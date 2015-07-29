@@ -73,26 +73,32 @@ fn main(i: int) -> int {
     let C = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
     let R = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
 
+    fn print_timing(time: i64) -> () {
+        thorin_print_string("Timing: ");
+        thorin_print_double(time as f64 / 1000.0);
+        thorin_print_string(" ms\n")
+    }
+    fn print_gflops(gflops: f64) -> () {
+        thorin_print_double(gflops);
+        thorin_print_string(" GFLOPS\n")
+    }
+
     let mut start = thorin_get_micro_time();
     @matmul_golden(R, A, B);
     let mut end = thorin_get_micro_time();
-    thorin_print_long(end-start);
-    thorin_print_char('\n');
+    print_timing(end-start);
 
     let nops = (2 as i64) * (l as i64) * (m as i64) * (n as i64);
-    let mut gflops = (1.0e-9 * (nops as double)) / ((end - start) as double * 1.0e-6);
-    thorin_print_float(gflops as float);
-    thorin_print_char('\n');
+    let mut gflops = (1.0e-9 * (nops as f64)) / ((end - start) as f64 * 1.0e-6);
+    print_gflops(gflops);
 
     start = thorin_get_micro_time();
     @matmul_tiled(C, A, B);
     end = thorin_get_micro_time();
-    thorin_print_long(end-start);
-    thorin_print_char('\n');
+    print_timing(end-start);
 
-    gflops = (1.0e-9 * (nops as double)) / ((end - start) as double * 1.0e-6);
-    thorin_print_float(gflops as float);
-    thorin_print_char('\n');
+    gflops = (1.0e-9 * (nops as f64)) / ((end - start) as f64 * 1.0e-6);
+    print_gflops(gflops);
 
     0
 }

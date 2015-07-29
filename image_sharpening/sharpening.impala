@@ -366,6 +366,7 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
             for x, y, tmp in reduce(tmp) {
                 if tmp.data(y * tmp.stride + x) == 0i16 { 0 } else { 1 }
             };
+        thorin_print_string("# of non-edge pixels: ");
         thorin_print_int(bw_count);
         thorin_print_char('\n');
 
