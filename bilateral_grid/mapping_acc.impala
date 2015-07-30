@@ -5,14 +5,16 @@ fn iteration_grid(bgrid: Grid,
     let grid   = (bgrid.width, bgrid.height/unroll, 1);
     let block  = (32, 4, 1);
 
-    acc(@acc_dev(), grid, block, || @{
-        let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+    for benchmark_acc() {
+        acc(@acc_dev(), grid, block, || @{
+            let gid_x = acc_gidx();
+            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-        for i in range(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy());
-        }
-    });
+            for i in range(0, unroll) {
+                body(gid_x, gid_y + i * acc_bdimy());
+            }
+        });
+    }
 }
 fn iteration_space(width: int, height: int,
                    body: fn(int, int) -> ()
@@ -21,12 +23,14 @@ fn iteration_space(width: int, height: int,
     let grid   = (width, height/unroll, 1);
     let block  = (32, 4, 1);
 
-    acc(@acc_dev(), grid, block, || @{
-        let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+    for benchmark_acc() {
+        acc(@acc_dev(), grid, block, || @{
+            let gid_x = acc_gidx();
+            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-        for i in range(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy());
-        }
-    });
+            for i in range(0, unroll) {
+                body(gid_x, gid_y + i * acc_bdimy());
+            }
+        });
+    }
 }

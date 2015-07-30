@@ -22,7 +22,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
         (Sol.width - bhx, Sol.width)
     ];
 
-    for benchmark() {
+    for benchmark_cpu() {
         for iter_col in @range(0, 3) {
             let bounds_col = Bounds2DCol(iter_col);
             //let outer_col  = if iter_col == 1 { outer_loop_step } else { range_step };

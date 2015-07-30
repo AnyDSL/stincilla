@@ -130,13 +130,13 @@ fn round_up(num: int, multiple: int) -> int {
     if rem == 0 { num } else { num + multiple - rem }
 }
 
-fn benchmark(body: fn() -> ()) -> () {
+fn benchmark(get_time: fn() -> i64, body: fn() -> ()) -> () {
     let num = 7;
     let mut times = ~[num:i64];
     for i in $range(0, num) @{
-        let start = thorin_get_micro_time();
+        let start = get_time();
         body();
-        times(i) = thorin_get_micro_time() - start;
+        times(i) = get_time() - start;
     }
     sort_i64(num, times as &[i64]);
     thorin_print_string("Timing (median of ");
@@ -145,6 +145,9 @@ fn benchmark(body: fn() -> ()) -> () {
     thorin_print_double(times(num/2) as f64 / 1000.0);
     thorin_print_string(" ms\n")
 }
+
+fn benchmark_acc(body: fn() -> ()) -> () { benchmark(thorin_get_kernel_time, body) }
+fn benchmark_cpu(body: fn() -> ()) -> () { benchmark(thorin_get_micro_time,  body) }
 
 fn sort_i64(num: int, mut arr: &[i64]) -> () {
     // insertion sort

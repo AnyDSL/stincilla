@@ -9,7 +9,7 @@ fn iteration_point(out: Img,
                   ) -> () {
     let out_acc = get_acc(out, 10);
 
-    for benchmark() {
+    for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 body(x, y, out_acc);
@@ -24,7 +24,7 @@ fn iteration(out: Img, arr: Img, mask: Mask,
     let arr_acc = get_acc(arr, 10);
     let out_acc = get_acc(out, 10);
 
-    for benchmark() {
+    for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 body(x, y, out_acc, arr_acc, mask);
@@ -57,7 +57,7 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
         (width - bhx, width      , height - bhy, height)
     ];
 
-    for benchmark() {
+    for benchmark_cpu() {
         for iter in @range(0, 9) {
             let bounds = Bounds2D(iter);
             let region = Region2D(iter);
@@ -92,7 +92,7 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
     let out_acc = get_acc(out, 10);
     let tmp_acc = get_acc(tmp, 10);
 
-    for benchmark() {
+    for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 let is_row = false;
@@ -131,7 +131,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         (out.width - bhx, out.width)
     ];
 
-    for benchmark() {
+    for benchmark_cpu() {
         for iter in @range(0, 3) {
             let bounds = Bounds2DCol(iter);
             let region = Region2DCol(iter);
@@ -185,7 +185,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
     let tmp = Img { data : ~[out.width*unroll: float], width : out.width, height : unroll, stride : out.width };
     $init_zero(tmp.data, tmp.stride, tmp.height);
 
-    for benchmark() {
+    for benchmark_cpu() {
         for iter_col in @range(0, 3) {
             let bounds_col = Bounds2DCol(iter_col);
             let region_col = Region2DCol(iter_col);

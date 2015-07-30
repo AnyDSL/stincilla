@@ -4,7 +4,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     let out_acc = get_acc    (out, 10);
     let arr_acc = get_acc_i16(arr, 10);
 
-    for benchmark() {
+    for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 body(x, y, out_acc, arr_acc);
@@ -18,7 +18,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     let out_acc = get_acc_i16(out, 10);
     let arr_acc = get_acc_i16(arr, 10);
 
-    for benchmark() {
+    for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 body(x, y, out_acc, arr_acc);
@@ -33,7 +33,7 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
     let img_acc = get_acc_i16(img, 10);
     let map_acc = get_acc    (map, 10);
 
-    for benchmark() {
+    for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 body(x, y, out_acc, img_acc, map_acc);
@@ -48,7 +48,7 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     let img_acc = get_acc_i16(img, 10);
     let tmp_acc = get_acc_i16(tmp, 10);
 
-    for benchmark() {
+    for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in $inner_loop(0, out.width) @{
                 body(x, y, out_acc, img_acc, tmp_acc);

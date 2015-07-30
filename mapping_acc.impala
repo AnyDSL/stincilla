@@ -26,15 +26,17 @@ fn iteration_point(out: Img,
     let grid   = (out.width, out.height/unroll, 1);
     let block  = (128, 1, 1);
 
-    acc(acc_dev(), grid, block, || @{
-        let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-        let out_acc = get_acc(out, 10);
+    for benchmark_acc() {
+        acc(acc_dev(), grid, block, || @{
+            let gid_x = acc_gidx();
+            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+            let out_acc = get_acc(out, 10);
 
-        for i in range(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy(), out_acc);
-        }
-    });
+            for i in range(0, unroll) {
+                body(gid_x, gid_y + i * acc_bdimy(), out_acc);
+            }
+        });
+    }
 }
 
 fn iteration(out: Img, arr: Img, mask: Mask,
@@ -45,16 +47,18 @@ fn iteration(out: Img, arr: Img, mask: Mask,
     let grid   = (out.width, out.height/unroll, 1);
     let block  = config(0);
 
-    acc(acc_dev(), grid, block, || @{
-        let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-        let arr_acc = get_acc(arr, 10);
-        let out_acc = get_acc(out, 10);
+    for benchmark_acc() {
+        acc(acc_dev(), grid, block, || @{
+            let gid_x = acc_gidx();
+            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+            let arr_acc = get_acc(arr, 10);
+            let out_acc = get_acc(out, 10);
 
-        for i in range(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc, mask);
-        }
-    });
+            for i in range(0, unroll) {
+                body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc, mask);
+            }
+        });
+    }
 }
 
 fn iteration_bounds(out: Img, arr: Img, mask: Mask,
@@ -73,90 +77,92 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
     if big_kernel {
         let grid = (out.width, out.height/unroll, 1);
 
-        acc(acc_dev(), grid, block, || @{
-            let bid_x = acc_bidx();
-            let bid_y = acc_bidy();
-            let bdim_y = acc_bdimy();
-            let gdim_x = acc_gdimx();
-            let gdim_y = acc_gdimy();
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+        for benchmark_acc() {
+            acc(acc_dev(), grid, block, || @{
+                let bid_x = acc_bidx();
+                let bid_y = acc_bidy();
+                let bdim_y = acc_bdimy();
+                let gdim_x = acc_gdimx();
+                let gdim_y = acc_gdimy();
+                let gid_x = acc_gidx();
+                let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-            // 0 --- 1 --- 2
-            // 3 --- 4 --- 5
-            // 6 --- 7 --- 8
-            if bid_x < bx && bid_y < by @{                  // top-left: 0
-                let arr_acc = get_acc(arr, 0);
-                let out_acc = get_acc(out, 0);
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                // 0 --- 1 --- 2
+                // 3 --- 4 --- 5
+                // 6 --- 7 --- 8
+                if bid_x < bx && bid_y < by @{                  // top-left: 0
+                    let arr_acc = get_acc(arr, 0);
+                    let out_acc = get_acc(out, 0);
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                    return()
                 }
-                return()
-            }
-            if bid_x >= gdim_x-bx && bid_y < by @{          // top-right: 2
-                let arr_acc = get_acc(arr, 2);
-                let out_acc = get_acc(out, 2);
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                if bid_x >= gdim_x-bx && bid_y < by @{          // top-right: 2
+                    let arr_acc = get_acc(arr, 2);
+                    let out_acc = get_acc(out, 2);
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                    return()
                 }
-                return()
-            }
-            if bid_y < by @{                                // top: 1
-                let arr_acc = get_acc(arr, 1);
-                let out_acc = get_acc(out, 1);
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                if bid_y < by @{                                // top: 1
+                    let arr_acc = get_acc(arr, 1);
+                    let out_acc = get_acc(out, 1);
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                    return()
                 }
-                return()
-            }
-            if bid_y >= gdim_y-by && bid_x < bx @{          // bottom-left: 6
-                let arr_acc = get_acc(arr, 6);
-                let out_acc = get_acc(out, 6);
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                if bid_y >= gdim_y-by && bid_x < bx @{          // bottom-left: 6
+                    let arr_acc = get_acc(arr, 6);
+                    let out_acc = get_acc(out, 6);
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                    return()
                 }
-                return()
-            }
-            if bid_y >= gdim_y-by && bid_x >= gdim_x-bx @{  // bottom-right: 8
-                let arr_acc = get_acc(arr, 8);
-                let out_acc = get_acc(out, 8);
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                if bid_y >= gdim_y-by && bid_x >= gdim_x-bx @{  // bottom-right: 8
+                    let arr_acc = get_acc(arr, 8);
+                    let out_acc = get_acc(out, 8);
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                    return()
                 }
-                return()
-            }
-            if bid_y >= gdim_y-by @{                        // bottom: 7
-                let arr_acc = get_acc(arr, 7);
-                let out_acc = get_acc(out, 7);
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                if bid_y >= gdim_y-by @{                        // bottom: 7
+                    let arr_acc = get_acc(arr, 7);
+                    let out_acc = get_acc(out, 7);
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                    return()
                 }
-                return()
-            }
-            if bid_x >= gdim_x-bx @{                        // right: 5
-                let arr_acc = get_acc(arr, 5);
-                let out_acc = get_acc(out, 5);
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                if bid_x >= gdim_x-bx @{                        // right: 5
+                    let arr_acc = get_acc(arr, 5);
+                    let out_acc = get_acc(out, 5);
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                    return()
                 }
-                return()
-            }
-            if bid_x < bx @{                                // left: 3
-                let arr_acc = get_acc(arr, 3);
-                let out_acc = get_acc(out, 3);
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                if bid_x < bx @{                                // left: 3
+                    let arr_acc = get_acc(arr, 3);
+                    let out_acc = get_acc(out, 3);
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                    return()
                 }
-                return()
-            }
-            {                                               // center: 4
-                let arr_acc = get_acc(arr, 4);
-                let out_acc = get_acc(out, 4);
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                {                                               // center: 4
+                    let arr_acc = get_acc(arr, 4);
+                    let out_acc = get_acc(out, 4);
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
                 }
-            }
-        });
+            });
+        }
     } else {
         // bounds account for unroll factor
         let hu = out.height/unroll;
@@ -181,16 +187,18 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
             let arr_acc = get_acc(arr, region);
             let out_acc = get_acc(out, region);
 
-            acc(acc_dev(), grid, block, || @{
-                let gid_x = bounds(0) +
-                            acc_tidx() + acc_bdimx() * acc_bidx();
-                let gid_y = bounds(2) * unroll +
-                            acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+            for benchmark_acc() {
+                acc(acc_dev(), grid, block, || @{
+                    let gid_x = bounds(0) +
+                                acc_tidx() + acc_bdimx() * acc_bidx();
+                    let gid_y = bounds(2) * unroll +
+                                acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc, mask);
-                }
-            });
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc, mask);
+                    }
+                });
+            }
         }
     }
 }
@@ -214,46 +222,48 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
     let gpu_arr = mmap(arr.data, dev, acc_tex(), 0, arr.width * arr.height);
     let gpu_out = mmap(out.data, dev, acc_mem(), 0, out.width * out.height);
 
-    acc(dev, grid, block, || @{
-        let tid_x = acc_tidx();
-        let tid_y = acc_tidy();
-        let bdim_x = acc_bdimx();
-        let bdim_y = acc_bdimy();
-        let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+    for benchmark_acc() {
+        acc(dev, grid, block, || @{
+            let tid_x = acc_tidx();
+            let tid_y = acc_tidy();
+            let bdim_x = acc_bdimx();
+            let bdim_y = acc_bdimy();
+            let gid_x = acc_gidx();
+            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-        let spm_stride =          block(0) + 2 * range_row;
-        let spm_height = unroll * block(1) + 2 * range_col;
-        let mut spm = mmap(arr.data, dev, acc_spm(), 0, spm_stride * spm_height);
-        let spm_img = Img { data : spm,     width : spm_stride, height : spm_height, stride : spm_stride };
-        let out_img = Img { data : gpu_out, width : out.width,  height : out.height, stride : out.width };
+            let spm_stride =          block(0) + 2 * range_row;
+            let spm_height = unroll * block(1) + 2 * range_col;
+            let mut spm = mmap(arr.data, dev, acc_spm(), 0, spm_stride * spm_height);
+            let spm_img = Img { data : spm,     width : spm_stride, height : spm_height, stride : spm_stride };
+            let out_img = Img { data : gpu_out, width : out.width,  height : out.height, stride : out.width };
 
-        for y in range(0, steps_y) {
-            let lid_y = tid_y             + y*bdim_y;
-            let idx_y = gid_y - range_col + y*bdim_y;
-            for x in range(0, steps_x) {
-                let lid_x = tid_x + x*bdim_x;
-                let idx_x = gid_x - range_row + x*bdim_x;
+            for y in range(0, steps_y) {
+                let lid_y = tid_y             + y*bdim_y;
+                let idx_y = gid_y - range_col + y*bdim_y;
+                for x in range(0, steps_x) {
+                    let lid_x = tid_x + x*bdim_x;
+                    let idx_x = gid_x - range_row + x*bdim_x;
 
-                if lid_x < spm_stride && lid_y < spm_height @{
-                    let gpu_img = Img { data : gpu_arr, width : arr.width, height : arr.height, stride : arr.stride };
-                    let gpu_acc = get_acc(gpu_img, 10); // TODO: set region!
-                    spm(lid_y * spm_stride + lid_x) = get_pixel(gpu_acc, idx_x, idx_y, clamp_lower, clamp_upper);
+                    if lid_x < spm_stride && lid_y < spm_height @{
+                        let gpu_img = Img { data : gpu_arr, width : arr.width, height : arr.height, stride : arr.stride };
+                        let gpu_acc = get_acc(gpu_img, 10); // TODO: set region!
+                        spm(lid_y * spm_stride + lid_x) = get_pixel(gpu_acc, idx_x, idx_y, clamp_lower, clamp_upper);
+                    }
                 }
             }
-        }
 
-        acc_barrier();
+            acc_barrier();
 
-        for i in range(0, unroll) {
-            // index space: block
-            let out_acc = Acc { img : out_img, roi : RoI { o_x : 0, o_y : 0, width : out_img.width, height : out_img.height },
-                                               rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy() * unroll + i * bdim_y, region : 4 /* no bh */ };
-            let arr_acc = Acc { img : spm_img, roi : RoI { o_x : 0, o_y : 0, width : spm_img.width, height : spm_img.height },
-                                               rox : range_row,                roy : range_col + i * bdim_y,                         region : 4 /* no bh */ };
-            body(tid_x, tid_y, out_acc, arr_acc, mask);
-        }
-    });
+            for i in range(0, unroll) {
+                // index space: block
+                let out_acc = Acc { img : out_img, roi : RoI { o_x : 0, o_y : 0, width : out_img.width, height : out_img.height },
+                                                   rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy() * unroll + i * bdim_y, region : 4 /* no bh */ };
+                let arr_acc = Acc { img : spm_img, roi : RoI { o_x : 0, o_y : 0, width : spm_img.width, height : spm_img.height },
+                                                   rox : range_row,                roy : range_col + i * bdim_y,                         region : 4 /* no bh */ };
+                body(tid_x, tid_y, out_acc, arr_acc, mask);
+            }
+        });
+    }
 
     munmap(gpu_arr);
     munmap(gpu_out);
@@ -279,30 +289,34 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
     let gpu_tmp_wo = Img { data : mmap(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
     let gpu_out_wo = Img { data : mmap(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
 
-    acc(dev, grid, block_col, || @{
-        let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-        let is_row = false;
+    for benchmark_acc() {
+        acc(dev, grid, block_col, || @{
+            let gid_x = acc_gidx();
+            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+            let is_row = false;
 
-        let arr_acc = get_acc(gpu_arr_ro, 10);
-        let tmp_acc = get_acc(gpu_tmp_wo, 10);
+            let arr_acc = get_acc(gpu_arr_ro, 10);
+            let tmp_acc = get_acc(gpu_tmp_wo, 10);
 
-        for i in range(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, arr_acc, mask_col, is_row);
-        }
-    });
-    acc(dev, grid, block_row, || @{
-        let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-        let is_row = true;
+            for i in range(0, unroll) {
+                body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, arr_acc, mask_col, is_row);
+            }
+        });
+    }
+    for benchmark_acc() {
+        acc(dev, grid, block_row, || @{
+            let gid_x = acc_gidx();
+            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+            let is_row = true;
 
-        let tmp_acc = get_acc(gpu_tmp_ro, 10);
-        let out_acc = get_acc(gpu_out_wo, 10);
+            let tmp_acc = get_acc(gpu_tmp_ro, 10);
+            let out_acc = get_acc(gpu_out_wo, 10);
 
-        for i in range(0, unroll) {
-            body(gid_x, gid_y + i * acc_bdimy(), out_acc, tmp_acc, mask_row, is_row);
-        }
-    });
+            for i in range(0, unroll) {
+                body(gid_x, gid_y + i * acc_bdimy(), out_acc, tmp_acc, mask_row, is_row);
+            }
+        });
+    }
 
     munmap(gpu_arr_ro.data);
     munmap(gpu_tmp_ro.data);
@@ -342,72 +356,76 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         let grid = (out.width, out.height/unroll, 1);
 
         // column component
-        acc(dev, grid, block_col, || @{
-            let bid_y = acc_bidy();
-            let bdim_y = acc_bdimy();
-            let gdim_y = acc_gdimy();
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let is_row = false;
+        for benchmark_acc() {
+            acc(dev, grid, block_col, || @{
+                let bid_y = acc_bidy();
+                let bdim_y = acc_bdimy();
+                let gdim_y = acc_gdimy();
+                let gid_x = acc_gidx();
+                let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+                let is_row = false;
 
-            if bid_y < by @{                                // top: 1
-                let arr_acc = get_acc(gpu_arr_ro, Region2DCol(0));
-                let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(0));
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
+                if bid_y < by @{                                // top: 1
+                    let arr_acc = get_acc(gpu_arr_ro, Region2DCol(0));
+                    let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(0));
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
+                    }
+                    return()
                 }
-                return()
-            }
-            if bid_y >= gdim_y-by @{                        // bottom: 7
-                let arr_acc = get_acc(gpu_arr_ro, Region2DCol(2));
-                let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(2));
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
+                if bid_y >= gdim_y-by @{                        // bottom: 7
+                    let arr_acc = get_acc(gpu_arr_ro, Region2DCol(2));
+                    let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(2));
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
+                    }
+                    return()
                 }
-                return()
-            }
-            @{                                              // center: 4
-                let arr_acc = get_acc(gpu_arr_ro, Region2DCol(1));
-                let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(1));
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
+                @{                                              // center: 4
+                    let arr_acc = get_acc(gpu_arr_ro, Region2DCol(1));
+                    let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(1));
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
+                    }
                 }
-            }
-        });
+            });
+        }
 
         // row component
-        acc(acc_dev(), grid, block_row, || @{
-            let bid_x = acc_bidx();
-            let bdim_y = acc_bdimy();
-            let gdim_x = acc_gdimx();
-            let gid_x = acc_gidx();
-            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let is_row = true;
+        for benchmark_acc() {
+            acc(acc_dev(), grid, block_row, || @{
+                let bid_x = acc_bidx();
+                let bdim_y = acc_bdimy();
+                let gdim_x = acc_gdimx();
+                let gid_x = acc_gidx();
+                let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+                let is_row = true;
 
-            if bid_x < bx @{                                // left: 3
-                let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(0));
-                let out_acc = get_acc(gpu_out_wo, Region2DRow(0));
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
+                if bid_x < bx @{                                // left: 3
+                    let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(0));
+                    let out_acc = get_acc(gpu_out_wo, Region2DRow(0));
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
+                    }
+                    return()
                 }
-                return()
-            }
-            if bid_x >= gdim_x-bx @{                        // right: 5
-                let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(2));
-                let out_acc = get_acc(gpu_out_wo, Region2DRow(2));
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
+                if bid_x >= gdim_x-bx @{                        // right: 5
+                    let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(2));
+                    let out_acc = get_acc(gpu_out_wo, Region2DRow(2));
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
+                    }
+                    return()
                 }
-                return()
-            }
-            @{                                               // center: 4
-                let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(1));
-                let out_acc = get_acc(gpu_out_wo, Region2DRow(1));
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
+                @{                                               // center: 4
+                    let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(1));
+                    let out_acc = get_acc(gpu_out_wo, Region2DRow(1));
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
+                    }
                 }
-            }
-        });
+            });
+        }
     } else {
         let hu = out.height / unroll;
         let Bounds2DCol = [
@@ -424,16 +442,18 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
             let arr_acc = get_acc(gpu_arr_ro, region);
             let tmp_acc = get_acc(gpu_tmp_wo, region);
 
-            acc(dev, grid, block_col, || @{
-                let gid_x = acc_gidx();
-                let gid_y = bounds(0) * unroll +
-                            acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-                let is_row = false;
+            for benchmark_acc() {
+                acc(dev, grid, block_col, || @{
+                    let gid_x = acc_gidx();
+                    let gid_y = bounds(0) * unroll +
+                                acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+                    let is_row = false;
 
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, arr_acc, mask_col, is_row);
-                }
-            });
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, arr_acc, mask_col, is_row);
+                    }
+                });
+            }
         }
 
         let Bounds2DRow = [
@@ -450,15 +470,17 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
             let tmp_acc = get_acc(gpu_tmp_ro, region);
             let out_acc = get_acc(gpu_out_wo, region);
 
-            acc(acc_dev(), grid, block_row, || @{
-                let gid_x = bounds(0) + acc_gidx();
-                let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-                let is_row = true;
+            for benchmark_acc() {
+                acc(acc_dev(), grid, block_row, || @{
+                    let gid_x = bounds(0) + acc_gidx();
+                    let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+                    let is_row = true;
 
-                for i in range(0, unroll) {
-                    body(gid_x, gid_y + i * acc_bdimy(), out_acc, tmp_acc, mask_row, is_row);
-                }
-            });
+                    for i in range(0, unroll) {
+                        body(gid_x, gid_y + i * acc_bdimy(), out_acc, tmp_acc, mask_row, is_row);
+                    }
+                });
+            }
         }
     }
 
@@ -487,75 +509,77 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
     let gpu_arr = mmap(arr.data, dev, acc_tex(), 0, arr.width * out.height);
     let gpu_out = mmap(out.data, dev, acc_mem(), 0, out.width * out.height);
 
-    acc(dev, grid, block, || @{
-        let tid_x = acc_tidx();
-        let tid_y = acc_tidy();
-        let bdim_x = acc_bdimx();
-        let bdim_y = acc_bdimy();
-        let gid_x = acc_gidx();
-        let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
+    for benchmark_acc() {
+        acc(dev, grid, block, || @{
+            let tid_x = acc_tidx();
+            let tid_y = acc_tidy();
+            let bdim_x = acc_bdimx();
+            let bdim_y = acc_bdimy();
+            let gid_x = acc_gidx();
+            let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
-        let spm_stride     =          block(0) + 2 * range_row;
-        let spm_height_col = unroll * block(1) + 2 * range_col;
-        let spm_height_row = unroll * block(1);
-        let mut spm_col = mmap(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_col);
-        let     spm_row = mmap(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_row);
-        let spmr_img = Img { data : spm_row, width : spm_stride,  height : spm_height_row, stride : spm_stride };
-        let spmc_img = Img { data : spm_col, width : spm_stride,  height : spm_height_col, stride : spm_stride };
-        let out_img  = Img { data : gpu_out, width : out.width,   height : out.height,     stride : out.width };
+            let spm_stride     =          block(0) + 2 * range_row;
+            let spm_height_col = unroll * block(1) + 2 * range_col;
+            let spm_height_row = unroll * block(1);
+            let mut spm_col = mmap(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_col);
+            let     spm_row = mmap(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_row);
+            let spmr_img = Img { data : spm_row, width : spm_stride,  height : spm_height_row, stride : spm_stride };
+            let spmc_img = Img { data : spm_col, width : spm_stride,  height : spm_height_col, stride : spm_stride };
+            let out_img  = Img { data : gpu_out, width : out.width,   height : out.height,     stride : out.width };
 
-        for y in range(0, steps_y) {
-            let lid_y = tid_y             + y*bdim_y;
-            let idx_y = gid_y - range_col + y*bdim_y;
-            for x in range(0, steps_x) {
-                let lid_x = tid_x + x*bdim_x;
-                let idx_x = gid_x - range_row + x*bdim_x;
+            for y in range(0, steps_y) {
+                let lid_y = tid_y             + y*bdim_y;
+                let idx_y = gid_y - range_col + y*bdim_y;
+                for x in range(0, steps_x) {
+                    let lid_x = tid_x + x*bdim_x;
+                    let idx_x = gid_x - range_row + x*bdim_x;
 
-                if lid_x < spm_stride && lid_y < spm_height_col @{
-                    let gpu_img = Img { data : gpu_arr, width : arr.width, height : arr.height, stride : arr.stride };
-                    let gpu_acc = get_acc(gpu_img, 10); // TODO: set region!
-                    spm_col(lid_y * spm_stride + lid_x) = get_pixel(gpu_acc, idx_x, idx_y, clamp_lower, clamp_upper);
+                    if lid_x < spm_stride && lid_y < spm_height_col @{
+                        let gpu_img = Img { data : gpu_arr, width : arr.width, height : arr.height, stride : arr.stride };
+                        let gpu_acc = get_acc(gpu_img, 10); // TODO: set region!
+                        spm_col(lid_y * spm_stride + lid_x) = get_pixel(gpu_acc, idx_x, idx_y, clamp_lower, clamp_upper);
+                    }
                 }
             }
-        }
 
-        acc_barrier();
-        let region = 4; // center: no bh
+            acc_barrier();
+            let region = 4; // center: no bh
 
-        for i in range(0, unroll) {
-            let is_row = false;
-            {
+            for i in range(0, unroll) {
+                let is_row = false;
+                {
+                    // index space: block
+                    let out_acc = Acc { img : spmr_img, roi : RoI { o_x : 0, o_y : 0, width : spmr_img.width, height : spmr_img.height }, rox : range_row, roy :             i * bdim_y, region : region };
+                    let arr_acc = Acc { img : spmc_img, roi : RoI { o_x : 0, o_y : 0, width : spmc_img.width, height : spmc_img.height }, rox : range_row, roy : range_col + i * bdim_y, region : region };
+                    body(tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
+                }
+                if tid_x < range_row @{
+                    // left halo
+                    let out_acc = Acc { img : spmr_img, roi : RoI { o_x : 0, o_y : 0, width : spmr_img.width, height : spmr_img.height }, rox : 0, roy :             i * bdim_y, region : region };
+                    let arr_acc = Acc { img : spmc_img, roi : RoI { o_x : 0, o_y : 0, width : spmc_img.width, height : spmc_img.height }, rox : 0, roy : range_col + i * bdim_y, region : region };
+                    body(tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
+                }
+                if tid_x >= bdim_x-range_row @{
+                    // right halo
+                    let out_acc = Acc { img : spmr_img, roi : RoI { o_x : 0, o_y : 0, width : spmr_img.width, height : spmr_img.height }, rox : range_row + range_row, roy :             i * bdim_y, region : region };
+                    let arr_acc = Acc { img : spmc_img, roi : RoI { o_x : 0, o_y : 0, width : spmc_img.width, height : spmc_img.height }, rox : range_row + range_row, roy : range_col + i * bdim_y, region : region };
+                    body(tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
+                }
+            }
+
+            acc_barrier();
+
+            for i in range(0, unroll) {
                 // index space: block
-                let out_acc = Acc { img : spmr_img, roi : RoI { o_x : 0, o_y : 0, width : spmr_img.width, height : spmr_img.height }, rox : range_row, roy :             i * bdim_y, region : region };
-                let arr_acc = Acc { img : spmc_img, roi : RoI { o_x : 0, o_y : 0, width : spmc_img.width, height : spmc_img.height }, rox : range_row, roy : range_col + i * bdim_y, region : region };
-                body(tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
+                let is_row = true;
+                let out_acc = Acc { img : out_img,  roi : RoI { o_x : 0, o_y : 0, width : out_img.width,  height : out_img.height },
+                                                    rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy() * unroll + i * bdim_y, region : region };
+                let arr_acc = Acc { img : spmr_img, roi : RoI { o_x : 0, o_y : 0, width : spmr_img.width, height : spmr_img.height },
+                                                    rox : range_row,                roy : i * bdim_y,                                     region : region };
+                body(tid_x, tid_y, out_acc, arr_acc, mask_row, is_row);
             }
-            if tid_x < range_row @{
-                // left halo
-                let out_acc = Acc { img : spmr_img, roi : RoI { o_x : 0, o_y : 0, width : spmr_img.width, height : spmr_img.height }, rox : 0, roy :             i * bdim_y, region : region };
-                let arr_acc = Acc { img : spmc_img, roi : RoI { o_x : 0, o_y : 0, width : spmc_img.width, height : spmc_img.height }, rox : 0, roy : range_col + i * bdim_y, region : region };
-                body(tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
-            }
-            if tid_x >= bdim_x-range_row @{
-                // right halo
-                let out_acc = Acc { img : spmr_img, roi : RoI { o_x : 0, o_y : 0, width : spmr_img.width, height : spmr_img.height }, rox : range_row + range_row, roy :             i * bdim_y, region : region };
-                let arr_acc = Acc { img : spmc_img, roi : RoI { o_x : 0, o_y : 0, width : spmc_img.width, height : spmc_img.height }, rox : range_row + range_row, roy : range_col + i * bdim_y, region : region };
-                body(tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
-            }
-        }
-
-        acc_barrier();
-
-        for i in range(0, unroll) {
-            // index space: block
-            let is_row = true;
-            let out_acc = Acc { img : out_img,  roi : RoI { o_x : 0, o_y : 0, width : out_img.width,  height : out_img.height },
-                                                rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy() * unroll + i * bdim_y, region : region };
-            let arr_acc = Acc { img : spmr_img, roi : RoI { o_x : 0, o_y : 0, width : spmr_img.width, height : spmr_img.height },
-                                                rox : range_row,                roy : i * bdim_y,                                     region : region };
-            body(tid_x, tid_y, out_acc, arr_acc, mask_row, is_row);
-        }
-    });
+        });
+    }
 
     munmap(gpu_arr);
     munmap(gpu_out);
@@ -580,9 +604,11 @@ fn iteration_multi(width: int, height: int,
         map_out(dev) = mmap(out, dev, acc_mem(), offset, mem_size_dev);
 
         ids(dev) = spawn(|| -> () @{
-            acc(dev, grid, block, || @{
-                body(acc_gidx(), acc_gidy(), map_out(dev), map_arr(dev));
-            });
+            for benchmark_acc() {
+                acc(dev, grid, block, || @{
+                    body(acc_gidx(), acc_gidy(), map_out(dev), map_arr(dev));
+                });
+            }
         });
     }
 
