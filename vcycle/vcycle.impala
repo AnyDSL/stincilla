@@ -346,6 +346,7 @@ fn thorin_vcycle(img_data: &[float], out_data: &[float], width: int, height: int
 
     let result = @vcycle_dsl(RHS, levels, vsteps, ssteps, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, restrict_mask, interpolate_fun, interpolate_mask);
     //let result = @vcycle(RHS, levels, vsteps, ssteps);
+    print_total_timing();
 
     for y in range(0, out.height) {
         for x in range(0, out.width) {

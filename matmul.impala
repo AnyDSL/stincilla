@@ -100,5 +100,7 @@ fn main(i: int) -> int {
     gflops = (1.0e-9 * (nops as f64)) / ((end - start) as f64 * 1.0e-6);
     print_gflops(gflops);
 
+    print_total_timing();
+
     0
 }

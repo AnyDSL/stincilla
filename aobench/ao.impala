@@ -281,5 +281,6 @@ fn thorin_ao() -> () {
     init_scene();
     @render(img, WIDTH, HEIGHT, NSUBSAMPLES);
     saveppm(img, WIDTH, HEIGHT);
+    print_total_timing()
 }
 

@@ -89,6 +89,7 @@ fn main() -> int {
             out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
         }
     }
+    print_total_timing();
 
     fn reference() -> int {
         let mut passed = 0;

@@ -122,6 +122,8 @@ fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, 
         out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = det - 0.04f * trace * trace;
     }
 
+    print_total_timing();
+
 
     // post-processing: mark corners
     let threshold = 100000.0f;

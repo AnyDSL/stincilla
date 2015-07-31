@@ -49,6 +49,7 @@ fn test_main(input: &[float]) -> float {
         }
 
         oddeven_merge_sort(length, arr);
+        print_total_timing();
 
         // return median
         arr((length - 1) / 2)

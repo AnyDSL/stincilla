@@ -112,6 +112,7 @@ fn main() -> int {
         //out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter(x, y, arr_acc, sigma_d, c_d, c_r, lower, upper);
         out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_r, lower, upper);
     }
+    print_total_timing();
 
     // compare results
     fn reference() -> int {

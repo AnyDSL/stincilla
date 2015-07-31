@@ -21,6 +21,7 @@ fn main() -> int {
         }
         out_acc.img.data(y * out_acc.img.stride + x) = median();
     }
+    print_total_timing();
 
     fn reference() -> int {
         let mut passed = 0;
