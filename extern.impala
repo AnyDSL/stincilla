@@ -142,11 +142,15 @@ fn benchmark(get_time: fn() -> i64, body: fn() -> ()) -> i64 {
         times(i) = get_time() - start;
     }
     sort_i64(num, times as &[i64]);
-    thorin_print_string("Timing (median of ");
-    thorin_print_int(num);
-    thorin_print_string(" runs): ");
+    thorin_print_string("Timing: ");
     thorin_print_double(times(num/2) as f64 / 1000.0);
-    thorin_print_string(" ms\n");
+    thorin_print_string(" | ");
+    thorin_print_double(times(0) as f64 / 1000.0);
+    thorin_print_string(" | ");
+    thorin_print_double(times(num-1) as f64 / 1000.0);
+    thorin_print_string(" (median(");
+    thorin_print_int(num);
+    thorin_print_string(") | minimum | maximum) ms\n");
     times(num/2)
 }
 
