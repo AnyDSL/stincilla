@@ -215,7 +215,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
     let range_row = mask.size_x / 2;
     let range_col = mask.size_y / 2;
     let steps_x   = 2;
-    let offset_y  = if (mask.size_y-1)%block(1)==0 { 0 } else { 1 };
+    let offset_y  = if (mask.size_y-1)%block(1) == 0 { 0 } else { 1 };
     let steps_y   = unroll + (mask.size_y-1)/block(1) + offset_y;
 
     let dev = acc_dev();
@@ -501,7 +501,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
     // compute number of steps required to stage data to shared memory
     let range_row = mask_row.size / 2;
     let range_col = mask_col.size / 2;
-    let offset_y  = if (mask_col.size-1)%block(1)==0 { 0 } else { 1 };
+    let offset_y  = if (mask_col.size-1)%block(1) == 0 { 0 } else { 1 };
     let steps_x   = 2;
     let steps_y   = unroll + (mask_col.size-1)/block(1) + offset_y;
 
