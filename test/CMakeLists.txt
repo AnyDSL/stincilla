@@ -11,7 +11,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     thorin_runtime_wrap(MULTI_GPU_FILES MULTI_GPU_LIBS
         BACKEND ${BACKEND}
         MAIN
-        FILES ../extern.impala multi_gpu.impala)
+        FILES ../utils.impala multi_gpu.impala)
     add_executable(multi_gpu ${MULTI_GPU_FILES})
     target_link_libraries(multi_gpu ${MULTI_GPU_LIBS})
     add_test("multi_gpu" multi_gpu)

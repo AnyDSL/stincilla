@@ -31,7 +31,7 @@ add_subdirectory(vcycle)
 thorin_runtime_wrap(MATMUL_FILES MATMUL_LIBS
     BACKEND cpu
     MAIN
-    FILES extern.impala matmul.impala)
+    FILES utils.impala matmul.impala)
 add_executable(matmul ${MATMUL_FILES})
 target_link_libraries(matmul ${MATMUL_LIBS})
 add_test("matmul" matmul)
@@ -40,7 +40,7 @@ add_test("matmul" matmul)
 thorin_runtime_wrap(GAUSSIAN_FILES GAUSSIAN_LIBS
     BACKEND ${BACKEND}
     MAIN
-    FILES extern.impala mapping_${DEVICE}.impala gaussian.impala)
+    FILES utils.impala mapping_${DEVICE}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_FILES})
 target_link_libraries(gaussian ${GAUSSIAN_LIBS})
 add_test("gaussian" gaussian)
@@ -48,7 +48,7 @@ add_test("gaussian" gaussian)
 thorin_runtime_wrap(BILATERAL_FILES BILATERAL_LIBS
     BACKEND ${BACKEND}
     MAIN
-    FILES extern.impala mapping_${DEVICE}.impala bilateral.impala)
+    FILES utils.impala mapping_${DEVICE}.impala bilateral.impala)
 add_executable(bilateral ${BILATERAL_FILES})
 target_link_libraries(bilateral ${BILATERAL_LIBS})
 add_test("bilateral" bilateral)
@@ -56,7 +56,7 @@ add_test("bilateral" bilateral)
 thorin_runtime_wrap(JACOBI_FILES JACOBI_LIBS
     BACKEND ${BACKEND}
     MAIN
-    FILES extern.impala mapping_${DEVICE}.impala jacobi.impala)
+    FILES utils.impala mapping_${DEVICE}.impala jacobi.impala)
 add_executable(jacobi ${JACOBI_FILES})
 target_link_libraries(jacobi ${JACOBI_LIBS})
 add_test("jacobi" jacobi)
