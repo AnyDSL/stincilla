@@ -122,14 +122,6 @@ fn get_pixel(acc: Acc, x: int, y: int,
 }
 
 
-// nearest multiple of num
-fn round_up(num: int, multiple: int) -> int {
-    if multiple == 0 { return(num) }
-
-    let rem = num % multiple;
-    if rem == 0 { num } else { num + multiple - rem }
-}
-
 static mut total_kernel_timing = 0i64;
 static mut total_cpu_timing = 0i64;
 
@@ -188,6 +180,10 @@ fn sort_f32(num: int, mut arr: &[f32]) -> () {
         arr(j) = x;
     }
 }
+
+// nearest multiple of num
+fn round_up(num: int, multiple: int) -> int { ((num + multiple - 1) / multiple) * multiple }
+
 
 // structs for images and accessors
 fn get_acc(img: Img, region: int) -> Acc {
