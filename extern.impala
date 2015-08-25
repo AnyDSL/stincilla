@@ -133,29 +133,28 @@ fn round_up(num: int, multiple: int) -> int {
 static mut total_kernel_timing = 0i64;
 static mut total_cpu_timing = 0i64;
 
-fn benchmark(get_time: fn() -> i64, body: fn() -> ()) -> i64 {
-    let num = 7;
-    let mut times = ~[num:i64];
-    for i in $range(0, num) @{
+fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> ()) -> i64 {
+    let mut times = ~[num_iter:i64];
+    for i in $range(0, num_iter) @{
         let start = get_time();
         body();
         times(i) = get_time() - start;
     }
-    sort_i64(num, times as &[i64]);
+    sort_i64(num_iter, times as &[i64]);
     thorin_print_string("Timing: ");
-    thorin_print_double(times(num/2) as f64 / 1000.0);
+    thorin_print_double(times(num_iter/2) as f64 / 1000.0);
     thorin_print_string(" | ");
     thorin_print_double(times(0) as f64 / 1000.0);
     thorin_print_string(" | ");
-    thorin_print_double(times(num-1) as f64 / 1000.0);
+    thorin_print_double(times(num_iter-1) as f64 / 1000.0);
     thorin_print_string(" (median(");
-    thorin_print_int(num);
+    thorin_print_int(num_iter);
     thorin_print_string(") | minimum | maximum) ms\n");
-    times(num/2)
+    times(num_iter/2)
 }
 
-fn benchmark_acc(body: fn() -> ()) -> () { total_kernel_timing += benchmark(thorin_get_kernel_time, body) }
-fn benchmark_cpu(body: fn() -> ()) -> () { total_cpu_timing    += benchmark(thorin_get_micro_time,  body) }
+fn benchmark_acc(body: fn() -> ()) -> () { total_kernel_timing += benchmark(thorin_get_kernel_time, 7, body) }
+fn benchmark_cpu(body: fn() -> ()) -> () { total_cpu_timing    += benchmark(thorin_get_micro_time, 27, body) }
 
 fn print_total_timing() -> () {
     thorin_print_string("Total timing for cpu / kernel: ");
