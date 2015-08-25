@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.8.5 FATAL_ERROR)
 
 project(STINCILLA CXX)
-enable_testing()
 
 find_package(THORIN REQUIRED)
 include(${THORIN_RUNTIME_DIR}/cmake/ThorinRuntime.cmake)
@@ -16,7 +15,6 @@ endif()
 if(NOT MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
