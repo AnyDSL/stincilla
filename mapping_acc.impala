@@ -219,8 +219,8 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
     let steps_y   = unroll + (mask.size_y-1)/block(1) + offset_y;
 
     let dev = acc_dev();
-    let gpu_arr = mmap(arr.data, dev, acc_tex(), 0, arr.width * arr.height);
-    let gpu_out = mmap(out.data, dev, acc_mem(), 0, out.width * out.height);
+    let gpu_arr = mmap_f32(arr.data, dev, acc_tex(), 0, arr.width * arr.height);
+    let gpu_out = mmap_f32(out.data, dev, acc_mem(), 0, out.width * out.height);
 
     for benchmark_acc() {
         acc(dev, grid, block, || @{
@@ -233,7 +233,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
 
             let spm_stride =          block(0) + 2 * range_row;
             let spm_height = unroll * block(1) + 2 * range_col;
-            let mut spm = mmap(arr.data, dev, acc_spm(), 0, spm_stride * spm_height);
+            let mut spm = mmap_f32(arr.data, dev, acc_spm(), 0, spm_stride * spm_height);
             let spm_img = Img { data : spm,     width : spm_stride, height : spm_height, stride : spm_stride };
             let out_img = Img { data : gpu_out, width : out.width,  height : out.height, stride : out.width };
 
@@ -265,8 +265,8 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
         });
     }
 
-    munmap(gpu_arr);
-    munmap(gpu_out);
+    munmap_f32(gpu_arr);
+    munmap_f32(gpu_out);
 }
 
 fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
@@ -284,10 +284,10 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
     $init_zero(tmp.data, tmp.stride, tmp.height);
 
     let dev = acc_dev();
-    let gpu_arr_ro = Img { data : mmap(arr.data, dev, acc_tex(), 0, arr.width * arr.height), width : arr.width, height : arr.height, stride : arr.stride };
-    let gpu_tmp_ro = Img { data : mmap(tmp.data, dev, acc_tex(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
-    let gpu_tmp_wo = Img { data : mmap(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
-    let gpu_out_wo = Img { data : mmap(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
+    let gpu_arr_ro = Img { data : mmap_f32(arr.data, dev, acc_tex(), 0, arr.width * arr.height), width : arr.width, height : arr.height, stride : arr.stride };
+    let gpu_tmp_ro = Img { data : mmap_f32(tmp.data, dev, acc_tex(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
+    let gpu_tmp_wo = Img { data : mmap_f32(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
+    let gpu_out_wo = Img { data : mmap_f32(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
 
     for benchmark_acc() {
         acc(dev, grid, block_col, || @{
@@ -318,10 +318,10 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
         });
     }
 
-    munmap(gpu_arr_ro.data);
-    munmap(gpu_tmp_ro.data);
-    munmap(gpu_tmp_wo.data);
-    munmap(gpu_out_wo.data);
+    munmap_f32(gpu_arr_ro.data);
+    munmap_f32(gpu_tmp_ro.data);
+    munmap_f32(gpu_tmp_wo.data);
+    munmap_f32(gpu_out_wo.data);
 }
 
 fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
@@ -344,10 +344,10 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
     $init_zero(tmp.data, tmp.stride, tmp.height);
 
     let dev = acc_dev();
-    let gpu_arr_ro = Img { data : mmap(arr.data, dev, acc_tex(), 0, arr.width * arr.height), width : arr.width, height : arr.height, stride : arr.stride };
-    let gpu_tmp_ro = Img { data : mmap(tmp.data, dev, acc_tex(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
-    let gpu_tmp_wo = Img { data : mmap(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
-    let gpu_out_wo = Img { data : mmap(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
+    let gpu_arr_ro = Img { data : mmap_f32(arr.data, dev, acc_tex(), 0, arr.width * arr.height), width : arr.width, height : arr.height, stride : arr.stride };
+    let gpu_tmp_ro = Img { data : mmap_f32(tmp.data, dev, acc_tex(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
+    let gpu_tmp_wo = Img { data : mmap_f32(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
+    let gpu_out_wo = Img { data : mmap_f32(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
 
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
@@ -484,10 +484,10 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         }
     }
 
-    munmap(gpu_arr_ro.data);
-    munmap(gpu_tmp_ro.data);
-    munmap(gpu_tmp_wo.data);
-    munmap(gpu_out_wo.data);
+    munmap_f32(gpu_arr_ro.data);
+    munmap_f32(gpu_tmp_ro.data);
+    munmap_f32(gpu_tmp_wo.data);
+    munmap_f32(gpu_out_wo.data);
 }
 
 fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
@@ -506,8 +506,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
     let steps_y   = unroll + (mask_col.size-1)/block(1) + offset_y;
 
     let dev = acc_dev();
-    let gpu_arr = mmap(arr.data, dev, acc_tex(), 0, arr.width * out.height);
-    let gpu_out = mmap(out.data, dev, acc_mem(), 0, out.width * out.height);
+    let gpu_arr = mmap_f32(arr.data, dev, acc_tex(), 0, arr.width * out.height);
+    let gpu_out = mmap_f32(out.data, dev, acc_mem(), 0, out.width * out.height);
 
     for benchmark_acc() {
         acc(dev, grid, block, || @{
@@ -521,8 +521,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
             let spm_stride     =          block(0) + 2 * range_row;
             let spm_height_col = unroll * block(1) + 2 * range_col;
             let spm_height_row = unroll * block(1);
-            let mut spm_col = mmap(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_col);
-            let     spm_row = mmap(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_row);
+            let mut spm_col = mmap_f32(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_col);
+            let     spm_row = mmap_f32(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_row);
             let spmr_img = Img { data : spm_row, width : spm_stride,  height : spm_height_row, stride : spm_stride };
             let spmc_img = Img { data : spm_col, width : spm_stride,  height : spm_height_col, stride : spm_stride };
             let out_img  = Img { data : gpu_out, width : out.width,   height : out.height,     stride : out.width };
@@ -581,8 +581,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
         });
     }
 
-    munmap(gpu_arr);
-    munmap(gpu_out);
+    munmap_f32(gpu_arr);
+    munmap_f32(gpu_out);
 }
 
 fn iteration_multi(width: int, height: int,
@@ -600,8 +600,8 @@ fn iteration_multi(width: int, height: int,
         let grid  = (width, height_dev, 1);
         let block = (128, 1, 1);
 
-        map_arr(dev) = mmap(arr, dev, acc_tex(), offset, mem_size_dev);
-        map_out(dev) = mmap(out, dev, acc_mem(), offset, mem_size_dev);
+        map_arr(dev) = mmap_f32(arr, dev, acc_tex(), offset, mem_size_dev);
+        map_out(dev) = mmap_f32(out, dev, acc_mem(), offset, mem_size_dev);
 
         ids(dev) = spawn(|| -> () @{
             for benchmark_acc() {
@@ -614,7 +614,7 @@ fn iteration_multi(width: int, height: int,
 
     for dev in range(0, 2) {
         sync(ids(dev));
-        munmap(map_arr(dev));
-        munmap(map_out(dev));
+        munmap_f32(map_arr(dev));
+        munmap_f32(map_out(dev));
     }
 }

@@ -5,10 +5,6 @@ extern "C" {
     // TODO: provide own implementation on the GPU
     fn drand48() -> f64;
 }
-extern "thorin" {
-    fn "mmap" mmap_u8(&[u8], int, int, int, int) -> &[u8];
-    fn "munmap" munmap_u8(&[u8]) -> ();
-}
 
 fn iteration(out: &[u8], width: int, height: int,
              body: fn(int, int, &[u8]) -> ()

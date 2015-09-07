@@ -1,6 +1,6 @@
 extern "thorin" {
-    fn mmap(&[f32], int, int, int, int) -> &[f32];
-    fn munmap(&[f32]) -> ();
+    fn mmap_f32(&[f32], int, int, int, int) -> &[f32];
+    fn munmap_f32(&[f32]) -> ();
     fn spir(int, (int, int, int), (int, int, int), fn() -> ()) -> ();
 }
 extern "device" {
@@ -40,13 +40,13 @@ fn main() -> int {
     let arr    = ~[width*height:float];
     let out    = ~[width*height:float];
 
-    let mapped = mmap(arr, 1, 1, 0, width * height);
+    let mapped = mmap_f32(arr, 1, 1, 0, width * height);
 
     for x, y in @iteration(width, height) {
         write(out, mapped, y*width + x);
     }
 
-    munmap(mapped);
+    munmap_f32(mapped);
 
     0
 }

@@ -13,8 +13,8 @@ fn iteration_multi(width: int, height: int,
         let grid  = (width, height_dev, 1);
         let block = (128, 1, 1);
 
-        map_arr(dev) = mmap(arr, dev, acc_tex(), offset, mem_size_dev);
-        map_out(dev) = mmap(out, dev, acc_mem(), offset, mem_size_dev);
+        map_arr(dev) = mmap_f32(arr, dev, acc_tex(), offset, mem_size_dev);
+        map_out(dev) = mmap_f32(out, dev, acc_mem(), offset, mem_size_dev);
 
         ids(dev) = spawn(|| -> () @{
             acc(dev, grid, block, || @{
@@ -25,8 +25,8 @@ fn iteration_multi(width: int, height: int,
 
     for dev in range(0, 2) {
         sync(ids(dev));
-        munmap(map_arr(dev));
-        munmap(map_out(dev));
+        munmap_f32(map_arr(dev));
+        munmap_f32(map_out(dev));
     }
 }
 

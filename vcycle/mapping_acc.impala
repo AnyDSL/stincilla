@@ -3,9 +3,9 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
                    restrict: fn(int, int, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
     let dev = acc_dev();
-    let gpu_sol  = mmap(Sol.data,  dev, acc_tex(), 0, Sol.stride  * Sol.height);
-    let gpu_rhsf = mmap(RHSF.data, dev, acc_mem(), 0, RHSF.stride * RHSF.height);
-    let gpu_rhsc = mmap(RHSC.data, dev, acc_mem(), 0, RHSC.stride * RHSC.height);
+    let gpu_sol  = mmap_f32(Sol.data,  dev, acc_tex(), 0, Sol.stride  * Sol.height);
+    let gpu_rhsf = mmap_f32(RHSF.data, dev, acc_mem(), 0, RHSF.stride * RHSF.height);
+    let gpu_rhsc = mmap_f32(RHSC.data, dev, acc_mem(), 0, RHSC.stride * RHSC.height);
 
     let grid  = (Sol.width, Sol.height, 1);
     let block = (64, 2, 1); // must be x2
@@ -18,7 +18,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
 
             let lstride = block(0);
             let lheight = block(1);
-            let smem_res = mmap(Sol.data, dev, acc_spm(), 0, lstride * lheight);
+            let smem_res = mmap_f32(Sol.data, dev, acc_spm(), 0, lstride * lheight);
             let smem_img = Img { data : smem_res, width : lstride,    height : lheight,     stride : lstride };
             let rhsf_img = Img { data : gpu_rhsf, width : RHSF.width, height : RHSF.height, stride : RHSF.stride };
             let rhsc_img = Img { data : gpu_rhsc, width : RHSC.width, height : RHSC.height, stride : RHSC.stride };
@@ -44,7 +44,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
         });
     }
 
-    munmap(gpu_sol);
-    munmap(gpu_rhsf);
-    munmap(gpu_rhsc);
+    munmap_f32(gpu_sol);
+    munmap_f32(gpu_rhsf);
+    munmap_f32(gpu_rhsc);
 }
