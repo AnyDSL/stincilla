@@ -17,17 +17,18 @@ fn apply_bh(mut index: int,
 
 fn apply_stencil(N: int, arr: &[float], mut out: &[float], stencil: [float * 3],
                  bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int) -> () {
-    let lb = [0, 1, N - 1];
-    let ub = [1, N - 1, N];
+    let size = 1;
+    let lb = [0, size, N - size];
+    let ub = [size, N - size, N];
     for region in @range(0, 3) {
-        let current_lb = lb(region);
-        let current_ub = ub(region);
+        let lower = lb(region);
+        let upper = ub(region);
         for x in $range(lb(region), ub(region)) @{
             // apply stencil to pixel
             let mut sum = 0.0f;
-            for j in range(-1, 2) {
-                let idx = apply_bh(x + j, bh_lower, bh_upper, current_lb, current_ub);
-                sum += stencil(j + 1) * arr(idx);
+            for j in range(-size, size+1) {
+                let idx = apply_bh(x + j, bh_lower, bh_upper, lower, upper);
+                sum += stencil(j + size) * arr(idx);
             }
             out(x) = sum;
         }
