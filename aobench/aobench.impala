@@ -276,7 +276,7 @@ fn init_scene() -> () {
 }
 
 extern
-fn thorin_ao() -> () {
+fn aobench() -> () {
     let img = ~[WIDTH*HEIGHT*3:u8];
     init_scene();
     @render(img, WIDTH, HEIGHT, NSUBSAMPLES);

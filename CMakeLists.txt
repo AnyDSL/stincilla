@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 2.8.5 FATAL_ERROR)
 project(STINCILLA CXX)
 
 find_package(THORIN REQUIRED)
-include(${THORIN_RUNTIME_DIR}/cmake/ThorinRuntime.cmake)
-include_directories(${THORIN_RUNTIME_INCLUDE_DIR})
+include(${THORIN_CMAKE_DIR}/ThorinRuntime.cmake)
+include_directories(${THORIN_RUNTIME_DIR})
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
@@ -28,35 +28,35 @@ add_subdirectory(sorting_networks)
 add_subdirectory(vcycle)
 
 # simple CPU-based examples
-thorin_runtime_wrap(MATMUL_FILES MATMUL_LIBS
+thorin_runtime_wrap(MATMUL_PROGRAM
     BACKEND cpu
-    MAIN
+    #MAIN
     FILES utils.impala matmul.impala)
-add_executable(matmul ${MATMUL_FILES})
-target_link_libraries(matmul ${MATMUL_LIBS})
+add_executable(matmul ${MATMUL_PROGRAM})
+target_link_libraries(matmul ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
 add_test("matmul" matmul)
 
 # examples based on the "mapping"
-thorin_runtime_wrap(GAUSSIAN_FILES GAUSSIAN_LIBS
+thorin_runtime_wrap(GAUSSIAN_PROGRAM
     BACKEND ${BACKEND}
-    MAIN
+    #MAIN
     FILES utils.impala mapping_${DEVICE}.impala gaussian.impala)
-add_executable(gaussian ${GAUSSIAN_FILES})
-target_link_libraries(gaussian ${GAUSSIAN_LIBS})
+add_executable(gaussian ${GAUSSIAN_PROGRAM})
+target_link_libraries(gaussian ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
 
-thorin_runtime_wrap(BILATERAL_FILES BILATERAL_LIBS
+thorin_runtime_wrap(BILATERAL_PROGRAM
     BACKEND ${BACKEND}
-    MAIN
+    #MAIN
     FILES utils.impala mapping_${DEVICE}.impala bilateral.impala)
-add_executable(bilateral ${BILATERAL_FILES})
-target_link_libraries(bilateral ${BILATERAL_LIBS})
+add_executable(bilateral ${BILATERAL_PROGRAM})
+target_link_libraries(bilateral ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
 
-thorin_runtime_wrap(JACOBI_FILES JACOBI_LIBS
+thorin_runtime_wrap(JACOBI_PROGRAM
     BACKEND ${BACKEND}
-    MAIN
+    #MAIN
     FILES utils.impala mapping_${DEVICE}.impala jacobi.impala)
-add_executable(jacobi ${JACOBI_FILES})
-target_link_libraries(jacobi ${JACOBI_LIBS})
+add_executable(jacobi ${JACOBI_PROGRAM})
+target_link_libraries(jacobi ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
 add_test("jacobi" jacobi)
