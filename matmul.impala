@@ -102,5 +102,10 @@ fn main(i: int) -> int {
 
     print_total_timing();
 
+    thorin_release(A.data as &i8);
+    thorin_release(B.data as &i8);
+    thorin_release(C.data as &i8);
+    thorin_release(R.data as &i8);
+
     0
 }

@@ -111,6 +111,8 @@ fn thorin_bilateral_grid(img_data: &[float], mut out_data: &[float], width: int,
         out_data(y*width + x) = $slice_grid(x, y, grid, input, filter);
     }
 
+    thorin_release(grid.data as &i8);
+
     print_total_timing()
 }
 

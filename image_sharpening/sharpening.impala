@@ -398,7 +398,13 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
         for x, y, out, img, tmp in iteration3i(out, img, tmp) {
             sharpen(x, y, out, img, tmp);
         }
+
+        thorin_release(hist as &i8);
+        thorin_release(sum_count as &i8);
     }
     @sharpening();
+
+    thorin_release(tmp.data as &i8);
+    thorin_release(map.data as &i8);
 }
 

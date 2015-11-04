@@ -133,5 +133,11 @@ fn main() -> int {
         //rms_err = sqrtf(rms_err / (out.width*out.height as float));
         passed
     }
-    @reference()
+
+    let result = @reference();
+
+    thorin_release(arr.data as &i8);
+    thorin_release(out.data as &i8);
+
+    result
 }

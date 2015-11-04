@@ -226,7 +226,23 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
         vcycle_intern(0);
     }
 
-    Sol(0)
+    let result = Sol(0);
+
+    for level in range(0, levels) {
+        if level != 0 {
+            thorin_release(RHS(level).data as &i8);
+            thorin_release(Sol(level).data as &i8);
+        }
+        thorin_release(Res(level).data as &i8);
+        thorin_release(Tmp(level).data as &i8);
+    }
+
+    thorin_release(RHS as &i8);
+    thorin_release(Sol as &i8);
+    thorin_release(Tmp as &i8);
+    thorin_release(Res as &i8);
+
+    result
 }
 
 
@@ -322,7 +338,23 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
         vcycle_dsl_intern(0);
     }
 
-    Sol(0)
+    let result = Sol(0);
+
+    for level in range(0, levels) {
+        if level != 0 {
+            thorin_release(RHS(level).data as &i8);
+            thorin_release(Sol(level).data as &i8);
+        }
+        thorin_release(Res(level).data as &i8);
+        thorin_release(Tmp(level).data as &i8);
+    }
+
+    thorin_release(RHS as &i8);
+    thorin_release(Sol as &i8);
+    thorin_release(Tmp as &i8);
+    thorin_release(Res as &i8);
+
+    result
 }
 
 
@@ -353,5 +385,9 @@ fn thorin_vcycle(img_data: &[float], out_data: &[float], width: int, height: int
             out.data(y*out.width + x) = result.data(y*result.stride + x);
         }
     }
+
+    thorin_release(result.data as &i8);
+    thorin_release(RHS.data as &i8);
+    thorin_release(img.data as &i8);
 }
 

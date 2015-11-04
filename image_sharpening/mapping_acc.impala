@@ -147,6 +147,7 @@ fn reduce(img: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
 
     // return sum stored in first element
     let sum = tmp_mem(0);
+    thorin_release(tmp_mem as &i8);
     sum
 }
 fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
@@ -322,5 +323,7 @@ fn find_position(img: &[int], size: int, body: fn(int, &[int]) -> int) -> int {
 
     munmap_i32(gpu_elem);
 
-    elem(0)
+    let result = elem(0);
+    thorin_release(elem as &i8);
+    result
 }

@@ -52,4 +52,6 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
             }
         }
     }
+
+    thorin_release(tmp.data as &i8);
 }

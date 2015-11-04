@@ -48,6 +48,9 @@ fn main() -> int {
 
     munmap_f32(mapped);
 
+    thorin_release(arr as &i8);
+    thorin_release(out as &i8);
+
     0
 }
 

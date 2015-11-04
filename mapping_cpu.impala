@@ -107,6 +107,8 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
             }
         }
     }
+
+    thorin_release(tmp.data as &i8);
 }
 
 fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
@@ -160,6 +162,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
             }
         }
     }
+
+    thorin_release(tmp.data as &i8);
 }
 
 fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
@@ -220,4 +224,6 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
             }
         }
     }
+
+    thorin_release(tmp.data as &i8);
 }

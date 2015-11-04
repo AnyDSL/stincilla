@@ -148,5 +148,16 @@ fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, 
             }
         }
     }
+
+    thorin_release(harris.data as &i8);
+    thorin_release(dx.data as &i8);
+    thorin_release(dy.data as &i8);
+    thorin_release(dxx.data as &i8);
+    thorin_release(dxy.data as &i8);
+    thorin_release(dyy.data as &i8);
+    thorin_release(gxx.data as &i8);
+    thorin_release(gxy.data as &i8);
+    thorin_release(gyy.data as &i8);
+
 }
 
