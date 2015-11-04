@@ -10,8 +10,8 @@ fn range(lower: int, upper: int, yield: fn(int, fn())) -> () {
 fn apply_bh(mut index: int,
             bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int,
             lb: int, ub: int) -> int {
-    if index < lb   { index = bh_lower(index, lb); }
-    if index >= ub  { index = bh_upper(index, ub); }
+    if index < lb  { index = bh_lower(index, lb); }
+    if index >= ub { index = bh_upper(index, ub); }
     index
 }
 

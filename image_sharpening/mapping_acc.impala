@@ -150,7 +150,7 @@ fn reduce(img: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
     sum
 }
 fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
-    let mut bins = ~[256: int];
+    let mut bins = ~[256:int];
     for i in $range(0, 256) { bins(i) = 0; }
 
     // create histogram in shared memory first and store then to global memory
@@ -174,13 +174,13 @@ fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
     bins
 }
 fn inclusive_scan(img: &[int], size: int, body: fn(int, &[int]) -> int) -> &[int] {
-    let arr = ~[size: int];
+    let arr = ~[size:int];
     let mut gpu_arr = mmap_i32(arr, acc_dev(), acc_mem(), 0, 0);
 
     // perform scan per block in shared memory first
     let block_size = 256;
     let num_blocks = size / (2 * block_size);
-    let tmp = ~[num_blocks: int];
+    let tmp = ~[num_blocks:int];
     let mut gpu_tmp = mmap_i32(tmp, acc_dev(), acc_mem(), 0, 0);
 
     fn for_shift_down(a: int, b: int, yield: fn(int, fn())) -> () {
@@ -304,7 +304,7 @@ fn inclusive_scan(img: &[int], size: int, body: fn(int, &[int]) -> int) -> &[int
     arr
 }
 fn find_position(img: &[int], size: int, body: fn(int, &[int]) -> int) -> int {
-    let mut elem = ~[1: int];
+    let mut elem = ~[1:int];
     elem(0) = size;
 
     // create global array for the element

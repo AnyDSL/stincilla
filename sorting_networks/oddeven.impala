@@ -1,11 +1,8 @@
-extern "C" {
-  fn print(i32, i32) -> ();
-}
-
 // odd-even merge sort works only for power of two
 fn oddeven_merge_sort(length: int, mut arr: [float * 4]) -> () {
     fn compare_and_swap(i: int, j: int) -> () {
-        //print(i, j);
+        //thorin_print_int(i); thorin_print_string(", ");
+        //thorin_print_int(j); thorin_print_string("\n");
         if arr(i) > arr(j) {
             let tmp = arr(i);
             arr(i) = arr(j);
@@ -56,4 +53,3 @@ fn test_main(input: &[float]) -> float {
     }
     @median()
 }
-
