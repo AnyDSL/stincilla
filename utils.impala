@@ -133,17 +133,17 @@ fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> ()) -> i64 {
         times(i) = get_time() - start;
     }
     sort_i64(num_iter, times as &[i64]);
-    thorin_print_string("Timing: ");
-    thorin_print_double(times(num_iter/2) as f64 / 1000.0);
-    thorin_print_string(" | ");
-    thorin_print_double(times(0) as f64 / 1000.0);
-    thorin_print_string(" | ");
-    thorin_print_double(times(num_iter-1) as f64 / 1000.0);
-    thorin_print_string(" (median(");
-    thorin_print_int(num_iter);
-    thorin_print_string(") | minimum | maximum) ms\n");
+    print_string("Timing: ");
+    print_double(times(num_iter/2) as f64 / 1000.0);
+    print_string(" | ");
+    print_double(times(0) as f64 / 1000.0);
+    print_string(" | ");
+    print_double(times(num_iter-1) as f64 / 1000.0);
+    print_string(" (median(");
+    print_int(num_iter);
+    print_string(") | minimum | maximum) ms\n");
     let median = times(num_iter/2);
-    thorin_release(times as &i8);
+    release(times as &i8);
     median
 }
 
@@ -151,11 +151,11 @@ fn benchmark_acc(body: fn() -> ()) -> () { total_kernel_timing += benchmark(thor
 fn benchmark_cpu(body: fn() -> ()) -> () { total_cpu_timing    += benchmark(thorin_get_micro_time, 27, body) }
 
 fn print_total_timing() -> () {
-    thorin_print_string("Total timing for cpu / kernel: ");
-    thorin_print_double(total_cpu_timing as f64 / 1000.0);
-    thorin_print_string(" / ");
-    thorin_print_double(total_kernel_timing as f64 / 1000.0);
-    thorin_print_string(" ms\n")
+    print_string("Total timing for cpu / kernel: ");
+    print_double(total_cpu_timing as f64 / 1000.0);
+    print_string(" / ");
+    print_double(total_kernel_timing as f64 / 1000.0);
+    print_string(" ms\n")
 }
 
 fn sort_i64(num: int, mut arr: &[i64]) -> () {

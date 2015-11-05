@@ -107,8 +107,8 @@ fn main() -> int {
 
     let result = @reference();
 
-    thorin_release(arr.data as &i8);
-    thorin_release(out.data as &i8);
+    release(arr.data as &i8);
+    release(out.data as &i8);
 
     result
 }

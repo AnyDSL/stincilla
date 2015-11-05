@@ -74,13 +74,13 @@ fn main(i: int) -> int {
     let R = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
 
     fn print_timing(time: i64) -> () {
-        thorin_print_string("Timing: ");
-        thorin_print_double(time as f64 / 1000.0);
-        thorin_print_string(" ms\n")
+        print_string("Timing: ");
+        print_double(time as f64 / 1000.0);
+        print_string(" ms\n")
     }
     fn print_gflops(gflops: f64) -> () {
-        thorin_print_double(gflops);
-        thorin_print_string(" GFLOPS\n")
+        print_double(gflops);
+        print_string(" GFLOPS\n")
     }
 
     let mut start = thorin_get_micro_time();
@@ -102,10 +102,10 @@ fn main(i: int) -> int {
 
     print_total_timing();
 
-    thorin_release(A.data as &i8);
-    thorin_release(B.data as &i8);
-    thorin_release(C.data as &i8);
-    thorin_release(R.data as &i8);
+    release(A.data as &i8);
+    release(B.data as &i8);
+    release(C.data as &i8);
+    release(R.data as &i8);
 
     0
 }
