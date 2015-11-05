@@ -47,18 +47,16 @@ fn iteration(out: Img, arr: Img, mask: Mask,
     let grid   = (out.width, out.height/unroll, 1);
     let block  = config(0);
 
-    let arr_mem_gpu = alloc_cuda(acc_dev(), arr.width * arr.height * 4);
-    let out_mem_gpu = alloc_cuda(acc_dev(), out.width * out.height * 4);
-    copy(arr.data as &i8, arr_mem_gpu);
+    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4) as &[f32], arr.width, arr.height);
+    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+    copy(arr.data as &i8, arr_gpu.data as &i8);
 
     for benchmark_acc() {
         acc(acc_dev(), grid, block, || @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let arr_img_gpu = Img { data : arr_mem_gpu as &[f32], width : arr.width,  height : arr.height, stride : arr.width };
-            let out_img_gpu = Img { data : out_mem_gpu as &[f32], width : out.width,  height : out.height, stride : out.width };
-            let arr_acc = get_acc(arr_img_gpu, 10);
-            let out_acc = get_acc(out_img_gpu, 10);
+            let arr_acc = get_acc(arr_gpu, 10);
+            let out_acc = get_acc(out_gpu, 10);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc, mask);
@@ -66,9 +64,9 @@ fn iteration(out: Img, arr: Img, mask: Mask,
         });
     }
 
-    copy(out_mem_gpu, out.data as &i8);
-    release(arr_mem_gpu as &i8);
-    release(out_mem_gpu as &i8);
+    copy(out_gpu.data as &i8, out.data as &i8);
+    release(arr_gpu.data as &i8);
+    release(out_gpu.data as &i8);
 }
 
 fn iteration_bounds(out: Img, arr: Img, mask: Mask,
