@@ -1,45 +1,48 @@
-fn iteration_multi(width: int, height: int,
-                   out: &[float], arr: &[float],
-                   body: fn(int, int, &[float], &[float]) -> ()
+fn iteration_multi(width: i32, height: i32, size_b: i32, out: &[f32], arr: &[f32],
+                   body: fn(i32, i32, &[f32], &[f32]) -> ()
                   ) -> () {
-    let mut ids : [int * 2];
-    let mut map_arr : [&[f32] * 2];
-    let mut map_out : [&[f32] * 2];
+    let mut ids: [i32 * 2];
+    let mut arr_gpu: [&[f32] * 2];
+    let mut out_gpu: [&[f32] * 2];
+    for dev in @range(0, 2) {
+        arr_gpu(dev) = alloc_cuda(dev, width * height / 2 * size_b) as &[f32];
+        out_gpu(dev) = alloc_cuda(dev, width * height / 2 * size_b) as &[f32];
+        // TODO: copy using offset
+        //copy(arr as &i8 + offset, arr_gpu(dev) as &i8);
+    }
+
 
     for dev in @range(0, 2) {
-        let height_dev = height / 2;
-        let mem_size_dev = width * height_dev;
-        let offset = dev * mem_size_dev;
-        let grid  = (width, height_dev, 1);
+        let grid  = (width, height / 2, 1);
         let block = (128, 1, 1);
-
-        map_arr(dev) = mmap_f32(arr, dev, acc_tex(), offset, mem_size_dev);
-        map_out(dev) = mmap_f32(out, dev, acc_mem(), offset, mem_size_dev);
 
         ids(dev) = spawn(|| -> () @{
             acc(dev, grid, block, || @{
-                body(acc_gidx(), acc_gidy(), map_out(dev), map_arr(dev));
+                body(acc_gidx(), acc_gidy(), out_gpu(dev), arr_gpu(dev));
             });
         });
     }
 
-    for dev in range(0, 2) {
+    for dev in @range(0, 2) {
         sync(ids(dev));
-        munmap_f32(map_arr(dev));
-        munmap_f32(map_out(dev));
+        // TODO: copy using offset
+        //copy(out_gpu(dev), out as &i8 + offset);
+        release(out_gpu(dev) as &i8);
+        release(arr_gpu(dev) as &i8);
     }
 }
 
 fn main() -> int {
     let width  = 4096;
     let height = 4096;
-    let arr    = ~[width*height:float];
-    let out    = ~[width*height:float];
+    let size_b = 4;
+    let arr    = alloc_host(width * height * size_b) as &[f32];
+    let out    = alloc_host(width * height * size_b) as &[f32];
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
-    for x, y, arr, mut out in @iteration_multi(width, height, out, arr) {
-        out(x + y*width) = arr(x + y*width);
+    for x, y, arr, mut out in @iteration_multi(width, height, size_b, out, arr) {
+        out(y*width + x) = arr(y*width + x);
     }
 
     let mut passed = 0;
@@ -55,4 +58,3 @@ fn main() -> int {
 
     passed
 }
-
