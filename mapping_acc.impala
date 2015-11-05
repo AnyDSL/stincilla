@@ -22,6 +22,8 @@ fn compute_config(range_mask: (int, int), unroll: int) -> ((int, int, int), (int
 fn iteration_point(out: Img,
                    body: fn(int, int, Acc) -> ()
                   ) -> () {
+    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);
     let block  = (128, 1, 1);
@@ -30,26 +32,29 @@ fn iteration_point(out: Img,
         acc(acc_dev(), grid, block, || @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let out_acc = get_acc(out, 10);
+            let out_acc = get_acc(out_gpu, 10);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc);
             }
         });
     }
+
+    copy(out_gpu.data as &i8, out.data as &i8);
+    release(out_gpu.data as &i8);
 }
 
 fn iteration(out: Img, arr: Img, mask: Mask,
              body: fn(int, int, Acc, Acc, Mask) -> ()
             ) -> () {
+    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4) as &[f32], arr.width, arr.height);
+    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+    copy(arr.data as &i8, arr_gpu.data as &i8);
+
     let unroll = 1;
     let config = compute_config((mask.size_x/2, mask.size_y/2), unroll);
     let grid   = (out.width, out.height/unroll, 1);
     let block  = config(0);
-
-    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4) as &[f32], arr.width, arr.height);
-    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
-    copy(arr.data as &i8, arr_gpu.data as &i8);
 
     for benchmark_acc() {
         acc(acc_dev(), grid, block, || @{
@@ -72,6 +77,10 @@ fn iteration(out: Img, arr: Img, mask: Mask,
 fn iteration_bounds(out: Img, arr: Img, mask: Mask,
                     body: fn(int, int, Acc, Acc, Mask) -> ()
                    ) -> () {
+    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4) as &[f32], arr.width, arr.height);
+    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+    copy(arr.data as &i8, arr_gpu.data as &i8);
+
     // compute the number of blocks required for boundary handling
     let unroll = 1;
     let config = compute_config((mask.size_x/2, mask.size_y/2), unroll);
@@ -99,72 +108,72 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
                 // 3 --- 4 --- 5
                 // 6 --- 7 --- 8
                 if bid_x < bx && bid_y < by @{                  // top-left: 0
-                    let arr_acc = get_acc(arr, 0);
-                    let out_acc = get_acc(out, 0);
+                    let arr_acc = get_acc(arr_gpu, 0);
+                    let out_acc = get_acc(out_gpu, 0);
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
                     return()
                 }
                 if bid_x >= gdim_x-bx && bid_y < by @{          // top-right: 2
-                    let arr_acc = get_acc(arr, 2);
-                    let out_acc = get_acc(out, 2);
+                    let arr_acc = get_acc(arr_gpu, 2);
+                    let out_acc = get_acc(out_gpu, 2);
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
                     return()
                 }
                 if bid_y < by @{                                // top: 1
-                    let arr_acc = get_acc(arr, 1);
-                    let out_acc = get_acc(out, 1);
+                    let arr_acc = get_acc(arr_gpu, 1);
+                    let out_acc = get_acc(out_gpu, 1);
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
                     return()
                 }
                 if bid_y >= gdim_y-by && bid_x < bx @{          // bottom-left: 6
-                    let arr_acc = get_acc(arr, 6);
-                    let out_acc = get_acc(out, 6);
+                    let arr_acc = get_acc(arr_gpu, 6);
+                    let out_acc = get_acc(out_gpu, 6);
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
                     return()
                 }
                 if bid_y >= gdim_y-by && bid_x >= gdim_x-bx @{  // bottom-right: 8
-                    let arr_acc = get_acc(arr, 8);
-                    let out_acc = get_acc(out, 8);
+                    let arr_acc = get_acc(arr_gpu, 8);
+                    let out_acc = get_acc(out_gpu, 8);
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
                     return()
                 }
                 if bid_y >= gdim_y-by @{                        // bottom: 7
-                    let arr_acc = get_acc(arr, 7);
-                    let out_acc = get_acc(out, 7);
+                    let arr_acc = get_acc(arr_gpu, 7);
+                    let out_acc = get_acc(out_gpu, 7);
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
                     return()
                 }
                 if bid_x >= gdim_x-bx @{                        // right: 5
-                    let arr_acc = get_acc(arr, 5);
-                    let out_acc = get_acc(out, 5);
+                    let arr_acc = get_acc(arr_gpu, 5);
+                    let out_acc = get_acc(out_gpu, 5);
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
                     return()
                 }
                 if bid_x < bx @{                                // left: 3
-                    let arr_acc = get_acc(arr, 3);
-                    let out_acc = get_acc(out, 3);
+                    let arr_acc = get_acc(arr_gpu, 3);
+                    let out_acc = get_acc(out_gpu, 3);
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
                     return()
                 }
                 {                                               // center: 4
-                    let arr_acc = get_acc(arr, 4);
-                    let out_acc = get_acc(out, 4);
+                    let arr_acc = get_acc(arr_gpu, 4);
+                    let out_acc = get_acc(out_gpu, 4);
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
@@ -192,8 +201,8 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
             let bounds = Bounds2D(region);
             let grid   = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
 
-            let arr_acc = get_acc(arr, region);
-            let out_acc = get_acc(out, region);
+            let arr_acc = get_acc(arr_gpu, region);
+            let out_acc = get_acc(out_gpu, region);
 
             for benchmark_acc() {
                 acc(acc_dev(), grid, block, || @{
@@ -209,11 +218,19 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
             }
         }
     }
+
+    copy(out_gpu.data as &i8, out.data as &i8);
+    release(arr_gpu.data as &i8);
+    release(out_gpu.data as &i8);
 }
 
 fn iteration_advanced(out: Img, arr: Img, mask: Mask,
                       body: fn(int, int, Acc, Acc, Mask) -> ()
                      ) -> () {
+    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4) as &[f32], arr.width, arr.height);
+    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+    copy(arr.data as &i8, arr_gpu.data as &i8);
+
     let unroll = 1;
     let config = compute_config((mask.size_x/2, mask.size_y/2), unroll);
     let grid   = (out.width, out.height/unroll, 1);
@@ -226,12 +243,8 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
     let offset_y  = if (mask.size_y-1)%block(1) == 0 { 0 } else { 1 };
     let steps_y   = unroll + (mask.size_y-1)/block(1) + offset_y;
 
-    let dev = acc_dev();
-    let gpu_arr = mmap_f32(arr.data, dev, acc_tex(), 0, arr.width * arr.height);
-    let gpu_out = mmap_f32(out.data, dev, acc_mem(), 0, out.width * out.height);
-
     for benchmark_acc() {
-        acc(dev, grid, block, || @{
+        acc(acc_dev(), grid, block, || @{
             let tid_x = acc_tidx();
             let tid_y = acc_tidy();
             let bdim_x = acc_bdimx();
@@ -241,9 +254,8 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
 
             let spm_stride =          block(0) + 2 * range_row;
             let spm_height = unroll * block(1) + 2 * range_col;
-            let mut spm = mmap_f32(arr.data, dev, acc_spm(), 0, spm_stride * spm_height);
-            let spm_img = Img { data : spm,     width : spm_stride, height : spm_height, stride : spm_stride };
-            let out_img = Img { data : gpu_out, width : out.width,  height : out.height, stride : out.width };
+            let mut spm = mmap_f32(arr.data, acc_dev(), acc_spm(), 0, spm_stride * spm_height);
+            let spm_img = get_img(spm, spm_stride, spm_height);
 
             for y in range(0, steps_y) {
                 let lid_y = tid_y             + y*bdim_y;
@@ -253,8 +265,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
                     let idx_x = gid_x - range_row + x*bdim_x;
 
                     if lid_x < spm_stride && lid_y < spm_height @{
-                        let gpu_img = Img { data : gpu_arr, width : arr.width, height : arr.height, stride : arr.stride };
-                        let gpu_acc = get_acc(gpu_img, 10); // TODO: set region!
+                        let gpu_acc = get_acc(arr_gpu, 10); // TODO: set region!
                         spm(lid_y * spm_stride + lid_x) = get_pixel(gpu_acc, idx_x, idx_y, clamp_lower, clamp_upper);
                     }
                 }
@@ -264,7 +275,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
 
             for i in range(0, unroll) {
                 // index space: block
-                let out_acc = Acc { img : out_img, roi : RoI { o_x : 0, o_y : 0, width : out_img.width, height : out_img.height },
+                let out_acc = Acc { img : out_gpu, roi : RoI { o_x : 0, o_y : 0, width : out_gpu.width, height : out_gpu.height },
                                                    rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy() * unroll + i * bdim_y, region : 4 /* no bh */ };
                 let arr_acc = Acc { img : spm_img, roi : RoI { o_x : 0, o_y : 0, width : spm_img.width, height : spm_img.height },
                                                    rox : range_row,                roy : range_col + i * bdim_y,                         region : 4 /* no bh */ };
@@ -273,13 +284,19 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
         });
     }
 
-    munmap_f32(gpu_arr);
-    munmap_f32(gpu_out);
+    copy(out_gpu.data as &i8, out.data as &i8);
+    release(arr_gpu.data as &i8);
+    release(out_gpu.data as &i8);
 }
 
 fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                  body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
                 ) -> () {
+    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4) as &[f32], arr.width, arr.height);
+    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+    let tmp_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+    copy(arr.data as &i8, arr_gpu.data as &i8);
+
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);
     let config_row = compute_config((mask_row.size/2, 1), unroll);
@@ -287,24 +304,14 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
     let block_row  = config_row(0);
     let block_col  = config_col(0);
 
-    // allocate temporary array
-    let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height, stride : out.width };
-    $init_zero(tmp.data, tmp.stride, tmp.height);
-
-    let dev = acc_dev();
-    let gpu_arr_ro = Img { data : mmap_f32(arr.data, dev, acc_tex(), 0, arr.width * arr.height), width : arr.width, height : arr.height, stride : arr.stride };
-    let gpu_tmp_ro = Img { data : mmap_f32(tmp.data, dev, acc_tex(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
-    let gpu_tmp_wo = Img { data : mmap_f32(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
-    let gpu_out_wo = Img { data : mmap_f32(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
-
     for benchmark_acc() {
-        acc(dev, grid, block_col, || @{
+        acc(acc_dev(), grid, block_col, || @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
             let is_row = false;
 
-            let arr_acc = get_acc(gpu_arr_ro, 10);
-            let tmp_acc = get_acc(gpu_tmp_wo, 10);
+            let arr_acc = get_acc(arr_gpu, 10);
+            let tmp_acc = get_acc(tmp_gpu, 10);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), tmp_acc, arr_acc, mask_col, is_row);
@@ -312,13 +319,13 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
         });
     }
     for benchmark_acc() {
-        acc(dev, grid, block_row, || @{
+        acc(acc_dev(), grid, block_row, || @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
             let is_row = true;
 
-            let tmp_acc = get_acc(gpu_tmp_ro, 10);
-            let out_acc = get_acc(gpu_out_wo, 10);
+            let tmp_acc = get_acc(tmp_gpu, 10);
+            let out_acc = get_acc(out_gpu, 10);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, tmp_acc, mask_row, is_row);
@@ -326,15 +333,20 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
         });
     }
 
-    munmap_f32(gpu_arr_ro.data);
-    munmap_f32(gpu_tmp_ro.data);
-    munmap_f32(gpu_tmp_wo.data);
-    munmap_f32(gpu_out_wo.data);
+    copy(out_gpu.data as &i8, out.data as &i8);
+    release(arr_gpu.data as &i8);
+    release(out_gpu.data as &i8);
+    release(tmp_gpu.data as &i8);
 }
 
 fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                         body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
                        ) -> () {
+    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4) as &[f32], arr.width, arr.height);
+    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+    let tmp_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+    copy(arr.data as &i8, arr_gpu.data as &i8);
+
     // compute the number of blocks required for boundary handling
     let unroll = 1;
     let config_row = compute_config((mask_row.size/2, 1), unroll);
@@ -347,16 +359,6 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
     let Region2DCol = [ 1, 4, 7 ];
     let Region2DRow = [ 3, 4, 5 ];
 
-    // allocate temporary array
-    let tmp = Img { data : ~[out.width*out.height:float], width : out.width, height : out.height, stride : out.width };
-    $init_zero(tmp.data, tmp.stride, tmp.height);
-
-    let dev = acc_dev();
-    let gpu_arr_ro = Img { data : mmap_f32(arr.data, dev, acc_tex(), 0, arr.width * arr.height), width : arr.width, height : arr.height, stride : arr.stride };
-    let gpu_tmp_ro = Img { data : mmap_f32(tmp.data, dev, acc_tex(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
-    let gpu_tmp_wo = Img { data : mmap_f32(tmp.data, dev, acc_mem(), 0, tmp.width * tmp.height), width : tmp.width, height : tmp.height, stride : tmp.stride };
-    let gpu_out_wo = Img { data : mmap_f32(out.data, dev, acc_mem(), 0, out.width * out.height), width : out.width, height : out.height, stride : out.stride };
-
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
 
@@ -365,7 +367,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
 
         // column component
         for benchmark_acc() {
-            acc(dev, grid, block_col, || @{
+            acc(acc_dev(), grid, block_col, || @{
                 let bid_y = acc_bidy();
                 let bdim_y = acc_bdimy();
                 let gdim_y = acc_gdimy();
@@ -374,24 +376,24 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
                 let is_row = false;
 
                 if bid_y < by @{                                // top: 1
-                    let arr_acc = get_acc(gpu_arr_ro, Region2DCol(0));
-                    let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(0));
+                    let arr_acc = get_acc(arr_gpu, Region2DCol(0));
+                    let tmp_acc = get_acc(tmp_gpu, Region2DCol(0));
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
                     return()
                 }
                 if bid_y >= gdim_y-by @{                        // bottom: 7
-                    let arr_acc = get_acc(gpu_arr_ro, Region2DCol(2));
-                    let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(2));
+                    let arr_acc = get_acc(arr_gpu, Region2DCol(2));
+                    let tmp_acc = get_acc(tmp_gpu, Region2DCol(2));
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
                     return()
                 }
                 @{                                              // center: 4
-                    let arr_acc = get_acc(gpu_arr_ro, Region2DCol(1));
-                    let tmp_acc = get_acc(gpu_tmp_wo, Region2DCol(1));
+                    let arr_acc = get_acc(arr_gpu, Region2DCol(1));
+                    let tmp_acc = get_acc(tmp_gpu, Region2DCol(1));
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
@@ -410,24 +412,24 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
                 let is_row = true;
 
                 if bid_x < bx @{                                // left: 3
-                    let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(0));
-                    let out_acc = get_acc(gpu_out_wo, Region2DRow(0));
+                    let tmp_acc = get_acc(tmp_gpu, Region2DRow(0));
+                    let out_acc = get_acc(out_gpu, Region2DRow(0));
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
                     return()
                 }
                 if bid_x >= gdim_x-bx @{                        // right: 5
-                    let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(2));
-                    let out_acc = get_acc(gpu_out_wo, Region2DRow(2));
+                    let tmp_acc = get_acc(tmp_gpu, Region2DRow(2));
+                    let out_acc = get_acc(out_gpu, Region2DRow(2));
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
                     return()
                 }
                 @{                                               // center: 4
-                    let tmp_acc = get_acc(gpu_tmp_ro, Region2DRow(1));
-                    let out_acc = get_acc(gpu_out_wo, Region2DRow(1));
+                    let tmp_acc = get_acc(tmp_gpu, Region2DRow(1));
+                    let out_acc = get_acc(out_gpu, Region2DRow(1));
                     for i in range(0, unroll) {
                         body(gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
@@ -447,11 +449,11 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
             let bounds = Bounds2DCol(iter);
             let grid   = (out.width, bounds(1) - bounds(0), 1);
 
-            let arr_acc = get_acc(gpu_arr_ro, region);
-            let tmp_acc = get_acc(gpu_tmp_wo, region);
+            let arr_acc = get_acc(arr_gpu, region);
+            let tmp_acc = get_acc(tmp_gpu, region);
 
             for benchmark_acc() {
-                acc(dev, grid, block_col, || @{
+                acc(acc_dev(), grid, block_col, || @{
                     let gid_x = acc_gidx();
                     let gid_y = bounds(0) * unroll +
                                 acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
@@ -475,8 +477,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
             let bounds = Bounds2DRow(iter);
             let grid   = (bounds(1) - bounds(0), out.height/unroll, 1);
 
-            let tmp_acc = get_acc(gpu_tmp_ro, region);
-            let out_acc = get_acc(gpu_out_wo, region);
+            let tmp_acc = get_acc(tmp_gpu, region);
+            let out_acc = get_acc(out_gpu, region);
 
             for benchmark_acc() {
                 acc(acc_dev(), grid, block_row, || @{
@@ -492,15 +494,19 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         }
     }
 
-    munmap_f32(gpu_arr_ro.data);
-    munmap_f32(gpu_tmp_ro.data);
-    munmap_f32(gpu_tmp_wo.data);
-    munmap_f32(gpu_out_wo.data);
+    copy(out_gpu.data as &i8, out.data as &i8);
+    release(arr_gpu.data as &i8);
+    release(out_gpu.data as &i8);
+    release(tmp_gpu.data as &i8);
 }
 
 fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                           body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
                          ) -> () {
+    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4) as &[f32], arr.width, arr.height);
+    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4) as &[f32], out.width, out.height);
+    copy(arr.data as &i8, arr_gpu.data as &i8);
+
     let unroll = 1;
     let config = compute_config((mask_row.size/2, mask_col.size/2), unroll);
     let grid   = (out.width, out.height/unroll, 1);
@@ -513,12 +519,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
     let steps_x   = 2;
     let steps_y   = unroll + (mask_col.size-1)/block(1) + offset_y;
 
-    let dev = acc_dev();
-    let gpu_arr = mmap_f32(arr.data, dev, acc_tex(), 0, arr.width * out.height);
-    let gpu_out = mmap_f32(out.data, dev, acc_mem(), 0, out.width * out.height);
-
     for benchmark_acc() {
-        acc(dev, grid, block, || @{
+        acc(acc_dev(), grid, block, || @{
             let tid_x = acc_tidx();
             let tid_y = acc_tidy();
             let bdim_x = acc_bdimx();
@@ -529,11 +531,10 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
             let spm_stride     =          block(0) + 2 * range_row;
             let spm_height_col = unroll * block(1) + 2 * range_col;
             let spm_height_row = unroll * block(1);
-            let mut spm_col = mmap_f32(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_col);
-            let     spm_row = mmap_f32(arr.data, dev, acc_spm(), 0, spm_stride * spm_height_row);
-            let spmr_img = Img { data : spm_row, width : spm_stride,  height : spm_height_row, stride : spm_stride };
-            let spmc_img = Img { data : spm_col, width : spm_stride,  height : spm_height_col, stride : spm_stride };
-            let out_img  = Img { data : gpu_out, width : out.width,   height : out.height,     stride : out.width };
+            let mut spm_col = mmap_f32(arr.data, acc_dev(), acc_spm(), 0, spm_stride * spm_height_col);
+            let     spm_row = mmap_f32(arr.data, acc_dev(), acc_spm(), 0, spm_stride * spm_height_row);
+            let spmr_img = get_img(spm_row, spm_stride, spm_height_row);
+            let spmc_img = get_img(spm_col, spm_stride, spm_height_col);
 
             for y in range(0, steps_y) {
                 let lid_y = tid_y             + y*bdim_y;
@@ -543,8 +544,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                     let idx_x = gid_x - range_row + x*bdim_x;
 
                     if lid_x < spm_stride && lid_y < spm_height_col @{
-                        let gpu_img = Img { data : gpu_arr, width : arr.width, height : arr.height, stride : arr.stride };
-                        let gpu_acc = get_acc(gpu_img, 10); // TODO: set region!
+                        let gpu_acc = get_acc(arr_gpu, 10); // TODO: set region!
                         spm_col(lid_y * spm_stride + lid_x) = get_pixel(gpu_acc, idx_x, idx_y, clamp_lower, clamp_upper);
                     }
                 }
@@ -580,7 +580,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
             for i in range(0, unroll) {
                 // index space: block
                 let is_row = true;
-                let out_acc = Acc { img : out_img,  roi : RoI { o_x : 0, o_y : 0, width : out_img.width,  height : out_img.height },
+                let out_acc = Acc { img : out_gpu,  roi : RoI { o_x : 0, o_y : 0, width : out_gpu.width,  height : out_gpu.height },
                                                     rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy() * unroll + i * bdim_y, region : region };
                 let arr_acc = Acc { img : spmr_img, roi : RoI { o_x : 0, o_y : 0, width : spmr_img.width, height : spmr_img.height },
                                                     rox : range_row,                roy : i * bdim_y,                                     region : region };
@@ -589,8 +589,9 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
         });
     }
 
-    munmap_f32(gpu_arr);
-    munmap_f32(gpu_out);
+    copy(out_gpu.data as &i8, out.data as &i8);
+    release(arr_gpu.data as &i8);
+    release(out_gpu.data as &i8);
 }
 
 fn iteration_multi(width: int, height: int,
