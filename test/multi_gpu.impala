@@ -8,7 +8,7 @@ fn iteration_multi(width: i32, height: i32, size_b: i32, out: &[f32], arr: &[f32
         arr_gpu(dev) = alloc_cuda(dev, width * height / 2 * size_b) as &[f32];
         out_gpu(dev) = alloc_cuda(dev, width * height / 2 * size_b) as &[f32];
         // TODO: copy using offset
-        //copy(arr as &i8 + offset, arr_gpu(dev) as &i8);
+        //copy(arr as &[i8] + offset, arr_gpu(dev) as &[i8]);
     }
 
 
@@ -26,9 +26,9 @@ fn iteration_multi(width: i32, height: i32, size_b: i32, out: &[f32], arr: &[f32
     for dev in @range(0, 2) {
         sync(ids(dev));
         // TODO: copy using offset
-        //copy(out_gpu(dev), out as &i8 + offset);
-        release(out_gpu(dev) as &i8);
-        release(arr_gpu(dev) as &i8);
+        //copy(out_gpu(dev), out as &[i8] + offset);
+        release(out_gpu(dev) as &[i8]);
+        release(arr_gpu(dev) as &[i8]);
     }
 }
 
@@ -53,8 +53,8 @@ fn main() -> int {
         }
     }
 
-    release(arr as &i8);
-    release(out as &i8);
+    release(arr as &[i8]);
+    release(out as &[i8]);
 
     passed
 }

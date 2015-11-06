@@ -102,10 +102,10 @@ fn main(i: int) -> int {
 
     print_total_timing();
 
-    release(A.data as &i8);
-    release(B.data as &i8);
-    release(C.data as &i8);
-    release(R.data as &i8);
+    release(A.data as &[i8]);
+    release(B.data as &[i8]);
+    release(C.data as &[i8]);
+    release(R.data as &[i8]);
 
     0
 }

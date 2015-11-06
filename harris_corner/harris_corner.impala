@@ -149,15 +149,15 @@ fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, 
         }
     }
 
-    release(harris.data as &i8);
-    release(dx.data as &i8);
-    release(dy.data as &i8);
-    release(dxx.data as &i8);
-    release(dxy.data as &i8);
-    release(dyy.data as &i8);
-    release(gxx.data as &i8);
-    release(gxy.data as &i8);
-    release(gyy.data as &i8);
+    release(harris.data as &[i8]);
+    release(dx.data as &[i8]);
+    release(dy.data as &[i8]);
+    release(dxx.data as &[i8]);
+    release(dxy.data as &[i8]);
+    release(dyy.data as &[i8]);
+    release(gxx.data as &[i8]);
+    release(gxy.data as &[i8]);
+    release(gyy.data as &[i8]);
 
 }
 

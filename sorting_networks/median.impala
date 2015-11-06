@@ -42,14 +42,14 @@ fn main() -> int {
                 }
             }
         }
-        release(tmp_arr as &i8);
+        release(tmp_arr as &[i8]);
         passed
     }
 
     let result = @reference();
 
-    release(arr.data as &i8);
-    release(out.data as &i8);
+    release(arr.data as &[i8]);
+    release(out.data as &[i8]);
 
     result
 }

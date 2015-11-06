@@ -53,5 +53,5 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
         }
     }
 
-    release(tmp.data as &i8);
+    release(tmp.data as &[i8]);
 }

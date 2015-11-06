@@ -23,15 +23,15 @@ fn main() -> i32 {
     let out     = alloc_host(width * height * size_b);
     let arr_gpu = alloc_cuda(acc_dev(), width * height * size_b) as &[f32];
     let out_gpu = alloc_cuda(acc_dev(), width * height * size_b) as &[f32];
-    copy(arr, arr_gpu as &i8);
+    copy(arr, arr_gpu as &[i8]);
 
     for x, y in @iteration(width, height) {
         write(out_gpu, arr_gpu, y*width + x);
     }
 
-    copy(out_gpu as &i8, out);
-    release(out_gpu as &i8);
-    release(arr_gpu as &i8);
+    copy(out_gpu as &[i8], out);
+    release(out_gpu as &[i8]);
+    release(arr_gpu as &[i8]);
     release(arr);
     release(out);
 

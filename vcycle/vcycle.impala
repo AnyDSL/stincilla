@@ -230,17 +230,17 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
 
     for level in range(0, levels) {
         if level != 0 {
-            release(RHS(level).data as &i8);
-            release(Sol(level).data as &i8);
+            release(RHS(level).data as &[i8]);
+            release(Sol(level).data as &[i8]);
         }
-        release(Res(level).data as &i8);
-        release(Tmp(level).data as &i8);
+        release(Res(level).data as &[i8]);
+        release(Tmp(level).data as &[i8]);
     }
 
-    release(RHS as &i8);
-    release(Sol as &i8);
-    release(Tmp as &i8);
-    release(Res as &i8);
+    release(RHS as &[i8]);
+    release(Sol as &[i8]);
+    release(Tmp as &[i8]);
+    release(Res as &[i8]);
 
     result
 }
@@ -342,17 +342,17 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
 
     for level in range(0, levels) {
         if level != 0 {
-            release(RHS(level).data as &i8);
-            release(Sol(level).data as &i8);
+            release(RHS(level).data as &[i8]);
+            release(Sol(level).data as &[i8]);
         }
-        release(Res(level).data as &i8);
-        release(Tmp(level).data as &i8);
+        release(Res(level).data as &[i8]);
+        release(Tmp(level).data as &[i8]);
     }
 
-    release(RHS as &i8);
-    release(Sol as &i8);
-    release(Tmp as &i8);
-    release(Res as &i8);
+    release(RHS as &[i8]);
+    release(Sol as &[i8]);
+    release(Tmp as &[i8]);
+    release(Res as &[i8]);
 
     result
 }
@@ -386,8 +386,8 @@ fn thorin_vcycle(img_data: &[float], out_data: &[float], width: int, height: int
         }
     }
 
-    release(result.data as &i8);
-    release(RHS.data as &i8);
-    release(img.data as &i8);
+    release(result.data as &[i8]);
+    release(RHS.data as &[i8]);
+    release(img.data as &[i8]);
 }
 

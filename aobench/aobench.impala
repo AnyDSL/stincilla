@@ -281,7 +281,7 @@ fn aobench() -> () {
     init_scene();
     @render(img, WIDTH, HEIGHT, NSUBSAMPLES);
     saveppm(img, WIDTH, HEIGHT);
-    release(img as &i8);
+    release(img as &[i8]);
     print_total_timing()
 }
 
