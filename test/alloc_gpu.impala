@@ -18,18 +18,18 @@ fn write(mut out: &[f32], src: &[f32], i: i32) -> () { out(i) = src(i) }
 fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
-    let size_b  = 4;
-    let arr     = alloc_host(width * height * size_b);
-    let out     = alloc_host(width * height * size_b);
-    let arr_gpu = alloc_cuda(acc_dev(), width * height * size_b) as &[f32];
-    let out_gpu = alloc_cuda(acc_dev(), width * height * size_b) as &[f32];
-    copy(arr, arr_gpu as &[i8]);
+    let tbytes  = 4;
+    let arr     = alloc_host(width * height * tbytes);
+    let out     = alloc_host(width * height * tbytes);
+    let arr_gpu = alloc_cuda(acc_dev(), width * height * tbytes) as &[f32];
+    let out_gpu = alloc_cuda(acc_dev(), width * height * tbytes) as &[f32];
+    copy(arr, arr_gpu as &[i8], width * height * tbytes);
 
     for x, y in @iteration(width, height) {
         write(out_gpu, arr_gpu, y*width + x);
     }
 
-    copy(out_gpu as &[i8], out);
+    copy(out_gpu as &[i8], out, width * height * tbytes);
     release(out_gpu as &[i8]);
     release(arr_gpu as &[i8]);
     release(arr);
