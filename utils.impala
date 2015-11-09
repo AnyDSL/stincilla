@@ -195,39 +195,39 @@ fn get_acc(img: Img, region: i32) -> Acc {
     Acc { img : img, roi : RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, rox : 0, roy : 0, region : region }
 }
 struct Img {
-    data : &[float],
-    width : int,
-    height : int,
-    stride : int,
+    data : &[f32],
+    width : i32,
+    height : i32,
+    stride : i32,
 }
 struct RoI {
-    o_x : int,
-    o_y : int,
-    width : int,
-    height : int
+    o_x : i32,
+    o_y : i32,
+    width : i32,
+    height : i32
 }
 struct Acc {
     img : Img,
     roi : RoI,
-    rox : int,
-    roy : int,
-    region : int,
+    rox : i32,
+    roy : i32,
+    region : i32,
 }
 struct Mask3 {
-    data : [[float * 3] * 3],
-    size_x : int,
-    size_y : int,
+    data : [[f32 * 3] * 3],
+    size_x : i32,
+    size_y : i32,
 }
 struct Mask3Sep {
-    data : [float * 3],
-    size : int,
+    data : [f32 * 3],
+    size : i32,
 }
 struct Mask5 {
-    data : [[float * 5] * 5],
-    size_x : int,
-    size_y : int,
+    data : [[f32 * 5] * 5],
+    size_x : i32,
+    size_y : i32,
 }
 struct Mask5Sep {
-    data : [float * 5],
-    size : int,
+    data : [f32 * 5],
+    size : i32,
 }
