@@ -2,34 +2,36 @@ fn iteration_multi(width: i32, height: i32, tbytes: i32, out: &[f32], arr: &[f32
                    body: fn(i32, i32, &[f32], &[f32]) -> ()
                   ) -> () {
     let mut ids: [i32 * 2];
-    let mut arr_gpu: [&[f32] * 2];
-    let mut out_gpu: [&[f32] * 2];
+    let mut arr_gpus: [&[f32] * 2];
+    let mut out_gpus: [&[f32] * 2];
     let size_gpu = width * height / 2 * tbytes;
-    for dev in @range(0, 2) {
+    for dev in range(0, 2) {
         let offset = dev * size_gpu;
-        arr_gpu(dev) = alloc_cuda(dev, size_gpu) as &[f32];
-        out_gpu(dev) = alloc_cuda(dev, size_gpu) as &[f32];
-        copy_offset(arr as &[i8], offset as i64, arr_gpu(dev) as &[i8], 0i64, size_gpu);
+        arr_gpus(dev) = alloc_cuda(dev, size_gpu) as &[f32];
+        out_gpus(dev) = alloc_cuda(dev, size_gpu) as &[f32];
+        copy_offset(arr as &[i8], offset as i64, arr_gpus(dev) as &[i8], 0i64, size_gpu);
     }
 
 
-    for dev in @range(0, 2) {
+    for dev in range(0, 2) {
         let grid  = (width, height / 2, 1);
         let block = (128, 1, 1);
+        let arr_gpu = arr_gpus(dev);
+        let out_gpu = out_gpus(dev);
 
         ids(dev) = spawn(|| -> () @{
             acc(dev, grid, block, || @{
-                body(acc_gidx(), acc_gidy(), out_gpu(dev), arr_gpu(dev));
+                body(acc_gidx(), acc_gidy(), out_gpu, arr_gpu);
             });
         });
     }
 
-    for dev in @range(0, 2) {
+    for dev in range(0, 2) {
         let offset = dev * size_gpu;
         sync(ids(dev));
-        copy_offset(out_gpu(dev) as &[i8], 0i64, out as &[i8], offset as i64, size_gpu);
-        release(out_gpu(dev) as &[i8]);
-        release(arr_gpu(dev) as &[i8]);
+        copy_offset(out_gpus(dev) as &[i8], 0i64, out as &[i8], offset as i64, size_gpu);
+        release(out_gpus(dev) as &[i8]);
+        release(arr_gpus(dev) as &[i8]);
     }
 }
 
