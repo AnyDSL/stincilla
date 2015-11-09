@@ -15,7 +15,7 @@ fn apply_bh(mut index: int,
     index
 }
 
-fn apply_stencil(N: int, arr: &[float], mut out: &[float], stencil: [float * 3],
+fn apply_stencil(N: int, arr: Buffer, mut out: Buffer, stencil: [float * 3],
                  bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int) -> () {
     let size = 1;
     let lb = [0, size, N - size];
@@ -28,9 +28,9 @@ fn apply_stencil(N: int, arr: &[float], mut out: &[float], stencil: [float * 3],
             let mut sum = 0.0f;
             for j in range(-size, size+1) {
                 let idx = apply_bh(x + j, bh_lower, bh_upper, lower, upper);
-                sum += stencil(j + size) * arr(idx);
+                sum += stencil(j + size) * (arr.data as &[f32])(idx);
             }
-            out(x) = sum;
+            (out.data as &[f32])(x) = sum;
         }
     }
 }
@@ -52,8 +52,8 @@ fn main() -> int {
     let a       = 0.2f;
     let b       = 1.0f - 4.0f * a;
     let num_it  = 100;
-    let mut arr = ~[width*height:float];
-    let mut out = ~[width*height:float];
+    let mut arr = alloc_host(width * height * 4);
+    let mut out = alloc_host(width * height * 4);
     let stencil = [b, a, b];
 
     for iter in range(0, num_it) {
@@ -67,11 +67,11 @@ fn main() -> int {
     // do something with the result as test
     let mut sum = 0.0f;
     for iter in range(0, width*height) {
-        sum += out(iter)
+        sum += (out.data as &[f32])(iter)
     }
 
-    release(arr as &[i8]);
-    release(out as &[i8]);
+    release(arr);
+    release(out);
 
     if sum > -1.0f && sum < 1.0f { 0 } else { 1 }
 }

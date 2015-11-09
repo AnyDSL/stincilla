@@ -143,7 +143,7 @@ fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> ()) -> i64 {
     print_int(num_iter);
     print_string(") | minimum | maximum) ms\n");
     let median = times(num_iter/2);
-    release(times as &[i8]);
+    thorin_release(0, times as &i8);
     median
 }
 
