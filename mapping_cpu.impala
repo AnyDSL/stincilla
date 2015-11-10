@@ -4,8 +4,8 @@ static Region2D    = [ 0, 1, 2,
 static Region2DCol = [ 1, 4, 7 ];
 static Region2DRow = [ 3, 4, 5 ];
 
-fn iteration_point(out: Img,
-                   body: fn(int, int, Acc) -> ()
+fn iteration_poi32(out: Img,
+                   body: fn(i32, i32, Acc) -> ()
                   ) -> () {
     let out_acc = get_acc(out, 10);
 
@@ -19,7 +19,7 @@ fn iteration_point(out: Img,
 }
 
 fn iteration(out: Img, arr: Img, mask: Mask,
-             body: fn(int, int, Acc, Acc, Mask) -> ()
+             body: fn(i32, i32, Acc, Acc, Mask) -> ()
             ) -> () {
     let arr_acc = get_acc(arr, 10);
     let out_acc = get_acc(out, 10);
@@ -34,7 +34,7 @@ fn iteration(out: Img, arr: Img, mask: Mask,
 }
 
 fn iteration_bounds(out: Img, arr: Img, mask: Mask,
-                    body: fn(int, int, Acc, Acc, Mask) -> ()
+                    body: fn(i32, i32, Acc, Acc, Mask) -> ()
                    ) -> () {
     // compute the number of vector strides for boundary handling
     let bhy = mask.size_y / 2;
@@ -76,18 +76,18 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
 }
 
 fn iteration_advanced(out: Img, arr: Img, mask: Mask,
-                      body: fn(int, int, Acc, Acc, Mask) -> ()
+                      body: fn(i32, i32, Acc, Acc, Mask) -> ()
                      ) -> () {
     // TODO: blocked loop
     iteration_bounds(out, arr, mask, body)
 }
 
 fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
-                 body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
+                 body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                 ) -> () {
     // allocate temporary array
-    let tmp = get_img(alloc_host(out.width * out.height * 4) as &[f32], out.width, out.height);
-    $init_zero(tmp.data, tmp.stride, tmp.height);
+    let tmp = get_img(alloc_host(out.width * out.height * 4), out.width, out.height);
+    $init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
     let arr_acc = get_acc(arr, 10);
     let out_acc = get_acc(out, 10);
     let tmp_acc = get_acc(tmp, 10);
@@ -108,15 +108,15 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
         }
     }
 
-    release(tmp.data as &[i8]);
+    release(tmp.buf);
 }
 
 fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
-                        body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
+                        body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                        ) -> () {
     // allocate temporary array
-    let tmp = get_img(alloc_host(out.width * out.height * 4) as &[f32], out.width, out.height);
-    $init_zero(tmp.data, tmp.stride, tmp.height);
+    let tmp = get_img(alloc_host(out.width * out.height * 4), out.width, out.height);
+    $init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
 
     let bhy = mask_col.size / 2;
     let bhx = round_up(mask_row.size / 2, get_vector_length());
@@ -163,11 +163,11 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         }
     }
 
-    release(tmp.data as &[i8]);
+    release(tmp.buf);
 }
 
 fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
-                          body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
+                          body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                          ) -> () {
     let unroll = 1;
     let bhy = round_up(mask_col.size / 2, unroll);
@@ -186,8 +186,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
     ];
 
     // allocate temporary array
-    let tmp = get_img(alloc_host(out.width * unroll * 4) as &[f32], out.width, unroll);
-    $init_zero(tmp.data, tmp.stride, tmp.height);
+    let tmp = get_img(alloc_host(out.width * unroll * 4), out.width, unroll);
+    $init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
 
     for benchmark_cpu() {
         for iter_col in @range(0, 3) {
@@ -225,5 +225,5 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
         }
     }
 
-    release(tmp.data as &[i8]);
+    release(tmp.buf);
 }

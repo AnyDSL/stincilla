@@ -1,5 +1,5 @@
-fn compute_config(range_mask: (int, int), unroll: int) -> ((int, int, int), (int, int)) {
-    fn compute_config_y (y_max: int) -> int {
+fn compute_config(range_mask: (i32, i32), unroll: i32) -> ((i32, i32, i32), (i32, i32)) {
+    fn compute_config_y (y_max: i32) -> i32 {
         if range_mask(1) > 1 { return(y_max) }
         for n in range(1, y_max+1) {
             if n * unroll >= range_mask(1) { return(n) }
@@ -19,8 +19,8 @@ fn compute_config(range_mask: (int, int), unroll: int) -> ((int, int, int), (int
     ((threads_x, threads_y, 1), (blocks_x, blocks_y))
 }
 
-fn iteration_point(out: Img,
-                   body: fn(int, int, Acc) -> ()
+fn iteration_poi32(out: Img,
+                   body: fn(i32, i32, Acc) -> ()
                   ) -> () {
     let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
 
@@ -45,7 +45,7 @@ fn iteration_point(out: Img,
 }
 
 fn iteration(out: Img, arr: Img, mask: Mask,
-             body: fn(int, int, Acc, Acc, Mask) -> ()
+             body: fn(i32, i32, Acc, Acc, Mask) -> ()
             ) -> () {
     let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
     let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
@@ -75,7 +75,7 @@ fn iteration(out: Img, arr: Img, mask: Mask,
 }
 
 fn iteration_bounds(out: Img, arr: Img, mask: Mask,
-                    body: fn(int, int, Acc, Acc, Mask) -> ()
+                    body: fn(i32, i32, Acc, Acc, Mask) -> ()
                    ) -> () {
     let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
     let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
@@ -209,7 +209,7 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
 }
 
 fn iteration_advanced(out: Img, arr: Img, mask: Mask,
-                      body: fn(int, int, Acc, Acc, Mask) -> ()
+                      body: fn(i32, i32, Acc, Acc, Mask) -> ()
                      ) -> () {
     let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
     let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
@@ -274,7 +274,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
 }
 
 fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
-                 body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
+                 body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                 ) -> () {
     let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
     let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
@@ -324,7 +324,7 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
 }
 
 fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
-                        body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
+                        body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                        ) -> () {
     let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
     let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
@@ -477,7 +477,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
 }
 
 fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
-                          body: fn(int, int, Acc, Acc, MaskSep, bool) -> ()
+                          body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                          ) -> () {
     let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
     let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
@@ -570,11 +570,11 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
     release(out_gpu.buf);
 }
 
-fn iteration_multi(width: int, height: int,
-                   out: &[float], arr: &[float],
-                   body: fn(int, int, &[float], &[float]) -> ()
+fn iteration_multi(width: i32, height: i32,
+                   out: &[f32], arr: &[f32],
+                   body: fn(i32, i32, &[f32], &[f32]) -> ()
                   ) -> () {
-    let mut ids : [int * 2];
+    let mut ids : [i32 * 2];
     let mut map_arr : [&[f32] * 2];
     let mut map_out : [&[f32] * 2];
 

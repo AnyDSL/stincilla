@@ -1,40 +1,40 @@
-fn range_step(lower: int, upper: int, step: int, yield: fn(int, fn())) -> () {
+fn range_step(lower: i32, upper: i32, step: i32, yield: fn(i32, fn())) -> () {
     if lower < upper {
         yield(lower);
         range_step(lower+step, upper, step, yield, return)
     }
 }
 
-fn range_step_rev(upper: int, lower: int, step: int, yield: fn(int, fn())) -> () {
+fn range_step_rev(upper: i32, lower: i32, step: i32, yield: fn(i32, fn())) -> () {
     if upper > lower {
         yield(upper);
         range_step_rev(upper-step, lower, step, yield, return)
     }
 }
 
-fn range(lower: int, upper: int, yield: fn(int, fn())) -> () { range_step(lower, upper, 1, yield) }
-fn range_rev(upper: int, lower: int, yield: fn(int, fn())) -> () { range_step_rev(upper, lower, 1, yield) }
+fn range(lower: i32, upper: i32, yield: fn(i32, fn())) -> () { range_step(lower, upper, 1, yield) }
+fn range_rev(upper: i32, lower: i32, yield: fn(i32, fn())) -> () { range_step_rev(upper, lower, 1, yield) }
 
-fn force_unroll(a: int, b: int, yield: fn(int, fn())) -> () {
+fn force_unroll(a: i32, b: i32, yield: fn(i32, fn())) -> () {
     if a < b {
         yield(a);
         @force_unroll(a+1, b, yield, return)
     }
 }
 
-fn range_times_two(lower: int, upper: int, yield: fn(int, fn())) -> () {
+fn range_times_two(lower: i32, upper: i32, yield: fn(i32, fn())) -> () {
     if lower < upper {
         yield(lower);
         range_times_two(lower*2, upper, yield, return)
     }
 }
 
-fn init_zero(mut arr: &[float], width: int, height: int) -> () {
+fn init_zero(mut arr: &[f32], width: i32, height: i32) -> () {
     for i in range(0, width*height) {
         arr(i) = 0.0f;
     }
 }
-fn init_rand(mut arr: &[float], width: int, height: int) -> () {
+fn init_rand(mut arr: &[f32], width: i32, height: i32) -> () {
     for y in range(0, height) {
         for x in range(0, width) {
             arr(y*width + x) = thorin_random_val() * 1024f;
@@ -43,41 +43,41 @@ fn init_rand(mut arr: &[float], width: int, height: int) -> () {
 }
 
 // border handling specialization
-fn nobh_center (idx: int, lower: int, upper: int, out: fn(f32)) -> int { idx }
-fn clamp_lower (idx: int, lower: int, upper: int, out: fn(f32)) -> int {
+fn nobh_center (idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 { idx }
+fn clamp_lower (idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 {
     if idx < lower { lower } else { idx }
 }
-fn clamp_upper (idx: int, lower: int, upper: int, out: fn(f32)) -> int {
+fn clamp_upper (idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 {
     if idx >= upper { upper - 1 } else { idx }
 }
-fn mirror_lower(idx: int, lower: int, upper: int, out: fn(f32)) -> int {
+fn mirror_lower(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 {
     if idx < lower { lower + (lower - idx-1) } else { idx }
 }
-fn mirror_upper(idx: int, lower: int, upper: int, out: fn(f32)) -> int {
+fn mirror_upper(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 {
     if idx >= upper { upper - (idx+1 - upper) } else { idx }
 }
-fn repeat_lower(idx: int, lower: int, upper: int, out: fn(f32)) -> int {
+fn repeat_lower(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 {
     if idx < lower { idx + (lower + upper) } else { idx }
 }
-fn repeat_upper(idx: int, lower: int, upper: int, out: fn(f32)) -> int {
+fn repeat_upper(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 {
     if idx >= upper { idx - (lower + upper) } else { idx }
 }
-fn const_lower (idx: int, lower: int, upper: int, cval: f32, out: fn(f32)) -> int {
+fn const_lower (idx: i32, lower: i32, upper: i32, cval: f32, out: fn(f32)) -> i32 {
     if idx < lower { out(cval) } else { idx }
 }
-fn const_upper (idx: int, lower: int, upper: int, cval: f32, out: fn(f32)) -> int {
+fn const_upper (idx: i32, lower: i32, upper: i32, cval: f32, out: fn(f32)) -> i32 {
     if idx >= upper { out(cval) } else { idx }
 }
-fn wrap_const_fun(fun: fn(int, int, int, f32, fn(f32)) -> int, cval: float) -> fn(int, int, int, fn(f32)) -> int {
+fn wrap_const_fun(fun: fn(i32, i32, i32, f32, fn(f32)) -> i32, cval: f32) -> fn(i32, i32, i32, fn(f32)) -> i32 {
     |idx, lower, upper, out| fun(idx, lower, upper, cval, out)
 }
-fn pixel_at(acc: Acc, x: int, y: int) -> float {
+fn pixel_at(acc: Acc, x: i32, y: i32) -> f32 {
     (acc.img.buf.data as &[f32])((acc.roi.o_y + acc.roy + y) * acc.img.stride + acc.roi.o_x + acc.rox + x)
 }
-fn get_pixel(acc: Acc, x: int, y: int,
-             bh_lower: fn(int, int, int, fn(f32)) -> int,
-             bh_upper: fn(int, int, int, fn(f32)) -> int
-            ) -> float {
+fn get_pixel(acc: Acc, x: i32, y: i32,
+             bh_lower: fn(i32, i32, i32, fn(f32)) -> i32,
+             bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
+            ) -> f32 {
     let mut idx_x = acc.roi.o_x + acc.rox + x;
     let mut idx_y = acc.roi.o_y + acc.roy + y;
 
@@ -159,7 +159,7 @@ fn print_total_timing() -> () {
     print_string(" ms\n")
 }
 
-fn sort_i64(num: int, mut arr: &[i64]) -> () {
+fn sort_i64(num: i32, mut arr: &[i64]) -> () {
     // insertion sort
     for i in range(1, num) {
         let x = arr(i);
@@ -171,7 +171,7 @@ fn sort_i64(num: int, mut arr: &[i64]) -> () {
         arr(j) = x;
     }
 }
-fn sort_f32(num: int, mut arr: &[f32]) -> () {
+fn sort_f32(num: i32, mut arr: &[f32]) -> () {
     // insertion sort
     for i in range(1, num) {
         let x = arr(i);

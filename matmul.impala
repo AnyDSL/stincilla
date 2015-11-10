@@ -1,22 +1,22 @@
 struct Mat {
-    data : &[float],
-    rows : int,
-    cols : int
+    buf  : Buffer,
+    rows : i32,
+    cols : i32,
 }
 
 fn matmul_golden(mut C: Mat, A: Mat, B: Mat) -> () {
     for i in $range(0, C.rows) {
         for k in $range(0, C.cols) {
-            let mut sum = 0 as float;
+            let mut sum = 0 as f32;
             for j in $range(0, A.cols) {
-                sum += A.data(index(A, j, i)) * B.data(index(B, k, j));
+                sum += (A.buf.data as &[f32])(index(A, j, i)) * (B.buf.data as &[f32])(index(B, k, j));
             }
-            C.data(index(C, k, i)) = sum;
+            (C.buf.data as &[f32])(index(C, k, i)) = sum;
         }
     }
 }
 
-fn get_step(lvl: int) -> int {
+fn get_step(lvl: i32) -> i32 {
     // 2048 -> 256 -> 1 -> 0
     if lvl == 0 {
         1024
@@ -27,8 +27,8 @@ fn get_step(lvl: int) -> int {
     }
 }
 
-fn tiled_loop(upper: int, body: fn(int) -> ()) -> () {
-    fn tile(cur_lvl: int, a: int, b: int) -> () {
+fn tiled_loop(upper: i32, body: fn(i32) -> ()) -> () {
+    fn tile(cur_lvl: i32, a: i32, b: i32) -> () {
         let step = get_step(cur_lvl);
         if step <= 0 {
             body(a)
@@ -41,7 +41,7 @@ fn tiled_loop(upper: int, body: fn(int) -> ()) -> () {
     tile(0, 0, upper);
 }
 
-fn index(M: Mat, x: int, y: int) -> int {
+fn index(M: Mat, x: i32, y: i32) -> i32 {
     M.cols * y + x
 }
 
@@ -49,63 +49,64 @@ fn matmul_tiled(mut C: Mat, A: Mat, B: Mat) -> () {
     /*
     // initialize C with zeros
     for i in range(0, C.rows * C.cols) {
-        C.data(i) = 0 as float;
+        (C.buf.data as &[f32])(i) = 0 as f32;
     }
     */
     for i in $range(0, C.rows) {
         for k in $range(0, C.cols) {
-            let mut sum = 0 as float;
+            let mut sum = 0 as f32;
             for j in @tiled_loop(A.cols) {
                 //C(index(C, i, k) += C(index(C, i, k) + A(index(A, i, j) * B(index(B, j, k);
-                sum += A.data(index(A, j, i)) * B.data(index(B, k, j));
+                sum += (A.buf.data as &[f32])(index(A, j, i)) * (B.buf.data as &[f32])(index(B, k, j));
             }
-            C.data(index(C, k, i)) = sum;
+            (C.buf.data as &[f32])(index(C, k, i)) = sum;
         }
     }
 }
 
-fn main(i: int) -> int {
+fn main(i: i32) -> i32 {
     let l = 512;
     let m = 1024;
     let n = 2048;
-    let A = Mat { data : ~[l*m:float], rows : l, cols : m }; // mxl
-    let B = Mat { data : ~[m*n:float], rows : m, cols : n }; // nxm
-    let C = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
-    let R = Mat { data : ~[l*n:float], rows : l, cols : n }; // nxl
+    let A = Mat { buf : alloc_host(l * m * 4), rows : l, cols : m }; // mxl
+    let B = Mat { buf : alloc_host(m * n * 4), rows : m, cols : n }; // nxm
+    let C = Mat { buf : alloc_host(l * n * 4), rows : l, cols : n }; // nxl
+    let R = Mat { buf : alloc_host(l * n * 4), rows : l, cols : n }; // nxl
 
-    fn print_timing(time: i64) -> () {
-        print_string("Timing: ");
-        print_double(time as f64 / 1000.0);
-        print_string(" ms\n")
+
+    fn pri32_timing(time: i64) -> () {
+        pri32_string("Timing: ");
+        pri32_double(time as f64 / 1000.0);
+        pri32_string(" ms\n")
     }
-    fn print_gflops(gflops: f64) -> () {
-        print_double(gflops);
-        print_string(" GFLOPS\n")
+    fn pri32_gflops(gflops: f64) -> () {
+        pri32_double(gflops);
+        pri32_string(" GFLOPS\n")
     }
 
     let mut start = thorin_get_micro_time();
     @matmul_golden(R, A, B);
     let mut end = thorin_get_micro_time();
-    print_timing(end-start);
+    pri32_timing(end-start);
 
     let nops = (2 as i64) * (l as i64) * (m as i64) * (n as i64);
     let mut gflops = (1.0e-9 * (nops as f64)) / ((end - start) as f64 * 1.0e-6);
-    print_gflops(gflops);
+    pri32_gflops(gflops);
 
     start = thorin_get_micro_time();
     @matmul_tiled(C, A, B);
     end = thorin_get_micro_time();
-    print_timing(end-start);
+    pri32_timing(end-start);
 
     gflops = (1.0e-9 * (nops as f64)) / ((end - start) as f64 * 1.0e-6);
-    print_gflops(gflops);
+    pri32_gflops(gflops);
 
-    print_total_timing();
+    pri32_total_timing();
 
-    release(A.data as &[i8]);
-    release(B.data as &[i8]);
-    release(C.data as &[i8]);
-    release(R.data as &[i8]);
+    release(A.buf);
+    release(B.buf);
+    release(C.buf);
+    release(R.buf);
 
     0
 }
