@@ -238,7 +238,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
 
             let spm_stride =          block(0) + 2 * range_row;
             let spm_height = unroll * block(1) + 2 * range_col;
-            let mut spm = Buffer { device : acc_dev(), data : mmap_f32(arr.buf.data as &[f32], acc_dev(), acc_spm(), 0, spm_stride * spm_height) as &[i8] };
+            let mut spm = Buffer { device : acc_dev(), data : reserve_shared_f32(spm_stride * spm_height * 4) };
             let spm_img = get_img(spm, spm_stride, spm_height);
 
             for y in range(0, steps_y) {
@@ -507,8 +507,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
             let spm_stride     =          block(0) + 2 * range_row;
             let spm_height_col = unroll * block(1) + 2 * range_col;
             let spm_height_row = unroll * block(1);
-            let mut spm_col = Buffer { device : acc_dev(), data : mmap_f32(arr.buf.data as &[f32], acc_dev(), acc_spm(), 0, spm_stride * spm_height_col) as &[i8] };
-            let     spm_row = Buffer { device : acc_dev(), data : mmap_f32(arr.buf.data as &[f32], acc_dev(), acc_spm(), 0, spm_stride * spm_height_row) as &[i8] };
+            let mut spm_col = Buffer { device : acc_dev(), data : reserve_shared_f32(spm_stride * spm_height_col * 4) };
+            let     spm_row = Buffer { device : acc_dev(), data : reserve_shared_f32(spm_stride * spm_height_row * 4) };
             let spmr_img = get_img(spm_row, spm_stride, spm_height_row);
             let spmc_img = get_img(spm_col, spm_stride, spm_height_col);
 
