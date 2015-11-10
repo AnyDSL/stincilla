@@ -6,20 +6,22 @@ extern "C" {
     fn drand48() -> f64;
 }
 
-fn iteration(out: &[u8], width: int, height: int,
-             body: fn(int, int, &[u8]) -> ()
+fn iteration(out: Buffer, width: i32, height: i32,
+             body: fn(i32, i32, Buffer) -> ()
             ) -> () {
     let grid   = (width, height, 1);
     let block  = (32, 4, 1);
 
-    let out = mmap_u8(out, acc_dev(), acc_mem(), 0, width * height * 3);
+    let out_gpu = alloc_cuda(acc_dev(), width * height * 3 * 1);
+    copy(out, out_gpu, width * height * 3 * 1);
 
     for benchmark_acc() {
         acc(acc_dev(), grid, block, || @{
-            body(acc_gidx(), acc_gidy(), out);
+            body(acc_gidx(), acc_gidy(), out_gpu);
         });
     }
 
-    munmap_u8(out);
+    copy(out_gpu, out, width * height * 3 * 1);
+    release(out_gpu);
 }
 
