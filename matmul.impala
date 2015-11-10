@@ -74,34 +74,34 @@ fn main(i: i32) -> i32 {
     let R = Mat { buf : alloc_host(l * n * 4), rows : l, cols : n }; // nxl
 
 
-    fn pri32_timing(time: i64) -> () {
-        pri32_string("Timing: ");
-        pri32_double(time as f64 / 1000.0);
-        pri32_string(" ms\n")
+    fn print_timing(time: i64) -> () {
+        print_string("Timing: ");
+        print_double(time as f64 / 1000.0);
+        print_string(" ms\n")
     }
-    fn pri32_gflops(gflops: f64) -> () {
-        pri32_double(gflops);
-        pri32_string(" GFLOPS\n")
+    fn print_gflops(gflops: f64) -> () {
+        print_double(gflops);
+        print_string(" GFLOPS\n")
     }
 
     let mut start = thorin_get_micro_time();
     @matmul_golden(R, A, B);
     let mut end = thorin_get_micro_time();
-    pri32_timing(end-start);
+    print_timing(end-start);
 
     let nops = (2 as i64) * (l as i64) * (m as i64) * (n as i64);
     let mut gflops = (1.0e-9 * (nops as f64)) / ((end - start) as f64 * 1.0e-6);
-    pri32_gflops(gflops);
+    print_gflops(gflops);
 
     start = thorin_get_micro_time();
     @matmul_tiled(C, A, B);
     end = thorin_get_micro_time();
-    pri32_timing(end-start);
+    print_timing(end-start);
 
     gflops = (1.0e-9 * (nops as f64)) / ((end - start) as f64 * 1.0e-6);
-    pri32_gflops(gflops);
+    print_gflops(gflops);
 
-    pri32_total_timing();
+    print_total_timing();
 
     release(A.buf);
     release(B.buf);
