@@ -27,10 +27,10 @@ fn main() -> int {
     let height = 2048;
     let a      = 0.2f;
     let b      = 1.0f - 4.0f * a;
-    let arr    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let out    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    init_rand(arr.data, arr.stride, out.height);
-    init_zero(out.data, out.stride, out.height);
+    let arr    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let out    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    init_rand(arr.buf.data as &[f32], arr.stride, out.height);
+    init_zero(out.buf.data as &[f32], out.stride, out.height);
 
     let stencil = Mask {
         data : [[0.0f, b, 0.0f],
@@ -47,7 +47,7 @@ fn main() -> int {
     //let iteration_fun = iteration_advanced;         // SS + SM
 
     for x, y, mut out_acc, arr_acc, stencil in @iteration_fun(out, arr, stencil) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, stencil, lower, upper);
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, stencil, lower, upper);
     }
     print_total_timing();
 
@@ -57,7 +57,7 @@ fn main() -> int {
         for y in $range(0, out.height) {
             for x in $range(0, out.width) @{
                 let ref = apply_stencil(x, y, arr_acc, stencil, lower, upper);
-                let mut diff = ref - out.data(y*out.stride + x);
+                let mut diff = ref - (out.buf.data as &[f32])(y*out.stride + x);
                 if diff < 0.0f  { diff = -diff; }
                 if diff > 0.01f { passed = 42; }
             }
@@ -67,8 +67,8 @@ fn main() -> int {
 
     let result = @reference();
 
-    release(arr.data as &[i8]);
-    release(out.data as &[i8]);
+    release(arr.buf);
+    release(out.buf);
 
     result
 }
