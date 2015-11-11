@@ -19,4 +19,11 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     add_executable(alloc_gpu ${ALLOC_GPU_PROGRAM})
     target_link_libraries(alloc_gpu ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
     add_test("alloc_gpu" alloc_gpu)
+
+    thorin_runtime_wrap(RESERVE_SHARED_PROGRAM
+        BACKEND ${BACKEND}
+        FILES reserve_shared.impala)
+    add_executable(reserve_shared ${RESERVE_SHARED_PROGRAM})
+    target_link_libraries(reserve_shared ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
+    add_test("reserve_shared" reserve_shared)
 endif()
