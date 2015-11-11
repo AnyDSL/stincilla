@@ -569,37 +569,3 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
     release(arr_gpu.buf);
     release(out_gpu.buf);
 }
-
-fn iteration_multi(width: i32, height: i32,
-                   out: &[f32], arr: &[f32],
-                   body: fn(i32, i32, &[f32], &[f32]) -> ()
-                  ) -> () {
-    let mut ids : [i32 * 2];
-    let mut map_arr : [&[f32] * 2];
-    let mut map_out : [&[f32] * 2];
-
-    for dev in @range(0, 2) {
-        let height_dev = height / 2;
-        let mem_size_dev = width * height_dev;
-        let offset = dev * mem_size_dev;
-        let grid  = (width, height_dev, 1);
-        let block = (128, 1, 1);
-
-        map_arr(dev) = mmap_f32(arr, dev, acc_tex(), offset, mem_size_dev);
-        map_out(dev) = mmap_f32(out, dev, acc_mem(), offset, mem_size_dev);
-
-        ids(dev) = spawn(|| -> () @{
-            for benchmark_acc() {
-                acc(dev, grid, block, || @{
-                    body(acc_gidx(), acc_gidy(), map_out(dev), map_arr(dev));
-                });
-            }
-        });
-    }
-
-    for dev in range(0, 2) {
-        sync(ids(dev));
-        munmap_f32(map_arr(dev));
-        munmap_f32(map_out(dev));
-    }
-}
