@@ -1,5 +1,5 @@
 fn iteration_grid(bgrid: Grid,
-                  body: fn(int, int) -> ()
+                  body: fn(i32, i32) -> ()
                  ) -> () {
     for benchmark_cpu() {
         for y in $outer_loop(0, bgrid.height) {
@@ -9,8 +9,8 @@ fn iteration_grid(bgrid: Grid,
         }
     }
 }
-fn iteration_space(width: int, height: int,
-                   body: fn(int, int) -> ()
+fn iteration_space(width: i32, height: i32,
+                   body: fn(i32, i32) -> ()
                   ) -> () {
     for benchmark_cpu() {
         for y in $outer_loop(0, height) {

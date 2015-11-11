@@ -6,7 +6,7 @@ static WIDTH       = 256;
 static HEIGHT      = 256;
 static NSUBSAMPLES = 2;
 static NAO_SAMPLES = 8;
-static M_PI        = 3.14159265358979323846;
+static PI          = 3.14159265358979323846;
 
 struct vec {
     x: f64,
@@ -18,7 +18,7 @@ struct Isect {
     t: f64,
     p: vec,
     n: vec,
-    hit: int,
+    hit: i32,
 }
 
 struct Sphere {
@@ -150,7 +150,7 @@ fn ambient_occlusion(mut col: &vec, isect: &Isect, mut spheres: &[Sphere * 3], p
     for j in $range(0, ntheta) @{
         for i in range(0, nphi) {
             let theta = sqrt(drand48());
-            let phi   = 2.0 * M_PI * drand48();
+            let phi   = 2.0 * PI * drand48();
 
             let x = cos(phi) * theta;
             let y = sin(phi) * theta;
@@ -189,13 +189,13 @@ fn ambient_occlusion(mut col: &vec, isect: &Isect, mut spheres: &[Sphere * 3], p
 fn clamp(f: f64) -> u8 {
     let mut i = (f*255.5) as i32;
 
-    if i < 0 { i = 0; }
+    if i < 0   { i = 0; }
     if i > 255 { i = 255; }
 
     i as u8
 }
 
-fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
+fn render(img: Buffer, w: i32, h: i32, nsubsamples: i32) -> () {
     let plane_ : Plane = Plane { p : vec { x : plane.p.x, y : plane.p.y, z : plane.p.z }, n : vec { x : plane.n.x, y : plane.n.y, z : plane.n.z } };
     let spheres_ = [
         Sphere { center : vec { x : spheres(0).center.x, y : spheres(0).center.y, z : spheres(0).center.z }, radius : spheres(0).radius }, 
@@ -244,9 +244,9 @@ fn render(img: &[u8], w: int, h: int, nsubsamples: int) -> () {
         g /= (nsubsamples * nsubsamples) as f64;
         b /= (nsubsamples * nsubsamples) as f64;
 
-        img(3 * (y * w + x) + 0) = clamp(r);
-        img(3 * (y * w + x) + 1) = clamp(g);
-        img(3 * (y * w + x) + 2) = clamp(b);
+        (img.data as &[u8])(3 * (y * w + x) + 0) = clamp(r);
+        (img.data as &[u8])(3 * (y * w + x) + 1) = clamp(g);
+        (img.data as &[u8])(3 * (y * w + x) + 2) = clamp(b);
     }
 }
 
@@ -277,11 +277,11 @@ fn init_scene() -> () {
 
 extern
 fn aobench() -> () {
-    let img = ~[WIDTH*HEIGHT*3:u8];
+    let img = alloc_host(WIDTH*HEIGHT*3 * 1);
     init_scene();
     @render(img, WIDTH, HEIGHT, NSUBSAMPLES);
-    saveppm(img, WIDTH, HEIGHT);
-    release(img as &[i8]);
+    saveppm(img.data as &[u8], WIDTH, HEIGHT);
+    release(img);
     print_total_timing()
 }
 
