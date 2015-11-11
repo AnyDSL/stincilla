@@ -47,13 +47,9 @@ fn main() -> int {
     }
 
     let mut passed = 0;
-
-    for y in range(0, height) {
-        for x in range(0, width) {
-            if out(x + y*width) != arr(x + y*width) { passed++; }
-        }
+    for i in range(0, width*height) {
+        if out(i) != arr(i) { passed++; }
     }
-
     if passed >= 256 { passed = 255; }
 
     release(arr_buf);
