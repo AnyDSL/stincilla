@@ -9,9 +9,9 @@
 type Mask = Mask3;
 type MaskSep = Mask3Sep;
 
-fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
-                 bh_lower: fn(int, int, int, fn(f32)) -> int, bh_upper: fn(int, int, int, fn(f32)) -> int
-                ) -> float {
+fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask,
+                 bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
+                ) -> f32 {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
@@ -32,17 +32,17 @@ fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
 
 
 extern
-fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, height: int) -> () {
-    let input  = Img { data : img_data,              width : width, height : height, stride : width };
-    let harris = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let dx     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let dy     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let dxx    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let dxy    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let dyy    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let gxx    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let gxy    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let gyy    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+fn thorin_harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32) -> () {
+    let input  = Img { buf : Buffer { device : 0, data : img_data as &[i8]}, width : width, height : height, stride : width };
+    let harris = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let dx     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let dy     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let dxx    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let dxy    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let dyy    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let gxx    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let gxy    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let gyy    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
 
     // compute the first derivative using the Sobel operator
     let mdx = Mask {
@@ -63,10 +63,10 @@ fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, 
     let iteration_fun = iteration;
 
     for x, y, mut out_acc, arr_acc, mask in @iteration_fun(dx, input, mdx) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
     }
     for x, y, mut out_acc, arr_acc, mask in @iteration_fun(dy, input, mdy) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
     }
 
 
@@ -74,19 +74,19 @@ fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, 
     for x, y, mut out_acc in @iteration_point(dxx) {
         let dx_acc = get_acc(dx, 10);
         let dx = pixel_at(dx_acc, x, y);
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dx * dx;
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dx * dx;
     }
     for x, y, mut out_acc in @iteration_point(dyy) {
         let dy_acc = get_acc(dy, 10);
         let dy = pixel_at(dy_acc, x, y);
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dy * dy;
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dy * dy;
     }
     for x, y, mut out_acc in @iteration_point(dxy) {
         let dx_acc = get_acc(dx, 10);
         let dy_acc = get_acc(dy, 10);
         let dx = pixel_at(dx_acc, x, y);
         let dy = pixel_at(dy_acc, x, y);
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dx * dy;
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dx * dy;
     }
 
 
@@ -99,13 +99,13 @@ fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, 
     };
 
     for x, y, mut out_acc, arr_acc, mask in @iteration_fun(gxx, dxx, mg) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
     }
     for x, y, mut out_acc, arr_acc, mask in @iteration_fun(gyy, dyy, mg) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
     }
     for x, y, mut out_acc, arr_acc, mask in @iteration_fun(gxy, dxy, mg) {
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
     }
 
 
@@ -119,7 +119,7 @@ fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, 
         let gxy = pixel_at(gxy_acc, x, y);
         let det   = gxx * gyy - gxy * gxy;
         let trace = gxx + gyy;
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = det - 0.04f * trace * trace;
+        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = det - 0.04f * trace * trace;
     }
 
     print_total_timing();
@@ -134,7 +134,7 @@ fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, 
     }
     for y in $range(0, height) {
         for x in $range(0, width) @{
-            if harris.data(y*width + x) > threshold {
+            if (harris.buf.data as &[f32])(y*width + x) > threshold {
                 for i in range(-5, 5+1) {
                     if x+i >= 0 && x+i < width {
                         out_data(y*width + x + i) = 255f;
@@ -149,15 +149,15 @@ fn thorin_harris_corner(img_data: &[float], mut out_data: &[float], width: int, 
         }
     }
 
-    release(harris.data as &[i8]);
-    release(dx.data as &[i8]);
-    release(dy.data as &[i8]);
-    release(dxx.data as &[i8]);
-    release(dxy.data as &[i8]);
-    release(dyy.data as &[i8]);
-    release(gxx.data as &[i8]);
-    release(gxy.data as &[i8]);
-    release(gyy.data as &[i8]);
+    release(harris.buf);
+    release(dx.buf);
+    release(dy.buf);
+    release(dxx.buf);
+    release(dxy.buf);
+    release(dyy.buf);
+    release(gxx.buf);
+    release(gxy.buf);
+    release(gyy.buf);
 
 }
 

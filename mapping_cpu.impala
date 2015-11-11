@@ -4,7 +4,7 @@ static Region2D    = [ 0, 1, 2,
 static Region2DCol = [ 1, 4, 7 ];
 static Region2DRow = [ 3, 4, 5 ];
 
-fn iteration_poi32(out: Img,
+fn iteration_point(out: Img,
                    body: fn(i32, i32, Acc) -> ()
                   ) -> () {
     let out_acc = get_acc(out, 10);

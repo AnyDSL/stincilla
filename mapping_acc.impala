@@ -19,7 +19,7 @@ fn compute_config(range_mask: (i32, i32), unroll: i32) -> ((i32, i32, i32), (i32
     ((threads_x, threads_y, 1), (blocks_x, blocks_y))
 }
 
-fn iteration_poi32(out: Img,
+fn iteration_point(out: Img,
                    body: fn(i32, i32, Acc) -> ()
                   ) -> () {
     let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
