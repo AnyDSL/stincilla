@@ -2,25 +2,28 @@ type Mask = Mask5;
 type MaskSep = Mask5Sep;
 
 struct Imgi16 {
-    data : &[i16],
-    width : int,
-    height : int,
-    stride : int,
+    buf : Buffer,
+    width  : i32,
+    height : i32,
+    stride : i32,
 }
 struct Acci16 {
     img : Imgi16,
     roi : RoI,
-    rox : int,
-    roy : int,
-    region : int,
+    rox : i32,
+    roy : i32,
+    region : i32,
 }
 
-fn get_acc_i16(img: Imgi16, region: int) -> Acci16 {
+fn get_acc_i16(img: Imgi16, region: i32) -> Acci16 {
     Acci16 { img : img, roi : RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, rox : 0, roy : 0, region : region }
 }
-fn get_pixel_i16(acc: Acci16, x: int, y: int,
-                 bh_lower: fn(int, int, int, fn(i16)) -> int,
-                 bh_upper: fn(int, int, int, fn(i16)) -> int
+fn get_img_i16(buf: Buffer, width: i32, height: i32) -> Imgi16 {
+    Imgi16 { buf : buf, width : width,  height : height, stride : width }
+}
+fn get_pixel_i16(acc: Acci16, x: i32, y: i32,
+                 bh_lower: fn(i32, i32, i32, fn(i16)) -> i32,
+                 bh_upper: fn(i32, i32, i32, fn(i16)) -> i32
                 ) -> i16 {
     let mut idx_x = acc.roi.o_x + acc.rox + x;
     let mut idx_y = acc.roi.o_y + acc.roy + y;
@@ -62,28 +65,28 @@ fn get_pixel_i16(acc: Acci16, x: int, y: int,
         idx_y = bh_upper(idx_y, lower_y, upper_y, return);
     }
 
-    acc.img.data(idx_y*acc.img.stride + idx_x)
+    (acc.img.buf.data as &[i16])(idx_y*acc.img.stride + idx_x)
 }
-fn set_pixel(mut acc: Acci16, x: int, y: int, val: i16) -> () {
-    acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
+fn set_pixel(mut acc: Acci16, x: i32, y: i32, val: i16) -> () {
+    (acc.img.buf.data as &[i16])((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
 }
-fn get_pixel_f32(acc: Acc, x: int, y: int) -> f32 {
-    acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x)
+fn get_pixel_f32(acc: Acc, x: i32, y: i32) -> f32 {
+    (acc.img.buf.data as &[f32])((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x)
 }
-fn set_pixel_f32(mut acc: Acc, x: int, y: int, val: f32) -> () {
-    acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
+fn set_pixel_f32(mut acc: Acc, x: i32, y: i32, val: f32) -> () {
+    (acc.img.buf.data as &[f32])((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
 }
-fn nobh_center_i16 (idx: int, lower: int, upper: int, out: fn(i16)) -> int { idx }
-fn clamp_lower_i16 (idx: int, lower: int, upper: int, out: fn(i16)) -> int {
+fn nobh_center_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16)) -> i32 { idx }
+fn clamp_lower_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16)) -> i32 {
     if idx < lower { lower } else { idx }
 }
-fn clamp_upper_i16 (idx: int, lower: int, upper: int, out: fn(i16)) -> int {
+fn clamp_upper_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16)) -> i32 {
     if idx >= upper { upper - 1 } else { idx }
 }
-fn mirror_lower_i16(idx: int, lower: int, upper: int, out: fn(i16)) -> int {
+fn mirror_lower_i16(idx: i32, lower: i32, upper: i32, out: fn(i16)) -> i32 {
     if idx < lower { lower + (lower - idx-1) } else { idx }
 }
-fn mirror_upper_i16(idx: int, lower: int, upper: int, out: fn(i16)) -> int {
+fn mirror_upper_i16(idx: i32, lower: i32, upper: i32, out: fn(i16)) -> i32 {
     if idx >= upper { upper - (idx+1 - upper) } else { idx }
 }
 
@@ -96,7 +99,7 @@ fn swap_if(mut a: &i16, mut b: &i16) -> () {
     }
 }
 
-fn qcod(x: int, y: int, map: Acc, img: Acci16) -> () {
+fn qcod(x: i32, y: i32, map: Acc, img: Acci16) -> () {
     let mut r0  = get_pixel_i16(img, x-2, y-2, mirror_lower_i16, mirror_upper_i16);
     let mut r1  = get_pixel_i16(img, x-1, y-2, mirror_lower_i16, mirror_upper_i16);
     let mut r2  = get_pixel_i16(img, x  , y-2, mirror_lower_i16, mirror_upper_i16);
@@ -286,7 +289,7 @@ fn qcod(x: int, y: int, map: Acc, img: Acci16) -> () {
     set_pixel_f32(map, x, y, (Q3 - Q1) / (Q3 + Q1));
 }
 
-fn sobel(x: int, y: int, tmp: Acci16, img: Acci16) -> () {
+fn sobel(x: i32, y: i32, tmp: Acci16, img: Acci16) -> () {
     let mask_x  = [[-1,  0, +1],
                    [-2,  0, +2],
                    [-1,  0, +1]];
@@ -301,17 +304,17 @@ fn sobel(x: int, y: int, tmp: Acci16, img: Acci16) -> () {
             let val_x = mask_x(xm + ksizeh)(ym + ksizeh);
             let val_y = mask_y(xm + ksizeh)(ym + ksizeh);
             if val_x != 0 {
-                g_x += get_pixel_i16(img, x + xm, y + ym, mirror_lower_i16, mirror_upper_i16) as int * val_x;
+                g_x += get_pixel_i16(img, x + xm, y + ym, mirror_lower_i16, mirror_upper_i16) as i32 * val_x;
             }
             if val_y != 0 {
-                g_y += get_pixel_i16(img, x + xm, y + ym, mirror_lower_i16, mirror_upper_i16) as int * val_y;
+                g_y += get_pixel_i16(img, x + xm, y + ym, mirror_lower_i16, mirror_upper_i16) as i32 * val_y;
             }
         }
     }
 
-    //let g = fabsf((g_x + g_y) as float) / 4.0f as i16;
-    //let g = sqrtf((g_x * g_x + g_y * g_y) as float) / 5.66f as i16;
-    let g = sqrtf((g_x * g_x + g_y * g_y) as float) as i16;
+    //let g = fabsf((g_x + g_y) as f32) / 4.0f as i16;
+    //let g = sqrtf((g_x * g_x + g_y * g_y) as f32) / 5.66f as i16;
+    let g = sqrtf((g_x * g_x + g_y * g_y) as f32) as i16;
 
     // thresholding - we want no gradient image in this case
     let val = if g > 150i16 { 1i16 } else { 0i16 };
@@ -319,7 +322,7 @@ fn sobel(x: int, y: int, tmp: Acci16, img: Acci16) -> () {
     set_pixel(tmp, x, y, val);
 }
 
-fn filter(x: int, y: int, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ksize: int) -> () {
+fn filter(x: i32, y: i32, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ksize: i32) -> () {
     let val = get_pixel_f32(map, x, y);
     let ksizeh = ksize / 2;
     if val > threshold @{
@@ -329,13 +332,13 @@ fn filter(x: int, y: int, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ks
                 sum += get_pixel_i16(img, x + xm, y + ym, mirror_lower_i16, mirror_upper_i16);
             }
         }
-        set_pixel(tmp, x, y, (sum as float / ((ksize * ksize) as float)) as i16);
+        set_pixel(tmp, x, y, (sum as f32 / ((ksize * ksize) as f32)) as i16);
     } else @{
         set_pixel(tmp, x, y, get_pixel_i16(img, x, y, nobh_center_i16, nobh_center_i16));
     }
 }
 
-fn sharpen(x: int, y: int, out: Acci16, img: Acci16, blur: Acci16) -> () {
+fn sharpen(x: i32, y: i32, out: Acci16, img: Acci16, blur: Acci16) -> () {
     let val_img  = get_pixel_i16(img,  x, y, nobh_center_i16, nobh_center_i16);
     let val_blur = get_pixel_i16(blur, x, y, nobh_center_i16, nobh_center_i16);
     set_pixel(out, x, y, val_img + (val_img - val_blur));
@@ -343,11 +346,11 @@ fn sharpen(x: int, y: int, out: Acci16, img: Acci16, blur: Acci16) -> () {
 
 
 extern
-fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> () {
-    let img     = Imgi16 { data : input,                  width : width, height : height, stride : width };
-    let out     = Imgi16 { data : output,                 width : width, height : height, stride : width };
-    let tmp     = Imgi16 { data : ~[width * height: i16], width : width, height : height, stride : width };
-    let map     = Img    { data : ~[width * height: f32], width : width, height : height, stride : width };
+fn thorin_sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
+    let img     = Imgi16 { buf : Buffer { device : 0, data : input as &[i8]},  width : width, height : height, stride : width };
+    let out     = Imgi16 { buf : Buffer { device : 0, data : output as &[i8]}, width : width, height : height, stride : width };
+    let tmp     = Imgi16 { buf : alloc_host(width * height * 2),               width : width, height : height, stride : width };
+    let map     = Img    { buf : alloc_host(width * height * 4),               width : width, height : height, stride : width };
     let mask    = Mask   { data : [[1.0f, .. 5], .. 5], size_x : 5, size_y : 5 };
 
     fn sharpening() -> () {
@@ -364,7 +367,7 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
         // counting number of non-edge pixels
         let bw_count =
             for x, y, tmp in reduce(tmp) {
-                if tmp.data(y * tmp.stride + x) == 0i16 { 0 } else { 1 }
+                if (tmp.buf.data as &[i16])(y * tmp.stride + x) == 0i16 { 0 } else { 1 }
             };
         print_string("# of non-edge pixels: ");
         print_int(bw_count);
@@ -373,22 +376,22 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
 
         // calculate histogram
         let hist =
-            for x, y, map in hist(map) {
-                (map.data(y * tmp.stride + x) * 255.0f) as i32
+            for x, y, map in histogram(map) {
+                ((map.buf.data as &[f32])(y * tmp.stride + x) * 255.0f) as i32
             };
 
         // cumulative sum of the QCOD values (prefix sum)
         let sum_count =
-            for x, arr in inclusive_scan(hist, 256) {
-                arr(x)
+            for x, buf in inclusive_scan(hist, 256) {
+                (buf.data as &[i32])(x)
             };
         let bin =
-            for x, arr in find_position(sum_count, 256) {
-                if arr(x) > bw_count { 1 } else { 0 }
+            for x, sum in find_position(sum_count, 256) {
+                if (sum.data as &[i32])(x) > bw_count { 1 } else { 0 }
             };
 
         // apply filter
-        let threshold = bin as float / 256.0f;
+        let threshold = bin as f32 / 256.0f;
         for x, y, tmp, img, map in iteration2i1m(tmp, img, map) {
             let ksize = 5;
             filter(x, y, tmp, img, map, threshold, ksize);
@@ -399,12 +402,12 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: int, height: int) -> 
             sharpen(x, y, out, img, tmp);
         }
 
-        release(hist as &[i8]);
-        release(sum_count as &[i8]);
+        release(hist);
+        release(sum_count);
     }
     @sharpening();
 
-    release(tmp.data as &[i8]);
-    release(map.data as &[i8]);
+    release(tmp.buf);
+    release(map.buf);
 }
 
