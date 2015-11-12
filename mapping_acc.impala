@@ -22,7 +22,7 @@ fn compute_config(range_mask: (i32, i32), unroll: i32) -> ((i32, i32, i32), (i32
 fn iteration_point(out: Img,
                    body: fn(i32, i32, Acc) -> ()
                   ) -> () {
-    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
 
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);
@@ -47,8 +47,8 @@ fn iteration_point(out: Img,
 fn iteration(out: Img, arr: Img, mask: Mask,
              body: fn(i32, i32, Acc, Acc, Mask) -> ()
             ) -> () {
-    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
 
     let unroll = 1;
@@ -77,8 +77,8 @@ fn iteration(out: Img, arr: Img, mask: Mask,
 fn iteration_bounds(out: Img, arr: Img, mask: Mask,
                     body: fn(i32, i32, Acc, Acc, Mask) -> ()
                    ) -> () {
-    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
 
     // compute the number of blocks required for boundary handling
@@ -211,8 +211,8 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
 fn iteration_advanced(out: Img, arr: Img, mask: Mask,
                       body: fn(i32, i32, Acc, Acc, Mask) -> ()
                      ) -> () {
-    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
 
     let unroll = 1;
@@ -276,9 +276,9 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
 fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                  body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                 ) -> () {
-    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    let tmp_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let tmp_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
 
     let unroll = 1;
@@ -326,9 +326,9 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
 fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                         body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                        ) -> () {
-    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    let tmp_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let tmp_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
 
     // compute the number of blocks required for boundary handling
@@ -479,8 +479,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
 fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                           body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                          ) -> () {
-    let arr_gpu = get_img(alloc_cuda(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(alloc_cuda(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
 
     let unroll = 1;
