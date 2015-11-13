@@ -51,10 +51,14 @@ fn main() -> i32 {
     for i in range(0, width*height) {
         if (out.data as &[f32])(i) != (arr.data as &[f32])(i) { passed++; }
     }
-    if passed >= 256 { passed = 255; }
+    if passed == 0 {
+        thorin_print_string("Test PASSED!\n");
+    } else {
+        thorin_print_string("Test FAILED!\n");
+    }
 
     release(arr);
     release(out);
 
-    passed
+    if passed >= 256 { 255 } else { passed }
 }
