@@ -2,13 +2,14 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
                    residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
                    restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
-    let step_size = 2; // has to be a multiple of 2!
-    let bhy = round_up(residual_mask.size_y / 2, step_size);
+    let unroll = 1;
+    let step   = 2; // restrict by 2x
+    let bhy = round_up(residual_mask.size_y / 2, step * unroll);
     let bhx = round_up(residual_mask.size_x / 2, get_vector_length());
 
     // allocate temporary array
-    let tmp = Img { data : ~[Sol.stride*2:f32], width : Sol.width, height : step_size, stride : Sol.stride };
-    $init_zero(tmp.data, tmp.stride, tmp.height);
+    let tmp = get_img(alloc_host(Sol.stride * step * unroll * 4), Sol.stride, step * unroll);
+    $init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
 
     let Bounds2DCol = [
         (0               , bhy),
@@ -28,12 +29,12 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
             //let outer_col  = if iter_col == 1 { outer_loop_step } else { range_step };
             // gets slower when computed in parallel
             let tmp_acc    = get_acc(tmp, 4 /* no bh */);
-            for y in $range_step(bounds_col(0), bounds_col(1), step_size) @{
+            for y in $range_step(bounds_col(0), bounds_col(1), step * unroll) @{
                 // residual: index space == cache line
                 for iter_row in range(0, 3) {
                     let bounds_row = Bounds2DRow(iter_row);
                     let inner_row  = if iter_row == 1 { inner_loop } else { range };
-                    for yi in range(0, step_size) {
+                    for yi in range(0, step * unroll) {
                         for x in $inner_row(bounds_row(0), bounds_row(1)) @{
                             let region   = Region2D(3 * iter_col + iter_row);
                             let rhsf_acc = Acc { img : RHSF, roi : RoI { o_x : 0, o_y : 0, width : RHSF.width, height : RHSF.height }, rox : 0, roy : y, region : region };
@@ -43,8 +44,8 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
                     }
                 }
                 // restrict: index space == cache line
-                for yi in range(0, step_size/2) {
-                    let rhsc_acc = Acc { img : RHSC, roi : RoI { o_x : 0, o_y : 0, width : RHSC.width, height : RHSC.height }, rox : 0, roy : y/2 + yi, region : 4 /* no bh */ };
+                for yi in range(0, unroll) {
+                    let rhsc_acc = Acc { img : RHSC, roi : RoI { o_x : 0, o_y : 0, width : RHSC.width, height : RHSC.height }, rox : 0, roy : y/step + yi, region : 4 /* no bh */ };
                     for x in $range(0, RHSC.width) @{
                         restrict(x, yi, rhsc_acc, tmp_acc, restrict_mask);
                     }
@@ -53,5 +54,5 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
         }
     }
 
-    release(tmp.data as &[i8]);
+    release(tmp.buf);
 }

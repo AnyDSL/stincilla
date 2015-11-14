@@ -23,7 +23,7 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask,
 }
 
 fn set_pixel(mut acc: Acc, x: i32, y: i32, val: f32) -> () {
-    acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
+    (acc.img.buf.data as &[f32])((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
 }
 
 
@@ -155,11 +155,11 @@ fn l2norm(img: Img) -> f32 {
     let mut l2sum = 0.0f;
     for y in $range(0, img.height) {
         for x in $range(0, img.width) {
-            let value = img.data(y * img.stride + x);
+            let value = (img.buf.data as &[f32])(y * img.stride + x);
             l2sum += value*value;
         }
     }
-    sqrtf(l2sum)/(img.width*img.height as f32)
+    sqrtf(l2sum) / (img.width*img.height as f32)
 }
 
 
@@ -174,7 +174,7 @@ fn vcycle(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
     for level in range(0, levels) {
         fn init_img(level: i32) -> Img {
             Img {
-                data : ~[(width >> level) * (height >> level): f32],
+                buf : alloc_host((width >> level) * (height >> level) * 4),
                 width : width >> level,
                 height : height >> level,
                 stride : width >> level
@@ -188,7 +188,7 @@ fn vcycle(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        $init_zero(Tmp(level).data, Tmp(level).stride, Tmp(level).height);
+        $init_zero(Tmp(level).buf.data as &[f32], Tmp(level).stride, Tmp(level).height);
     }
 
     fn vcycle_intern(level: i32) -> () {
@@ -210,7 +210,7 @@ fn vcycle(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
 
             //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
 
-            $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height);
+            $init_zero(Tmp(level+1).buf.data as &[f32], Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_intern(level+1);
 
             interpolate(Sol(level), Sol(level+1));
@@ -230,17 +230,17 @@ fn vcycle(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
 
     for level in range(0, levels) {
         if level != 0 {
-            release(RHS(level).data as &[i8]);
-            release(Sol(level).data as &[i8]);
+            release(RHS(level).buf);
+            release(Sol(level).buf);
         }
-        release(Res(level).data as &[i8]);
-        release(Tmp(level).data as &[i8]);
+        release(Res(level).buf);
+        release(Tmp(level).buf);
     }
 
-    release(RHS as &[i8]);
-    release(Sol as &[i8]);
-    release(Tmp as &[i8]);
-    release(Res as &[i8]);
+    thorin_release(0, RHS as &i8);
+    thorin_release(0, Sol as &i8);
+    thorin_release(0, Tmp as &i8);
+    thorin_release(0, Res as &i8);
 
     result
 }
@@ -262,7 +262,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
     for level in range(0, levels) {
         fn init_img(level: i32) -> Img {
             Img {
-                data : ~[(width >> level) * (height >> level): f32],
+                buf : alloc_host((width >> level) * (height >> level) * 4),
                 width : width >> level,
                 height : height >> level,
                 stride : width >> level
@@ -276,7 +276,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        $init_zero(Tmp(level).data, Tmp(level).stride, Tmp(level).height);
+        $init_zero(Tmp(level).buf.data as &[f32], Tmp(level).stride, Tmp(level).height);
     }
 
     fn vcycle_dsl_intern(level: i32) -> () {
@@ -316,7 +316,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
 
             //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
 
-            $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height);
+            $init_zero(Tmp(level+1).buf.data as &[f32], Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_dsl_intern(level+1);
 
             // use iteration space of SolC, compute 4x elements
@@ -342,17 +342,17 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
 
     for level in range(0, levels) {
         if level != 0 {
-            release(RHS(level).data as &[i8]);
-            release(Sol(level).data as &[i8]);
+            release(RHS(level).buf);
+            release(Sol(level).buf);
         }
-        release(Res(level).data as &[i8]);
-        release(Tmp(level).data as &[i8]);
+        release(Res(level).buf);
+        release(Tmp(level).buf);
     }
 
-    release(RHS as &[i8]);
-    release(Sol as &[i8]);
-    release(Tmp as &[i8]);
-    release(Res as &[i8]);
+    thorin_release(0, RHS as &i8);
+    thorin_release(0, Sol as &i8);
+    thorin_release(0, Tmp as &i8);
+    thorin_release(0, Res as &i8);
 
     result
 }
@@ -360,13 +360,13 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
 
 extern
 fn thorin_vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
-    let RHS     = Img { data : ~[width * height: f32], width : width, height : height, stride : width };
-    let mut img = Img { data : ~[width * height: f32], width : width, height : height, stride : width };
-    let mut out = Img { data : out_data , width : width, height : height, stride : width };
+    let RHS     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let mut img = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let mut out = Img { buf : Buffer { device : 0, data : out_data as &[i8]}, width : width, height : height, stride : width };
 
     for y in range(0, img.height) {
         for x in range(0, img.width) {
-            img.data(y*img.stride + x) = img_data(y*img.width + x);
+            (img.buf.data as &[f32])(y*img.stride + x) = img_data(y*img.width + x);
         }
     }
 
@@ -382,12 +382,12 @@ fn thorin_vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) ->
 
     for y in range(0, out.height) {
         for x in range(0, out.width) {
-            out.data(y*out.width + x) = result.data(y*result.stride + x);
+            (out.buf.data as &[f32])(y*out.width + x) = (result.buf.data as &[f32])(y*result.stride + x);
         }
     }
 
-    release(result.data as &[i8]);
-    release(RHS.data as &[i8]);
-    release(img.data as &[i8]);
+    release(result.buf);
+    release(RHS.buf);
+    release(img.buf);
 }
 
