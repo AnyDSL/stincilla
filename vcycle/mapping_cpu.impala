@@ -1,13 +1,13 @@
 fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
-                   residual: fn(int, int, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
-                   restrict: fn(int, int, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
+                   residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
+                   restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
     let step_size = 2; // has to be a multiple of 2!
     let bhy = round_up(residual_mask.size_y / 2, step_size);
     let bhx = round_up(residual_mask.size_x / 2, get_vector_length());
 
     // allocate temporary array
-    let tmp = Img { data : ~[Sol.stride*2:float], width : Sol.width, height : step_size, stride : Sol.stride };
+    let tmp = Img { data : ~[Sol.stride*2:f32], width : Sol.width, height : step_size, stride : Sol.stride };
     $init_zero(tmp.data, tmp.stride, tmp.height);
 
     let Bounds2DCol = [

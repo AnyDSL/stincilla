@@ -1,9 +1,9 @@
 type Mask = Mask3;
 type MaskSep = Mask3Sep;
 
-fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
-                 bh_lower: fn(int, int, int, fn(f32)) -> int, bh_upper: fn(int, int, int, fn(f32)) -> int
-                ) -> float {
+fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask,
+                 bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
+                ) -> f32 {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
@@ -22,7 +22,7 @@ fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
     sum
 }
 
-fn set_pixel(mut acc: Acc, x: int, y: int, val: float) -> () {
+fn set_pixel(mut acc: Acc, x: i32, y: i32, val: f32) -> () {
     acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
 }
 
@@ -53,16 +53,16 @@ static jacobi_mask = Mask {
 // Dirichlet boundary handling -> 0
 //static dirichlet_lower = wrap_const_fun(const_lower, 0.0f);
 //static dirichlet_upper = wrap_const_fun(const_upper, 0.0f);
-fn dirichlet_lower(idx: int, lower: int, upper: int, out: fn(f32)) -> int { const_lower(idx, lower, upper, 0.0f, out) }
-fn dirichlet_upper(idx: int, lower: int, upper: int, out: fn(f32)) -> int { const_upper(idx, lower, upper, 0.0f, out) }
-fn jacobi_solver(x: int, y: int, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> () {
+fn dirichlet_lower(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 { const_lower(idx, lower, upper, 0.0f, out) }
+fn dirichlet_upper(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 { const_upper(idx, lower, upper, 0.0f, out) }
+fn jacobi_solver(x: i32, y: i32, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> () {
     let val = (1.0f - omega) * pixel_at(Tmp, x, y) +
               0.25f * omega  * pixel_at(RHS, x, y) +
               apply_stencil(x, y, Tmp, mask, dirichlet_lower, dirichlet_upper);
     set_pixel(Sol, x, y, val);
 }
 
-fn jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: float) -> () {
+fn jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
     for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol, Tmp, jacobi_mask) {
         let rhs_acc = get_acc(RHS, tmp_acc.region);
         let val = (1.0f - omega) * pixel_at(tmp_acc, x, y) +
@@ -80,7 +80,7 @@ static residual_mask = Mask {
             [0.0f,  1.0f, 0.0f]],
     size_x : 3, size_y : 3
 };
-fn residual_fun(x: int, y: int, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
+fn residual_fun(x: i32, y: i32, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
     let val = pixel_at(RHS, x, y) + apply_stencil(x, y, Sol, mask, dirichlet_lower, dirichlet_upper);
     set_pixel(Res, x, y, val);
 }
@@ -102,7 +102,7 @@ static restrict_mask = Mask {
             [0.25f, 0.50f, 0.25f]],
     size_x : 3, size_y : 3
 };
-fn restrict_fun(x: int, y: int, RHS: Acc, Res: Acc, mask: Mask) -> () {
+fn restrict_fun(x: i32, y: i32, RHS: Acc, Res: Acc, mask: Mask) -> () {
     let val = pixel_at(Res, 2*x,   2*y  ) +
               pixel_at(Res, 2*x+1, 2*y  ) +
               pixel_at(Res, 2*x,   2*y+1) +
@@ -129,7 +129,7 @@ static interpolate_mask = Mask {
             [0.25f, 0.50f, 0.25f]],
     size_x : 3, size_y : 3
 };
-fn interpolate_fun(x: int, y: int, SolF: Acc, SolC: Acc, mask: Mask) -> () {
+fn interpolate_fun(x: i32, y: i32, SolF: Acc, SolC: Acc, mask: Mask) -> () {
     let value = pixel_at(SolC, x, y);
     set_pixel(SolF, 2*x  , 2*y  , pixel_at(SolF, 2*x  , 2*y  ) + value);
     set_pixel(SolF, 2*x+1, 2*y  , pixel_at(SolF, 2*x+1, 2*y  ) + value);
@@ -150,7 +150,7 @@ fn interpolate(SolF: Img, SolC: Img) -> () {
 
 
 // L2 norm
-fn l2norm(img: Img) -> float {
+fn l2norm(img: Img) -> f32 {
     // TODO: runs only on the CPU atm
     let mut l2sum = 0.0f;
     for y in $range(0, img.height) {
@@ -159,12 +159,12 @@ fn l2norm(img: Img) -> float {
             l2sum += value*value;
         }
     }
-    sqrtf(l2sum)/(img.width*img.height as float)
+    sqrtf(l2sum)/(img.width*img.height as f32)
 }
 
 
 // normal V-Cycle, components are hard-coded
-fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
+fn vcycle(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
     let width   = RHS0.width;
     let height  = RHS0.height;
     let mut RHS = ~[levels:Img];
@@ -172,9 +172,9 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
     let mut Tmp = ~[levels:Img];
     let mut Res = ~[levels:Img];
     for level in range(0, levels) {
-        fn init_img(level: int) -> Img {
+        fn init_img(level: i32) -> Img {
             Img {
-                data : ~[(width >> level) * (height >> level): float],
+                data : ~[(width >> level) * (height >> level): f32],
                 width : width >> level,
                 height : height >> level,
                 stride : width >> level
@@ -191,7 +191,7 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
         $init_zero(Tmp(level).data, Tmp(level).stride, Tmp(level).height);
     }
 
-    fn vcycle_intern(level: int) -> () {
+    fn vcycle_intern(level: i32) -> () {
         if level == levels-1 {
             // smooth
             for i in range(0, ssteps) {
@@ -247,11 +247,11 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
 
 
 // V-Cycle DSL: solver, etc. can be provided by the user
-fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
-          solver: fn(int, int, Acc, Acc, Acc, Mask) -> (), solver_mask: Mask,
-          residual: fn(int, int, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask,
-          restrict: fn(int, int, Acc, Acc, Mask) -> (), restrict_mask: Mask,
-          interpolate: fn(int, int, Acc, Acc, Mask) -> (), interpolate_mask: Mask
+fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
+          solver: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), solver_mask: Mask,
+          residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask,
+          restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask,
+          interpolate: fn(i32, i32, Acc, Acc, Mask) -> (), interpolate_mask: Mask
          ) -> Img {
     let width   = RHS0.width;
     let height  = RHS0.height;
@@ -260,9 +260,9 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
     let mut Tmp = ~[levels:Img];
     let mut Res = ~[levels:Img];
     for level in range(0, levels) {
-        fn init_img(level: int) -> Img {
+        fn init_img(level: i32) -> Img {
             Img {
-                data : ~[(width >> level) * (height >> level): float],
+                data : ~[(width >> level) * (height >> level): f32],
                 width : width >> level,
                 height : height >> level,
                 stride : width >> level
@@ -279,7 +279,7 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
         $init_zero(Tmp(level).data, Tmp(level).stride, Tmp(level).height);
     }
 
-    fn vcycle_dsl_intern(level: int) -> () {
+    fn vcycle_dsl_intern(level: i32) -> () {
         let rhs_level = RHS(level);
         if level == levels-1 {
             // smooth
@@ -359,9 +359,9 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
 
 
 extern
-fn thorin_vcycle(img_data: &[float], out_data: &[float], width: int, height: int) -> () {
-    let RHS     = Img { data : ~[width * height: float], width : width, height : height, stride : width };
-    let mut img = Img { data : ~[width * height: float], width : width, height : height, stride : width };
+fn thorin_vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
+    let RHS     = Img { data : ~[width * height: f32], width : width, height : height, stride : width };
+    let mut img = Img { data : ~[width * height: f32], width : width, height : height, stride : width };
     let mut out = Img { data : out_data , width : width, height : height, stride : width };
 
     for y in range(0, img.height) {

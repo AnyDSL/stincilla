@@ -1,6 +1,6 @@
 fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
-                   residual: fn(int, int, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
-                   restrict: fn(int, int, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
+                   residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
+                   restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
     let dev = acc_dev();
     let gpu_sol  = mmap_f32(Sol.data,  dev, acc_tex(), 0, Sol.stride  * Sol.height);
