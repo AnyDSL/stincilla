@@ -1,10 +1,10 @@
-fn iteration_multi(width: i32, height: i32, tbytes: i32, out: Buffer, arr: Buffer,
+fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer,
                    body: fn(i32, i32, &[f32], &[f32]) -> ()
                   ) -> () {
     let num_dev  = 2;
     let ids_buf  = alloc_host(num_dev * 4);
     let mut ids  = ids_buf.data as &[i32];
-    let size_gpu = width * height / num_dev * tbytes;
+    let size_gpu = width * height / num_dev * 4;
 
     for dev in range(0, num_dev) {
         let offset = dev * size_gpu;
@@ -34,15 +34,14 @@ fn iteration_multi(width: i32, height: i32, tbytes: i32, out: Buffer, arr: Buffe
 fn main() -> int {
     let width   = 4096;
     let height  = 4096;
-    let tbytes  = 4;
-    let arr_buf = alloc_host(width * height * tbytes);
-    let out_buf = alloc_host(width * height * tbytes);
+    let arr_buf = alloc_host(width * height * 4);
+    let out_buf = alloc_host(width * height * 4);
     let arr = arr_buf.data as &[f32];
     let out = out_buf.data as &[f32];
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
-    for x, y, mut out, arr in @iteration_multi(width, height, tbytes, out_buf, arr_buf) {
+    for x, y, mut out, arr in @iteration_multi(width, height, out_buf, arr_buf) {
         out(y*width + x) = arr(y*width + x);
     }
 
