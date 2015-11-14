@@ -1,5 +1,5 @@
 fn iteration(out: Img, arr: Img,
-             body: fn(int, int, Acc, Acc) -> ()
+             body: fn(i32, i32, Acc, Acc) -> ()
             ) -> () {
     let arr_acc = get_acc(arr, 10);
     let out_acc = get_acc(out, 10);
