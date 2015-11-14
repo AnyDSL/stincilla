@@ -1,31 +1,31 @@
-fn range_step(lower: i32, upper: i32, step: i32, yield: fn(i32, fn())) -> () {
+fn range_step(lower: i32, upper: i32, step: i32, body: fn(i32, fn())) -> () {
     if lower < upper {
-        yield(lower);
-        range_step(lower+step, upper, step, yield, return)
+        body(lower);
+        range_step(lower+step, upper, step, body, return)
     }
 }
 
-fn range_step_rev(upper: i32, lower: i32, step: i32, yield: fn(i32, fn())) -> () {
+fn range_step_rev(upper: i32, lower: i32, step: i32, body: fn(i32, fn())) -> () {
     if upper > lower {
-        yield(upper);
-        range_step_rev(upper-step, lower, step, yield, return)
+        body(upper);
+        range_step_rev(upper-step, lower, step, body, return)
     }
 }
 
-fn range(lower: i32, upper: i32, yield: fn(i32, fn())) -> () { range_step(lower, upper, 1, yield) }
-fn range_rev(upper: i32, lower: i32, yield: fn(i32, fn())) -> () { range_step_rev(upper, lower, 1, yield) }
+fn range(lower: i32, upper: i32, body: fn(i32, fn())) -> () { range_step(lower, upper, 1, body) }
+fn range_rev(upper: i32, lower: i32, body: fn(i32, fn())) -> () { range_step_rev(upper, lower, 1, body) }
 
-fn force_unroll(a: i32, b: i32, yield: fn(i32, fn())) -> () {
+fn force_unroll(a: i32, b: i32, body: fn(i32, fn())) -> () {
     if a < b {
-        yield(a);
-        @force_unroll(a+1, b, yield, return)
+        body(a);
+        @force_unroll(a+1, b, body, return)
     }
 }
 
-fn range_times_two(lower: i32, upper: i32, yield: fn(i32, fn())) -> () {
+fn range_times_two(lower: i32, upper: i32, body: fn(i32, fn())) -> () {
     if lower < upper {
-        yield(lower);
-        range_times_two(lower*2, upper, yield, return)
+        body(lower);
+        range_times_two(lower*2, upper, body, return)
     }
 }
 
