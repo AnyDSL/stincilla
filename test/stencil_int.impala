@@ -64,10 +64,10 @@ struct Field {
 }
 
 struct Accessor {
-    cols: fn() -> i32,
-    rows: fn() -> i32,
-    read:  fn(i32, i32) -> f32,
-    write: fn(i32, i32, f32) -> (),
+    cols  : fn() -> i32,
+    rows  : fn() -> i32,
+    read  : fn(i32, i32) -> f32,
+    write : fn(i32, i32, f32) -> (),
 }
 
 fn clamp_lower(index: i32, lower: i32) -> i32 {
