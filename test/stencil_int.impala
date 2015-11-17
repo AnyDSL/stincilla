@@ -1,10 +1,19 @@
 // DSL implementation
 
-fn range(lower: int, upper: int, yield: fn(int, fn())) -> () {
+fn range(lower: int, upper: int, body: fn(int, fn())) -> () {
     if lower < upper {
-        yield(lower);
-        range(lower+1, upper, yield, return)
+        body(lower);
+        range(lower+1, upper, body, return)
     }
+}
+
+fn apply_stencil(x: i32, y: i32, arr: Accessor, cols: i32, stencil: [f32 * 3]) -> f32 {
+    let mut sum = 0.0f;
+    let size = 1;
+    for i in range(-size, size+1) {
+        sum += stencil(i + size) * arr.read(x + i, y);
+    }
+    sum
 }
 
 fn apply_bh(mut index: int,
@@ -15,22 +24,30 @@ fn apply_bh(mut index: int,
     index
 }
 
-fn apply_stencil(N: int, arr: Buffer, mut out: Buffer, stencil: [float * 3],
-                 bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int) -> () {
+fn get_fld_val_f32(fld: Field, idx: i32) -> f32 { (fld.buf.data as &[f32])(idx) }
+fn set_fld_val_f32(mut fld: Field, idx: i32, val: f32) -> () { (fld.buf.data as &[f32])(idx) = val }
+fn iterate_field(out: Field, arr: Field, stencil: [f32 * 3],
+                 bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int,
+                 body: fn(i32, i32, Accessor, Accessor, [f32 * 3]) -> ()) -> () {
     let size = 1;
-    let lb = [0, size, N - size];
-    let ub = [size, N - size, N];
-    for region in @range(0, 3) {
-        let lower = lb(region);
-        let upper = ub(region);
-        for x in $range(lb(region), ub(region)) @{
-            // apply stencil to pixel
-            let mut sum = 0.0f;
-            for j in range(-size, size+1) {
-                let idx = apply_bh(x + j, bh_lower, bh_upper, lower, upper);
-                sum += stencil(j + size) * (arr.data as &[f32])(idx);
+    let lb = [0,    size,            out.cols - size];
+    let ub = [size, out.cols - size, out.cols];
+
+    for y in $range(0, out.rows) {
+        for region in @range(0, 3) {
+            let lower = lb(region);
+            let upper = ub(region);
+            let out_acc = Accessor {
+                read  : |x, y|    { get_fld_val_f32(out, y*out.cols + apply_bh(x, bh_lower, bh_upper, 0, out.cols)) },
+                write : |x, y, v| { set_fld_val_f32(out, y*out.cols + x, v) }
+            };
+            let arr_acc = Accessor {
+                read  : |x, y|    { get_fld_val_f32(arr, y*arr.cols + x) },
+                write : |x, y, v| { set_fld_val_f32(arr, y*arr.cols + x, v) }
+            };
+            for x in $range(lb(region), ub(region)) @{
+                body(x, y, out_acc, arr_acc, stencil);
             }
-            (out.data as &[f32])(x) = sum;
         }
     }
 }
@@ -38,11 +55,23 @@ fn apply_stencil(N: int, arr: Buffer, mut out: Buffer, stencil: [float * 3],
 
 // DSL code
 
-fn bh_clamp_lower(index: int, lower: int) -> int {
+struct Field {
+    buf : Buffer,
+    cols : i32,
+    rows : i32,
+    stride : i32,
+}
+
+struct Accessor {
+    read:  fn(i32, i32) -> f32,
+    write: fn(i32, i32, f32) -> (),
+}
+
+fn clamp_lower(index: int, lower: int) -> int {
     if index < lower { lower } else { index }
 }
 
-fn bh_clamp_upper(index: int, upper: int) -> int {
+fn clamp_upper(index: int, upper: int) -> int {
     if index >= upper { upper - 1 } else { index }
 }
 
@@ -52,12 +81,15 @@ fn main() -> int {
     let a       = 0.2f;
     let b       = 1.0f - 4.0f * a;
     let num_it  = 100;
-    let mut arr = alloc_host(width * height * 4);
-    let mut out = alloc_host(width * height * 4);
+    let mut arr = Field { buf : alloc_host(width * height * 4), cols : width, rows : height, stride : width };
+    let mut out = Field { buf : alloc_host(width * height * 4), cols : width, rows : height, stride : width };
     let stencil = [b, a, b];
 
     for iter in range(0, num_it) {
-        @apply_stencil(width, arr, out, stencil, bh_clamp_lower, bh_clamp_upper);
+        for x, y, out_acc, arr_acc, stencil in @iterate_field(out, arr, stencil, clamp_lower, clamp_upper) {
+            let val = apply_stencil(x, y, arr_acc, arr.cols, stencil);
+            out_acc.write(x, y, val);
+        }
 
         let tmp = arr;
         arr = out;
@@ -67,11 +99,11 @@ fn main() -> int {
     // do something with the result as test
     let mut sum = 0.0f;
     for iter in range(0, width*height) {
-        sum += (out.data as &[f32])(iter)
+        sum += (out.buf.data as &[f32])(iter)
     }
 
-    release(arr);
-    release(out);
+    release(arr.buf);
+    release(out.buf);
 
     if sum > -1.0f && sum < 1.0f { 0 } else { 1 }
 }
