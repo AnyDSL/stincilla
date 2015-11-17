@@ -1,6 +1,6 @@
 // DSL implementation
 
-fn range(lower: int, upper: int, body: fn(int, fn())) -> () {
+fn range(lower: i32, upper: i32, body: fn(i32, fn())) -> () {
     if lower < upper {
         body(lower);
         range(lower+1, upper, body, return)
@@ -16,9 +16,9 @@ fn apply_stencil(x: i32, y: i32, arr: Accessor, cols: i32, stencil: [f32 * 3]) -
     sum
 }
 
-fn apply_bh(mut index: int,
-            bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int,
-            lb: int, ub: int) -> int {
+fn apply_bh(mut index: i32,
+            bh_lower: fn(i32, i32) -> i32, bh_upper: fn(i32, i32) -> i32,
+            lb: i32, ub: i32) -> i32 {
     if index < lb  { index = bh_lower(index, lb); }
     if index >= ub { index = bh_upper(index, ub); }
     index
@@ -27,7 +27,7 @@ fn apply_bh(mut index: int,
 fn get_fld_val_f32(fld: Field, idx: i32) -> f32 { (fld.buf.data as &[f32])(idx) }
 fn set_fld_val_f32(mut fld: Field, idx: i32, val: f32) -> () { (fld.buf.data as &[f32])(idx) = val }
 fn iterate_field(out: Field, arr: Field, stencil: [f32 * 3],
-                 bh_lower: fn(int, int) -> int, bh_upper: fn(int, int) -> int,
+                 bh_lower: fn(i32, i32) -> i32, bh_upper: fn(i32, i32) -> i32,
                  body: fn(i32, i32, Accessor, Accessor, [f32 * 3]) -> ()) -> () {
     let size = 1;
     let lb = [0,    size,            out.cols - size];
@@ -67,15 +67,15 @@ struct Accessor {
     write: fn(i32, i32, f32) -> (),
 }
 
-fn clamp_lower(index: int, lower: int) -> int {
+fn clamp_lower(index: i32, lower: i32) -> i32 {
     if index < lower { lower } else { index }
 }
 
-fn clamp_upper(index: int, upper: int) -> int {
+fn clamp_upper(index: i32, upper: i32) -> i32 {
     if index >= upper { upper - 1 } else { index }
 }
 
-fn main() -> int {
+fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
     let a       = 0.2f;
