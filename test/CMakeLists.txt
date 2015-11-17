@@ -1,9 +1,9 @@
 thorin_runtime_wrap(STENCIL_INT_PROGRAM
     BACKEND cpu
-    FILES stencil_int.impala)
-add_executable(stencil_int ${STENCIL_INT_PROGRAM})
-target_link_libraries(stencil_int ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
-add_test("stencil_int" stencil_int)
+    FILES stencil_dsl.impala)
+add_executable(stencil_dsl ${STENCIL_INT_PROGRAM})
+target_link_libraries(stencil_dsl ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
+add_test("stencil_dsl" stencil_dsl)
 
 if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     thorin_runtime_wrap(MULTI_GPU_PROGRAM
