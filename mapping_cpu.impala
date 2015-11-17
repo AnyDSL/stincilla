@@ -4,10 +4,11 @@ static Region2D    = [ 0, 1, 2,
 static Region2DCol = [ 1, 4, 7 ];
 static Region2DRow = [ 3, 4, 5 ];
 
+/*
 fn iteration_point(out: Img,
                    body: fn(i32, i32, Acc) -> ()
                   ) -> () {
-    let out_acc = get_acc(out, 10);
+    let out_acc = get_acc(out, 10, |x, y, region| { });
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -17,12 +18,14 @@ fn iteration_point(out: Img,
         }
     }
 }
+*/
 
 fn iteration(out: Img, arr: Img, mask: Mask,
+             bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
              body: fn(i32, i32, Acc, Acc, Mask) -> ()
             ) -> () {
-    let arr_acc = get_acc(arr, 10);
-    let out_acc = get_acc(out, 10);
+    let out_acc = get_write_acc(out);
+    let arr_acc = get_read_acc(arr, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -33,6 +36,7 @@ fn iteration(out: Img, arr: Img, mask: Mask,
     }
 }
 
+/*
 fn iteration_bounds(out: Img, arr: Img, mask: Mask,
                     body: fn(i32, i32, Acc, Acc, Mask) -> ()
                    ) -> () {
@@ -227,3 +231,4 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
 
     release(tmp.buf);
 }
+*/

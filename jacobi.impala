@@ -1,9 +1,7 @@
 type Mask = Mask3;
 type MaskSep = Mask3Sep;
 
-fn apply_stencil(x: i32, y: i32, acc: Acc, stencil: Mask,
-                 bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
-                ) -> f32 {
+fn apply_stencil(x: i32, y: i32, acc: Acc, stencil: Mask) -> f32 {
     let mut sum = 0.0f;
     let half_range_y = stencil.size_y / 2;
     let half_range_x = stencil.size_x / 2;
@@ -12,7 +10,7 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, stencil: Mask,
         for i in range(-half_range_x, half_range_x+1) {
             let stencil_val = stencil.data(j + half_range_y)(i + half_range_x);
             if stencil_val != 0.0f {
-                sum += get_pixel(acc, x + i, y + j, bh_lower, bh_upper) * stencil_val;
+                sum += acc.read(x + i, y + j) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
@@ -46,18 +44,18 @@ fn main() -> i32 {
     //let iteration_fun = iteration_bounds;           // SS + BH
     //let iteration_fun = iteration_advanced;         // SS + SM
 
-    for x, y, mut out_acc, arr_acc, stencil in @iteration_fun(out, arr, stencil) {
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, stencil, lower, upper);
+    for x, y, out_acc, arr_acc, stencil in @iteration_fun(out, arr, stencil, lower, upper) {
+        out_acc.write(x, y, apply_stencil(x, y, arr_acc, stencil));
     }
     print_total_timing();
 
     fn reference() -> i32 {
         let mut passed = 0;
-        let arr_acc = get_acc(arr, 10);
+        let arr_acc = get_read_acc(arr, lower, upper);
         for y in $range(0, out.height) {
             for x in $range(0, out.width) @{
-                let ref = apply_stencil(x, y, arr_acc, stencil, lower, upper);
-                let mut diff = ref - (out.buf.data as &[f32])(y*out.stride + x);
+                let ref = apply_stencil(x, y, arr_acc, stencil);
+                let mut diff = ref - get_elem(out, y*out.stride + x);
                 if diff < 0.0f  { diff = -diff; }
                 if diff > 0.01f { passed = 42; }
             }
