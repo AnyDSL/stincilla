@@ -51,7 +51,7 @@ fn main() -> i32 {
 
     fn reference() -> i32 {
         let mut passed = 0;
-        let arr_acc = get_read_acc(arr, lower, upper);
+        let arr_acc = get_read_acc(arr, 10, lower, upper);
         for y in $range(0, out.height) {
             for x in $range(0, out.width) @{
                 let ref = apply_stencil(x, y, arr_acc, stencil);
@@ -59,6 +59,11 @@ fn main() -> i32 {
                 if diff < 0.0f  { diff = -diff; }
                 if diff > 0.01f { passed = 42; }
             }
+        }
+        if passed == 0 {
+            thorin_print_string("Test PASSED!\n");
+        } else {
+            thorin_print_string("Test FAILED!\n");
         }
         passed
     }

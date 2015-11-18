@@ -122,12 +122,12 @@ fn get_pixel(acc: Acc, x: i32, y: i32,
     (acc.img.buf.data as &[f32])(idx_y*acc.img.stride + idx_x)
 }
 */
-fn get_pixel_acc(x: i32, y: i32, rox: i32, roy: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32,
-                 bh_lower: fn(i32, i32, i32, fn(f32)) -> i32,
-                 bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
-                ) -> f32 {
-    let mut idx_x = roi.o_x + rox + x;
-    let mut idx_y = roi.o_y + roy + y;
+fn get_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32,
+             bh_lower: fn(i32, i32, i32, fn(f32)) -> i32,
+             bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
+            ) -> f32 {
+    let mut idx_x = roi.o_x + x;
+    let mut idx_y = roi.o_y + y;
 
     let lower_x = roi.o_x;
     let lower_y = roi.o_y;
@@ -248,19 +248,21 @@ fn get_img(buf: Buffer, width: i32, height: i32) -> Img {
     Img { buf : buf, width : width,  height : height, stride : width }
 }
 
-fn get_read_acc(img: Img,
-                bh_lower: fn(i32, i32, i32, fn(f32)) -> i32,
-                bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
-               ) -> Acc {
+fn get_read_acc(img: Img, region: i32, bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32) -> Acc { get_read_acc_offset(img, 0, 0, region, bh_lower, bh_upper) }
+fn get_read_acc_offset(img: Img, rox: i32, roy: i32, region: i32,
+                       bh_lower: fn(i32, i32, i32, fn(f32)) -> i32,
+                       bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
+                      ) -> Acc {
     Acc {
-        read  : |x, y|    -> f32 { get_elem(img, apply_bh(y, 0, img.height, bh_lower, bh_upper, return) * img.stride + apply_bh(x, 0, img.width, bh_lower, bh_upper, return)) },
-        write : |x, y, v| -> ()  { set_elem(img, y*img.stride + x, v) }
+        read  : |x, y|    -> f32 { get_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| -> f32 { get_elem(img, y * img.stride + x) }, bh_lower, bh_upper) },
+        write : |x, y, v| -> ()  { set_elem(img, (y + roy)*img.stride + x + rox, v) }
     }
 }
-fn get_write_acc(img: Img) -> Acc {
+fn get_write_acc(img: Img) -> Acc { get_write_acc_offset(img, 0, 0) }
+fn get_write_acc_offset(img: Img, rox: i32, roy: i32) -> Acc {
     Acc {
-        read  : |x, y|    { get_elem(img, y*img.stride + x) },
-        write : |x, y, v| { set_elem(img, y*img.stride + x, v) }
+        read  : |x, y|    { get_elem(img, (y + roy)*img.stride + x + rox) },
+        write : |x, y, v| { set_elem(img, (y + roy)*img.stride + x + rox, v) }
     }
 }
 
