@@ -1,23 +1,51 @@
 extern "C" {
     fn magic_plane_id(Plane) -> Plane;
     fn magic_spheres_id([Sphere * 3]) -> [Sphere * 3];
-    // drand48 only available for OpenCL on the CPU
-    // TODO: provide own implementation on the GPU
     fn drand48() -> f64;
 }
 
+// MWC64X Random Number Generator
+// http://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
+fn rnd_u32(state: u64) -> (u32, u64) {
+    let hi = state >> 32u64;
+    let lo = state & 0xFFFFFFFFu64;
+    ((lo as u32) ^ (hi as u32), lo * 4294883355u64 + hi)
+}
+
+fn rnd_f64(state: u64) -> (f64, u64) {
+    let r = rnd_u32(state);
+    let k = 1.0 / (0xFFFFFFFFu64 as f64);
+    ((r(0) as f64) * k, r(1))
+}
+
 fn iteration(out: Buffer, width: i32, height: i32,
-             body: fn(i32, i32, Buffer) -> ()
+             body: fn(i32, i32, Buffer, fn() -> f64) -> ()
             ) -> () {
     let grid   = (width, height, 1);
     let block  = (32, 4, 1);
 
-    let out_gpu = acc_alloc(acc_dev(), width * height * 3 * 1);
+    // initialize seed on the CPU using drand48()
+    let seed_buf = alloc_host(width * height * 8);
+    let mut seed = seed_buf.data as &[f64];
+    for i in $range(0, width * height) {
+        seed(i) = drand48();
+    }
+
+    let seed_gpu = acc_alloc(acc_dev(), width * height * 8);
+    let out_gpu  = acc_alloc(acc_dev(), width * height * 3 * 1);
+    copy(seed_buf, seed_gpu, width * height * 8);
     copy(out, out_gpu, width * height * 3 * 1);
 
     for benchmark_acc() {
         acc(acc_dev(), grid, block, || @{
-            body(acc_gidx(), acc_gidy(), out_gpu);
+            let seed = seed_gpu.data as &[u64];
+            let mut state = seed(acc_gidy()*width + acc_gidx());
+            fn rand() -> f64 {
+                let r = rnd_f64(state);
+                state = r(1);
+                r(0)
+            }
+            body(acc_gidx(), acc_gidy(), out_gpu, rand);
         });
     }
 

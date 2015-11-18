@@ -5,12 +5,13 @@ fn magic_plane_id(plane: Plane) -> Plane { plane }
 fn magic_spheres_id(spheres: [Sphere * 3]) -> [Sphere * 3] { spheres }
 
 fn iteration(out: Buffer, width: i32, height: i32,
-             body: fn(i32, i32, Buffer) -> ()
+             body: fn(i32, i32, Buffer, fn() -> f64) -> ()
             ) -> () {
     for benchmark_cpu() {
         for y in $outer_loop(0, height) {
             for x in $inner_loop(0, width) @{
-                body(x, y, out);
+                fn rand() -> f64 { drand48() }
+                body(x, y, out, rand);
             }
         }
     }
