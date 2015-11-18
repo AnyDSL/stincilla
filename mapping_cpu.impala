@@ -91,7 +91,7 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                 ) -> () {
     // allocate temporary array
     let tmp = get_img(alloc_host(out.width * out.height * 4), out.width, out.height);
-    $init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
+    init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
     let out_acc   = get_write_acc(out);
     let tmp_acc_w = get_write_acc(tmp);
     let tmp_acc_r = get_read_acc(tmp, 10, bh_lower, bh_upper);
@@ -122,7 +122,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
                        ) -> () {
     // allocate temporary array
     let tmp = get_img(alloc_host(out.width * out.height * 4), out.width, out.height);
-    $init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
+    init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
 
     let bhy = mask_col.size / 2;
     let bhx = round_up(mask_row.size / 2, get_vector_length());
@@ -194,7 +194,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
 
     // allocate temporary array
     let tmp = get_img(alloc_host(out.width * unroll * 4), out.width, unroll);
-    $init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
+    init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
 
     for benchmark_cpu() {
         for iter_col in @range(0, 3) {

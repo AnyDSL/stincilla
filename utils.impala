@@ -30,12 +30,12 @@ fn range_times_two(lower: i32, upper: i32, body: fn(i32, fn())) -> () {
 }
 
 fn init_zero(mut arr: &[f32], width: i32, height: i32) -> () {
-    for i in range(0, width*height) {
+    for i in $range(0, width*height) {
         arr(i) = 0.0f;
     }
 }
 fn init_rand(mut arr: &[f32], width: i32, height: i32) -> () {
-    for y in range(0, height) {
+    for y in $range(0, height) {
         for x in range(0, width) {
             arr(y*width + x) = thorin_random_val() * 1024f;
         }

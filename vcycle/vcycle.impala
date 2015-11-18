@@ -188,7 +188,7 @@ fn vcycle(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        $init_zero(Tmp(level).buf.data as &[f32], Tmp(level).stride, Tmp(level).height);
+        init_zero(Tmp(level).buf.data as &[f32], Tmp(level).stride, Tmp(level).height);
     }
 
     fn vcycle_intern(level: i32) -> () {
@@ -210,7 +210,7 @@ fn vcycle(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
 
             //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
 
-            $init_zero(Tmp(level+1).buf.data as &[f32], Tmp(level+1).stride, Tmp(level+1).height);
+            init_zero(Tmp(level+1).buf.data as &[f32], Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_intern(level+1);
 
             interpolate(Sol(level), Sol(level+1));
@@ -276,7 +276,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        $init_zero(Tmp(level).buf.data as &[f32], Tmp(level).stride, Tmp(level).height);
+        init_zero(Tmp(level).buf.data as &[f32], Tmp(level).stride, Tmp(level).height);
     }
 
     fn vcycle_dsl_intern(level: i32) -> () {
@@ -316,7 +316,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
 
             //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
 
-            $init_zero(Tmp(level+1).buf.data as &[f32], Tmp(level+1).stride, Tmp(level+1).height);
+            init_zero(Tmp(level+1).buf.data as &[f32], Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_dsl_intern(level+1);
 
             // use iteration space of SolC, compute 4x elements

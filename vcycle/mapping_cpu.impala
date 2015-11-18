@@ -9,7 +9,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
 
     // allocate temporary array
     let tmp = get_img(alloc_host(Sol.stride * step * unroll * 4), Sol.stride, step * unroll);
-    $init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
+    init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
 
     let Bounds2DCol = [
         (0               , bhy),
