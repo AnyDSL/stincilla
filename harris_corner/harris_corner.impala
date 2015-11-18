@@ -9,9 +9,7 @@
 type Mask = Mask3;
 type MaskSep = Mask3Sep;
 
-fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask,
-                 bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
-                ) -> f32 {
+fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
@@ -20,7 +18,7 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask,
         for i in range(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
             if stencil_val != 0.0f {
-                sum += get_pixel(acc, x + i, y + j, bh_lower, bh_upper) * stencil_val;
+                sum += acc.read(x + i, y + j) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
@@ -62,31 +60,27 @@ fn thorin_harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, heig
     let upper = clamp_upper;
     let iteration_fun = iteration;
 
-    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(dx, input, mdx) {
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    for x, y, out, arr, mask in @iteration_fun(dx, input, mdx, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(dy, input, mdy) {
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    for x, y, out, arr, mask in @iteration_fun(dy, input, mdy, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
     }
 
 
     // compute dxx, dyy, dxy
-    for x, y, mut out_acc in @iteration_point(dxx) {
-        let dx_acc = get_acc(dx, 10);
-        let dx = pixel_at(dx_acc, x, y);
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dx * dx;
+    for x, y, out in @iteration_point(dxx) {
+        let dx = get_read_acc(dx, 4, lower, upper);
+        out.write(x, y, dx.read(x, y) * dx.read(x, y));
     }
-    for x, y, mut out_acc in @iteration_point(dyy) {
-        let dy_acc = get_acc(dy, 10);
-        let dy = pixel_at(dy_acc, x, y);
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dy * dy;
+    for x, y, out in @iteration_point(dyy) {
+        let dy = get_read_acc(dx, 4, lower, upper);
+        out.write(x, y, dy.read(x, y) * dy.read(x, y));
     }
-    for x, y, mut out_acc in @iteration_point(dxy) {
-        let dx_acc = get_acc(dx, 10);
-        let dy_acc = get_acc(dy, 10);
-        let dx = pixel_at(dx_acc, x, y);
-        let dy = pixel_at(dy_acc, x, y);
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = dx * dy;
+    for x, y, out in @iteration_point(dxy) {
+        let dx = get_read_acc(dx, 4, lower, upper);
+        let dy = get_read_acc(dy, 4, lower, upper);
+        out.write(x, y, dx.read(x, y) * dy.read(x, y));
     }
 
 
@@ -98,28 +92,28 @@ fn thorin_harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, heig
         size_x : 3, size_y : 3
     };
 
-    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(gxx, dxx, mg) {
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    for x, y, out, arr, mask in @iteration_fun(gxx, dxx, mg, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(gyy, dyy, mg) {
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    for x, y, out, arr, mask in @iteration_fun(gyy, dyy, mg, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(gxy, dxy, mg) {
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = apply_stencil(x, y, arr_acc, mask, lower, upper);
+    for x, y, out, arr, mask in @iteration_fun(gxy, dxy, mg, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
     }
 
 
     // compute score for Harris corner
-    for x, y, mut out_acc in @iteration_point(harris) {
-        let gxx_acc = get_acc(gxx, 10);
-        let gyy_acc = get_acc(gyy, 10);
-        let gxy_acc = get_acc(gxy, 10);
-        let gxx = pixel_at(gxx_acc, x, y);
-        let gyy = pixel_at(gyy_acc, x, y);
-        let gxy = pixel_at(gxy_acc, x, y);
-        let det   = gxx * gyy - gxy * gxy;
-        let trace = gxx + gyy;
-        (out_acc.img.buf.data as &[f32])((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = det - 0.04f * trace * trace;
+    for x, y, out in @iteration_point(harris) {
+        let gxx_acc = get_read_acc(gxx, 4, lower, upper);
+        let gyy_acc = get_read_acc(gyy, 4, lower, upper);
+        let gxy_acc = get_read_acc(gxy, 4, lower, upper);
+        let gxx     = gxx_acc.read(x, y);
+        let gyy     = gyy_acc.read(x, y);
+        let gxy     = gxy_acc.read(x, y);
+        let det     = gxx * gyy - gxy * gxy;
+        let trace   = gxx + gyy;
+        out.write(x, y, det - 0.04f * trace * trace);
     }
 
     print_total_timing();
@@ -158,6 +152,4 @@ fn thorin_harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, heig
     release(gxx.buf);
     release(gxy.buf);
     release(gyy.buf);
-
 }
-

@@ -201,29 +201,29 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
             for y in $outer_col(bounds_col(0), bounds_col(1), unroll) @{
                 // allocate temporary array per thread
                 let tmp = get_img(alloc_host(out.width * unroll * 4), out.width, unroll);
-                let tmp_acc_w = get_write_acc(tmp);
 
                 for x in $inner_col(0, tmp.width) @{
                     let is_row = false;
 
                     // index space: cache line
                     let arr_acc = get_read_acc_offset(arr, 0, y, region_col, bh_lower, bh_upper);
+                    let tmp_acc = get_write_acc(tmp);
                     for i in range(0, unroll) {
-                        body(x, i, tmp_acc_w, arr_acc, mask_col, is_row);
+                        body(x, i, tmp_acc, arr_acc, mask_col, is_row);
                     }
                 }
                 for iter_row in range(0, 3) {
                     let bounds_row = Bounds2DRow(iter_row);
                     let region_row = Region2DRow(iter_row);
                     let inner_row  = if iter_row == 1 { inner_loop } else { range };
-                    let tmp_acc_r  = get_read_acc(tmp, region_row, bh_lower, bh_upper);
                     for x in $inner_row(bounds_row(0), bounds_row(1)) @{
                         let is_row = true;
 
                         // index space: cache line
+                        let tmp_acc = get_read_acc(tmp, region_row, bh_lower, bh_upper);
                         let out_acc = get_write_acc_offset(out, 0, y);
                         for i in range(0, unroll) {
-                            body(x, i, out_acc, tmp_acc_r, mask_row, is_row);
+                            body(x, i, out_acc, tmp_acc, mask_row, is_row);
                         }
                     }
                 }

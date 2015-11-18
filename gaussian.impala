@@ -94,7 +94,7 @@ fn main() -> i32 {
         for y in $range(0, out.height) {
             for x in $range(0, out.width) @{
                 let ref = apply_stencil(x, y, arr_acc, mask);
-                let mut diff = ref - get_elem(out, y*out.stride + x);
+                let mut diff = ref - get_pixel(out, y*out.stride + x);
                 if diff < 0.0f  { diff = -diff; }
                 if diff > 0.01f { passed = 42; }
             }
