@@ -192,18 +192,17 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
         (out.width - bhx, out.width)
     ];
 
-    // allocate temporary array
-    let tmp = get_img(alloc_host(out.width * unroll * 4), out.width, unroll);
-    init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
-
     for benchmark_cpu() {
         for iter_col in @range(0, 3) {
             let bounds_col = Bounds2DCol(iter_col);
             let region_col = Region2DCol(iter_col);
             let outer_col  = if iter_col == 1 { outer_loop_step } else { range_step };
             let inner_col  = if iter_col == 1 { inner_loop } else { range };
-            let tmp_acc_w  = get_write_acc(tmp);
             for y in $outer_col(bounds_col(0), bounds_col(1), unroll) @{
+                // allocate temporary array per thread
+                let tmp = get_img(alloc_host(out.width * unroll * 4), out.width, unroll);
+                let tmp_acc_w = get_write_acc(tmp);
+
                 for x in $inner_col(0, tmp.width) @{
                     let is_row = false;
 
@@ -228,9 +227,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                         }
                     }
                 }
+                release(tmp.buf);
             }
         }
     }
-
-    release(tmp.buf);
 }
