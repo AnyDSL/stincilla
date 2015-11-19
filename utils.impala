@@ -71,57 +71,6 @@ fn const_upper (idx: i32, lower: i32, upper: i32, cval: f32, out: fn(f32)) -> i3
 fn wrap_const_fun(fun: fn(i32, i32, i32, f32, fn(f32)) -> i32, cval: f32) -> fn(i32, i32, i32, fn(f32)) -> i32 {
     |idx, lower, upper, out| fun(idx, lower, upper, cval, out)
 }
-/*
-fn pixel_at(acc: Acc, x: i32, y: i32) -> f32 {
-    (acc.img.buf.data as &[f32])((acc.roi.o_y + acc.roy + y) * acc.img.stride + acc.roi.o_x + acc.rox + x)
-}
-fn read_pixel(acc: Acc, x: i32, y: i32,
-             bh_lower: fn(i32, i32, i32, fn(f32)) -> i32,
-             bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
-            ) -> f32 {
-    let mut idx_x = acc.roi.o_x + acc.rox + x;
-    let mut idx_y = acc.roi.o_y + acc.roy + y;
-
-    let lower_x = acc.roi.o_x;
-    let lower_y = acc.roi.o_y;
-    let upper_x = acc.roi.o_x + acc.roi.width;
-    let upper_y = acc.roi.o_y + acc.roi.height;
-
-    // 0 --- 1 --- 2
-    // 3 --- 4 --- 5
-    // 6 --- 7 --- 8
-
-    // left
-    if acc.region == 0 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
-    if acc.region == 3 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
-    if acc.region == 6 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
-
-    // right
-    if acc.region == 2 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
-    if acc.region == 5 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
-    if acc.region == 8 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
-
-    // top
-    if acc.region == 0 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
-    if acc.region == 1 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
-    if acc.region == 2 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
-
-    // bottom
-    if acc.region == 6 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
-    if acc.region == 7 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
-    if acc.region == 8 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
-
-    // all in
-    if acc.region == 10 {
-        idx_x = bh_lower(idx_x, lower_x, upper_x, return);
-        idx_x = bh_upper(idx_x, lower_x, upper_x, return);
-        idx_y = bh_lower(idx_y, lower_y, upper_y, return);
-        idx_y = bh_upper(idx_y, lower_y, upper_y, return);
-    }
-
-    (acc.img.buf.data as &[f32])(idx_y*acc.img.stride + idx_x)
-}
-*/
 fn read_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32,
               bh_lower: fn(i32, i32, i32, fn(f32)) -> i32,
               bh_upper: fn(i32, i32, i32, fn(f32)) -> i32
@@ -237,19 +186,13 @@ fn round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) 
 
 
 // structs for images and accessors
+fn get_img(buf: Buffer, width: i32, height: i32) -> Img {
+    Img { buf : buf, width : width,  height : height, stride : width }
+}
 fn get_pixel(img: Img, idx: i32) -> f32 { (img.buf.data as &[f32])(idx) }
 fn set_pixel(mut img: Img, idx: i32, val: f32) -> () { (img.buf.data as &[f32])(idx) = val }
 fn get_pixel_shared(img: Img, idx: i32) -> f32 { (img.buf.data as &[3][f32])(idx) }
 fn set_pixel_shared(mut img: Img, idx: i32, val: f32) -> () { (img.buf.data as &[3][f32])(idx) = val }
-
-fn apply_bh(idx: i32, lower: i32, upper: i32, bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32, out: fn(f32)) -> i32 {
-    bh_upper(bh_lower(idx, lower, upper, out), lower, upper, out)
-}
-
-fn get_img(buf: Buffer, width: i32, height: i32) -> Img {
-    Img { buf : buf, width : width,  height : height, stride : width }
-}
-
 fn get_read_acc(img: Img, region: i32, bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32) -> Acc {
     get_read_acc_offset_addrspace(img, 0, 0, region, get_pixel, set_pixel, bh_lower, bh_upper)
 }

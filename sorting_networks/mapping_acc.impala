@@ -1,4 +1,5 @@
 fn iteration(out: Img, arr: Img,
+             bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
              body: fn(i32, i32, Acc, Acc) -> ()
             ) -> () {
     let grid  = (out.width, out.height, 1);
@@ -12,8 +13,8 @@ fn iteration(out: Img, arr: Img,
         acc(acc_dev(), grid, block, || @{
             let gid_x = acc_gidx();
             let gid_y = acc_gidy();
-            let arr_acc = get_acc(arr_gpu, 10);
-            let out_acc = get_acc(out_gpu, 10);
+            let arr_acc = get_read_acc(arr_gpu, 10, bh_lower, bh_upper);
+            let out_acc = get_write_acc(out_gpu);
             body(gid_x, gid_y, out_acc, arr_acc);
         });
     }

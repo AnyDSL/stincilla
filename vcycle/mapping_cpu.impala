@@ -38,7 +38,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
                         for x in $inner_row(bounds_row(0), bounds_row(1)) @{
                             let region   = Region2D(3 * iter_col + iter_row);
                             let tmp_acc  = get_write_acc(tmp);
-                            let rhsf_acc = get_read_acc_offset(RHSF, 0, y, region, nobh_center, nobh_center);
+                            let rhsf_acc = get_read_acc_offset(RHSF, 0, y, 4 /* no bh */, nobh_center, nobh_center);
                             let sol_acc  = get_read_acc_offset(Sol,  0, y, region, bh_lower, bh_upper);
                             residual(x, yi, tmp_acc, sol_acc, rhsf_acc, residual_mask);
                         }

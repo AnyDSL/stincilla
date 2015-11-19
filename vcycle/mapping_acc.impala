@@ -1,4 +1,5 @@
 fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
+                   bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
                    residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
                    restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
@@ -20,24 +21,21 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
 
             let spm_stride = block(0);
             let spm_height = block(1);
-            let spm_buf = Buffer { device : acc_dev(), data : reserve_shared(spm_stride * spm_height * 4) };
+            let spm_buf = Buffer { device : acc_dev(), data : reserve_shared(spm_stride * spm_height * 4) as &[i8] };
             let spm_img = get_img(spm_buf, spm_stride, spm_height);
 
             // residual: index space == block
-            let tmp_acc  = get_acc(spm_img, 4 /* no bh */);
-            let rhsf_acc = Acc { img : rhsf_gpu, roi : RoI { o_x : 0, o_y : 0, width : rhsf_gpu.width, height : rhsf_gpu.height },
-                                                 rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy(), region : 4 /* no bh */ };
-            let sol_acc  = Acc { img : sol_gpu,  roi : RoI { o_x : 0, o_y : 0, width : sol_gpu.width,  height : sol_gpu.height },
-                                                 rox : acc_bdimx() * acc_bidx(), roy : acc_bdimy() * acc_bidy(), region : 4 /* no bh */ };
+            let tmp_acc  = get_write_acc_shared(spm_img);
+            let rhsf_acc = get_read_acc_offset(rhsf_gpu, acc_bdimx() * acc_bidx(), acc_bdimy() * acc_bidy(), 4 /* no bh */, nobh_center, nobh_center);
+            let sol_acc  = get_read_acc_offset(sol_gpu,  acc_bdimx() * acc_bidx(), acc_bdimy() * acc_bidy(), 10  /* all */, bh_lower, bh_upper);
             residual(tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
 
             acc_barrier();
 
             // restrict: index space == block
             if tid_x < block(0) / step && gid_y % step == 0 @{
-                let rhs_acc = Acc { img : rhsc_gpu, roi : RoI { o_x : 0, o_y : 0, width : rhsc_gpu.width, height : rhsc_gpu.height },
-                                                    rox : acc_bdimx() * acc_bidx()/step, roy : acc_bdimy() * acc_bidy()/step, region : 4 /* no bh */ };
-                let tmp_acc = get_acc(spm_img, 4 /* no bh */);
+                let tmp_acc = get_read_acc_shared(spm_img, 4 /* no bh */, nobh_center, nobh_center);
+                let rhs_acc = get_write_acc_offset(rhsc_gpu, acc_bdimx() * acc_bidx()/step, acc_bdimy() * acc_bidy()/step);
                 restrict(tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
             }
         });

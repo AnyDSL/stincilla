@@ -1,4 +1,5 @@
 fn iteration1f1i(out: Img, arr: Imgi16,
+                 bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
                  body: fn(i32, i32, Acc, Acci16) -> ()
                 ) -> () {
     let unroll = 1;
@@ -13,8 +14,8 @@ fn iteration1f1i(out: Img, arr: Imgi16,
         acc(acc_dev(), grid, block, || @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let out_acc = get_acc    (out_gpu, 10);
-            let arr_acc = get_acc_i16(arr_gpu, 10);
+            let out_acc = get_write_acc(out_gpu);
+            let arr_acc = get_read_acci16(arr_gpu, 10, bh_lower, bh_upper);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc);
@@ -27,6 +28,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     release(arr_gpu.buf);
 }
 fn iteration2i(out: Imgi16, arr: Imgi16,
+               bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
                body: fn(i32, i32, Acci16, Acci16) -> ()
               ) -> () {
     let unroll = 1;
@@ -41,8 +43,8 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
         acc(acc_dev(), grid, block, || @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let out_acc = get_acc_i16(out_gpu, 10);
-            let arr_acc = get_acc_i16(arr_gpu, 10);
+            let out_acc = get_write_acci16(out_gpu);
+            let arr_acc = get_read_acci16(arr_gpu, 10, bh_lower, bh_upper);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc);
@@ -55,6 +57,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     release(arr_gpu.buf);
 }
 fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
+                 bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
                  body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
                 ) -> () {
     let unroll = 1;
@@ -71,9 +74,9 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
         acc(acc_dev(), grid, block, || @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let out_acc = get_acc_i16(out_gpu, 10);
-            let img_acc = get_acc_i16(img_gpu, 10);
-            let map_acc = get_acc    (map_gpu, 10);
+            let out_acc = get_write_acci16(out_gpu);
+            let img_acc = get_read_acci16(img_gpu, 10, bh_lower, bh_upper);
+            let map_acc = get_read_acc(map_gpu, 4, nobh_center, nobh_center);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, img_acc, map_acc);
@@ -103,9 +106,9 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
         acc(acc_dev(), grid, block, || @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
-            let out_acc = get_acc_i16(out_gpu, 10);
-            let img_acc = get_acc_i16(img_gpu, 10);
-            let tmp_acc = get_acc_i16(tmp_gpu, 10);
+            let out_acc = get_write_acci16(out_gpu);
+            let img_acc = get_read_acci16(img_gpu, 4, nobh_center_i16, nobh_center_i16);
+            let tmp_acc = get_read_acci16(tmp_gpu, 4, nobh_center_i16, nobh_center_i16);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, img_acc, tmp_acc);
@@ -131,7 +134,6 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Imgi16) -> i32) -> i32 {
     let block1 = (128, 1, 1);
     for benchmark_acc() {
         acc(acc_dev(), grid1, block1, || @{
-            let img_acc = get_acc_i16(img_gpu, 4);
             let mut sum = 0;
             for y in $range(0, img_gpu.height) @{
                 sum += body(acc_gidx(), y, img_gpu);
