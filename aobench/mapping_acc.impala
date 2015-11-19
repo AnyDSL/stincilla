@@ -1,7 +1,8 @@
 extern "C" {
     fn magic_plane_id(Plane) -> Plane;
     fn magic_spheres_id([Sphere * 3]) -> [Sphere * 3];
-    fn drand48() -> f64;
+    fn mrand48() -> i64;
+    fn srand48(i64) -> ();
 }
 
 // MWC64X Random Number Generator
@@ -24,11 +25,12 @@ fn iteration(out: Buffer, width: i32, height: i32,
     let grid  = (width, height, 1);
     let block = (32, 4, 1);
 
-    // initialize seed on the CPU using drand48()
+    // initialize seed on the CPU using mrand48()
+    srand48(thorin_get_micro_time());
     let seed_buf = alloc_host(width * height * 8);
-    let mut seed = seed_buf.data as &[f64];
+    let mut seed = seed_buf.data as &[u64];
     for i in $range(0, width * height) {
-        seed(i) = drand48();
+        seed(i) = mrand48() as u64;
     }
 
     let seed_gpu = acc_alloc(acc_dev(), width * height * 8);
@@ -52,4 +54,3 @@ fn iteration(out: Buffer, width: i32, height: i32,
     release(seed_buf);
     release(out_gpu);
 }
-
