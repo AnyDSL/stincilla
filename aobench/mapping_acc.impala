@@ -21,8 +21,8 @@ fn rnd_f64(state: u64) -> (f64, u64) {
 fn iteration(out: Buffer, width: i32, height: i32,
              body: fn(i32, i32, Buffer, fn() -> f64) -> ()
             ) -> () {
-    let grid   = (width, height, 1);
-    let block  = (32, 4, 1);
+    let grid  = (width, height, 1);
+    let block = (32, 4, 1);
 
     // initialize seed on the CPU using drand48()
     let seed_buf = alloc_host(width * height * 8);
@@ -34,7 +34,6 @@ fn iteration(out: Buffer, width: i32, height: i32,
     let seed_gpu = acc_alloc(acc_dev(), width * height * 8);
     let out_gpu  = acc_alloc(acc_dev(), width * height * 3 * 1);
     copy(seed_buf, seed_gpu, width * height * 8);
-    copy(out, out_gpu, width * height * 3 * 1);
 
     for benchmark_acc() {
         acc(acc_dev(), grid, block, || @{
@@ -50,6 +49,7 @@ fn iteration(out: Buffer, width: i32, height: i32,
     }
 
     copy(out_gpu, out, width * height * 3 * 1);
+    release(seed_buf);
     release(out_gpu);
 }
 
