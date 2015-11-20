@@ -86,7 +86,7 @@ fn ray_sphere_intersect(mut isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
             isect.n.y = isect.p.y - sphere.center.y;
             isect.n.z = isect.p.z - sphere.center.z;
 
-            isect.n = vnormalize(isect.n);
+            isect.n = @vnormalize(isect.n);
         }
     }
 
@@ -99,7 +99,7 @@ fn ray_plane_intersect(mut isect: Isect, ray: Ray, plane: Plane) -> Isect {
 
     if fabs(v) < 1.0e-17 { return(isect) }
 
-    let t = -(vdot(ray.org, plane.n) + d) / v;
+    let t = -(@vdot(ray.org, plane.n) + d) / v;
 
     if t > 0.0 && t < isect.t {
         isect.t   = t;
