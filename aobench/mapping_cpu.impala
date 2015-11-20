@@ -2,8 +2,6 @@ extern "C" {
     fn drand48() -> f64;
     fn srand48(i64) -> ();
 }
-fn magic_plane_id(plane: Plane) -> Plane { plane }
-fn magic_spheres_id(spheres: [Sphere * 3]) -> [Sphere * 3] { spheres }
 
 fn iteration(out: Buffer, width: i32, height: i32,
              body: fn(i32, i32, Buffer, fn() -> f64) -> ()

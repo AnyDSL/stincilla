@@ -1,6 +1,4 @@
 extern "C" {
-    fn magic_plane_id(Plane) -> Plane;
-    fn magic_spheres_id([Sphere * 3]) -> [Sphere * 3];
     fn mrand48() -> i64;
     fn srand48(i64) -> ();
 }
