@@ -4,6 +4,9 @@ static Region2D    = [ 0, 1, 2,
 static Region2DCol = [ 1, 4, 7 ];
 static Region2DRow = [ 3, 4, 5 ];
 
+fn get_device_copy(img: Img) -> Img { img }
+fn release_device_copy(img: Img) -> () { }
+
 fn iteration_point(out: Img,
                    body: fn(i32, i32, Acc) -> ()
                   ) -> () {

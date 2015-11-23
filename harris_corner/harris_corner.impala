@@ -69,19 +69,23 @@ fn thorin_harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, heig
 
 
     // compute dxx, dyy, dxy
+    let dx_dev = get_device_copy(dx);
+    let dy_dev = get_device_copy(dy);
     for x, y, out in @iteration_point(dxx) {
-        let dx = get_read_acc(dx, 4, lower, upper);
+        let dx = get_read_acc(dx_dev, 4, lower, upper);
         out.write(x, y, dx.read(x, y) * dx.read(x, y));
     }
     for x, y, out in @iteration_point(dyy) {
-        let dy = get_read_acc(dx, 4, lower, upper);
+        let dy = get_read_acc(dy_dev, 4, lower, upper);
         out.write(x, y, dy.read(x, y) * dy.read(x, y));
     }
     for x, y, out in @iteration_point(dxy) {
-        let dx = get_read_acc(dx, 4, lower, upper);
-        let dy = get_read_acc(dy, 4, lower, upper);
+        let dx = get_read_acc(dx_dev, 4, lower, upper);
+        let dy = get_read_acc(dy_dev, 4, lower, upper);
         out.write(x, y, dx.read(x, y) * dy.read(x, y));
     }
+    release_device_copy(dx_dev);
+    release_device_copy(dy_dev);
 
 
     // compute gxx, gyy, gxy using Gaussian blur
@@ -104,10 +108,13 @@ fn thorin_harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, heig
 
 
     // compute score for Harris corner
+    let gxx_dev = get_device_copy(gxx);
+    let gyy_dev = get_device_copy(gyy);
+    let gxy_dev = get_device_copy(gxy);
     for x, y, out in @iteration_point(harris) {
-        let gxx_acc = get_read_acc(gxx, 4, lower, upper);
-        let gyy_acc = get_read_acc(gyy, 4, lower, upper);
-        let gxy_acc = get_read_acc(gxy, 4, lower, upper);
+        let gxx_acc = get_read_acc(gxx_dev, 4, lower, upper);
+        let gyy_acc = get_read_acc(gyy_dev, 4, lower, upper);
+        let gxy_acc = get_read_acc(gxy_dev, 4, lower, upper);
         let gxx     = gxx_acc.read(x, y);
         let gyy     = gyy_acc.read(x, y);
         let gxy     = gxy_acc.read(x, y);
@@ -115,6 +122,9 @@ fn thorin_harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, heig
         let trace   = gxx + gyy;
         out.write(x, y, det - 0.04f * trace * trace);
     }
+    release_device_copy(gxx_dev);
+    release_device_copy(gyy_dev);
+    release_device_copy(gxy_dev);
 
     print_total_timing();
 
