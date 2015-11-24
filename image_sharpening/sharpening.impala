@@ -371,7 +371,7 @@ fn sharpen(x: i32, y: i32, out: Acci16, img: Acci16, blur: Acci16) -> () {
 
 
 extern
-fn thorin_sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
+fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
     let img     = Imgi16 { buf : Buffer { device : 0, data : input as &[i8]},  width : width, height : height, stride : width };
     let out     = Imgi16 { buf : Buffer { device : 0, data : output as &[i8]}, width : width, height : height, stride : width };
     let tmp     = Imgi16 { buf : alloc_host(width * height * 2),               width : width, height : height, stride : width };
@@ -392,7 +392,7 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> 
         // counting number of non-edge pixels
         let bw_count =
             for x, y, tmp in reduce(tmp) {
-                if (tmp.buf.data as &[i16])(y * tmp.stride + x) == 0i16 { 0 } else { 1 }
+                if tmp.read(x, y) == 0i16 { 0 } else { 1 }
             };
         print_string("# of non-edge pixels: ");
         print_int(bw_count);
@@ -402,7 +402,7 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> 
         // calculate histogram
         let hist =
             for x, y, map in histogram(map) {
-                ((map.buf.data as &[f32])(y * tmp.stride + x) * 255.0f) as i32
+                (map.read(x, y) * 255.0f) as i32
             };
 
         // cumulative sum of the QCOD values (prefix sum)
@@ -430,7 +430,9 @@ fn thorin_sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> 
         release(hist);
         release(sum_count);
     }
+
     @sharpening();
+    print_total_timing();
 
     release(tmp.buf);
     release(map.buf);

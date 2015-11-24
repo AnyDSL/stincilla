@@ -6,7 +6,7 @@
 
 #include "pnm_image.h"
 
-extern "C" void thorin_sharpening(short*, short*, int, int);
+extern "C" void sharpening(short*, short*, int, int);
 
 /*************************************************************************
  * Main function                                                         *
@@ -24,8 +24,7 @@ int main(int argc, const char **argv) {
     // initialize data
     for (size_t i=0; i<width*height; ++i) input[i] = (short)image[i];
 
-    std::cout << "Calculating sharpening filter in AnyDSL ..." << std::endl;
-    thorin_sharpening(input.data(), output.data(), width, height);
+    sharpening(input.data(), output.data(), width, height);
 
     // write image
     for (size_t i=0; i<width*height; ++i) image[i] = std::min<short>(std::max<short>(output[i], 0), 255);

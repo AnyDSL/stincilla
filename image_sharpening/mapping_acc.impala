@@ -1,3 +1,6 @@
+extern "C" {
+    fn magic_elem_id(&[i32]) -> &[i32];
+}
 fn iteration1f1i(out: Img, arr: Imgi16,
                  bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
                  body: fn(i32, i32, Acc, Acci16) -> ()
@@ -121,7 +124,7 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     release(img_gpu.buf);
     release(tmp_gpu.buf);
 }
-fn reduce(img: Imgi16, body: fn(i32, i32, Imgi16) -> i32) -> i32 {
+fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     // temporary memory for reduction
     let tmp_buf = acc_alloc(acc_dev(), img.width * 32);
     let mut tmp = tmp_buf.data as &[i32];
@@ -135,8 +138,9 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Imgi16) -> i32) -> i32 {
     for benchmark_acc() {
         acc(acc_dev(), grid1, block1, || @{
             let mut sum = 0;
+            let img_acc = get_read_acci16(img_gpu, 4, nobh_center_i16, nobh_center_i16);
             for y in $range(0, img_gpu.height) @{
-                sum += body(acc_gidx(), y, img_gpu);
+                sum += body(acc_gidx(), y, img_acc);
             }
             tmp(acc_gidx()) = sum;
         });
@@ -151,7 +155,11 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Imgi16) -> i32) -> i32 {
             for x in $range(0, img_gpu.width) @{
                 sum += tmp(x);
             }
-            tmp(0) = sum;
+            // TODO: make sure index computation stays on the device
+            // tmp(0) = sum;
+            if (acc_gidx() == 0) {
+                tmp(acc_gidx()) = sum;
+            }
         });
     }
 
@@ -164,20 +172,24 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Imgi16) -> i32) -> i32 {
     release(img_gpu.buf);
     sum
 }
-fn histogram(img: Img, body: fn(i32, i32, Img) -> i32) -> Buffer {
-    let hist_buf = alloc_host(256 * 4);
+fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
+    let hist_buf = acc_alloc(acc_dev(), 256 * 4);
     let mut hist = hist_buf.data as &[i32];
 
-    let grid   = (img.width, 1, 1);
-    let block  = (256, 1, 1);
+    let img_gpu = get_img(acc_alloc(acc_dev(), img.width * img.height * 4), img.width, img.height);
+    copy(img.buf, img_gpu.buf, img.width * img.height * 4);
+
+    let grid  = (img.width, 1, 1);
+    let block = (256, 1, 1);
     for benchmark_acc() {
-        acc(acc_dev(), (256, 1, 1), (128, 1, 1), || @{
+        acc(acc_dev(), (256, 1, 1), (64, 1, 1), || @{
             hist(acc_gidx()) = 0;
         });
         acc(acc_dev(), grid, block, || @{
             let mut sm_hist = reserve_shared(256 * 4) as &[i32];
+            let img_acc = get_read_acc(img_gpu, 4, nobh_center, nobh_center);
             for y in $range(0, img.height) @{
-                let bin = body(acc_gidx(), y, img);
+                let bin = body(acc_gidx(), y, img_acc);
                 atomic_add_local(&sm_hist(bin), 1);
             }
             atomic_add_global(&hist(acc_tidx()), sm_hist(acc_tidx()));
@@ -192,7 +204,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
     let     hist = hist_buf.data as &[i32];
 
     // perform scan per block in shared memory first
-    let block_size = 256;
+    let block_size = if size <= 256 { 128 } else { 256 };
     let num_blocks = size / (2 * block_size);
     let tmp_buf = acc_alloc(acc_dev(), num_blocks * 4);
     let mut tmp = tmp_buf.data as &[i32];
@@ -210,8 +222,8 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
         }
     }
 
-    let grid   = (size / 2, 1, 1);
-    let block  = (block_size, 1, 1);
+    let grid  = (size / 2, 1, 1);
+    let block = (block_size, 1, 1);
     for benchmark_acc() {
         acc(acc_dev(), grid, block, || @{
             let gid = acc_gidx();
@@ -315,25 +327,26 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
     release(tmp_buf);
     scan_buf
 }
-fn find_position(scan: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> i32 {
+fn find_position(scan: Buffer, mut size: i32, body: fn(i32, Buffer) -> i32) -> i32 {
     let elem_buf = acc_alloc(acc_dev(), 1 * 4);
-    let mut elem = elem_buf.data as &[i32];
-    let size_buf = Buffer { device : 0, data : size as &[i8] };
+    let size_buf = Buffer { device : 0, data : &size as &[i8] };
     copy(size_buf, elem_buf, 4 * 1);
 
-    let grid   = (size, 1, 1);
-    let block  = (256, 1, 1);
+    let grid  = (size, 1, 1);
+    let block = (256, 1, 1);
     for benchmark_acc() {
         acc(acc_dev(), grid, block, || @{
+            // TODO: make sure index computation stays on the device
+            let mut elem = magic_elem_id(elem_buf.data as &[i32]);
             if body(acc_gidx(), scan) != 0 @{
                 atomic_min_global(&elem(0), acc_gidx());
             }
         });
     }
 
-    let result:i32;
-    let r_buf = Buffer { device : 0, data : result as &[i8] };
-    copy(elem_buf, r_buf, 4 * 1);
+    let mut result:i32;
+    let r_buf = Buffer { device : 0, data : &result as &[i8] };
+    copy(elem_buf, r_buf, 1 * 4);
     release(elem_buf);
     result
 }
