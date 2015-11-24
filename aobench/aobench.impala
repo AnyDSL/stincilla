@@ -36,9 +36,6 @@ struct Ray {
     dir: vec,
 }
 
-static mut spheres: [Sphere * 3];
-static mut plane: Plane;
-
 fn vdot(v0: vec, v1: vec) -> f64 {
     v0.x * v1.x + v0.y * v1.y + v0.z * v1.z
 }
@@ -116,7 +113,7 @@ fn ray_plane_intersect(mut isect: Isect, ray: Ray, plane: Plane) -> Isect {
     isect
 }
 
-fn orthoBasis(n: vec) -> [vec * 3] {
+fn ortho_basis(n: vec) -> [vec * 3] {
     let mut basis: [vec * 3];
     basis(2) = n;
     basis(1).x = 0.0; basis(1).y = 0.0; basis(1).z = 0.0;
@@ -148,7 +145,7 @@ fn ambient_occlusion(isect: Isect, spheres: [Sphere * 3], plane: Plane, rand: fn
         z : isect.p.z + eps * isect.n.z
     };
 
-    let basis = orthoBasis(isect.n);
+    let basis = ortho_basis(isect.n);
 
     let mut occlusion = 0.0;
 
@@ -171,16 +168,16 @@ fn ambient_occlusion(isect: Isect, spheres: [Sphere * 3], plane: Plane, rand: fn
                 dir : vec { x : rx, y : ry, z : rz }
             };
 
-            let mut occIsect: Isect;
-            occIsect.t   = 1.0e+17;
-            occIsect.hit = 0;
+            let mut occ_isect: Isect;
+            occ_isect.t   = 1.0e+17;
+            occ_isect.hit = 0;
 
-            occIsect = ray_sphere_intersect(occIsect, ray, spheres(0));
-            occIsect = ray_sphere_intersect(occIsect, ray, spheres(1));
-            occIsect = ray_sphere_intersect(occIsect, ray, spheres(2));
-            occIsect = ray_plane_intersect (occIsect, ray, plane);
+            occ_isect = ray_sphere_intersect(occ_isect, ray, spheres(0));
+            occ_isect = ray_sphere_intersect(occ_isect, ray, spheres(1));
+            occ_isect = ray_sphere_intersect(occ_isect, ray, spheres(2));
+            occ_isect = ray_plane_intersect (occ_isect, ray, plane);
 
-            if occIsect.hit == 1 { occlusion += 1.0; }
+            if occ_isect.hit == 1 { occlusion += 1.0; }
         }
     }
 
@@ -198,13 +195,7 @@ fn clamp(f: f64) -> u8 {
     i as u8
 }
 
-fn render(img: Buffer, w: i32, h: i32, nsubsamples: i32) -> () {
-    let plane : Plane = Plane { p : vec { x : plane.p.x, y : plane.p.y, z : plane.p.z }, n : vec { x : plane.n.x, y : plane.n.y, z : plane.n.z } };
-    let spheres = [
-        Sphere { center : vec { x : spheres(0).center.x, y : spheres(0).center.y, z : spheres(0).center.z }, radius : spheres(0).radius }, 
-        Sphere { center : vec { x : spheres(1).center.x, y : spheres(1).center.y, z : spheres(1).center.z }, radius : spheres(1).radius },
-        Sphere { center : vec { x : spheres(2).center.x, y : spheres(2).center.y, z : spheres(2).center.z }, radius : spheres(2).radius }
-    ];
+fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], plane: Plane) -> () {
     for x, y, mut img, rand in @iteration(img, w, h) {
         let mut r = 0.0;
         let mut g = 0.0;
@@ -250,7 +241,7 @@ fn render(img: Buffer, w: i32, h: i32, nsubsamples: i32) -> () {
     }
 }
 
-fn init_scene() -> () {
+fn init_scene(mut spheres: [Sphere * 3], mut plane: Plane) -> ([Sphere * 3], Plane) {
     spheres(0).center.x = -2.0;
     spheres(0).center.y =  0.0;
     spheres(0).center.z = -3.5;
@@ -273,13 +264,19 @@ fn init_scene() -> () {
     plane.n.x = 0.0;
     plane.n.y = 1.0;
     plane.n.z = 0.0;
+
+    (spheres, plane)
 }
 
 extern
 fn aobench() -> () {
     let img = alloc_host(WIDTH*HEIGHT*3 * 1);
-    init_scene();
-    @render(img, WIDTH, HEIGHT, NSUBSAMPLES);
+    let mut spheres: [Sphere * 3];
+    let mut plane: Plane;
+    let scene = init_scene(spheres, plane);
+    spheres = scene(0);
+    plane = scene(1);
+    render(img, WIDTH, HEIGHT, NSUBSAMPLES, spheres, plane);
     saveppm(img.data as &[u8], WIDTH, HEIGHT);
     release(img);
     print_total_timing()
