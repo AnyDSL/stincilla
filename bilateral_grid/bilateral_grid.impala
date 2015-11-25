@@ -56,7 +56,7 @@ fn slice_grid(x: i32, y: i32, grid: Grid, image: fn(i32, i32) -> f32, filter: fn
 
 
 extern
-fn thorin_bilateral_grid(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32) -> () {
+fn bilateral_grid(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32) -> () {
     let mut grid:Grid;
     grid.sigma_s = 8;
     grid.sigma_r = 0.1f;

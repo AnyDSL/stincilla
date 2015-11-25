@@ -154,7 +154,7 @@ fn l2norm(img: Img) -> f32 {
 
 
 // normal V-Cycle, components are hard-coded
-fn vcycle(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
+fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
     let width   = RHS0.width;
     let height  = RHS0.height;
     let mut RHS = ~[levels:Img];
@@ -238,11 +238,11 @@ fn vcycle(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
 
 // V-Cycle DSL: solver, etc. can be provided by the user
 fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
-          solver: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), solver_mask: Mask,
-          residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask,
-          restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask,
-          interpolate: fn(i32, i32, Acc, Acc, Mask) -> (), interpolate_mask: Mask
-         ) -> Img {
+              solver: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), solver_mask: Mask,
+              residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask,
+              restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask,
+              interpolate: fn(i32, i32, Acc, Acc, Mask) -> (), interpolate_mask: Mask
+             ) -> Img {
     let width   = RHS0.width;
     let height  = RHS0.height;
     let mut RHS = ~[levels:Img];
@@ -349,7 +349,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
 
 
 extern
-fn thorin_vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
+fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
     let RHS     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
     let mut img = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
     let mut out = Img { buf : Buffer { device : 0, data : out_data as &[i8]}, width : width, height : height, stride : width };
@@ -367,7 +367,7 @@ fn thorin_vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) ->
     let ssteps = 2;
 
     let result = @vcycle_dsl(RHS, levels, vsteps, ssteps, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, restrict_mask, interpolate_fun, interpolate_mask);
-    //let result = @vcycle(RHS, levels, vsteps, ssteps);
+    //let result = @vcycle_reference(RHS, levels, vsteps, ssteps);
     print_total_timing();
 
     for y in range(0, out.height) {

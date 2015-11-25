@@ -5,7 +5,7 @@
 
 #include "pnm_image.h"
 
-extern "C" void thorin_vcycle(float*, float*, int, int);
+extern "C" void vcycle(float*, float*, int, int);
 
 /*************************************************************************
  * Main function                                                         *
@@ -23,8 +23,7 @@ int main(int argc, const char **argv) {
     // initialize data
     for (size_t i=0; i<width*height; ++i) input[i] = (float)image[i];
 
-    std::cout << "Calculating V-Cycle in AnyDSL ..." << std::endl;
-    thorin_vcycle(input.data(), output.data(), width, height);
+    vcycle(input.data(), output.data(), width, height);
 
     // compute offset to shift image range
     float min = FLT_MAX;

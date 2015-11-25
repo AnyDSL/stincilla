@@ -30,7 +30,7 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
 
 
 extern
-fn thorin_harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32) -> () {
+fn harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32) -> () {
     let input  = Img { buf : Buffer { device : 0, data : img_data as &[i8]}, width : width, height : height, stride : width };
     let harris = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
     let dx     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };

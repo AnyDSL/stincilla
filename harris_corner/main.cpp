@@ -4,7 +4,7 @@
 
 #include "pnm_image.h"
 
-extern "C" void thorin_harris_corner(float*, float*, int, int);
+extern "C" void harris_corner(float*, float*, int, int);
 
 /*************************************************************************
  * Main function                                                         *
@@ -22,8 +22,7 @@ int main(int argc, const char **argv) {
     // initialize data
     for (size_t i=0; i<width*height; ++i) input[i] = image[i];
 
-    std::cout << "Running Harris corner ..." << std::endl;
-    thorin_harris_corner(input.data(), output.data(), width, height);
+    harris_corner(input.data(), output.data(), width, height);
 
     // write image
     for (size_t i=0; i<width*height; ++i) image[i] = (uint8_t)output[i];

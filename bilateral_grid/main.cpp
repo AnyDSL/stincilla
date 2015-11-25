@@ -4,7 +4,7 @@
 
 #include "pnm_image.h"
 
-extern "C" void thorin_bilateral_grid(float*, float*, int, int);
+extern "C" void bilateral_grid(float*, float*, int, int);
 
 /*************************************************************************
  * Main function                                                         *
@@ -22,8 +22,7 @@ int main(int argc, const char **argv) {
     // initialize data
     for (size_t i=0; i<width*height; ++i) input[i] = image[i]/255.0f;
 
-    std::cout << "Running bilateral grid ..." << std::endl;
-    thorin_bilateral_grid(input.data(), output.data(), width, height);
+    bilateral_grid(input.data(), output.data(), width, height);
 
     // write image
     for (size_t i=0; i<width*height; ++i) image[i] = (uint8_t)(output[i]*255.0f);
