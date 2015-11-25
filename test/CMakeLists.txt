@@ -20,6 +20,13 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     target_link_libraries(alloc_gpu ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
     add_test("alloc_gpu" alloc_gpu)
 
+    thorin_runtime_wrap(ALLOC_GPU_UNIFIED_PROGRAM
+        BACKEND ${BACKEND}
+        FILES alloc_gpu_unified.impala)
+    add_executable(alloc_gpu_unified ${ALLOC_GPU_UNIFIED_PROGRAM})
+    target_link_libraries(alloc_gpu_unified ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
+    add_test("alloc_gpu_unified" alloc_gpu_unified)
+
     thorin_runtime_wrap(RESERVE_SHARED_PROGRAM
         BACKEND ${BACKEND}
         FILES reserve_shared.impala)
