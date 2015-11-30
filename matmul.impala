@@ -66,9 +66,9 @@ fn matmul_hand_tiled(C: Mat, A: Mat, B: Mat) -> () {
     // tiling parameter
     let bs = 256;
 
-    for i0 in $range_step(0, C.rows(), 256) {
-        for k0 in range_step(0, C.cols(), 256) {
-            for j0 in range_step(0, A.cols(), 256) {
+    for i0 in $range_step(0, C.rows(), bs) {
+        for k0 in range_step(0, C.cols(), bs) {
+            for j0 in range_step(0, A.cols(), bs) {
 
                 for i in range(i0, min(i0+bs, C.rows())) {
                     for k in range(k0, min(k0+bs, C.cols())) @{
