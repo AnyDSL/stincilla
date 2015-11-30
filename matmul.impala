@@ -1,17 +1,27 @@
 struct Mat {
-    buf  : Buffer,
-    rows : i32,
-    cols : i32,
+    rows  : fn() -> i32,
+    cols  : fn() -> i32,
+    read  : fn(i32, i32) -> f32,
+    write : fn(i32, i32, f32) -> (),
 }
 
-fn matmul_golden(mut C: Mat, A: Mat, B: Mat) -> () {
-    for i in $range(0, C.rows) {
-        for k in $range(0, C.cols) {
-            let mut sum = 0 as f32;
-            for j in $range(0, A.cols) {
-                sum += (A.buf.data as &[f32])(index(A, j, i)) * (B.buf.data as &[f32])(index(B, k, j));
+fn get_mat(mut buf: Buffer, rows: i32, cols: i32) -> Mat {
+    Mat {
+        rows  : || rows,
+        cols  : || cols,
+        read  : |x, y| { (buf.data as &[f32])(y * cols + x) },
+        write : |x, y, v| { (buf.data as &[f32])(y * cols + x) = v },
+    }
+}
+
+fn matmul_golden(C: Mat, A: Mat, B: Mat) -> () {
+    for i in $range(0, C.rows()) {
+        for k in range(0, C.cols()) @{
+            let mut sum = 0.0f;
+            for j in $range(0, A.cols()) @{
+                sum += A.read(j, i) * B.read(k, j);
             }
-            (C.buf.data as &[f32])(index(C, k, i)) = sum;
+            C.write(k, i, sum);
         }
     }
 }
@@ -19,7 +29,7 @@ fn matmul_golden(mut C: Mat, A: Mat, B: Mat) -> () {
 fn get_step(lvl: i32) -> i32 {
     // 2048 -> 256 -> 1 -> 0
     if lvl == 0 {
-        1024
+        256
     } else if lvl == 1 {
         1
     } else {
@@ -41,25 +51,23 @@ fn tiled_loop(upper: i32, body: fn(i32) -> ()) -> () {
     tile(0, 0, upper);
 }
 
-fn index(M: Mat, x: i32, y: i32) -> i32 {
-    M.cols * y + x
-}
-
-fn matmul_tiled(mut C: Mat, A: Mat, B: Mat) -> () {
+fn matmul_tiled(C: Mat, A: Mat, B: Mat) -> () {
     /*
     // initialize C with zeros
-    for i in range(0, C.rows * C.cols) {
-        (C.buf.data as &[f32])(i) = 0 as f32;
+    for y in range(0, C.rows()) {
+        for x in range(0, C.cols()) {
+            C.write(x, y, 0.0f);
+        }
     }
     */
-    for i in $range(0, C.rows) {
-        for k in $range(0, C.cols) {
-            let mut sum = 0 as f32;
-            for j in @tiled_loop(A.cols) {
-                //C(index(C, i, k) += C(index(C, i, k) + A(index(A, i, j) * B(index(B, j, k);
-                sum += (A.buf.data as &[f32])(index(A, j, i)) * (B.buf.data as &[f32])(index(B, k, j));
+    for i in $range(0, C.rows()) {
+        for k in range(0, C.cols()) @{
+            let mut sum = 0.0f;
+            for j in tiled_loop(A.cols()) {
+                // C(i, k) += A(i, j) * B(j, k);
+                sum += A.read(j, i) * B.read(k, j);
             }
-            (C.buf.data as &[f32])(index(C, k, i)) = sum;
+            C.write(k, i, sum);
         }
     }
 }
@@ -68,45 +76,62 @@ fn main(i: i32) -> i32 {
     let l = 512;
     let m = 1024;
     let n = 2048;
-    let A = Mat { buf : alloc_host(l * m * 4), rows : l, cols : m }; // mxl
-    let B = Mat { buf : alloc_host(m * n * 4), rows : m, cols : n }; // nxm
-    let C = Mat { buf : alloc_host(l * n * 4), rows : l, cols : n }; // nxl
-    let R = Mat { buf : alloc_host(l * n * 4), rows : l, cols : n }; // nxl
+    let A_buf = alloc_host(l * m * 4); // mxl
+    let B_buf = alloc_host(m * n * 4); // nxm
+    let C_buf = alloc_host(l * n * 4); // nxl
+    let R_buf = alloc_host(l * n * 4); // nxl
 
+    let A = get_mat(A_buf, l, m); // mxl
+    let B = get_mat(B_buf, m, n); // nxm
+    let C = get_mat(C_buf, l, n); // nxl
+    let R = get_mat(R_buf, l, n); // nxl
+    init_rand(A_buf.data as &[f32], A.cols(), A.rows());
+    init_rand(B_buf.data as &[f32], B.cols(), B.rows());
 
-    fn print_timing(time: i64) -> () {
+    let nops = (2 as i64) * (l as i64) * (m as i64) * (n as i64);
+    fn print_gflops(time: i64) -> () {
         print_string("Timing: ");
         print_double(time as f64 / 1000.0);
-        print_string(" ms\n")
-    }
-    fn print_gflops(gflops: f64) -> () {
+        print_string(" ms\n");
+        let gflops = (1.0e-9 * (nops as f64)) / (time as f64 * 1.0e-6);
         print_double(gflops);
         print_string(" GFLOPS\n")
     }
 
-    let mut start = thorin_get_micro_time();
-    @matmul_golden(R, A, B);
-    let mut end = thorin_get_micro_time();
-    print_timing(end-start);
+    fn bench_fun(fun: fn() -> ()) -> () {
+        let start = thorin_get_micro_time();
+        fun();
+        let end = thorin_get_micro_time();
+        print_gflops(end - start);
+    }
 
-    let nops = (2 as i64) * (l as i64) * (m as i64) * (n as i64);
-    let mut gflops = (1.0e-9 * (nops as f64)) / ((end - start) as f64 * 1.0e-6);
-    print_gflops(gflops);
+    with bench_fun() {
+        @matmul_golden(R, A, B);
+    }
 
-    start = thorin_get_micro_time();
-    @matmul_tiled(C, A, B);
-    end = thorin_get_micro_time();
-    print_timing(end-start);
+    with bench_fun() {
+        @matmul_tiled(C, A, B);
+    }
 
-    gflops = (1.0e-9 * (nops as f64)) / ((end - start) as f64 * 1.0e-6);
-    print_gflops(gflops);
 
-    print_total_timing();
+    let mut passed = 0;
+    for y in range(0, C.rows()) {
+        for x in range(0, C.cols()) {
+            if C.read(x, y) != R.read(x, y) {
+                passed++;
+            }
+        }
+    }
+    if passed == 0 {
+        thorin_print_string("Test PASSED!\n");
+    } else {
+        thorin_print_string("Test FAILED!\n");
+    }
 
-    release(A.buf);
-    release(B.buf);
-    release(C.buf);
-    release(R.buf);
+    release(A_buf);
+    release(B_buf);
+    release(C_buf);
+    release(R_buf);
 
-    0
+    passed
 }
