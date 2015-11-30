@@ -14,7 +14,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
     let block = (64, step, 1);
 
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
+        with acc(acc_dev(), grid, block) @{
             let tid_x = acc_tidx();
             let tid_y = acc_tidy();
             let gid_y = acc_gidy();
@@ -38,7 +38,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
                 let rhs_acc = get_write_acc_offset(rhsc_gpu, acc_bdimx() * acc_bidx()/step, acc_bdimy() * acc_bidy()/step);
                 restrict(tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
             }
-        });
+        }
     }
 
     copy(rhsc_gpu.buf, RHSC.buf, rhsc_gpu.width * rhsc_gpu.height * 4);

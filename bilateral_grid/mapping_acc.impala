@@ -6,14 +6,14 @@ fn iteration_grid(bgrid: Grid,
     let block  = (32, 4, 1);
 
     for benchmark_acc() {
-        acc(@acc_dev(), grid, block, || @{
+        with acc(@acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy());
             }
-        });
+        }
     }
 }
 fn iteration_space(width: i32, height: i32,
@@ -24,13 +24,13 @@ fn iteration_space(width: i32, height: i32,
     let block  = (32, 4, 1);
 
     for benchmark_acc() {
-        acc(@acc_dev(), grid, block, || @{
+        with acc(@acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy());
             }
-        });
+        }
     }
 }

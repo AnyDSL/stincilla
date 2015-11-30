@@ -36,7 +36,7 @@ fn iteration(out: Buffer, width: i32, height: i32,
     copy(seed_buf, seed_gpu, width * height * 8);
 
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
+        with acc(acc_dev(), grid, block) @{
             let seed = seed_gpu.data as &[u64];
             let mut state = seed(acc_gidy()*width + acc_gidx());
             fn rand() -> f64 {
@@ -45,7 +45,7 @@ fn iteration(out: Buffer, width: i32, height: i32,
                 r(0)
             }
             body(acc_gidx(), acc_gidy(), out_gpu, rand);
-        });
+        }
     }
 
     copy(out_gpu, out, width * height * 3 * 1);

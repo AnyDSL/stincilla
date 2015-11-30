@@ -14,7 +14,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 2);
 
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
+        with acc(acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
             let out_acc = get_write_acc(out_gpu);
@@ -23,7 +23,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc);
             }
-        });
+        }
     }
 
     copy(out_gpu.buf, out.buf, out.width * out.height * 4);
@@ -43,7 +43,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 2);
 
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
+        with acc(acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
             let out_acc = get_write_acci16(out_gpu);
@@ -52,7 +52,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, arr_acc);
             }
-        });
+        }
     }
 
     copy(out_gpu.buf, out.buf, out.width * out.height * 2);
@@ -74,7 +74,7 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
     copy(map.buf, map_gpu.buf, map.width * map.height * 2);
 
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
+        with acc(acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
             let out_acc = get_write_acci16(out_gpu);
@@ -84,7 +84,7 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, img_acc, map_acc);
             }
-        });
+        }
     }
 
     copy(out_gpu.buf, out.buf, out.width * out.height * 2);
@@ -106,7 +106,7 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     copy(tmp.buf, tmp_gpu.buf, tmp.width * tmp.height * 2);
 
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
+        with acc(acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
             let out_acc = get_write_acci16(out_gpu);
@@ -116,7 +116,7 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc_bdimy(), out_acc, img_acc, tmp_acc);
             }
-        });
+        }
     }
 
     copy(out_gpu.buf, out.buf, out.width * out.height * 2);
@@ -136,21 +136,21 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     let grid1  = (img_gpu.width, 1, 1);
     let block1 = (128, 1, 1);
     for benchmark_acc() {
-        acc(acc_dev(), grid1, block1, || @{
+        with acc(acc_dev(), grid1, block1) @{
             let mut sum = 0;
             let img_acc = get_read_acci16(img_gpu, 4, nobh_center_i16, nobh_center_i16);
             for y in $range(0, img_gpu.height) @{
                 sum += body(acc_gidx(), y, img_acc);
             }
             tmp(acc_gidx()) = sum;
-        });
+        }
     }
 
     // reduce temporary memory
     let grid2  = (img_gpu.width, 1, 1);
     let block2 = (128, 1, 1);
     for benchmark_acc() {
-        acc(acc_dev(), grid2, block2, || @{
+        with acc(acc_dev(), grid2, block2) @{
             let mut sum = 0;
             for x in $range(0, img_gpu.width) @{
                 sum += tmp(x);
@@ -160,7 +160,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
             if (acc_gidx() == 0) {
                 tmp(acc_gidx()) = sum;
             }
-        });
+        }
     }
 
     // return sum stored in first element
@@ -182,10 +182,10 @@ fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     let grid  = (img.width, 1, 1);
     let block = (256, 1, 1);
     for benchmark_acc() {
-        acc(acc_dev(), (256, 1, 1), (64, 1, 1), || @{
+        with acc(acc_dev(), (256, 1, 1), (64, 1, 1)) @{
             hist(acc_gidx()) = 0;
-        });
-        acc(acc_dev(), grid, block, || @{
+        }
+        with acc(acc_dev(), grid, block) @{
             let mut sm_hist = reserve_shared(256 * 4) as &[i32];
             let img_acc = get_read_acc(img_gpu, 4, nobh_center, nobh_center);
             for y in $range(0, img.height) @{
@@ -193,7 +193,7 @@ fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
                 atomic_add_local(&sm_hist(bin), 1);
             }
             atomic_add_global(&hist(acc_tidx()), sm_hist(acc_tidx()));
-        });
+        }
     }
 
     hist_buf
@@ -225,7 +225,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
     let grid  = (size / 2, 1, 1);
     let block = (block_size, 1, 1);
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
+        with acc(acc_dev(), grid, block) @{
             let gid = acc_gidx();
             let tid = acc_tidx();
             let sm_size = 2 * block_size;
@@ -270,7 +270,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
             }
             scan(2 * gid)     = sm_tmp(2 * tid);
             scan(2 * gid + 1) = sm_tmp(2 * tid + 1);
-        });
+        }
     }
 
     if num_blocks > 1 {
@@ -278,7 +278,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
         let grid1  = (num_blocks, 1, 1);
         let block1 = (num_blocks, 1, 1);
         for benchmark_acc() {
-            acc(acc_dev(), grid1, block1, || @{
+            with acc(acc_dev(), grid1, block1) @{
                 let tid = acc_tidx();
                 let sm_size = num_blocks;
                 let mut sm_tmp = reserve_shared(sm_size * 4) as &[i32];
@@ -300,14 +300,14 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
 
                 // write results to device memory
                 tmp(tid) = sm_tmp(tid);
-            });
+            }
         }
 
         // add block scan results to array
         let grid2  = ((num_blocks-1) * block_size, 1, 1);
         let block2 = (block_size, 1, 1);
         for benchmark_acc() {
-            acc(acc_dev(), grid2, block2, || @{
+            with acc(acc_dev(), grid2, block2) @{
                 let tid = acc_tidx();
                 let gid = acc_gidx() + block_size; // first block hold already the correct scan results
                 let mut sm_tmp = reserve_shared(1 * 4) as &[i32];
@@ -320,7 +320,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
 
                 // write results to device memory
                 scan(gid) += sm_tmp(0);
-            });
+            }
         }
     }
 
@@ -335,13 +335,13 @@ fn find_position(scan: Buffer, mut size: i32, body: fn(i32, Buffer) -> i32) -> i
     let grid  = (size, 1, 1);
     let block = (256, 1, 1);
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
+        with acc(acc_dev(), grid, block) @{
             // TODO: make sure index computation stays on the device
             let mut elem = magic_elem_id(elem_buf.data as &[i32]);
             if body(acc_gidx(), scan) != 0 @{
                 atomic_min_global(&elem(0), acc_gidx());
             }
-        });
+        }
     }
 
     let mut result:i32;
