@@ -14,17 +14,7 @@ fn get_mat(mut buf: Buffer, rows: i32, cols: i32) -> Mat {
     }
 }
 
-fn matmul_golden(C: Mat, A: Mat, B: Mat) -> () {
-    for i in $range(0, C.rows()) {
-        for k in range(0, C.cols()) @{
-            let mut sum = 0.0f;
-            for j in $range(0, A.cols()) @{
-                sum += A.read(j, i) * B.read(k, j);
-            }
-            C.write(k, i, sum);
-        }
-    }
-}
+fn min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
 
 fn get_step(lvl: i32) -> i32 {
     // 2048 -> 256 -> 1 -> 0
@@ -51,6 +41,50 @@ fn tiled_loop(upper: i32, body: fn(i32) -> ()) -> () {
     tile(0, 0, upper);
 }
 
+
+fn matmul_golden(C: Mat, A: Mat, B: Mat) -> () {
+    for i in $range(0, C.rows()) {
+        for k in range(0, C.cols()) @{
+            let mut sum = 0.0f;
+            for j in $range(0, A.cols()) @{
+                sum += A.read(j, i) * B.read(k, j);
+            }
+            C.write(k, i, sum);
+        }
+    }
+}
+
+
+fn matmul_hand_tiled(C: Mat, A: Mat, B: Mat) -> () {
+    // initialize C with zeros
+    for y in range(0, C.rows()) {
+        for x in range(0, C.cols()) {
+            C.write(x, y, 0.0f);
+        }
+    }
+
+    // tiling parameter
+    let bs = 256;
+
+    for i0 in $range_step(0, C.rows(), 256) {
+        for k0 in range_step(0, C.cols(), 256) {
+            for j0 in range_step(0, A.cols(), 256) {
+
+                for i in range(i0, min(i0+bs, C.rows())) {
+                    for k in range(k0, min(k0+bs, C.cols())) @{
+                        let mut sum = C.read(k, i);
+                        for j in $range(j0, min(j0+bs, A.cols())) @{
+                            sum += A.read(j, i) * B.read(k, j);
+                        }
+                        C.write(k, i, sum);
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 fn matmul_tiled(C: Mat, A: Mat, B: Mat) -> () {
     /*
     // initialize C with zeros
@@ -72,6 +106,7 @@ fn matmul_tiled(C: Mat, A: Mat, B: Mat) -> () {
     }
 }
 
+
 fn main(i: i32) -> i32 {
     let l = 512;
     let m = 1024;
@@ -80,7 +115,6 @@ fn main(i: i32) -> i32 {
     let B_buf = alloc_host(m * n * 4); // nxm
     let C_buf = alloc_host(l * n * 4); // nxl
     let R_buf = alloc_host(l * n * 4); // nxl
-
     let A = get_mat(A_buf, l, m); // mxl
     let B = get_mat(B_buf, m, n); // nxm
     let C = get_mat(C_buf, l, n); // nxl
@@ -110,7 +144,7 @@ fn main(i: i32) -> i32 {
     }
 
     with bench_fun() {
-        @matmul_tiled(C, A, B);
+        @matmul_hand_tiled(C, A, B);
     }
 
 
