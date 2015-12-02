@@ -72,7 +72,7 @@ fn ray_sphere_intersect(mut isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
     if D > 0.0 {
         let t = -B - sqrt(D);
 
-        if t > 0.0 && t < isect.t {
+        if t > 0.0 && t < isect.t @{
             isect.t   = t;
             isect.hit = 1;
 
@@ -84,7 +84,7 @@ fn ray_sphere_intersect(mut isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
             isect.n.y = isect.p.y - sphere.center.y;
             isect.n.z = isect.p.z - sphere.center.z;
 
-            isect.n = @vnormalize(isect.n);
+            isect.n = vnormalize(isect.n);
         }
     }
 
