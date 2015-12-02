@@ -95,19 +95,19 @@ fn ray_plane_intersect(mut isect: Isect, ray: Ray, plane: Plane) -> Isect {
     let d = -vdot(plane.p, plane.n);
     let v =  vdot(ray.dir, plane.n);
 
-    if fabs(v) < 1.0e-17 { return(isect) }
+    if fabs(v) >= 1.0e-17 {
+        let t = -(vdot(ray.org, plane.n) + d) / v;
 
-    let t = -(@vdot(ray.org, plane.n) + d) / v;
+        if t > 0.0 && t < isect.t {
+            isect.t   = t;
+            isect.hit = 1;
 
-    if t > 0.0 && t < isect.t {
-        isect.t   = t;
-        isect.hit = 1;
+            isect.p.x = ray.org.x + ray.dir.x * t;
+            isect.p.y = ray.org.y + ray.dir.y * t;
+            isect.p.z = ray.org.z + ray.dir.z * t;
 
-        isect.p.x = ray.org.x + ray.dir.x * t;
-        isect.p.y = ray.org.y + ray.dir.y * t;
-        isect.p.z = ray.org.z + ray.dir.z * t;
-
-        isect.n = plane.n;
+            isect.n = plane.n;
+        }
     }
 
     isect
