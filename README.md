@@ -9,7 +9,6 @@ Stincilla requires a working AnyDSL installation. A script to build the [impala]
 
 Example:
 ```bash
-git clone --recursive git@github.com:AnyDSL/stincilla.git
 cd anydsl/stincilla/build
 cmake -DBACKEND=nvvm .. # optional: switch to nvvm backend
 make
