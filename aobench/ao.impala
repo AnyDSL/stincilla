@@ -115,19 +115,20 @@ fn ray_plane_intersect(mut isect: Isect, ray: Ray, plane: Plane) -> Isect {
 
 fn ortho_basis(n: vec) -> [vec * 3] {
     let mut basis: [vec * 3];
-    basis(2) = n;
-    basis(1).x = 0.0; basis(1).y = 0.0; basis(1).z = 0.0;
+    let mut x = 0.0; let mut y = 0.0; let mut z = 0.0;
 
     if n.x < 0.6 && n.x > -0.6 {
-        basis(1).x = 1.0;
+        x = 1.0;
     } else if n.y < 0.6 && n.y > -0.6 {
-        basis(1).y = 1.0;
+        y = 1.0;
     } else if n.z < 0.6 && n.z > -0.6 {
-        basis(1).z = 1.0;
+        z = 1.0;
     } else {
-        basis(1).x = 1.0;
+        x = 1.0;
     }
 
+    basis(1).x = x; basis(1).y = y; basis(1).z = z;
+    basis(2) = n;
     basis(0) = vnormalize(vcross(basis(1), basis(2)));
     basis(1) = vnormalize(vcross(basis(2), basis(0)));
 
