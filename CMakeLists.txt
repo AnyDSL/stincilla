@@ -12,10 +12,6 @@ else()
     set(DEVICE "acc")
 endif()
 
-if(NOT MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-endif()
-
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
