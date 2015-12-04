@@ -14,6 +14,7 @@ endif()
 
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
+add_definitions("-std=c++11")
 
 add_subdirectory(aobench)
 add_subdirectory(bilateral_grid)
