@@ -1,5 +1,5 @@
 extern "C" {
-    fn magic_elem_id(&[i32]) -> &[i32];
+    fn magic_elem_id(&[1][i32]) -> &[1][i32];
 }
 fn iteration1f1i(out: Img, arr: Imgi16,
                  bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
@@ -174,7 +174,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
 }
 fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     let hist_buf = acc_alloc(acc_dev(), 256 * 4);
-    let mut hist = hist_buf.data as &[i32];
+    let mut hist = hist_buf.data as &[1][i32];
 
     let img_gpu = get_img(acc_alloc(acc_dev(), img.width * img.height * 4), img.width, img.height);
     copy(img.buf, img_gpu.buf, img.width * img.height * 4);
@@ -186,7 +186,7 @@ fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
             hist(acc_gidx()) = 0;
         }
         with acc(acc_dev(), grid, block) @{
-            let mut sm_hist = reserve_shared(256 * 4) as &[i32];
+            let mut sm_hist = reserve_shared(256 * 4) as &[3][i32];
             let img_acc = get_read_acc(img_gpu, 4, nobh_center, nobh_center);
             for y in $range(0, img.height) @{
                 let bin = body(acc_gidx(), y, img_acc);
@@ -229,7 +229,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
             let gid = acc_gidx();
             let tid = acc_tidx();
             let sm_size = 2 * block_size;
-            let mut sm_tmp = reserve_shared(sm_size * 4) as &[i32];
+            let mut sm_tmp = reserve_shared(sm_size * 4) as &[3][i32];
 
             // load input into shared memory
             sm_tmp(2 * tid)     = hist(2 * gid);
@@ -281,7 +281,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
             with acc(acc_dev(), grid1, block1) @{
                 let tid = acc_tidx();
                 let sm_size = num_blocks;
-                let mut sm_tmp = reserve_shared(sm_size * 4) as &[i32];
+                let mut sm_tmp = reserve_shared(sm_size * 4) as &[3][i32];
 
                 // load input into shared memory
                 sm_tmp(tid) = tmp(tid);
@@ -310,7 +310,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
             with acc(acc_dev(), grid2, block2) @{
                 let tid = acc_tidx();
                 let gid = acc_gidx() + block_size; // first block hold already the correct scan results
-                let mut sm_tmp = reserve_shared(1 * 4) as &[i32];
+                let mut sm_tmp = reserve_shared(1 * 4) as &[3][i32];
 
                 if tid == 0 @{
                     sm_tmp(0) = tmp(acc_bidx());
@@ -337,7 +337,7 @@ fn find_position(scan: Buffer, mut size: i32, body: fn(i32, Buffer) -> i32) -> i
     for benchmark_acc() {
         with acc(acc_dev(), grid, block) @{
             // TODO: make sure index computation stays on the device
-            let mut elem = magic_elem_id(elem_buf.data as &[i32]);
+            let mut elem = magic_elem_id(elem_buf.data as &[1][i32]);
             if body(acc_gidx(), scan) != 0 @{
                 atomic_min_global(&elem(0), acc_gidx());
             }

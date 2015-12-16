@@ -15,8 +15,8 @@ struct Acci16 {
 fn get_img_i16(buf: Buffer, width: i32, height: i32) -> Imgi16 {
     Imgi16 { buf : buf, width : width,  height : height, stride : width }
 }
-fn get_pixeli16(img: Imgi16, idx: i32) -> i16 { (img.buf.data as &[i16])(idx) }
-fn set_pixeli16(mut img: Imgi16, idx: i32, val: i16) -> () { (img.buf.data as &[i16])(idx) = val }
+fn get_pixeli16(img: Imgi16, idx: i32) -> i16 { (img.buf.data as &[1][i16])(idx) }
+fn set_pixeli16(mut img: Imgi16, idx: i32, val: i16) -> () { (img.buf.data as &[1][i16])(idx) = val }
 fn get_pixel_sharedi16(img: Imgi16, idx: i32) -> i16 { (img.buf.data as &[3][i16])(idx) }
 fn set_pixel_sharedi16(mut img: Imgi16, idx: i32, val: i16) -> () { (img.buf.data as &[3][i16])(idx) = val }
 fn get_read_acci16(img: Imgi16, region: i32, bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32) -> Acci16 {

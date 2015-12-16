@@ -189,8 +189,8 @@ fn round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) 
 fn get_img(buf: Buffer, width: i32, height: i32) -> Img {
     Img { buf : buf, width : width,  height : height, stride : width }
 }
-fn get_pixel(img: Img, idx: i32) -> f32 { (img.buf.data as &[f32])(idx) }
-fn set_pixel(mut img: Img, idx: i32, val: f32) -> () { (img.buf.data as &[f32])(idx) = val }
+fn get_pixel(img: Img, idx: i32) -> f32 { (img.buf.data as &[1][f32])(idx) }
+fn set_pixel(mut img: Img, idx: i32, val: f32) -> () { (img.buf.data as &[1][f32])(idx) = val }
 fn get_pixel_shared(img: Img, idx: i32) -> f32 { (img.buf.data as &[3][f32])(idx) }
 fn set_pixel_shared(mut img: Img, idx: i32, val: f32) -> () { (img.buf.data as &[3][f32])(idx) = val }
 fn get_read_acc(img: Img, region: i32, bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32) -> Acc {
