@@ -6,16 +6,16 @@ fn range(lower: i32, upper: i32, body: fn(i32, fn())) -> () {
 }
 
 fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) -> () {
-    let arr_buf_gpu = acc_alloc(acc_dev(), width * height * 4);
-    let out_buf_gpu = acc_alloc(acc_dev(), width * height * 4);
+    let arr_buf_gpu = acc_alloc(acc_dev(), width * height * 4 /* sizeof[f32]() */);
+    let out_buf_gpu = acc_alloc(acc_dev(), width * height * 4 /* sizeof[f32]() */);
     let     arr_gpu = arr_buf_gpu.data as &[f32];
     let mut out_gpu = out_buf_gpu.data as &[f32];
-    copy(arr, arr_buf_gpu, width * height * 4);
+    copy(arr, arr_buf_gpu, width * height * 4 /* sizeof[f32]() */);
 
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
     with acc(acc_dev(), grid, block) @{
-        let mut shared = reserve_shared(block(0) * block(1) * 4) as &[3][f32];
+        let mut shared = reserve_shared(block(0) * block(1) * 4 /* sizeof[f32]() */) as &[3][f32];
         // arr -> shared
         body(acc_gidx(), acc_gidy(),
              |x, y|      { arr_gpu(y*width + x) },
@@ -26,7 +26,7 @@ fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i3
              |x, y, val| { out_gpu(y*width + x) = val; });
     }
 
-    copy(out_buf_gpu, out, width * height * 4);
+    copy(out_buf_gpu, out, width * height * 4 /* sizeof[f32]() */);
     release(out_buf_gpu);
     release(arr_buf_gpu);
 }
@@ -34,8 +34,8 @@ fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i3
 fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
-    let mut arr = alloc_host(width * height * 4);
-    let mut out = alloc_host(width * height * 4);
+    let mut arr = alloc_host(width * height * sizeof[f32]());
+    let mut out = alloc_host(width * height * sizeof[f32]());
     for i in range(0, width*height) {
         (arr.data as &[f32])(i) = i as f32;
         (out.data as &[f32])(i) = 0.0f;

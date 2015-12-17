@@ -18,8 +18,8 @@ fn write(mut out: &[f32], src: &[f32], i: i32) -> () { out(i) = src(i) }
 fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
-    let arr_buf = acc_alloc_unified(acc_dev(), width * height * 4);
-    let out_buf = acc_alloc_unified(acc_dev(), width * height * 4);
+    let arr_buf = acc_alloc_unified(acc_dev(), width * height * sizeof[f32]());
+    let out_buf = acc_alloc_unified(acc_dev(), width * height * sizeof[f32]());
     let mut arr = arr_buf.data as &[f32];
     let mut out = out_buf.data as &[f32];
     for i in range(0, width*height) {
