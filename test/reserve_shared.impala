@@ -15,7 +15,7 @@ fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i3
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
     with acc(acc_dev(), grid, block) @{
-        let mut shared = reserve_shared(block(0) * block(1) * 4 /* sizeof[f32]() */) as &[3][f32];
+        let mut shared = reserve_shared_f32(block(0) * block(1));
         // arr -> shared
         body(acc_gidx(), acc_gidy(),
              |x, y|      { arr_gpu(y*width + x) },

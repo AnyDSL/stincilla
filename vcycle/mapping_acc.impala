@@ -21,7 +21,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
 
             let spm_stride = block(0);
             let spm_height = block(1);
-            let spm_buf = Buffer { device : acc_dev(), data : reserve_shared(spm_stride * spm_height * 4) as &[i8] };
+            let spm_buf = Buffer { device : acc_dev(), data : reserve_shared_f32(spm_stride * spm_height) as &[i8] };
             let spm_img = get_img(spm_buf, spm_stride, spm_height);
 
             // residual: index space == block
