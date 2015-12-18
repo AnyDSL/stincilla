@@ -191,19 +191,13 @@ fn get_img(buf: Buffer, width: i32, height: i32) -> Img {
 }
 fn get_pixel(img: Img, idx: i32) -> f32 { (img.buf.data as &[1][f32])(idx) }
 fn set_pixel(mut img: Img, idx: i32, val: f32) -> () { (img.buf.data as &[1][f32])(idx) = val }
-fn get_pixel_shared(img: Img, idx: i32) -> f32 { (img.buf.data as &[3][f32])(idx) }
-fn set_pixel_shared(mut img: Img, idx: i32, val: f32) -> () { (img.buf.data as &[3][f32])(idx) = val }
+fn get_pixel_shared(data: &[3][f32], idx: i32) -> f32 { data(idx) }
+fn set_pixel_shared(mut data: &[3][f32], idx: i32, val: f32) -> () { data(idx) = val }
 fn get_read_acc(img: Img, region: i32, bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32) -> Acc {
     get_read_acc_offset_addrspace(img, 0, 0, region, get_pixel, set_pixel, bh_lower, bh_upper)
 }
-fn get_read_acc_shared(img: Img, region: i32, bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32) -> Acc {
-    get_read_acc_offset_addrspace(img, 0, 0, region, get_pixel_shared, set_pixel_shared, bh_lower, bh_upper)
-}
 fn get_read_acc_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32) -> Acc {
     get_read_acc_offset_addrspace(img, rox, roy, region, get_pixel, set_pixel, bh_lower, bh_upper)
-}
-fn get_read_acc_offset_shared(img: Img, rox: i32, roy: i32, region: i32, bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32) -> Acc {
-    get_read_acc_offset_addrspace(img, rox, roy, region, get_pixel_shared, set_pixel_shared, bh_lower, bh_upper)
 }
 fn get_read_acc_offset_addrspace(img: Img, rox: i32, roy: i32, region: i32,
                                  get_pixel_addrspace: fn(Img, i32) -> f32, set_pixel_addrspace: fn(Img, i32, f32) -> (),
@@ -212,21 +206,42 @@ fn get_read_acc_offset_addrspace(img: Img, rox: i32, roy: i32, region: i32,
                                 ) -> Acc {
     Acc {
         read  : |x, y|    -> f32 { read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| -> f32 { get_pixel_addrspace(img, y * img.stride + x) }, bh_lower, bh_upper) },
-        write : |x, y, v| -> ()  { set_pixel_addrspace(img, (y + roy)*img.stride + x + rox, v) }
+        write : |x, y, v| -> ()  { set_pixel_addrspace(img, (y + roy) * img.stride + x + rox, v) }
     }
 }
+fn get_read_acc_shared(data: &[3][f32], width: i32, height: i32) -> Acc {
+    get_read_acc_offset_addrspace3(data, width, height, 0, 0, get_pixel_shared, set_pixel_shared)
+}
+fn get_read_acc_offset_shared(data: &[3][f32], width: i32, height: i32, rox: i32, roy: i32) -> Acc {
+    get_read_acc_offset_addrspace3(data, width, height, rox, roy, get_pixel_shared, set_pixel_shared)
+}
+fn get_read_acc_offset_addrspace3(data: &[3][f32], width: i32, height: i32, rox: i32, roy: i32,
+                                  get_pixel_addrspace: fn(&[3][f32], i32) -> f32, set_pixel_addrspace: fn(&[3][f32], i32, f32) -> ()
+                                 ) -> Acc {
+    Acc {
+        read  : |x, y|    get_pixel_addrspace(data, (y + roy)*width + x + rox),
+        write : |x, y, v| set_pixel_addrspace(data, (y + roy) * width + x + rox, v)
+    }
+}
+
 fn get_write_acc(img: Img) -> Acc { get_write_acc_offset_addrspace(img, 0, 0, get_pixel, set_pixel) }
-fn get_write_acc_shared(img: Img) -> Acc { get_write_acc_offset_addrspace(img, 0, 0, get_pixel_shared, set_pixel_shared) }
 fn get_write_acc_offset(img: Img, rox: i32, roy: i32) -> Acc {
     get_write_acc_offset_addrspace(img, rox, roy, get_pixel, set_pixel)
-}
-fn get_write_acc_offset_shared(img: Img, rox: i32, roy: i32) -> Acc {
-    get_write_acc_offset_addrspace(img, rox, roy, get_pixel_shared, set_pixel_shared)
 }
 fn get_write_acc_offset_addrspace(img: Img, rox: i32, roy: i32, get_pixel_addrspace: fn(Img, i32) -> f32, set_pixel_addrspace: fn(Img, i32, f32) -> ()) -> Acc {
     Acc {
         read  : |x, y|    { get_pixel_addrspace(img, (y + roy)*img.stride + x + rox) },
         write : |x, y, v| { set_pixel_addrspace(img, (y + roy)*img.stride + x + rox, v) }
+    }
+}
+fn get_write_acc_shared(data: &[3][f32], width: i32, height: i32) -> Acc { get_write_acc_offset_addrspace3(data, width, height, 0, 0, get_pixel_shared, set_pixel_shared) }
+fn get_write_acc_offset_shared(data: &[3][f32], width: i32, height: i32, rox: i32, roy: i32) -> Acc {
+    get_write_acc_offset_addrspace3(data, width, height, rox, roy, get_pixel_shared, set_pixel_shared)
+}
+fn get_write_acc_offset_addrspace3(data: &[3][f32], width: i32, height: i32, rox: i32, roy: i32, get_pixel_addrspace: fn(&[3][f32], i32) -> f32, set_pixel_addrspace: fn(&[3][f32], i32, f32) -> ()) -> Acc {
+    Acc {
+        read  : |x, y|    { get_pixel_addrspace(data, (y + roy)*width + x + rox) },
+        write : |x, y, v| { set_pixel_addrspace(data, (y + roy)*width + x + rox, v) }
     }
 }
 
