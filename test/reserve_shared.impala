@@ -8,8 +8,8 @@ fn range(lower: i32, upper: i32, body: fn(i32, fn())) -> () {
 fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) -> () {
     let arr_buf_gpu = acc_alloc(acc_dev(), width * height * 4 /* sizeof[f32]() */);
     let out_buf_gpu = acc_alloc(acc_dev(), width * height * 4 /* sizeof[f32]() */);
-    let     arr_gpu = arr_buf_gpu.data as &[f32];
-    let mut out_gpu = out_buf_gpu.data as &[f32];
+    let     arr_gpu = arr_buf_gpu.data as &[1][f32];
+    let mut out_gpu = out_buf_gpu.data as &[1][f32];
     copy(arr, arr_buf_gpu, width * height * 4 /* sizeof[f32]() */);
 
     let grid  = (width, height, 1);
