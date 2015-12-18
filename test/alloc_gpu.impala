@@ -13,7 +13,7 @@ fn iteration(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     }
 }
 
-fn write(mut out: &[f32], src: &[f32], i: i32) -> () { out(i) = src(i) }
+fn write(mut out: &[1][f32], src: &[1][f32], i: i32) -> () { out(i) = src(i) }
 
 fn main() -> i32 {
     let width   = 2048;
@@ -30,7 +30,7 @@ fn main() -> i32 {
     copy(arr, arr_gpu, width * height * sizeof[f32]());
 
     for x, y in @iteration(width, height) {
-        write(out_gpu.data as &[f32], arr_gpu.data as &[f32], y*width + x);
+        write(out_gpu.data as &[1][f32], arr_gpu.data as &[1][f32], y*width + x);
     }
 
     copy(out_gpu, out, width * height * 4 /* sizeof[f32]() */);

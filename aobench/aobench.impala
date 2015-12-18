@@ -197,7 +197,7 @@ fn clamp(f: f64) -> u8 {
 }
 
 fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], plane: Plane) -> () {
-    for x, y, mut img, rand in @iteration(img, w, h) {
+    for x, y, out, rand in @iteration(img, w, h) {
         let mut r = 0.0;
         let mut g = 0.0;
         let mut b = 0.0;
@@ -236,9 +236,7 @@ fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], 
         g /= (nsubsamples * nsubsamples) as f64;
         b /= (nsubsamples * nsubsamples) as f64;
 
-        (img.data as &[u8])(3 * (y * w + x) + 0) = clamp(r);
-        (img.data as &[u8])(3 * (y * w + x) + 1) = clamp(g);
-        (img.data as &[u8])(3 * (y * w + x) + 2) = clamp(b);
+        out(clamp(r), clamp(g), clamp(b))
     }
 }
 

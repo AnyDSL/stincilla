@@ -18,7 +18,7 @@ fn rnd_f64(state: u64) -> (f64, u64) {
 }
 
 fn iteration(out: Buffer, width: i32, height: i32,
-             body: fn(i32, i32, Buffer, fn() -> f64) -> ()
+             body: fn(i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
             ) -> () {
     let grid  = (width, height, 1);
     let block = (32, 4, 1);
@@ -37,14 +37,20 @@ fn iteration(out: Buffer, width: i32, height: i32,
 
     for benchmark_acc() {
         with acc(acc_dev(), grid, block) @{
-            let seed = seed_gpu.data as &[u64];
+            let seed = seed_gpu.data as &[1][u64];
             let mut state = seed(acc_gidy()*width + acc_gidx());
             fn rand() -> f64 {
                 let r = rnd_f64(state);
                 state = r(1);
                 r(0)
             }
-            body(acc_gidx(), acc_gidy(), out_gpu, rand);
+            fn out_fun(r: u8, g: u8, b: u8) -> () {
+                let mut out = out_gpu.data as &[1][u8];
+                out(3 * (acc_gidy() * width + acc_gidx()) + 0) = r;
+                out(3 * (acc_gidy() * width + acc_gidx()) + 1) = g;
+                out(3 * (acc_gidy() * width + acc_gidx()) + 2) = b;
+            }
+            body(acc_gidx(), acc_gidy(), out_fun, rand);
         }
     }
 

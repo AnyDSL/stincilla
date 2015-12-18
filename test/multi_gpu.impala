@@ -1,5 +1,5 @@
 fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer,
-                   body: fn(i32, i32, &[f32], &[f32]) -> ()
+                   body: fn(i32, i32, &[1][f32], &[1][f32]) -> ()
                   ) -> () {
     let num_dev  = 2;
     let ids_buf  = alloc_host(num_dev * 4 /* sizeof[f32]() */);
@@ -17,7 +17,7 @@ fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer,
             copy_offset(arr, offset, arr_gpu, 0, size_gpu);
 
             with acc(dev, grid, block) @{
-                body(acc_gidx(), acc_gidy(), out_gpu.data as &[f32], arr_gpu.data as &[f32]);
+                body(acc_gidx(), acc_gidy(), out_gpu.data as &[1][f32], arr_gpu.data as &[1][f32]);
             }
 
             copy_offset(out_gpu, 0, out, offset, size_gpu);

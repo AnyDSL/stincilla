@@ -4,15 +4,21 @@ extern "C" {
 }
 
 fn iteration(out: Buffer, width: i32, height: i32,
-             body: fn(i32, i32, Buffer, fn() -> f64) -> ()
+             body: fn(i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
             ) -> () {
     srand48(thorin_get_micro_time());
+    fn rand() -> f64 { drand48() }
 
     for benchmark_cpu() {
         for y in $outer_loop(0, height) {
             for x in $inner_loop(0, width) @{
-                fn rand() -> f64 { drand48() }
-                body(x, y, out, rand);
+                fn out_fun(r: u8, g: u8, b: u8) -> () {
+                    let mut out = out.data as &[u8];
+                    out(3 * (y * width + x) + 0) = r;
+                    out(3 * (y * width + x) + 1) = g;
+                    out(3 * (y * width + x) + 2) = b;
+                }
+                body(x, y, out_fun, rand);
             }
         }
     }
