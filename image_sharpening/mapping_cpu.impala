@@ -1,8 +1,9 @@
 fn iteration1f1i(out: Img, arr: Imgi16,
-                 body: fn(int, int, Acc, Acci16) -> ()
+                 bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
+                 body: fn(i32, i32, Acc, Acci16) -> ()
                 ) -> () {
-    let out_acc = get_acc    (out, 10);
-    let arr_acc = get_acc_i16(arr, 10);
+    let out_acc = get_write_acc(out);
+    let arr_acc = get_read_acci16(arr, 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -13,10 +14,11 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     }
 }
 fn iteration2i(out: Imgi16, arr: Imgi16,
-               body: fn(int, int, Acci16, Acci16) -> ()
+               bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
+               body: fn(i32, i32, Acci16, Acci16) -> ()
               ) -> () {
-    let out_acc = get_acc_i16(out, 10);
-    let arr_acc = get_acc_i16(arr, 10);
+    let out_acc = get_write_acci16(out);
+    let arr_acc = get_read_acci16(arr, 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -27,11 +29,12 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     }
 }
 fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
-                 body: fn(int, int, Acci16, Acci16, Acc) -> ()
+                 bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
+                 body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
                 ) -> () {
-    let out_acc = get_acc_i16(out, 10);
-    let img_acc = get_acc_i16(img, 10);
-    let map_acc = get_acc    (map, 10);
+    let out_acc = get_write_acci16(out);
+    let img_acc = get_read_acci16(img, 10, bh_lower, bh_upper);
+    let map_acc = get_read_acc(map, 4, nobh_center, nobh_center);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -42,11 +45,11 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
     }
 }
 fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
-               body: fn(int, int, Acci16, Acci16, Acci16) -> ()
+               body: fn(i32, i32, Acci16, Acci16, Acci16) -> ()
               ) -> () {
-    let out_acc = get_acc_i16(out, 10);
-    let img_acc = get_acc_i16(img, 10);
-    let tmp_acc = get_acc_i16(tmp, 10);
+    let out_acc = get_write_acci16(out);
+    let img_acc = get_read_acci16(img, 4, nobh_center_i16, nobh_center_i16);
+    let tmp_acc = get_read_acci16(tmp, 4, nobh_center_i16, nobh_center_i16);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -56,33 +59,45 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
         }
     }
 }
-fn reduce(tmp: Imgi16, body: fn(int, int, Imgi16) -> int) -> int {
+fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     let mut sum = 0;
-    for y in $range(0, tmp.height) {
-        for x in $inner_loop(0, tmp.width) @{
-            sum += body(x, y, tmp);
+    let img_acc = get_read_acci16(img, 4, nobh_center_i16, nobh_center_i16);
+    for y in $range(0, img.height) {
+        for x in $inner_loop(0, img.width) @{
+            sum += body(x, y, img_acc);
         }
     }
     sum
 }
-fn hist(img: Img, body: fn(int, int, Img) -> int) -> &[int] {
-    let mut bins = ~[256: int];
-    for i in $range(0, 256) { bins(i) = 0; }
+fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
+    let hist_buf = alloc_host(256 * 4);
+    let mut hist = hist_buf.data as &[i32];
+    let img_acc  = get_read_acc(img, 4, nobh_center, nobh_center);
+
+    for i in $range(0, 256) {
+        hist(i) = 0;
+    }
     for y in $range(0, img.height) {
         for x in $range(0, img.width) @{
-            let bin = body(x, y, img);
-            bins(bin)++;
+            let bin = body(x, y, img_acc);
+            hist(bin)++;
         }
     }
-    bins
+
+    hist_buf
 }
-fn inclusive_scan(img: &[int], size: int, body: fn(int, &[int]) -> int) -> &[int] {
-    let mut arr = ~[size: int];
-    arr(0) = body(0, img);
-    for i in $range(1, size) { arr(i) = arr(i-1) + body(i, img); }
-    arr
+fn inclusive_scan(hist: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> Buffer {
+    let scan_buf = alloc_host(size * 4);
+    let mut scan = scan_buf.data as &[i32];
+    scan(0) = body(0, hist);
+    for i in $range(1, size) {
+        scan(i) = scan(i-1) + body(i, hist);
+    }
+    scan_buf
 }
-fn find_position(img: &[int], size: int, body: fn(int, &[int]) -> int) -> int {
-    for i in $range(0, size) { if body(i, img) != 0 { return(i) } }
+fn find_position(scan: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> i32 {
+    for i in $range(0, size) {
+        if body(i, scan) != 0 { return(i) }
+    }
     size
 }

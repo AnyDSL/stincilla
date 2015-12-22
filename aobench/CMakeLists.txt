@@ -1,9 +1,9 @@
-thorin_runtime_wrap(AOBENCH_FILES AOBENCH_LIBS
+thorin_runtime_wrap(AOBENCH_PROGRAM
     BACKEND ${BACKEND}
-    FILES ../utils.impala mapping_${DEVICE}.impala ao.impala)
+    FILES ../utils.impala mapping_${DEVICE}.impala aobench.impala)
 if(NOT MSVC)
     set_source_files_properties(main.cpp PROPERTIES COMPILE_FLAGS "-std=c++11")
 endif()
-add_executable(aobench main.cpp ${AOBENCH_FILES})
-target_link_libraries(aobench ${AOBENCH_LIBS})
+add_executable(aobench main.cpp ${AOBENCH_PROGRAM})
+target_link_libraries(aobench ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
 add_test("aobench" aobench)

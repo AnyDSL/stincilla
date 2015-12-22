@@ -1,63 +1,59 @@
 type Mask = Mask5;
 type MaskSep = Mask5Sep;
 
-fn closeness(c_d: float, xf: int, yf: int) -> float {
-    expf(-c_d * (xf*xf as float)) * expf(-c_d * (yf*yf as float))
+fn closeness(c_d: f32, xf: i32, yf: i32) -> f32 {
+    expf(-c_d * (xf*xf as f32)) * expf(-c_d * (yf*yf as f32))
 }
-fn similarity(c_r: float, xi: float, x: float) -> float {
+fn similarity(c_r: f32, xi: f32, x: f32) -> f32 {
     let diff = xi - x;
     expf(-c_r * diff * diff)
 }
 
-fn bilateral_filter(x: int, y: int, acc: Acc, sigma_d: int, c_d: float, c_r: float,
-                    bh_lower: fn(int, int, int, fn(f32)) -> int, bh_upper: fn(int, int, int, fn(f32)) -> int
-                   ) -> float {
+fn bilateral_filter(x: i32, y: i32, acc: Acc, mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
     let mut k = 0.0f;
     let mut p = 0.0f;
 
     for yf in range(-2*sigma_d, 2*sigma_d+1) {
         for xf in range(-2*sigma_d, 2*sigma_d+1) {
-            let diff = get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper) - pixel_at(acc, x, y);
+            let diff = acc.read(x + xf, y + yf) - acc.read(x, y);
 
             let c = closeness(c_d, xf, yf);
-            let s = similarity(c_r, get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper), pixel_at(acc, x, y));
+            let s = similarity(c_r, acc.read(x + xf, y + yf), acc.read(x, y));
 
             k += c * s;
-            p += c * s * get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper);
+            p += c * s * acc.read(x + xf, y + yf);
         }
     }
 
-    p/k
+    p / k
 }
 
-fn bilateral_filter_mask(x: int, y: int, acc: Acc, mask: Mask, sigma_d: int, c_r: float,
-                         bh_lower: fn(int, int, int, fn(f32)) -> int, bh_upper: fn(int, int, int, fn(f32)) -> int
-                        ) -> float {
+fn bilateral_filter_mask(x: i32, y: i32, acc: Acc, mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
     let mut k = 0.0f;
     let mut p = 0.0f;
 
     for yf in range(-2*sigma_d, 2*sigma_d+1) {
         for xf in range(-2*sigma_d, 2*sigma_d+1) {
-            let diff = get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper) - pixel_at(acc, x, y);
+            let diff = acc.read(x + xf, y + yf) - acc.read(x, y);
 
             let c = mask.data(xf + 2*sigma_d)(yf + 2*sigma_d);
             let s = expf(-c_r * diff*diff);
 
             k += c * s;
-            p += c * s * get_pixel(acc, x + xf, y + yf, bh_lower, bh_upper);
+            p += c * s * acc.read(x + xf, y + yf);
         }
     }
 
-    p/k
+    p / k
 }
 
-fn main() -> int {
+fn main() -> i32 {
     let width   = 1024;
     let height  = 1024;
     let sigma_r = 5.0f;
     let c_r     = 1.0f / (2.0f * sigma_r*sigma_r);
-    let arr     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let out     = Img { data : ~[width*height:float], width : width, height : height, stride : width };
+    let arr     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let out     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
 
     let mask    = Mask {
         data : [[0.018316f, 0.082085f, 0.135335f, 0.082085f, 0.018316f],
@@ -99,7 +95,7 @@ fn main() -> int {
     //};
 
     let sigma_d = mask.size_x / 4;
-    let c_d = 1.0f / (2.0f * (sigma_d*sigma_d as float));
+    let c_d = 1.0f / (2.0f * (sigma_d*sigma_d as f32));
 
     let lower = clamp_lower;
     let upper = clamp_upper;
@@ -108,30 +104,43 @@ fn main() -> int {
     //let iteration_fun = iteration_bounds;           // SS + BH
     //let iteration_fun = iteration_advanced;         // SS + SM
 
-    for x, y, mut out_acc, arr_acc, mask in @iteration_fun(out, arr, mask) {
-        //out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter(x, y, arr_acc, sigma_d, c_d, c_r, lower, upper);
-        out_acc.img.data((out_acc.roi.o_y + out_acc.roy + y)*out_acc.img.stride + out_acc.roi.o_x + out_acc.rox + x) = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_r, lower, upper);
+    //let bilateral_fun = bilateral_filter;
+    let bilateral_fun = bilateral_filter_mask;
+
+    for x, y, out_acc, arr_acc, mask in @iteration_fun(out, arr, mask, lower, upper) {
+        out_acc.write(x, y, bilateral_fun(x, y, arr_acc, mask, sigma_d, c_d, c_r));
     }
     print_total_timing();
 
     // compare results
-    fn reference() -> int {
+    fn reference() -> i32 {
         let mut passed = 0;
         //let mut rms_err = 0.0f;   // RMS error
         //let EPS = 0.02f;
-        //let arr_acc = get_acc(arr, 10);
+        //let arr_acc = get_read_acc(arr, 10, lower, upper);
         //for y in $range(0, out.height) {
         //    for x in $range(0, out.width) @{
-        //        let ref = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_r, lower, upper);
-        //        let mut err = ref - out.data(y*out.stride + x);
+        //        let ref = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_d, c_r);
+        //        let mut err = ref - get_pixel(out, y*out.stride + x);
         //        rms_err += err*err;
         //
         //        if err < 0.0f { err = -err; }
         //        if err > EPS  { passed = 42; }
         //    }
         //}
-        //rms_err = sqrtf(rms_err / (out.width*out.height as float));
+        //rms_err = sqrtf(rms_err / (out.width*out.height as f32));
+        //if passed == 0 {
+        //    thorin_print_string("Test PASSED!\n");
+        //} else {
+        //    thorin_print_string("Test FAILED!\n");
+        //}
         passed
     }
-    @reference()
+
+    let result = @reference();
+
+    release(arr.buf);
+    release(out.buf);
+
+    result
 }

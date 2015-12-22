@@ -1,55 +1,62 @@
-fn iteration_multi(width: int, height: int,
-                   out: &[float], arr: &[float],
-                   body: fn(int, int, &[float], &[float]) -> ()
+fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer,
+                   body: fn(i32, i32, &[1][f32], &[1][f32]) -> ()
                   ) -> () {
-    let mut ids : [int * 2];
-    let mut map_arr : [&[f32] * 2];
-    let mut map_out : [&[f32] * 2];
+    let num_dev  = 2;
+    let ids_buf  = alloc_host(num_dev * 4 /* sizeof[f32]() */);
+    let mut ids  = ids_buf.data as &[i32];
+    let size_gpu = width * height / num_dev * 4 /* sizeof[f32]() */;
 
-    for dev in @range(0, 2) {
-        let height_dev = height / 2;
-        let mem_size_dev = width * height_dev;
-        let offset = dev * mem_size_dev;
-        let grid  = (width, height_dev, 1);
+    for dev in range(0, num_dev) {
+        let offset = dev * size_gpu;
+        let grid  = (width, height / num_dev, 1);
         let block = (128, 1, 1);
 
-        map_arr(dev) = mmap_f32(arr, dev, acc_tex(), offset, mem_size_dev);
-        map_out(dev) = mmap_f32(out, dev, acc_mem(), offset, mem_size_dev);
+        ids(dev) = with spawn() @{
+            let arr_gpu = acc_alloc(dev, size_gpu);
+            let out_gpu = acc_alloc(dev, size_gpu);
+            copy_offset(arr, offset, arr_gpu, 0, size_gpu);
 
-        ids(dev) = spawn(|| -> () @{
-            acc(dev, grid, block, || @{
-                body(acc_gidx(), acc_gidy(), map_out(dev), map_arr(dev));
-            });
-        });
+            with acc(dev, grid, block) @{
+                body(acc_gidx(), acc_gidy(), out_gpu.data as &[1][f32], arr_gpu.data as &[1][f32]);
+            }
+
+            copy_offset(out_gpu, 0, out, offset, size_gpu);
+            release(out_gpu);
+            release(arr_gpu);
+        }
     }
 
-    for dev in range(0, 2) {
+    for dev in range(0, num_dev) {
         sync(ids(dev));
-        munmap_f32(map_arr(dev));
-        munmap_f32(map_out(dev));
     }
 }
 
 fn main() -> int {
-    let width  = 4096;
-    let height = 4096;
-    let arr    = ~[width*height:float];
-    let out    = ~[width*height:float];
+    let width   = 4096;
+    let height  = 4096;
+    let arr_buf = alloc_host(width * height * sizeof[f32]());
+    let out_buf = alloc_host(width * height * sizeof[f32]());
+    let arr = arr_buf.data as &[f32];
+    let out = out_buf.data as &[f32];
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
-    for x, y, arr, mut out in @iteration_multi(width, height, out, arr) {
-        out(x + y*width) = arr(x + y*width);
+    for x, y, mut out, arr in @iteration_multi(width, height, out_buf, arr_buf) {
+        out(y*width + x) = arr(y*width + x);
     }
 
     let mut passed = 0;
-
-    for y in range(0, height) {
-        for x in range(0, width) {
-            if out(x + y*width) != arr(x + y*width) { passed++; }
-        }
+    for i in range(0, width*height) {
+        if out(i) != arr(i) { passed++; }
+    }
+    if passed == 0 {
+        thorin_print_string("Test PASSED!\n");
+    } else {
+        thorin_print_string("Test FAILED!\n");
     }
 
-    passed
-}
+    release(arr_buf);
+    release(out_buf);
 
+    if passed >= 256 { 255 } else { passed }
+}

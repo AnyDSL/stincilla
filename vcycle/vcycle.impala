@@ -1,9 +1,7 @@
 type Mask = Mask3;
 type MaskSep = Mask3Sep;
 
-fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
-                 bh_lower: fn(int, int, int, fn(f32)) -> int, bh_upper: fn(int, int, int, fn(f32)) -> int
-                ) -> float {
+fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
@@ -12,7 +10,7 @@ fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
         for i in range(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
             if stencil_val != 0.0f {
-                sum += get_pixel(acc, x + i, y + j, bh_lower, bh_upper) * stencil_val;
+                sum += acc.read(x + i, y + j) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
@@ -20,10 +18,6 @@ fn apply_stencil(x: int, y: int, acc: Acc, mask: Mask,
     }
 
     sum
-}
-
-fn set_pixel(mut acc: Acc, x: int, y: int, val: float) -> () {
-    acc.img.data((acc.roi.o_y + acc.roy + y)*acc.img.stride + acc.roi.o_x + acc.rox + x) = val
 }
 
 
@@ -35,9 +29,8 @@ fn deriv2D(RHS: Img, img: Img) -> () {
                 [0.0f,  1.0f, 0.0f]],
         size_x : 3, size_y : 3
     };
-    for x, y, rhs_acc, img_acc, mask in iteration_bounds(RHS, img, mask) {
-        let val = apply_stencil(x, y, img_acc, mask, mirror_lower, mirror_upper);
-        set_pixel(rhs_acc, x, y, val);
+    for x, y, rhs_acc, img_acc, mask in iteration_bounds(RHS, img, mask, mirror_lower, mirror_upper) {
+        rhs_acc.write(x, y, apply_stencil(x, y, img_acc, mask));
     }
 }
 
@@ -53,22 +46,20 @@ static jacobi_mask = Mask {
 // Dirichlet boundary handling -> 0
 //static dirichlet_lower = wrap_const_fun(const_lower, 0.0f);
 //static dirichlet_upper = wrap_const_fun(const_upper, 0.0f);
-fn dirichlet_lower(idx: int, lower: int, upper: int, out: fn(f32)) -> int { const_lower(idx, lower, upper, 0.0f, out) }
-fn dirichlet_upper(idx: int, lower: int, upper: int, out: fn(f32)) -> int { const_upper(idx, lower, upper, 0.0f, out) }
-fn jacobi_solver(x: int, y: int, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> () {
-    let val = (1.0f - omega) * pixel_at(Tmp, x, y) +
-              0.25f * omega  * pixel_at(RHS, x, y) +
-              apply_stencil(x, y, Tmp, mask, dirichlet_lower, dirichlet_upper);
-    set_pixel(Sol, x, y, val);
+fn dirichlet_lower(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 { const_lower(idx, lower, upper, 0.0f, out) }
+fn dirichlet_upper(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 { const_upper(idx, lower, upper, 0.0f, out) }
+fn jacobi_solver(x: i32, y: i32, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> () {
+    let val = (1.0f - omega) * Tmp.read(x, y) +
+              0.25f * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, mask);
+    Sol.write(x, y, val);
 }
 
-fn jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: float) -> () {
-    for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol, Tmp, jacobi_mask) {
-        let rhs_acc = get_acc(RHS, tmp_acc.region);
-        let val = (1.0f - omega) * pixel_at(tmp_acc, x, y) +
-                  0.25f * omega  * pixel_at(rhs_acc, x, y) +
-                  apply_stencil(x, y, tmp_acc, mask, dirichlet_lower, dirichlet_upper);
-        set_pixel(sol_acc, x, y, val);
+fn jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
+    for x, y, Sol, Tmp, mask in iteration_bounds(Sol, Tmp, jacobi_mask, dirichlet_lower, dirichlet_upper) {
+        let RHS = get_read_acc(RHS, 4 /* no bh */, nobh_center, nobh_center);
+        let val = (1.0f - omega) * Tmp.read(x, y) +
+                  0.25f * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, mask);
+        Sol.write(x, y, val);
     }
 }
 
@@ -80,16 +71,15 @@ static residual_mask = Mask {
             [0.0f,  1.0f, 0.0f]],
     size_x : 3, size_y : 3
 };
-fn residual_fun(x: int, y: int, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
-    let val = pixel_at(RHS, x, y) + apply_stencil(x, y, Sol, mask, dirichlet_lower, dirichlet_upper);
-    set_pixel(Res, x, y, val);
+fn residual_fun(x: i32, y: i32, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
+    let val = RHS.read(x, y) + apply_stencil(x, y, Sol, mask);
+    Res.write(x, y, val);
 }
 
 fn residual(Res: Img, Sol: Img, RHS: Img) -> () {
-    for x, y, res_acc, sol_acc, mask in iteration_bounds(Res, Sol, residual_mask) {
-        let rhs_acc = get_acc(RHS, sol_acc.region);
-        let val = pixel_at(rhs_acc, x, y) + apply_stencil(x, y, sol_acc, mask, dirichlet_lower, dirichlet_upper);
-        set_pixel(res_acc, x, y, val);
+    for x, y, Res, sol_acc, mask in iteration_bounds(Res, Sol, residual_mask, dirichlet_lower, dirichlet_upper) {
+        let val = get_pixel(RHS, y*RHS.stride + x) + apply_stencil(x, y, sol_acc, mask);
+        Res.write(x, y, val);
     }
 }
 
@@ -102,21 +92,21 @@ static restrict_mask = Mask {
             [0.25f, 0.50f, 0.25f]],
     size_x : 3, size_y : 3
 };
-fn restrict_fun(x: int, y: int, RHS: Acc, Res: Acc, mask: Mask) -> () {
-    let val = pixel_at(Res, 2*x,   2*y  ) +
-              pixel_at(Res, 2*x+1, 2*y  ) +
-              pixel_at(Res, 2*x,   2*y+1) +
-              pixel_at(Res, 2*x+1, 2*y+1);
-    set_pixel(RHS, x, y, val);
+fn restrict_fun(x: i32, y: i32, RHS: Acc, Res: Acc, mask: Mask) -> () {
+    let val = Res.read(2*x,   2*y  ) +
+              Res.read(2*x+1, 2*y  ) +
+              Res.read(2*x,   2*y+1) +
+              Res.read(2*x+1, 2*y+1);
+    RHS.write(x, y, val);
 }
 
 fn restrict(RHS: Img, Res: Img) -> () {
-    for x, y, rhs_acc, res_acc, mask in iteration(RHS, Res, restrict_mask) {
-        let val = pixel_at(res_acc, 2*x,   2*y  ) +
-                  pixel_at(res_acc, 2*x+1, 2*y  ) +
-                  pixel_at(res_acc, 2*x,   2*y+1) +
-                  pixel_at(res_acc, 2*x+1, 2*y+1);
-        set_pixel(rhs_acc, x, y, val);
+    for x, y, RHS, Res, mask in iteration(RHS, Res, restrict_mask, nobh_center, nobh_center) {
+        let val = Res.read(2*x,   2*y  ) +
+                  Res.read(2*x+1, 2*y  ) +
+                  Res.read(2*x,   2*y+1) +
+                  Res.read(2*x+1, 2*y+1);
+        RHS.write(x, y, val);
     }
 }
 
@@ -129,42 +119,42 @@ static interpolate_mask = Mask {
             [0.25f, 0.50f, 0.25f]],
     size_x : 3, size_y : 3
 };
-fn interpolate_fun(x: int, y: int, SolF: Acc, SolC: Acc, mask: Mask) -> () {
-    let value = pixel_at(SolC, x, y);
-    set_pixel(SolF, 2*x  , 2*y  , pixel_at(SolF, 2*x  , 2*y  ) + value);
-    set_pixel(SolF, 2*x+1, 2*y  , pixel_at(SolF, 2*x+1, 2*y  ) + value);
-    set_pixel(SolF, 2*x  , 2*y+1, pixel_at(SolF, 2*x  , 2*y+1) + value);
-    set_pixel(SolF, 2*x+1, 2*y+1, pixel_at(SolF, 2*x+1, 2*y+1) + value);
+fn interpolate_fun(x: i32, y: i32, SolF: Acc, SolC: Acc, mask: Mask) -> () {
+    let val = SolC.read(x, y);
+    SolF.write(2*x  , 2*y  , SolF.read(2*x  , 2*y  ) + val);
+    SolF.write(2*x+1, 2*y  , SolF.read(2*x+1, 2*y  ) + val);
+    SolF.write(2*x  , 2*y+1, SolF.read(2*x  , 2*y+1) + val);
+    SolF.write(2*x+1, 2*y+1, SolF.read(2*x+1, 2*y+1) + val);
 }
 
 fn interpolate(SolF: Img, SolC: Img) -> () {
     // use iteration space of SolC, compute 4x elements
-    for x, y, solc_acc, solf_acc, mask in iteration(SolC, SolF, interpolate_mask) {
-        let value = pixel_at(solc_acc, x, y);
-        set_pixel(solf_acc, 2*x  , 2*y  , pixel_at(solf_acc, 2*x  , 2*y  ) + value);
-        set_pixel(solf_acc, 2*x+1, 2*y  , pixel_at(solf_acc, 2*x+1, 2*y  ) + value);
-        set_pixel(solf_acc, 2*x  , 2*y+1, pixel_at(solf_acc, 2*x  , 2*y+1) + value);
-        set_pixel(solf_acc, 2*x+1, 2*y+1, pixel_at(solf_acc, 2*x+1, 2*y+1) + value);
+    for x, y, SolC, SolF, mask in iteration(SolC, SolF, interpolate_mask, nobh_center, nobh_center) {
+        let val = SolC.read(x, y);
+        SolF.write(2*x  , 2*y  , SolF.read(2*x  , 2*y  ) + val);
+        SolF.write(2*x+1, 2*y  , SolF.read(2*x+1, 2*y  ) + val);
+        SolF.write(2*x  , 2*y+1, SolF.read(2*x  , 2*y+1) + val);
+        SolF.write(2*x+1, 2*y+1, SolF.read(2*x+1, 2*y+1) + val);
     }
 }
 
 
 // L2 norm
-fn l2norm(img: Img) -> float {
+fn l2norm(img: Img) -> f32 {
     // TODO: runs only on the CPU atm
     let mut l2sum = 0.0f;
     for y in $range(0, img.height) {
         for x in $range(0, img.width) {
-            let value = img.data(y * img.stride + x);
+            let value = (img.buf.data as &[f32])(y * img.stride + x);
             l2sum += value*value;
         }
     }
-    sqrtf(l2sum)/(img.width*img.height as float)
+    sqrtf(l2sum) / (img.width*img.height as f32)
 }
 
 
 // normal V-Cycle, components are hard-coded
-fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
+fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
     let width   = RHS0.width;
     let height  = RHS0.height;
     let mut RHS = ~[levels:Img];
@@ -172,9 +162,9 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
     let mut Tmp = ~[levels:Img];
     let mut Res = ~[levels:Img];
     for level in range(0, levels) {
-        fn init_img(level: int) -> Img {
+        fn init_img(level: i32) -> Img {
             Img {
-                data : ~[(width >> level) * (height >> level): float],
+                buf : alloc_host((width >> level) * (height >> level) * 4),
                 width : width >> level,
                 height : height >> level,
                 stride : width >> level
@@ -188,10 +178,10 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        $init_zero(Tmp(level).data, Tmp(level).stride, Tmp(level).height);
+        init_zero(Tmp(level).buf.data as &[f32], Tmp(level).stride, Tmp(level).height);
     }
 
-    fn vcycle_intern(level: int) -> () {
+    fn vcycle_intern(level: i32) -> () {
         if level == levels-1 {
             // smooth
             for i in range(0, ssteps) {
@@ -208,9 +198,9 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
             residual(Res(level), Sol(level), RHS(level));
             restrict(RHS(level+1), Res(level));
 
-            //if level == 0 { thorin_print_string("L2 norm: "); thorin_print_float(l2norm(Res(level))); thorin_print_char('\n'); }
+            //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
 
-            $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height);
+            init_zero(Tmp(level+1).buf.data as &[f32], Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_intern(level+1);
 
             interpolate(Sol(level), Sol(level+1));
@@ -226,17 +216,33 @@ fn vcycle(RHS0: Img, levels: int, vsteps: int, ssteps: int) -> Img {
         vcycle_intern(0);
     }
 
-    Sol(0)
+    let result = Sol(0);
+
+    for level in range(0, levels) {
+        if level != 0 {
+            release(RHS(level).buf);
+            release(Sol(level).buf);
+        }
+        release(Res(level).buf);
+        release(Tmp(level).buf);
+    }
+
+    thorin_release(0, RHS as &i8);
+    thorin_release(0, Sol as &i8);
+    thorin_release(0, Tmp as &i8);
+    thorin_release(0, Res as &i8);
+
+    result
 }
 
 
 // V-Cycle DSL: solver, etc. can be provided by the user
-fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
-          solver: fn(int, int, Acc, Acc, Acc, Mask) -> (), solver_mask: Mask,
-          residual: fn(int, int, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask,
-          restrict: fn(int, int, Acc, Acc, Mask) -> (), restrict_mask: Mask,
-          interpolate: fn(int, int, Acc, Acc, Mask) -> (), interpolate_mask: Mask
-         ) -> Img {
+fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
+              solver: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), solver_mask: Mask,
+              residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask,
+              restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask,
+              interpolate: fn(i32, i32, Acc, Acc, Mask) -> (), interpolate_mask: Mask
+             ) -> Img {
     let width   = RHS0.width;
     let height  = RHS0.height;
     let mut RHS = ~[levels:Img];
@@ -244,9 +250,9 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
     let mut Tmp = ~[levels:Img];
     let mut Res = ~[levels:Img];
     for level in range(0, levels) {
-        fn init_img(level: int) -> Img {
+        fn init_img(level: i32) -> Img {
             Img {
-                data : ~[(width >> level) * (height >> level): float],
+                buf : alloc_host((width >> level) * (height >> level) * 4),
                 width : width >> level,
                 height : height >> level,
                 stride : width >> level
@@ -260,17 +266,18 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        $init_zero(Tmp(level).data, Tmp(level).stride, Tmp(level).height);
+        init_zero(Tmp(level).buf.data as &[f32], Tmp(level).stride, Tmp(level).height);
     }
 
-    fn vcycle_dsl_intern(level: int) -> () {
+    fn vcycle_dsl_intern(level: i32) -> () {
         let rhs_level = RHS(level);
+        let rhs_level_dev = get_device_copy(rhs_level);
         if level == levels-1 {
             // smooth
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask) {
-                    let rhs_acc = get_acc(rhs_level, tmp_acc.region);
+                for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask, dirichlet_lower, dirichlet_upper) {
+                    let rhs_acc = get_read_acc(rhs_level_dev, 4, nobh_center, nobh_center);
                     solver(x, y, sol_acc, tmp_acc, rhs_acc, mask);
                 }
             }
@@ -278,63 +285,80 @@ fn vcycle_dsl(RHS0: Img, levels: int, vsteps: int, ssteps: int,
             // pre-smooth
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask) {
-                    let rhs_acc = get_acc(rhs_level, tmp_acc.region);
+                for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask, dirichlet_lower, dirichlet_upper) {
+                    let rhs_acc = get_read_acc(rhs_level_dev, 4, nobh_center, nobh_center);
                     solver(x, y, sol_acc, tmp_acc, rhs_acc, mask);
                 }
             }
 
             let merge = true;
             if merge == true {
-                iteration_merge(RHS(level+1), Sol(level), RHS(level), residual, residual_mask, restrict, restrict_mask);
+                iteration_merge(RHS(level+1), Sol(level), RHS(level), dirichlet_lower, dirichlet_upper, residual, residual_mask, restrict, restrict_mask);
             } else {
-                for x, y, res_acc, sol_acc, mask in iteration_bounds(Res(level), Sol(level), residual_mask) {
-                    let rhs_acc = get_acc(rhs_level, sol_acc.region);
+                for x, y, res_acc, sol_acc, mask in iteration_bounds(Res(level), Sol(level), residual_mask, dirichlet_lower, dirichlet_upper) {
+                    let rhs_acc = get_read_acc(rhs_level_dev, 4, nobh_center, nobh_center);
                     residual(x, y, res_acc, sol_acc, rhs_acc, mask);
                 }
 
-                for x, y, rhs_acc, res_acc, mask in iteration(RHS(level+1), Res(level), residual_mask) {
+                for x, y, rhs_acc, res_acc, mask in iteration(RHS(level+1), Res(level), residual_mask, nobh_center, nobh_center) {
                     restrict(x, y, rhs_acc, res_acc, mask);
                 }
             }
 
-            //if level == 0 { thorin_print_string("L2 norm: "); thorin_print_float(l2norm(Res(level))); thorin_print_char('\n'); }
+            //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
 
-            $init_zero(Tmp(level+1).data, Tmp(level+1).stride, Tmp(level+1).height);
+            init_zero(Tmp(level+1).buf.data as &[f32], Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_dsl_intern(level+1);
 
             // use iteration space of SolC, compute 4x elements
-            for x, y, solc_acc, solf_acc, mask in iteration(Sol(level+1), Sol(level), interpolate_mask) {
+            for x, y, solc_acc, solf_acc, mask in iteration(Sol(level+1), Sol(level), interpolate_mask, nobh_center, nobh_center) {
                 interpolate(x, y, solf_acc, solc_acc, mask);
             }
 
             // post-smooth
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask) {
-                    let rhs_acc = get_acc(rhs_level, tmp_acc.region);
+                for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask, dirichlet_lower, dirichlet_upper) {
+                    let rhs_acc = get_read_acc(rhs_level_dev, 4, nobh_center, nobh_center);
                     solver(x, y, sol_acc, tmp_acc, rhs_acc, mask);
                 }
             }
         }
+        release_device_copy(rhs_level_dev);
     }
     for i in range(0, vsteps) {
         vcycle_dsl_intern(0);
     }
 
-    Sol(0)
+    let result = Sol(0);
+
+    for level in range(0, levels) {
+        if level != 0 {
+            release(RHS(level).buf);
+            release(Sol(level).buf);
+        }
+        release(Res(level).buf);
+        release(Tmp(level).buf);
+    }
+
+    thorin_release(0, RHS as &i8);
+    thorin_release(0, Sol as &i8);
+    thorin_release(0, Tmp as &i8);
+    thorin_release(0, Res as &i8);
+
+    result
 }
 
 
 extern
-fn thorin_vcycle(img_data: &[float], out_data: &[float], width: int, height: int) -> () {
-    let RHS     = Img { data : ~[width * height: float], width : width, height : height, stride : width };
-    let mut img = Img { data : ~[width * height: float], width : width, height : height, stride : width };
-    let mut out = Img { data : out_data , width : width, height : height, stride : width };
+fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
+    let RHS     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let mut img = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let mut out = Img { buf : Buffer { device : 0, data : out_data as &[i8]}, width : width, height : height, stride : width };
 
     for y in range(0, img.height) {
         for x in range(0, img.width) {
-            img.data(y*img.stride + x) = img_data(y*img.width + x);
+            (img.buf.data as &[f32])(y*img.stride + x) = img_data(y*img.width + x);
         }
     }
 
@@ -345,13 +369,17 @@ fn thorin_vcycle(img_data: &[float], out_data: &[float], width: int, height: int
     let ssteps = 2;
 
     let result = @vcycle_dsl(RHS, levels, vsteps, ssteps, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, restrict_mask, interpolate_fun, interpolate_mask);
-    //let result = @vcycle(RHS, levels, vsteps, ssteps);
+    //let result = @vcycle_reference(RHS, levels, vsteps, ssteps);
     print_total_timing();
 
     for y in range(0, out.height) {
         for x in range(0, out.width) {
-            out.data(y*out.width + x) = result.data(y*result.stride + x);
+            (out.buf.data as &[f32])(y*out.width + x) = (result.buf.data as &[f32])(y*result.stride + x);
         }
     }
+
+    release(result.buf);
+    release(RHS.buf);
+    release(img.buf);
 }
 

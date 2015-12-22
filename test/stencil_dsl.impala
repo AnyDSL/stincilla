@@ -1,0 +1,112 @@
+// DSL implementation
+
+fn range(lower: i32, upper: i32, body: fn(i32, fn())) -> () {
+    if lower < upper {
+        body(lower);
+        range(lower+1, upper, body, return)
+    }
+}
+
+fn apply_stencil(x: i32, y: i32, arr: Accessor, stencil: [f32 * 3]) -> f32 {
+    let mut sum = 0.0f;
+    let size = 1;
+    for i in range(-size, size+1) {
+        sum += stencil(i + size) * arr.read(x + i, y);
+    }
+    sum
+}
+
+fn apply_bh(mut index: i32,
+            bh_lower: fn(i32, i32) -> i32, bh_upper: fn(i32, i32) -> i32,
+            lb: i32, ub: i32) -> i32 {
+    if index < lb  { index = bh_lower(index, lb); }
+    if index >= ub { index = bh_upper(index, ub); }
+    index
+}
+
+fn get_elem(fld: Field, idx: i32) -> f32 { (fld.buf.data as &[f32])(idx) }
+fn set_elem(mut fld: Field, idx: i32, val: f32) -> () { (fld.buf.data as &[f32])(idx) = val }
+fn iterate_field(out: Field, arr: Field, stencil: [f32 * 3],
+                 bh_lower: fn(i32, i32) -> i32, bh_upper: fn(i32, i32) -> i32,
+                 body: fn(i32, i32, Accessor, Accessor, [f32 * 3]) -> ()) -> () {
+    let size = 1;
+    let lb = [0,    size,            out.cols - size];
+    let ub = [size, out.cols - size, out.cols];
+    let out_acc = Accessor {
+        cols  : || out.cols, rows : || out.rows,
+        read  : |x, y|    { get_elem(out, y*out.cols + x) },
+        write : |x, y, v| { set_elem(out, y*out.cols + x, v) }
+    };
+
+    for y in $range(0, out.rows) {
+        for region in @range(0, 3) {
+            let arr_acc = Accessor {
+                cols  : || arr.cols, rows : || arr.rows,
+                read  : |x, y|    { get_elem(arr, y*arr.cols + apply_bh(x, bh_lower, bh_upper, 0, arr.cols)) },
+                write : |x, y, v| { set_elem(arr, y*arr.cols + x, v) }
+            };
+
+            for x in $range(lb(region), ub(region)) @{
+                body(x, y, out_acc, arr_acc, stencil);
+            }
+        }
+    }
+}
+
+
+// DSL code
+
+struct Field {
+    buf : Buffer,
+    cols : i32,
+    rows : i32,
+    stride : i32,
+}
+
+struct Accessor {
+    cols  : fn() -> i32,
+    rows  : fn() -> i32,
+    read  : fn(i32, i32) -> f32,
+    write : fn(i32, i32, f32) -> (),
+}
+
+fn clamp_lower(index: i32, lower: i32) -> i32 {
+    if index < lower { lower } else { index }
+}
+
+fn clamp_upper(index: i32, upper: i32) -> i32 {
+    if index >= upper { upper - 1 } else { index }
+}
+
+fn main() -> i32 {
+    let width   = 2048;
+    let height  = 2048;
+    let a       = 0.2f;
+    let b       = 1.0f - 4.0f * a;
+    let num_it  = 100;
+    let mut arr = Field { buf : alloc_host(width * height * sizeof[f32]()), cols : width, rows : height, stride : width };
+    let mut out = Field { buf : alloc_host(width * height * sizeof[f32]()), cols : width, rows : height, stride : width };
+    let stencil = [b, a, b];
+
+    for iter in range(0, num_it) {
+        for x, y, out_acc, arr_acc, stencil in @iterate_field(out, arr, stencil, clamp_lower, clamp_upper) {
+            let val = apply_stencil(x, y, arr_acc, stencil);
+            out_acc.write(x, y, val);
+        }
+
+        let tmp = arr;
+        arr = out;
+        out = tmp;
+    }
+
+    // do something with the result as test
+    let mut sum = 0.0f;
+    for iter in range(0, width*height) {
+        sum += (out.buf.data as &[f32])(iter)
+    }
+
+    release(arr.buf);
+    release(out.buf);
+
+    if sum > -1.0f && sum < 1.0f { 0 } else { 1 }
+}

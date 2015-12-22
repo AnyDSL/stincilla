@@ -18,7 +18,7 @@ struct Isect {
     t: f64,
     p: vec,
     n: vec,
-    hit: int,
+    hit: i32,
 }
 
 struct Sphere {
@@ -196,8 +196,8 @@ fn clamp(f: f64) -> u8 {
     i as u8
 }
 
-fn render(img: &[u8], w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], plane: Plane) -> () {
-    for x, y, mut img, rand in @iteration(img, w, h) {
+fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], plane: Plane) -> () {
+    for x, y, out, rand in @iteration(img, w, h) {
         let mut r = 0.0;
         let mut g = 0.0;
         let mut b = 0.0;
@@ -236,9 +236,7 @@ fn render(img: &[u8], w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], p
         g /= (nsubsamples * nsubsamples) as f64;
         b /= (nsubsamples * nsubsamples) as f64;
 
-        img(3 * (y * w + x) + 0) = clamp(r);
-        img(3 * (y * w + x) + 1) = clamp(g);
-        img(3 * (y * w + x) + 2) = clamp(b);
+        out(clamp(r), clamp(g), clamp(b))
     }
 }
 
@@ -270,15 +268,15 @@ fn init_scene(mut spheres: [Sphere * 3], mut plane: Plane) -> ([Sphere * 3], Pla
 }
 
 extern
-fn thorin_ao() -> () {
-    let img = ~[WIDTH*HEIGHT*3:u8];
+fn aobench() -> () {
+    let img = alloc_host(WIDTH*HEIGHT*3 * 1);
     let mut spheres: [Sphere * 3];
     let mut plane: Plane;
     let scene = init_scene(spheres, plane);
     spheres = scene(0);
     plane = scene(1);
     render(img, WIDTH, HEIGHT, NSUBSAMPLES, spheres, plane);
-    saveppm(img, WIDTH, HEIGHT);
+    saveppm(img.data as &[u8], WIDTH, HEIGHT);
+    release(img);
     print_total_timing()
 }
-

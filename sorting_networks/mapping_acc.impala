@@ -1,16 +1,25 @@
 fn iteration(out: Img, arr: Img,
-             body: fn(int, int, Acc, Acc) -> ()
+             bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
+             body: fn(i32, i32, Acc, Acc) -> ()
             ) -> () {
     let grid  = (out.width, out.height, 1);
     let block = (128, 1, 1);
 
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
+    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
+
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
+        with acc(acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_gidy();
-            let arr_acc = get_acc(arr, 10);
-            let out_acc = get_acc(out, 10);
+            let arr_acc = get_read_acc(arr_gpu, 10, bh_lower, bh_upper);
+            let out_acc = get_write_acc(out_gpu);
             body(gid_x, gid_y, out_acc, arr_acc);
-        });
+        }
     }
+
+    copy(out_gpu.buf, out.buf, out.width * out.height * 4);
+    release(out_gpu.buf);
+    release(arr_gpu.buf);
 }

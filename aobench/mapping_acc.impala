@@ -17,34 +17,44 @@ fn rnd_f64(state: u64) -> (f64, u64) {
     ((r(0) as f64) * k, r(1))
 }
 
-fn iteration(out: &[u8], width: int, height: int,
-             body: fn(int, int, &[u8], fn() -> f64) -> ()
+fn iteration(out: Buffer, width: i32, height: i32,
+             body: fn(i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
             ) -> () {
-    let grid   = (width, height, 1);
-    let block  = (32, 4, 1);
+    let grid  = (width, height, 1);
+    let block = (32, 4, 1);
 
     // initialize seed on the CPU using mrand48()
     srand48(thorin_get_micro_time());
-    let mut seed = ~[width * height: u64];
+    let seed_buf = alloc_host(width * height * 8);
+    let mut seed = seed_buf.data as &[u64];
     for i in $range(0, width * height) {
         seed(i) = mrand48() as u64;
     }
 
-    let seed_gpu = mmap_u64(seed, acc_dev(), acc_mem(), 0, width * height);
-    let out = mmap_u8(out, acc_dev(), acc_mem(), 0, width * height * 3);
+    let seed_gpu = acc_alloc(acc_dev(), width * height * 8);
+    let out_gpu  = acc_alloc(acc_dev(), width * height * 3 * 1);
+    copy(seed_buf, seed_gpu, width * height * 8);
 
     for benchmark_acc() {
-        acc(acc_dev(), grid, block, || @{
-            let mut state = seed_gpu(acc_gidy()*width + acc_gidx()) as u64;
+        with acc(acc_dev(), grid, block) @{
+            let seed = seed_gpu.data as &[1][u64];
+            let mut state = seed(acc_gidy()*width + acc_gidx());
             fn rand() -> f64 {
                 let r = rnd_f64(state);
                 state = r(1);
                 r(0)
             }
-            body(acc_gidx(), acc_gidy(), out, rand);
-        });
+            fn out_fun(r: u8, g: u8, b: u8) -> () {
+                let mut out = out_gpu.data as &[1][u8];
+                out(3 * (acc_gidy() * width + acc_gidx()) + 0) = r;
+                out(3 * (acc_gidy() * width + acc_gidx()) + 1) = g;
+                out(3 * (acc_gidy() * width + acc_gidx()) + 2) = b;
+            }
+            body(acc_gidx(), acc_gidy(), out_fun, rand);
+        }
     }
 
-    munmap_u8(out);
-    munmap_u64(seed_gpu);
+    copy(out_gpu, out, width * height * 3 * 1);
+    release(seed_buf);
+    release(out_gpu);
 }

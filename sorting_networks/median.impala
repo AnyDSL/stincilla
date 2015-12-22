@@ -1,48 +1,55 @@
-fn main() -> int {
+fn main() -> i32 {
     let length = 4;
     let width  = 4096;
     let height = 4096;
-    let arr    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    let out    = Img { data : ~[width*height:float], width : width, height : height, stride : width };
-    init_rand(arr.data, arr.stride, out.height);
-    init_zero(out.data, out.stride, out.height);
+    let arr    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let out    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    init_rand(arr.buf.data as &[f32], arr.stride, out.height);
+    init_zero(out.buf.data as &[f32], out.stride, out.height);
 
-    for x, y, mut out_acc, arr_acc in @iteration(out, arr) {
-        fn median() -> float {
-            let mut tmp_arr: [float * 4];
+    for x, y, out, arr in @iteration(out, arr, clamp_lower, clamp_upper) {
+        fn median() -> f32 {
+            let mut tmp: [f32 * 4];
             for i in range(-length/2, +length/2 + 1) {
-                let x_clamped = clamp_upper(clamp_lower(x + i, 0, arr_acc.img.width, return), 0, arr_acc.img.width, return);
-                tmp_arr(i + length / 2) = arr_acc.img.data(y * arr_acc.img.stride + x_clamped);
+                tmp(i + length / 2) = arr.read(x + i, y);
             }
 
-            oddeven_merge_sort(length, tmp_arr);
+            oddeven_merge_sort(length, tmp);
 
-            tmp_arr((length - 1) / 2)
+            tmp((length - 1) / 2)
         }
-        out_acc.img.data(y * out_acc.img.stride + x) = median();
+        out.write(x, y, median());
     }
     print_total_timing();
 
-    fn reference() -> int {
+    fn reference() -> i32 {
         let mut passed = 0;
-        let mut tmp_arr = ~[length:f32];
         for y in $range(0, out.height) {
-            for x in $range(0, out.width) @{
-                fn median() -> float {
+            for x in range(0, out.width) @{
+                fn median() -> f32 {
+                    let mut tmp: [f32 * 4];
                     for i in range(-length/2, +length/2 + 1) {
                         let x_clamped = clamp_upper(clamp_lower(x + i, 0, arr.width, return), 0, arr.width, return);
-                        tmp_arr(i + length / 2) = arr.data(y * arr.stride + x_clamped);
+                        tmp(i + length / 2) = get_pixel(arr, y*arr.stride + x_clamped);
                     }
-                    sort_f32(length, tmp_arr);
-                    tmp_arr((length - 1) / 2)
+                    sort_f32(length, &tmp);
+                    tmp((length - 1) / 2)
                 }
-                let ref = median();
-                if ref != out.data(y * out.stride + x) {
-                    passed++;
-                }
+                if median() != get_pixel(out, y*out.stride + x) { passed = 42; }
             }
+        }
+        if passed == 0 {
+            thorin_print_string("Test PASSED!\n");
+        } else {
+            thorin_print_string("Test FAILED!\n");
         }
         passed
     }
-    @reference()
+
+    let result = @reference();
+
+    release(arr.buf);
+    release(out.buf);
+
+    result
 }
