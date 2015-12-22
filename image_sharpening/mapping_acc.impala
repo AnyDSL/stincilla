@@ -127,7 +127,7 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
 fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     // temporary memory for reduction
     let tmp_buf = acc_alloc(acc_dev(), img.width * 32);
-    let mut tmp = tmp_buf.data as &[i32];
+    let mut tmp = tmp_buf.data as &[1][i32];
 
     let img_gpu = get_img_i16(acc_alloc(acc_dev(), img.width * img.height * 2), img.width, img.height);
     copy(img.buf, img_gpu.buf, img.width * img.height * 2);
@@ -198,32 +198,33 @@ fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
 
     hist_buf
 }
-fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> Buffer {
-    let scan_buf = acc_alloc(acc_dev(), size * 4);
-    let mut scan = scan_buf.data as &[i32];
-    let     hist = hist_buf.data as &[i32];
-
-    // perform scan per block in shared memory first
-    let block_size = if size <= 256 { 128 } else { 256 };
-    let num_blocks = size / (2 * block_size);
-    let tmp_buf = acc_alloc(acc_dev(), num_blocks * 4);
-    let mut tmp = tmp_buf.data as &[i32];
-
+fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     fn for_shift_down(a: i32, b: i32, body: fn(i32, fn())) -> () {
         if a > b {
             body(a);
-            for_shift_down(a>>1, b, body, return)
+            for_shift_down(a >> 1, b, body, return)
         }
     }
     fn for_shift_up(a: i32, b: i32, body: fn(i32, fn())) -> () {
         if a < b {
             body(a);
-            for_shift_up(a<<1, b, body, return)
+            for_shift_up(a << 1, b, body, return)
         }
     }
 
+    let scan_buf = acc_alloc(acc_dev(), size * 4);
+    let mut scan = scan_buf.data as &[1][i32];
+    let     hist = hist_buf.data as &[1][i32];
+
+    // perform scan per block in shared memory first
+    let block_size = if size <= 256 { 128 } else { 256 };
+    let num_blocks = size / (2 * block_size);
+    let tmp_buf = acc_alloc(acc_dev(), num_blocks * 4);
+    let mut tmp = tmp_buf.data as &[1][i32];
+
     let grid  = (size / 2, 1, 1);
     let block = (block_size, 1, 1);
+
     for benchmark_acc() {
         with acc(acc_dev(), grid, block) @{
             let gid = acc_gidx();
@@ -236,7 +237,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
             sm_tmp(2 * tid + 1) = hist(2 * gid + 1);
 
             let mut offset = 1;
-            for d in for_shift_down(sm_size >> 1, 0) { // build sum in place up the tree
+            for d in for_shift_down(sm_size >> 1, 0) @{ // build sum in place up the tree
                 acc_barrier();
                 if tid < d @{
                     let ai = offset * (2 * tid + 1) - 1;
@@ -250,7 +251,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
             // if tid == 0 { sm_tmp(sm_size - 1) = 0; }
 
             // traverse down tree & build scan
-            for d in for_shift_up(1, sm_size) {
+            for d in for_shift_up(1, sm_size) @{
                 offset >>= 1;
                 acc_barrier();
                 if tid < d @{
@@ -327,26 +328,27 @@ fn inclusive_scan(hist_buf: Buffer, size: i32, body: fn(i32, Buffer) -> i32) -> 
     release(tmp_buf);
     scan_buf
 }
-fn find_position(scan: Buffer, mut size: i32, body: fn(i32, Buffer) -> i32) -> i32 {
-    let elem_buf = acc_alloc(acc_dev(), 1 * 4);
+fn find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
     let size_buf = Buffer { device : 0, data : &size as &[i8] };
-    copy(size_buf, elem_buf, 4 * 1);
+    let pos_buf  = acc_alloc(acc_dev(), 1 * 4 /* sizeof[i32]() */);
+    copy(size_buf, pos_buf, 1 * 4 /* sizeof[i32]() */);
 
     let grid  = (size, 1, 1);
     let block = (256, 1, 1);
     for benchmark_acc() {
         with acc(acc_dev(), grid, block) @{
             // TODO: make sure index computation stays on the device
-            let mut elem = magic_elem_id(elem_buf.data as &[1][i32]);
-            if body(acc_gidx(), scan) != 0 @{
-                atomic_min_global(&elem(0), acc_gidx());
+            let mut pos = magic_elem_id(pos_buf.data as &[1][i32]);
+            let scan    = scan_buf.data as &[1][i32];
+            if body(scan(acc_gidx())) != 0 @{
+                atomic_min_global(&pos(0), acc_gidx());
             }
         }
     }
 
     let mut result:i32;
     let r_buf = Buffer { device : 0, data : &result as &[i8] };
-    copy(elem_buf, r_buf, 1 * 4);
-    release(elem_buf);
+    copy(pos_buf, r_buf, 1 * 4 /* sizeof[i32]() */);
+    release(pos_buf);
     result
 }

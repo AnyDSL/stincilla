@@ -406,13 +406,10 @@ fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
             };
 
         // cumulative sum of the QCOD values (prefix sum)
-        let sum_count =
-            for x, buf in inclusive_scan(hist, 256) {
-                (buf.data as &[i32])(x)
-            };
+        let sum_count = inclusive_scan(hist, 256);
         let bin =
-            for x, sum in find_position(sum_count, 256) {
-                if (sum.data as &[i32])(x) > bw_count { 1 } else { 0 }
+            for value in find_position(sum_count, 256) {
+                if value > bw_count { 1 } else { 0 }
             };
 
         // apply filter
