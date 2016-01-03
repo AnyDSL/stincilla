@@ -72,16 +72,16 @@ fn harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32
     let dx_dev = get_device_copy(dx);
     let dy_dev = get_device_copy(dy);
     for x, y, out in @iteration_point(dxx) {
-        let dx = get_read_acc(dx_dev, 4, lower, upper);
+        let dx = get_acc(dx_dev);
         out.write(x, y, dx.read(x, y) * dx.read(x, y));
     }
     for x, y, out in @iteration_point(dyy) {
-        let dy = get_read_acc(dy_dev, 4, lower, upper);
+        let dy = get_acc(dy_dev);
         out.write(x, y, dy.read(x, y) * dy.read(x, y));
     }
     for x, y, out in @iteration_point(dxy) {
-        let dx = get_read_acc(dx_dev, 4, lower, upper);
-        let dy = get_read_acc(dy_dev, 4, lower, upper);
+        let dx = get_acc(dx_dev);
+        let dy = get_acc(dy_dev);
         out.write(x, y, dx.read(x, y) * dy.read(x, y));
     }
     release_device_copy(dx_dev);
@@ -112,9 +112,9 @@ fn harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32
     let gyy_dev = get_device_copy(gyy);
     let gxy_dev = get_device_copy(gxy);
     for x, y, out in @iteration_point(harris) {
-        let gxx_acc = get_read_acc(gxx_dev, 4, lower, upper);
-        let gyy_acc = get_read_acc(gyy_dev, 4, lower, upper);
-        let gxy_acc = get_read_acc(gxy_dev, 4, lower, upper);
+        let gxx_acc = get_acc(gxx_dev);
+        let gyy_acc = get_acc(gyy_dev);
+        let gxy_acc = get_acc(gxy_dev);
         let gxx     = gxx_acc.read(x, y);
         let gyy     = gyy_acc.read(x, y);
         let gxy     = gxy_acc.read(x, y);
@@ -132,12 +132,12 @@ fn harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32
     // post-processing: mark corners
     let threshold = 100000.0f;
     for y in $range(0, height) {
-        for x in $range(0, width) @{
+        for x in range(0, width) @{
             out_data(y*width + x) = img_data(y*width + x);
         }
     }
     for y in $range(0, height) {
-        for x in $range(0, width) @{
+        for x in range(0, width) @{
             if (harris.buf.data as &[f32])(y*width + x) > threshold {
                 for i in range(-5, 5+1) {
                     if x+i >= 0 && x+i < width {

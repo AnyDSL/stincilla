@@ -56,7 +56,7 @@ fn jacobi_solver(x: i32, y: i32, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> ()
 
 fn jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
     for x, y, Sol, Tmp, mask in iteration_bounds(Sol, Tmp, jacobi_mask, dirichlet_lower, dirichlet_upper) {
-        let RHS = get_read_acc(RHS, 4 /* no bh */, nobh_center, nobh_center);
+        let RHS = get_acc(RHS);
         let val = (1.0f - omega) * Tmp.read(x, y) +
                   0.25f * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, mask);
         Sol.write(x, y, val);
@@ -78,7 +78,8 @@ fn residual_fun(x: i32, y: i32, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () 
 
 fn residual(Res: Img, Sol: Img, RHS: Img) -> () {
     for x, y, Res, sol_acc, mask in iteration_bounds(Res, Sol, residual_mask, dirichlet_lower, dirichlet_upper) {
-        let val = get_pixel(RHS, y*RHS.stride + x) + apply_stencil(x, y, sol_acc, mask);
+        let RHS = get_acc(RHS);
+        let val = RHS.read(x, y) + apply_stencil(x, y, sol_acc, mask);
         Res.write(x, y, val);
     }
 }
@@ -277,7 +278,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask, dirichlet_lower, dirichlet_upper) {
-                    let rhs_acc = get_read_acc(rhs_level_dev, 4, nobh_center, nobh_center);
+                    let rhs_acc = get_acc(rhs_level_dev);
                     solver(x, y, sol_acc, tmp_acc, rhs_acc, mask);
                 }
             }
@@ -286,7 +287,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask, dirichlet_lower, dirichlet_upper) {
-                    let rhs_acc = get_read_acc(rhs_level_dev, 4, nobh_center, nobh_center);
+                    let rhs_acc = get_acc(rhs_level_dev);
                     solver(x, y, sol_acc, tmp_acc, rhs_acc, mask);
                 }
             }
@@ -296,7 +297,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
                 iteration_merge(RHS(level+1), Sol(level), RHS(level), dirichlet_lower, dirichlet_upper, residual, residual_mask, restrict, restrict_mask);
             } else {
                 for x, y, res_acc, sol_acc, mask in iteration_bounds(Res(level), Sol(level), residual_mask, dirichlet_lower, dirichlet_upper) {
-                    let rhs_acc = get_read_acc(rhs_level_dev, 4, nobh_center, nobh_center);
+                    let rhs_acc = get_acc(rhs_level_dev);
                     residual(x, y, res_acc, sol_acc, rhs_acc, mask);
                 }
 
@@ -319,7 +320,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
             for i in range(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
                 for x, y, sol_acc, tmp_acc, mask in iteration_bounds(Sol(level), Tmp(level), solver_mask, dirichlet_lower, dirichlet_upper) {
-                    let rhs_acc = get_read_acc(rhs_level_dev, 4, nobh_center, nobh_center);
+                    let rhs_acc = get_acc(rhs_level_dev);
                     solver(x, y, sol_acc, tmp_acc, rhs_acc, mask);
                 }
             }

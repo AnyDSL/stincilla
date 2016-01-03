@@ -2,12 +2,12 @@ fn iteration1f1i(out: Img, arr: Imgi16,
                  bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
                  body: fn(i32, i32, Acc, Acci16) -> ()
                 ) -> () {
-    let out_acc = get_write_acc(out);
-    let arr_acc = get_read_acci16(arr, 10, bh_lower, bh_upper);
+    let out_acc = get_acc(out);
+    let arr_acc = get_acci16_bh(arr, 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
-            for x in $inner_loop(0, out.width) @{
+            for x in inner_loop(0, out.width) @{
                 body(x, y, out_acc, arr_acc);
             }
         }
@@ -17,12 +17,12 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
                bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
                body: fn(i32, i32, Acci16, Acci16) -> ()
               ) -> () {
-    let out_acc = get_write_acci16(out);
-    let arr_acc = get_read_acci16(arr, 10, bh_lower, bh_upper);
+    let out_acc = get_acci16(out);
+    let arr_acc = get_acci16_bh(arr, 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
-            for x in $inner_loop(0, out.width) @{
+            for x in inner_loop(0, out.width) @{
                 body(x, y, out_acc, arr_acc);
             }
         }
@@ -32,13 +32,13 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
                  bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
                  body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
                 ) -> () {
-    let out_acc = get_write_acci16(out);
-    let img_acc = get_read_acci16(img, 10, bh_lower, bh_upper);
-    let map_acc = get_read_acc(map, 4, nobh_center, nobh_center);
+    let out_acc = get_acci16(out);
+    let img_acc = get_acci16_bh(img, 10, bh_lower, bh_upper);
+    let map_acc = get_acc(map);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
-            for x in $inner_loop(0, out.width) @{
+            for x in inner_loop(0, out.width) @{
                 body(x, y, out_acc, img_acc, map_acc);
             }
         }
@@ -47,13 +47,13 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
 fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
                body: fn(i32, i32, Acci16, Acci16, Acci16) -> ()
               ) -> () {
-    let out_acc = get_write_acci16(out);
-    let img_acc = get_read_acci16(img, 4, nobh_center_i16, nobh_center_i16);
-    let tmp_acc = get_read_acci16(tmp, 4, nobh_center_i16, nobh_center_i16);
+    let out_acc = get_acci16(out);
+    let img_acc = get_acci16(img);
+    let tmp_acc = get_acci16(tmp);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
-            for x in $inner_loop(0, out.width) @{
+            for x in inner_loop(0, out.width) @{
                 body(x, y, out_acc, img_acc, tmp_acc);
             }
         }
@@ -61,9 +61,9 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
 }
 fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     let mut sum = 0;
-    let img_acc = get_read_acci16(img, 4, nobh_center_i16, nobh_center_i16);
+    let img_acc = get_acci16(img);
     for y in $range(0, img.height) {
-        for x in $inner_loop(0, img.width) @{
+        for x in inner_loop(0, img.width) @{
             sum += body(x, y, img_acc);
         }
     }
@@ -72,13 +72,13 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
 fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     let hist_buf = alloc_host(256 * 4);
     let mut hist = hist_buf.data as &[i32];
-    let img_acc  = get_read_acc(img, 4, nobh_center, nobh_center);
+    let img_acc  = get_acc(img);
 
     for i in $range(0, 256) {
         hist(i) = 0;
     }
     for y in $range(0, img.height) {
-        for x in $range(0, img.width) @{
+        for x in range(0, img.width) @{
             let bin = body(x, y, img_acc);
             hist(bin)++;
         }

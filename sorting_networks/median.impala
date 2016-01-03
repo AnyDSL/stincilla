@@ -24,18 +24,20 @@ fn main() -> i32 {
 
     fn reference() -> i32 {
         let mut passed = 0;
+        let arr_acc = get_acc(arr);
+        let out_acc = get_acc(out);
         for y in $range(0, out.height) {
             for x in range(0, out.width) @{
                 fn median() -> f32 {
                     let mut tmp: [f32 * 4];
                     for i in range(-length/2, +length/2 + 1) {
                         let x_clamped = clamp_upper(clamp_lower(x + i, 0, arr.width, return), 0, arr.width, return);
-                        tmp(i + length / 2) = get_pixel(arr, y*arr.stride + x_clamped);
+                        tmp(i + length / 2) = arr_acc.read(x_clamped, y);
                     }
                     sort_f32(length, &tmp);
                     tmp((length - 1) / 2)
                 }
-                if median() != get_pixel(out, y*out.stride + x) { passed = 42; }
+                if median() != out_acc.read(x, y) { passed = 42; }
             }
         }
         if passed == 0 {

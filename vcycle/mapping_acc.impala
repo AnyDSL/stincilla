@@ -24,17 +24,17 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
             let spm = reserve_shared_f32(spm_stride * spm_height);
 
             // residual: index space == block
-            let tmp_acc  = get_write_acc_shared(spm, spm_stride, spm_height);
-            let rhsf_acc = get_read_acc_offset(rhsf_gpu, acc_bdimx() * acc_bidx(), acc_bdimy() * acc_bidy(), 4 /* no bh */, nobh_center, nobh_center);
-            let sol_acc  = get_read_acc_offset(sol_gpu,  acc_bdimx() * acc_bidx(), acc_bdimy() * acc_bidy(), 10  /* all */, bh_lower, bh_upper);
+            let tmp_acc  = get_acc_shared(spm, spm_stride, spm_height);
+            let rhsf_acc = get_acc_offset(rhsf_gpu, acc_bdimx() * acc_bidx(), acc_bdimy() * acc_bidy());
+            let sol_acc  = get_acc_bh_offset(sol_gpu, acc_bdimx() * acc_bidx(), acc_bdimy() * acc_bidy(), 10  /* all */, bh_lower, bh_upper);
             residual(tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
 
             acc_barrier();
 
             // restrict: index space == block
             if tid_x < block(0) / step && gid_y % step == 0 @{
-                let tmp_acc = get_read_acc_shared(spm, spm_stride, spm_height);
-                let rhs_acc = get_write_acc_offset(rhsc_gpu, acc_bdimx() * acc_bidx()/step, acc_bdimy() * acc_bidy()/step);
+                let tmp_acc = get_acc_shared(spm, spm_stride, spm_height);
+                let rhs_acc = get_acc_offset(rhsc_gpu, acc_bdimx() * acc_bidx()/step, acc_bdimy() * acc_bidy()/step);
                 restrict(tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
             }
         }

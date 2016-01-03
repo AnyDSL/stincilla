@@ -10,7 +10,7 @@ fn release_device_copy(img: Img) -> () { }
 fn iteration_point(out: Img,
                    body: fn(i32, i32, Acc) -> ()
                   ) -> () {
-    let out_acc = get_write_acc(out);
+    let out_acc = get_acc(out);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -25,8 +25,8 @@ fn iteration(out: Img, arr: Img, mask: Mask,
              bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
              body: fn(i32, i32, Acc, Acc, Mask) -> ()
             ) -> () {
-    let out_acc = get_write_acc(out);
-    let arr_acc = get_read_acc(arr, 10, bh_lower, bh_upper);
+    let out_acc = get_acc(out);
+    let arr_acc = get_acc_bh(arr, 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -66,8 +66,8 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
         for iter in @range(0, 9) {
             let bounds = Bounds2D(iter);
             let region = Region2D(iter);
-            let arr_acc = get_read_acc(arr, region, bh_lower, bh_upper);
-            let out_acc = get_write_acc(out);
+            let arr_acc = get_acc_bh(arr, region, bh_lower, bh_upper);
+            let out_acc = get_acc(out);
             //let outer_loop_fun = if region == 4 { outer_loop } else { range };
             // gets slower when computed in parallel
 
@@ -94,11 +94,10 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                 ) -> () {
     // allocate temporary array
     let tmp = get_img(alloc_host(out.width * out.height * 4), out.width, out.height);
-    init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
-    let out_acc   = get_write_acc(out);
-    let tmp_acc_w = get_write_acc(tmp);
-    let tmp_acc_r = get_read_acc(tmp, 10, bh_lower, bh_upper);
-    let arr_acc   = get_read_acc(arr, 10, bh_lower, bh_upper);
+    let out_acc   = get_acc(out);
+    let tmp_acc_w = get_acc(tmp);
+    let tmp_acc_r = get_acc_bh(tmp, 10, bh_lower, bh_upper);
+    let arr_acc   = get_acc_bh(arr, 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -125,7 +124,6 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
                        ) -> () {
     // allocate temporary array
     let tmp = get_img(alloc_host(out.width * out.height * 4), out.width, out.height);
-    init_zero(tmp.buf.data as &[f32], tmp.stride, tmp.height);
 
     let bhy = mask_col.size / 2;
     let bhx = round_up(mask_row.size / 2, get_vector_length());
@@ -146,8 +144,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         for iter in @range(0, 3) {
             let bounds = Bounds2DCol(iter);
             let region = Region2DCol(iter);
-            let arr_acc = get_read_acc(arr, region, bh_lower, bh_upper);
-            let tmp_acc = get_write_acc(tmp);
+            let arr_acc = get_acc_bh(arr, region, bh_lower, bh_upper);
+            let tmp_acc = get_acc(tmp);
             let outer_loop_fun = if region == 4 { outer_loop } else { range };
             for y in $outer_loop_fun(bounds(0), bounds(1)) {
                 for x in inner_loop(0, out.width) @{
@@ -160,8 +158,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         for iter in @range(0, 3) {
             let bounds = Bounds2DRow(iter);
             let region = Region2DRow(iter);
-            let tmp_acc = get_read_acc(tmp, region, bh_lower, bh_upper);
-            let out_acc = get_write_acc(out);
+            let tmp_acc = get_acc_bh(tmp, region, bh_lower, bh_upper);
+            let out_acc = get_acc(out);
             let outer_loop_fun = if region == 4 { outer_loop } else { range };
             for y in $outer_loop_fun(0, out.height) {
                 for x in inner_loop(bounds(0), bounds(1)) @{
@@ -203,14 +201,14 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
             let inner_col  = if iter_col == 1 { inner_loop } else { range };
             for y in $outer_col(bounds_col(0), bounds_col(1), unroll) @{
                 // allocate temporary array per thread
-                let tmp = get_img(alloc_host(out.width * unroll * 4), out.width, unroll);
+                let tmp = alloc_host(out.width * unroll * 4);
 
-                for x in $inner_col(0, tmp.width) @{
+                for x in $inner_col(0, out.width) @{
                     let is_row = false;
 
                     // index space: cache line
-                    let arr_acc = get_read_acc_offset(arr, 0, y, region_col, bh_lower, bh_upper);
-                    let tmp_acc = get_write_acc(tmp);
+                    let arr_acc = get_acc_bh_offset(arr, 0, y, region_col, bh_lower, bh_upper);
+                    let tmp_acc = get_acc_memory(tmp.data as &[f32], out.width, unroll);
                     for i in range(0, unroll) {
                         body(x, i, tmp_acc, arr_acc, mask_col, is_row);
                     }
@@ -223,14 +221,14 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                         let is_row = true;
 
                         // index space: cache line
-                        let tmp_acc = get_read_acc(tmp, region_row, bh_lower, bh_upper);
-                        let out_acc = get_write_acc_offset(out, 0, y);
+                        let tmp_acc = get_acc_bh_memory(tmp.data as &[f32], out.width, unroll, region_row, bh_lower, bh_upper);
+                        let out_acc = get_acc_offset(out, 0, y);
                         for i in range(0, unroll) {
                             body(x, i, out_acc, tmp_acc, mask_row, is_row);
                         }
                     }
                 }
-                release(tmp.buf);
+                release(tmp);
             }
         }
     }

@@ -13,8 +13,8 @@ fn iteration(out: Img, arr: Img,
         with acc(acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_gidy();
-            let arr_acc = get_read_acc(arr_gpu, 10, bh_lower, bh_upper);
-            let out_acc = get_write_acc(out_gpu);
+            let arr_acc = get_acc_bh(arr_gpu, 10, bh_lower, bh_upper);
+            let out_acc = get_acc(out_gpu);
             body(gid_x, gid_y, out_acc, arr_acc);
         }
     }

@@ -117,11 +117,12 @@ fn main() -> i32 {
         let mut passed = 0;
         //let mut rms_err = 0.0f;   // RMS error
         //let EPS = 0.02f;
-        //let arr_acc = get_read_acc(arr, 10, lower, upper);
+        //let arr_acc = get_acc_bh(arr, 10, lower, upper);
+        //let out_acc = get_acc(out);
         //for y in $range(0, out.height) {
-        //    for x in $range(0, out.width) @{
+        //    for x in range(0, out.width) @{
         //        let ref = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_d, c_r);
-        //        let mut err = ref - get_pixel(out, y*out.stride + x);
+        //        let mut err = ref - out_acc.read(x, y);
         //        rms_err += err*err;
         //
         //        if err < 0.0f { err = -err; }
