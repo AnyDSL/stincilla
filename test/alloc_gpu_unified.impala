@@ -13,27 +13,29 @@ fn iteration(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     }
 }
 
-fn write(mut out: &[f32], src: &[f32], i: i32) -> () { out(i) = src(i) }
+fn read(buf: Buffer, i: i32) -> f32 { (buf.data as &[1][f32])(i) }
+fn write(buf: Buffer, i: i32, v: f32) -> () { let mut ptr = buf.data as &[1][f32]; ptr(i) = v }
 
 fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
     let arr_buf = acc_alloc_unified(acc_dev(), width * height * sizeof[f32]());
     let out_buf = acc_alloc_unified(acc_dev(), width * height * sizeof[f32]());
-    let mut arr = arr_buf.data as &[f32];
-    let mut out = out_buf.data as &[f32];
+    let mut arr_cpu = arr_buf.data as &[f32];
+    let mut out_cpu = out_buf.data as &[f32];
     for i in range(0, width*height) {
-        arr(i) = i as f32;
-        out(i) = 0.0f;
+        arr_cpu(i) = i as f32;
+        out_cpu(i) = 0.0f;
     }
 
     for x, y in @iteration(width, height) {
-        write(out, arr, y*width + x);
+        let idx = y*width + x;
+        write(out_buf, idx, read(arr_buf, idx));
     }
 
     let mut passed = 0;
     for i in range(0, width*height) {
-        if out(i) != arr(i) { passed++; }
+        if out_cpu(i) != arr_cpu(i) { passed++; }
     }
     if passed == 0 {
         thorin_print_string("Test PASSED!\n");
