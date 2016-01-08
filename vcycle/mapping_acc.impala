@@ -12,6 +12,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
     let step  = 2; // restrict by 2x
     let grid  = (Sol.width, Sol.height, 1);
     let block = (64, step, 1);
+    let get_acc_bh_offset = if acc_use_tex() { get_acc_tex_bh_offset } else { get_acc_bh_offset };
 
     for benchmark_acc() {
         with acc(acc_dev(), grid, block) @{

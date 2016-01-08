@@ -4,6 +4,7 @@ fn iteration(out: Img, arr: Img,
             ) -> () {
     let grid  = (out.width, out.height, 1);
     let block = (128, 1, 1);
+    let get_acc_bh = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
 
     let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
     let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
