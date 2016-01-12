@@ -269,7 +269,7 @@ fn init_scene(mut spheres: [Sphere * 3], mut plane: Plane) -> ([Sphere * 3], Pla
 
 extern
 fn aobench() -> () {
-    let img = alloc_host(WIDTH*HEIGHT*3 * 1);
+    let img = alloc_cpu(WIDTH*HEIGHT*3 * 1);
     let mut spheres: [Sphere * 3];
     let mut plane: Plane;
     let scene = init_scene(spheres, plane);

@@ -93,7 +93,7 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                  body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                 ) -> () {
     // allocate temporary array
-    let tmp = get_img(alloc_host(out.width * out.height * 4), out.width, out.height);
+    let tmp = get_img(alloc_cpu(out.width * out.height * 4), out.width, out.height);
     let out_acc   = get_acc(out);
     let tmp_acc_w = get_acc(tmp);
     let tmp_acc_r = get_acc_bh(tmp, 10, bh_lower, bh_upper);
@@ -123,7 +123,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
                         body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                        ) -> () {
     // allocate temporary array
-    let tmp = get_img(alloc_host(out.width * out.height * 4), out.width, out.height);
+    let tmp = get_img(alloc_cpu(out.width * out.height * 4), out.width, out.height);
 
     let bhy = mask_col.size / 2;
     let bhx = round_up(mask_row.size / 2, get_vector_length());
@@ -201,7 +201,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
             let inner_col  = if iter_col == 1 { inner_loop } else { range };
             for y in $outer_col(bounds_col(0), bounds_col(1), unroll) @{
                 // allocate temporary array per thread
-                let tmp = alloc_host(out.width * unroll * 4);
+                let tmp = alloc_cpu(out.width * unroll * 4);
 
                 for x in $inner_col(0, out.width) @{
                     let is_row = false;

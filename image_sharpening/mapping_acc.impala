@@ -164,7 +164,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     }
 
     // return sum stored in first element
-    let sum_buf = alloc_host(4 * 1);
+    let sum_buf = alloc_cpu(4 * 1);
     copy(tmp_buf, sum_buf, 4);
     let sum = (sum_buf.data as &[i32])(0);
     release(sum_buf);

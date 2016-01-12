@@ -52,8 +52,8 @@ fn main() -> i32 {
     let height  = 1024;
     let sigma_r = 5.0f;
     let c_r     = 1.0f / (2.0f * sigma_r*sigma_r);
-    let arr     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
-    let out     = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let arr     = Img { buf : alloc_cpu(width * height * 4), width : width, height : height, stride : width };
+    let out     = Img { buf : alloc_cpu(width * height * 4), width : width, height : height, stride : width };
 
     let mask    = Mask {
         data : [[0.018316f, 0.082085f, 0.135335f, 0.082085f, 0.018316f],

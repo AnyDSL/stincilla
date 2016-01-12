@@ -355,8 +355,8 @@ extern
 fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
     let img     = Imgi16 { buf : Buffer { device : 0, data : input as &[i8]},  width : width, height : height, stride : width };
     let out     = Imgi16 { buf : Buffer { device : 0, data : output as &[i8]}, width : width, height : height, stride : width };
-    let tmp     = Imgi16 { buf : alloc_host(width * height * 2),               width : width, height : height, stride : width };
-    let map     = Img    { buf : alloc_host(width * height * 4),               width : width, height : height, stride : width };
+    let tmp     = Imgi16 { buf : alloc_cpu(width * height * 2),               width : width, height : height, stride : width };
+    let map     = Img    { buf : alloc_cpu(width * height * 4),               width : width, height : height, stride : width };
     let mask    = Mask   { data : [[1.0f, .. 5], .. 5], size_x : 5, size_y : 5 };
 
     fn sharpening() -> () {

@@ -25,7 +25,7 @@ fn iteration(out: Buffer, width: i32, height: i32,
 
     // initialize seed on the CPU using mrand48()
     srand48(thorin_get_micro_time());
-    let seed_buf = alloc_host(width * height * 8);
+    let seed_buf = alloc_cpu(width * height * 8);
     let mut seed = seed_buf.data as &[u64];
     for i in $range(0, width * height) {
         seed(i) = mrand48() as u64;

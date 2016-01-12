@@ -108,10 +108,10 @@ fn main(i: i32) -> i32 {
     let l = 512;
     let m = 1024;
     let n = 2048;
-    let A_buf = alloc_host(l * m * sizeof[f32]()); // mxl
-    let B_buf = alloc_host(m * n * sizeof[f32]()); // nxm
-    let C_buf = alloc_host(l * n * sizeof[f32]()); // nxl
-    let R_buf = alloc_host(l * n * sizeof[f32]()); // nxl
+    let A_buf = alloc_cpu(l * m * sizeof[f32]()); // mxl
+    let B_buf = alloc_cpu(m * n * sizeof[f32]()); // nxm
+    let C_buf = alloc_cpu(l * n * sizeof[f32]()); // nxl
+    let R_buf = alloc_cpu(l * n * sizeof[f32]()); // nxl
     let A = get_mat(A_buf, l, m); // mxl
     let B = get_mat(B_buf, m, n); // nxm
     let C = get_mat(C_buf, l, n); // nxl

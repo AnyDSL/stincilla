@@ -2,8 +2,8 @@ fn main() -> i32 {
     let length = 4;
     let width  = 4096;
     let height = 4096;
-    let arr    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
-    let out    = Img { buf : alloc_host(width * height * 4), width : width, height : height, stride : width };
+    let arr    = Img { buf : alloc_cpu(width * height * 4), width : width, height : height, stride : width };
+    let out    = Img { buf : alloc_cpu(width * height * 4), width : width, height : height, stride : width };
     init_rand(arr.buf.data as &[f32], arr.stride, out.height);
     init_zero(out.buf.data as &[f32], out.stride, out.height);
 
