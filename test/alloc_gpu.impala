@@ -35,7 +35,7 @@ fn main() -> i32 {
         write(out_gpu, idx, read(arr_gpu, idx));
     }
 
-    copy(out_gpu, out, width * height * 4 /* sizeof[f32]() */);
+    copy(out_gpu, out, width * height * sizeof[f32]());
 
     let mut passed = 0;
     for i in range(0, width*height) {

@@ -2,9 +2,9 @@ fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer,
                    body: fn(i32, i32, &[1][f32], &[1][f32]) -> ()
                   ) -> () {
     let num_dev  = 2;
-    let ids_buf  = alloc_cpu(num_dev * 4 /* sizeof[f32]() */);
+    let ids_buf  = alloc_cpu(num_dev * sizeof[f32]());
     let mut ids  = ids_buf.data as &[i32];
-    let size_gpu = width * height / num_dev * 4 /* sizeof[f32]() */;
+    let size_gpu = width * height / num_dev * sizeof[f32]();
 
     for dev in range(0, num_dev) {
         let offset = dev * size_gpu;
