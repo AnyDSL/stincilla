@@ -165,7 +165,7 @@ fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
     for level in range(0, levels) {
         fn init_img(level: i32) -> Img {
             Img {
-                buf : alloc_cpu((width >> level) * (height >> level) * 4),
+                buf : alloc_cpu((width >> level) * (height >> level) * sizeof[f32]()),
                 width : width >> level,
                 height : height >> level,
                 stride : width >> level
@@ -253,7 +253,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
     for level in range(0, levels) {
         fn init_img(level: i32) -> Img {
             Img {
-                buf : alloc_cpu((width >> level) * (height >> level) * 4),
+                buf : alloc_cpu((width >> level) * (height >> level) * sizeof[f32]()),
                 width : width >> level,
                 height : height >> level,
                 stride : width >> level
@@ -353,8 +353,8 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
 
 extern
 fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
-    let RHS     = Img { buf : alloc_cpu(width * height * 4), width : width, height : height, stride : width };
-    let mut img = Img { buf : alloc_cpu(width * height * 4), width : width, height : height, stride : width };
+    let RHS     = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
+    let mut img = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
     let mut out = Img { buf : Buffer { device : 0, data : out_data as &[i8]}, width : width, height : height, stride : width };
 
     for y in range(0, img.height) {

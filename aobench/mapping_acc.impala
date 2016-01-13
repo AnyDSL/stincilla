@@ -25,15 +25,15 @@ fn iteration(out: Buffer, width: i32, height: i32,
 
     // initialize seed on the CPU using mrand48()
     srand48(thorin_get_micro_time());
-    let seed_buf = alloc_cpu(width * height * 8);
+    let seed_buf = alloc_cpu(width * height * sizeof[u64]());
     let mut seed = seed_buf.data as &[u64];
     for i in $range(0, width * height) {
         seed(i) = mrand48() as u64;
     }
 
-    let seed_gpu = acc_alloc(acc_dev(), width * height * 8);
-    let out_gpu  = acc_alloc(acc_dev(), width * height * 3 * 1);
-    copy(seed_buf, seed_gpu, width * height * 8);
+    let seed_gpu = acc_alloc(acc_dev(), width * height * sizeof[u64]());
+    let out_gpu  = acc_alloc(acc_dev(), width * height * 3 * sizeof[u8]());
+    copy(seed_buf, seed_gpu, width * height * sizeof[u64]());
 
     for benchmark_acc() {
         with acc(acc_dev(), grid, block) @{
@@ -54,7 +54,7 @@ fn iteration(out: Buffer, width: i32, height: i32,
         }
     }
 
-    copy(out_gpu, out, width * height * 3 * 1);
+    copy(out_gpu, out, width * height * 3 * sizeof[u8]());
     release(seed_buf);
     release(out_gpu);
 }

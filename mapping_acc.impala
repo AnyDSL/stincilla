@@ -20,8 +20,8 @@ fn compute_config(range_mask: (i32, i32), unroll: i32) -> ((i32, i32, i32), (i32
 }
 
 fn get_device_copy(img: Img) -> Img {
-    let img_gpu = get_img(acc_alloc(acc_dev(), img.width * img.height * 4), img.width, img.height);
-    copy(img.buf, img_gpu.buf, img.width * img.height * 4);
+    let img_gpu = get_img(acc_alloc(acc_dev(), img.width * img.height * sizeof[f32]()), img.width, img.height);
+    copy(img.buf, img_gpu.buf, img.width * img.height * sizeof[f32]());
     img_gpu
 }
 
@@ -32,7 +32,7 @@ fn release_device_copy(img: Img) -> () {
 fn iteration_point(out: Img,
                    body: fn(i32, i32, Acc) -> ()
                   ) -> () {
-    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
 
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);
@@ -50,7 +50,7 @@ fn iteration_point(out: Img,
         }
     }
 
-    copy(out_gpu.buf, out.buf, out.width * out.height * 4);
+    copy(out_gpu.buf, out.buf, out.width * out.height * sizeof[f32]());
     release(out_gpu.buf);
 }
 
@@ -58,9 +58,9 @@ fn iteration(out: Img, arr: Img, mask: Mask,
              bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
              body: fn(i32, i32, Acc, Acc, Mask) -> ()
             ) -> () {
-    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * sizeof[f32]()), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
+    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     let unroll = 1;
     let config = compute_config((mask.size_x/2, mask.size_y/2), unroll);
@@ -81,7 +81,7 @@ fn iteration(out: Img, arr: Img, mask: Mask,
         }
     }
 
-    copy(out_gpu.buf, out.buf, out.width * out.height * 4);
+    copy(out_gpu.buf, out.buf, out.width * out.height * sizeof[f32]());
     release(arr_gpu.buf);
     release(out_gpu.buf);
 }
@@ -90,9 +90,9 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
                     bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
                     body: fn(i32, i32, Acc, Acc, Mask) -> ()
                    ) -> () {
-    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * sizeof[f32]()), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
+    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     // compute the number of blocks required for boundary handling
     let unroll = 1;
@@ -209,7 +209,7 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
         }
     }
 
-    copy(out_gpu.buf, out.buf, out.width * out.height * 4);
+    copy(out_gpu.buf, out.buf, out.width * out.height * sizeof[f32]());
     release(arr_gpu.buf);
     release(out_gpu.buf);
 }
@@ -218,9 +218,9 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
                       bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
                       body: fn(i32, i32, Acc, Acc, Mask) -> ()
                      ) -> () {
-    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * sizeof[f32]()), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
+    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     let unroll = 1;
     let config = compute_config((mask.size_x/2, mask.size_y/2), unroll);
@@ -274,7 +274,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
         }
     }
 
-    copy(out_gpu.buf, out.buf, out.width * out.height * 4);
+    copy(out_gpu.buf, out.buf, out.width * out.height * sizeof[f32]());
     release(arr_gpu.buf);
     release(out_gpu.buf);
 }
@@ -283,10 +283,10 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
                  bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
                  body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                 ) -> () {
-    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    let tmp_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * sizeof[f32]()), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
+    let tmp_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
+    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);
@@ -325,7 +325,7 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
         }
     }
 
-    copy(out_gpu.buf, out.buf, out.width * out.height * 4);
+    copy(out_gpu.buf, out.buf, out.width * out.height * sizeof[f32]());
     release(arr_gpu.buf);
     release(out_gpu.buf);
     release(tmp_gpu.buf);
@@ -335,10 +335,10 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
                         bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
                         body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                        ) -> () {
-    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    let tmp_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * sizeof[f32]()), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
+    let tmp_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
+    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     // compute the number of blocks required for boundary handling
     let unroll = 1;
@@ -476,7 +476,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         }
     }
 
-    copy(out_gpu.buf, out.buf, out.width * out.height * 4);
+    copy(out_gpu.buf, out.buf, out.width * out.height * sizeof[f32]());
     release(arr_gpu.buf);
     release(out_gpu.buf);
     release(tmp_gpu.buf);
@@ -486,9 +486,9 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                           bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
                           body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
                          ) -> () {
-    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * sizeof[f32]()), arr.width, arr.height);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
+    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     let unroll = 1;
     let config = compute_config((mask_row.size/2, mask_col.size/2), unroll);
@@ -569,7 +569,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
         }
     }
 
-    copy(out_gpu.buf, out.buf, out.width * out.height * 4);
+    copy(out_gpu.buf, out.buf, out.width * out.height * sizeof[f32]());
     release(arr_gpu.buf);
     release(out_gpu.buf);
 }

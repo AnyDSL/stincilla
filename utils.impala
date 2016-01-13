@@ -123,7 +123,7 @@ static mut total_kernel_timing = 0i64;
 static mut total_cpu_timing = 0i64;
 
 fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> ()) -> i64 {
-    let times_buf = alloc_cpu(num_iter * 8);
+    let times_buf = alloc_cpu(num_iter * sizeof[i64]());
     let mut times = times_buf.data as &[i64];
     for i in $range(0, num_iter) @{
         let start = get_time();

@@ -25,7 +25,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
             let bounds_col = Bounds2DCol(iter_col);
             //let outer_col  = if iter_col == 1 { outer_loop_step } else { range_step };
             // allocate temporary array
-            let tmp = alloc_cpu(Sol.stride * step * unroll * 4);
+            let tmp = alloc_cpu(Sol.stride * step * unroll * sizeof[f32]());
             // gets slower when computed in parallel
             for y in $range_step(bounds_col(0), bounds_col(1), step * unroll) @{
                 // residual: index space == cache line

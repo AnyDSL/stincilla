@@ -6,9 +6,9 @@ fn iteration(out: Img, arr: Img,
     let block = (128, 1, 1);
     let get_acc_bh = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
 
-    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * 4), out.width, out.height);
-    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * 4), arr.width, arr.height);
-    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * 4);
+    let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
+    let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * sizeof[f32]()), arr.width, arr.height);
+    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     for benchmark_acc() {
         with acc(acc_dev(), grid, block) @{
@@ -20,7 +20,7 @@ fn iteration(out: Img, arr: Img,
         }
     }
 
-    copy(out_gpu.buf, out.buf, out.width * out.height * 4);
+    copy(out_gpu.buf, out.buf, out.width * out.height * sizeof[f32]());
     release(out_gpu.buf);
     release(arr_gpu.buf);
 }

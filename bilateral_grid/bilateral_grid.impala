@@ -64,7 +64,7 @@ fn bilateral_grid(img_data: &[f32], mut out_data: &[f32], width: i32, height: i3
     grid.width   = width  / grid.sigma_s;
     grid.height  = height / grid.sigma_s;
     grid.bins    = (1.0f  / grid.sigma_r) as i32 + 2 * grid.padding;
-    grid.buf     = alloc_cpu(grid.width * grid.height * grid.bins * 4 * 2);
+    grid.buf     = alloc_cpu(grid.width * grid.height * grid.bins * sizeof[[f32*2]]());
     grid.data    = grid.buf.data as &[[f32*2]];
 
     let input    = |x: i32, y: i32| -> f32 { img_data(y*width + x) };

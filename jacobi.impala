@@ -25,8 +25,8 @@ fn main() -> i32 {
     let height = 2048;
     let a      = 0.2f;
     let b      = 1.0f - 4.0f * a;
-    let arr    = Img { buf : alloc_cpu(width * height * 4), width : width, height : height, stride : width };
-    let out    = Img { buf : alloc_cpu(width * height * 4), width : width, height : height, stride : width };
+    let arr    = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
+    let out    = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
     init_rand(arr.buf.data as &[f32], arr.stride, out.height);
     init_zero(out.buf.data as &[f32], out.stride, out.height);
 

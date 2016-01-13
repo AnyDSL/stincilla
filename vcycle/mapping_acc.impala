@@ -3,11 +3,11 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
                    residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
                    restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
-    let sol_gpu  = get_img(acc_alloc(acc_dev(), Sol.stride  * Sol.height  * 4), Sol.width,  Sol.height);
-    let rhsf_gpu = get_img(acc_alloc(acc_dev(), RHSF.stride * RHSF.height * 4), RHSF.width, RHSF.height);
-    let rhsc_gpu = get_img(acc_alloc(acc_dev(), RHSC.stride * RHSC.height * 4), RHSC.width, RHSC.height);
-    copy(RHSF.buf, rhsf_gpu.buf, rhsf_gpu.width * rhsf_gpu.height * 4);
-    copy(Sol.buf,  sol_gpu.buf,  sol_gpu.width  * sol_gpu.height  * 4);
+    let sol_gpu  = get_img(acc_alloc(acc_dev(), Sol.stride  * Sol.height  * sizeof[f32]()), Sol.width,  Sol.height);
+    let rhsf_gpu = get_img(acc_alloc(acc_dev(), RHSF.stride * RHSF.height * sizeof[f32]()), RHSF.width, RHSF.height);
+    let rhsc_gpu = get_img(acc_alloc(acc_dev(), RHSC.stride * RHSC.height * sizeof[f32]()), RHSC.width, RHSC.height);
+    copy(RHSF.buf, rhsf_gpu.buf, rhsf_gpu.width * rhsf_gpu.height * sizeof[f32]());
+    copy(Sol.buf,  sol_gpu.buf,  sol_gpu.width  * sol_gpu.height  * sizeof[f32]());
 
     let step  = 2; // restrict by 2x
     let grid  = (Sol.width, Sol.height, 1);
@@ -41,7 +41,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
         }
     }
 
-    copy(rhsc_gpu.buf, RHSC.buf, rhsc_gpu.width * rhsc_gpu.height * 4);
+    copy(rhsc_gpu.buf, RHSC.buf, rhsc_gpu.width * rhsc_gpu.height * sizeof[f32]());
     release(sol_gpu.buf);
     release(rhsf_gpu.buf);
     release(rhsc_gpu.buf);
