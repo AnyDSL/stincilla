@@ -145,7 +145,7 @@ fn l2norm(img: Img) -> f32 {
     // TODO: runs only on the CPU atm
     let mut l2sum = 0.0f;
     for y in $range(0, img.height) {
-        for x in $range(0, img.width) {
+        for x in range(0, img.width) @{
             let value = (img.buf.data as &[f32])(y * img.stride + x);
             l2sum += value*value;
         }
