@@ -22,7 +22,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
 
             let spm_stride = block(0);
             let spm_height = block(1);
-            let spm = reserve_shared_f32(spm_stride * spm_height);
+            let spm = reserve_shared[f32](spm_stride * spm_height);
 
             // residual: index space == block
             let tmp_acc  = get_acc_shared(spm, spm_stride, spm_height);

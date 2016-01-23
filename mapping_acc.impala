@@ -246,7 +246,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
 
             let spm_stride =          block(0) + 2 * range_row;
             let spm_height = unroll * block(1) + 2 * range_col;
-            let spm        = reserve_shared_f32(spm_stride * spm_height);
+            let spm        = reserve_shared[f32](spm_stride * spm_height);
 
             for y in range(0, steps_y) {
                 let lid_y = tid_y             + y*bdim_y;
@@ -515,8 +515,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
             let spm_stride     =          block(0) + 2 * range_row;
             let spm_height_col = unroll * block(1) + 2 * range_col;
             let spm_height_row = unroll * block(1);
-            let spm_col = reserve_shared_f32(spm_stride * spm_height_col);
-            let spm_row = reserve_shared_f32(spm_stride * spm_height_row);
+            let spm_col = reserve_shared[f32](spm_stride * spm_height_col);
+            let spm_row = reserve_shared[f32](spm_stride * spm_height_row);
 
             for y in range(0, steps_y) {
                 let lid_y = tid_y             + y*bdim_y;
