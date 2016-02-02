@@ -127,7 +127,7 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
 fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     // temporary memory for reduction
     let tmp_buf = acc_alloc(acc_dev(), img.width * sizeof[i32]());
-    let mut tmp = tmp_buf.data as &[1][i32];
+    let mut tmp = bitcast[&[1][i32]](tmp_buf.data);
 
     let img_gpu = get_img_i16(acc_alloc(acc_dev(), img.width * img.height * sizeof[i16]()), img.width, img.height);
     copy(img.buf, img_gpu.buf, img.width * img.height * sizeof[i16]());
@@ -166,7 +166,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     // return sum stored in first element
     let sum_buf = alloc_cpu(sizeof[i32]());
     copy(tmp_buf, sum_buf, sizeof[i32]());
-    let sum = (sum_buf.data as &[i32])(0);
+    let sum = bitcast[&[i32]](sum_buf.data)(0);
     release(sum_buf);
     release(tmp_buf);
     release(img_gpu.buf);
@@ -174,7 +174,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
 }
 fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     let hist_buf = acc_alloc(acc_dev(), 256 * sizeof[i32]());
-    let mut hist = hist_buf.data as &[1][i32];
+    let mut hist = bitcast[&[1][i32]](hist_buf.data);
 
     let img_gpu = get_img(acc_alloc(acc_dev(), img.width * img.height * sizeof[f32]()), img.width, img.height);
     copy(img.buf, img_gpu.buf, img.width * img.height * sizeof[f32]());
@@ -213,14 +213,14 @@ fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     }
 
     let scan_buf = acc_alloc(acc_dev(), size * sizeof[i32]());
-    let mut scan = scan_buf.data as &[1][i32];
-    let     hist = hist_buf.data as &[1][i32];
+    let mut scan = bitcast[&[1][i32]](scan_buf.data);
+    let     hist = bitcast[&[1][i32]](hist_buf.data);
 
     // perform scan per block in shared memory first
     let block_size = if size <= 256 { 128 } else { 256 };
     let num_blocks = size / (2 * block_size);
     let tmp_buf = acc_alloc(acc_dev(), num_blocks * sizeof[i32]());
-    let mut tmp = tmp_buf.data as &[1][i32];
+    let mut tmp = bitcast[&[1][i32]](tmp_buf.data);
 
     let grid  = (size / 2, 1, 1);
     let block = (block_size, 1, 1);
@@ -329,7 +329,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     scan_buf
 }
 fn find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
-    let size_buf = Buffer { device : 0, data : &size as &[i8] };
+    let size_buf = Buffer { device : 0, data : bitcast[&[i8]](&size) };
     let pos_buf  = acc_alloc(acc_dev(), sizeof[i32]());
     copy(size_buf, pos_buf, sizeof[i32]());
 
@@ -338,8 +338,8 @@ fn find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
     for benchmark_acc() {
         with acc(acc_dev(), grid, block) @{
             // TODO: make sure index computation stays on the device
-            let mut pos = magic_elem_id(pos_buf.data as &[1][i32]);
-            let scan    = scan_buf.data as &[1][i32];
+            let mut pos = magic_elem_id(bitcast[&[1][i32]](pos_buf.data));
+            let scan    = bitcast[&[1][i32]](scan_buf.data);
             if body(scan(acc_gidx())) != 0 @{
                 atomic_min_global(&pos(0), acc_gidx());
             }
@@ -347,7 +347,7 @@ fn find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
     }
 
     let mut result:i32;
-    let r_buf = Buffer { device : 0, data : &result as &[i8] };
+    let r_buf = Buffer { device : 0, data : bitcast[&[i8]](&result) };
     copy(pos_buf, r_buf, sizeof[i32]());
     release(pos_buf);
     result

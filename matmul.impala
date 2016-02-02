@@ -5,12 +5,12 @@ struct Mat {
     write : fn(i32, i32, f32) -> (),
 }
 
-fn get_mat(mut buf: Buffer, rows: i32, cols: i32) -> Mat {
+fn get_mat(buf: Buffer, rows: i32, cols: i32) -> Mat {
     Mat {
         rows  : || rows,
         cols  : || cols,
-        read  : |x, y| { (buf.data as &[f32])(y * cols + x) },
-        write : |x, y, v| { (buf.data as &[f32])(y * cols + x) = v },
+        read  : |x, y| { bitcast[&[f32]](buf.data)(y * cols + x) },
+        write : |x, y, v| { let mut ptr = bitcast[&[f32]](buf.data); ptr(y * cols + x) = v },
     }
 }
 
@@ -116,8 +116,8 @@ fn main(i: i32) -> i32 {
     let B = get_mat(B_buf, m, n); // nxm
     let C = get_mat(C_buf, l, n); // nxl
     let R = get_mat(R_buf, l, n); // nxl
-    init_rand(A_buf.data as &[f32], A.cols(), A.rows());
-    init_rand(B_buf.data as &[f32], B.cols(), B.rows());
+    init_rand(bitcast[&[f32]](A_buf.data), A.cols(), A.rows());
+    init_rand(bitcast[&[f32]](B_buf.data), B.cols(), B.rows());
 
     let nops = (2 as i64) * (l as i64) * (m as i64) * (n as i64);
     fn print_gflops(time: i64) -> () {

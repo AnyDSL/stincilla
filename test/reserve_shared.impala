@@ -8,8 +8,8 @@ fn range(lower: i32, upper: i32, body: fn(i32, fn())) -> () {
 fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) -> () {
     let arr_buf_gpu = acc_alloc(acc_dev(), width * height * sizeof[f32]());
     let out_buf_gpu = acc_alloc(acc_dev(), width * height * sizeof[f32]());
-    let     arr_gpu = arr_buf_gpu.data as &[1][f32];
-    let mut out_gpu = out_buf_gpu.data as &[1][f32];
+    let     arr_gpu = bitcast[&[1][f32]](arr_buf_gpu.data);
+    let mut out_gpu = bitcast[&[1][f32]](out_buf_gpu.data);
     copy(arr, arr_buf_gpu, width * height * sizeof[f32]());
 
     let grid  = (width, height, 1);
@@ -34,11 +34,13 @@ fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i3
 fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
-    let mut arr = alloc_cpu(width * height * sizeof[f32]());
-    let mut out = alloc_cpu(width * height * sizeof[f32]());
+    let arr     = alloc_cpu(width * height * sizeof[f32]());
+    let out     = alloc_cpu(width * height * sizeof[f32]());
     for i in range(0, width*height) {
-        (arr.data as &[f32])(i) = i as f32;
-        (out.data as &[f32])(i) = 0.0f;
+        let mut arr_ptr = bitcast[&[f32]](arr.data);
+        let mut out_ptr = bitcast[&[f32]](out.data);
+        arr_ptr(i) = i as f32;
+        out_ptr(i) = 0.0f;
     }
 
     for x, y, read, write in @iteration(out, arr, width, height) {
@@ -48,7 +50,7 @@ fn main() -> i32 {
 
     let mut passed = 0;
     for i in range(0, width*height) {
-        if (out.data as &[f32])(i) != (arr.data as &[f32])(i) { passed++; }
+        if bitcast[&[f32]](out.data)(i) != bitcast[&[f32]](arr.data)(i) { passed++; }
     }
     if passed == 0 {
         thorin_print_string("Test PASSED!\n");

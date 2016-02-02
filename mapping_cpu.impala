@@ -221,7 +221,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                         let is_row = true;
 
                         // index space: cache line
-                        let tmp_acc = get_acc_bh_memory(bitcast[&[f32](tmp.data), out.width, unroll, region_row, bh_lower, bh_upper);
+                        let tmp_acc = get_acc_bh_memory(bitcast[&[f32]](tmp.data), out.width, unroll, region_row, bh_lower, bh_upper);
                         let out_acc = get_acc_offset(out, 0, y);
                         for i in range(0, unroll) {
                             body(x, i, out_acc, tmp_acc, mask_row, is_row);

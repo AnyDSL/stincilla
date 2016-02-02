@@ -13,8 +13,8 @@ struct Acci16 {
 }
 
 // &[1][i16]
-fn get_pixeli16_as1(img: Imgi16, idx: i32) -> i16 { (img.buf.data as &[1][i16])(idx) }
-fn set_pixeli16_as1(mut img: Imgi16, idx: i32, val: i16) -> () { (img.buf.data as &[1][i16])(idx) = val }
+fn get_pixeli16_as1(img: Imgi16, idx: i32) -> i16 { bitcast[&[1][i16]](img.buf.data)(idx) }
+fn set_pixeli16_as1(img: Imgi16, idx: i32, val: i16) -> () { let mut ptr = bitcast[&[1][i16]](img.buf.data); ptr(idx) = val }
 fn get_acci16_bh(img: Imgi16, region: i32, bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32) -> Acci16 {
     get_acci16_bh_offset(img, 0, 0, region, bh_lower, bh_upper)
 }
@@ -353,10 +353,10 @@ fn sharpen(x: i32, y: i32, out: Acci16, img: Acci16, blur: Acci16) -> () {
 
 extern
 fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
-    let img     = Imgi16 { buf : Buffer { device : 0, data : input as &[i8]},  width : width, height : height, stride : width };
-    let out     = Imgi16 { buf : Buffer { device : 0, data : output as &[i8]}, width : width, height : height, stride : width };
-    let tmp     = Imgi16 { buf : alloc_cpu(width * height * sizeof[i16]()),    width : width, height : height, stride : width };
-    let map     = Img    { buf : alloc_cpu(width * height * sizeof[f32]()),    width : width, height : height, stride : width };
+    let img     = Imgi16 { buf : Buffer { device : 0, data : bitcast[&[i8]](input)  }, width : width, height : height, stride : width };
+    let out     = Imgi16 { buf : Buffer { device : 0, data : bitcast[&[i8]](output) }, width : width, height : height, stride : width };
+    let tmp     = Imgi16 { buf : alloc_cpu(width * height * sizeof[i16]()),            width : width, height : height, stride : width };
+    let map     = Img    { buf : alloc_cpu(width * height * sizeof[f32]()),            width : width, height : height, stride : width };
     let mask    = Mask   { data : [[1.0f, .. 5], .. 5], size_x : 5, size_y : 5 };
 
     fn sharpening() -> () {

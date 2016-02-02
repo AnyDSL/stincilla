@@ -13,16 +13,16 @@ fn iteration(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     }
 }
 
-fn read(buf: Buffer, i: i32) -> f32 { (buf.data as &[1][f32])(i) }
-fn write(buf: Buffer, i: i32, v: f32) -> () { let mut ptr = buf.data as &[1][f32]; ptr(i) = v }
+fn read(buf: Buffer, i: i32) -> f32 { bitcast[&[1][f32]](buf.data)(i) }
+fn write(buf: Buffer, i: i32, v: f32) -> () { let mut ptr = bitcast[&[1][f32]](buf.data); ptr(i) = v }
 
 fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
     let arr_buf = acc_alloc_unified(acc_dev(), width * height * sizeof[f32]());
     let out_buf = acc_alloc_unified(acc_dev(), width * height * sizeof[f32]());
-    let mut arr_cpu = arr_buf.data as &[f32];
-    let mut out_cpu = out_buf.data as &[f32];
+    let mut arr_cpu = bitcast[&[f32]](arr_buf.data);
+    let mut out_cpu = bitcast[&[f32]](out_buf.data);
     for i in range(0, width*height) {
         arr_cpu(i) = i as f32;
         out_cpu(i) = 0.0f;

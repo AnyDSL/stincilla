@@ -276,7 +276,7 @@ fn aobench() -> () {
     spheres = scene(0);
     plane = scene(1);
     render(img, WIDTH, HEIGHT, NSUBSAMPLES, spheres, plane);
-    saveppm(img.data as &[u8], WIDTH, HEIGHT);
+    saveppm(bitcast[&[u8]](img.data), WIDTH, HEIGHT);
     release(img);
     print_total_timing()
 }

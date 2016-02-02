@@ -31,7 +31,7 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
 
 extern
 fn harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32) -> () {
-    let input  = Img { buf : Buffer { device : 0, data : img_data as &[i8]}, width : width, height : height, stride : width };
+    let input  = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](img_data) }, width : width, height : height, stride : width };
     let harris = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
     let dx     = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
     let dy     = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
@@ -138,7 +138,7 @@ fn harris_corner(img_data: &[f32], mut out_data: &[f32], width: i32, height: i32
     }
     for y in $range(0, height) {
         for x in range(0, width) @{
-            if (harris.buf.data as &[f32])(y*width + x) > threshold {
+            if bitcast[&[f32]](harris.buf.data)(y*width + x) > threshold {
                 for i in range(-5, 5+1) {
                     if x+i >= 0 && x+i < width {
                         out_data(y*width + x + i) = 255f;
