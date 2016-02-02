@@ -1,12 +1,34 @@
-fn iteration_grid(bgrid: Grid,
-                  body: fn(i32, i32) -> ()
-                 ) -> () {
+fn grid_read(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32) -> f32 {
+    |x, y, z, c| (buf.data as &[1][f32])(2 * ((y * width + x) * bins + z + padding) + c)
+}
+fn grid_write(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32, f32) -> () {
+    |x, y, z, c, v| { let mut ptr = buf.data as &[1][f32]; ptr(2 * ((y * width + x) * bins + z + padding) + c) = v }
+}
+fn get_device_copy(host: &[f32], size: i32) -> Buffer {
+    let img_gpu = acc_alloc(acc_dev(), size);
+    let img_cpu = Buffer { device : 0, data : host as &[i8] };
+    copy(img_cpu, img_gpu, size);
+    img_gpu
+}
+
+fn copy_to_host(host: &[f32], img_gpu: Buffer, size: i32) -> () {
+    let img_cpu = Buffer { device : 0, data : host as &[i8] };
+    copy(img_gpu, img_cpu, size);
+}
+
+fn release_device_copy(img: Buffer) -> () {
+    release(img)
+}
+
+fn alloc_grid(size: i32) -> Buffer { acc_alloc(acc_dev(), size) }
+
+fn iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
     let unroll = 1;
-    let grid   = (bgrid.width, bgrid.height/unroll, 1);
+    let grid   = (bgrid.width(), bgrid.height() / unroll, 1);
     let block  = (32, 4, 1);
 
     for benchmark_acc() {
-        with acc(@acc_dev(), grid, block) @{
+        with acc(acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 
@@ -16,11 +38,9 @@ fn iteration_grid(bgrid: Grid,
         }
     }
 }
-fn iteration_space(width: i32, height: i32,
-                   body: fn(i32, i32) -> ()
-                  ) -> () {
+fn iteration_space(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let unroll = 1;
-    let grid   = (width, height/unroll, 1);
+    let grid   = (width, height / unroll, 1);
     let block  = (32, 4, 1);
 
     for benchmark_acc() {
