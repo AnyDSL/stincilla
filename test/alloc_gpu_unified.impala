@@ -38,9 +38,9 @@ fn main() -> i32 {
         if out_cpu(i) != arr_cpu(i) { passed++; }
     }
     if passed == 0 {
-        thorin_print_string("Test PASSED!\n");
+        print_string("Test PASSED!\n");
     } else {
-        thorin_print_string("Test FAILED!\n");
+        print_string("Test FAILED!\n");
     }
 
     release(arr_buf);

@@ -1,8 +1,8 @@
 // odd-even merge sort works only for power of two
 fn oddeven_merge_sort(length: i32, mut arr: [f32 * 4]) -> () {
     fn compare_and_swap(i: i32, j: i32) -> () {
-        //thorin_print_int(i); thorin_print_string(", ");
-        //thorin_print_int(j); thorin_print_string("\n");
+        //print_int(i); print_string(", ");
+        //print_int(j); print_string("\n");
         if arr(i) > arr(j) {
             let tmp = arr(i);
             arr(i) = arr(j);

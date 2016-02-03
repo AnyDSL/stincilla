@@ -44,7 +44,7 @@ fn iteration_space(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let block  = (32, 4, 1);
 
     for benchmark_acc() {
-        with acc(@acc_dev(), grid, block) @{
+        with acc(acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_tidy() + acc_bdimy() * acc_bidy() * unroll;
 

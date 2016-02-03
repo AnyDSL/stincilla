@@ -158,9 +158,9 @@ fn main(i: i32) -> i32 {
         }
     }
     if passed == 0 {
-        thorin_print_string("Test PASSED!\n");
+        print_string("Test PASSED!\n");
     } else {
-        thorin_print_string("Test FAILED!\n");
+        print_string("Test FAILED!\n");
     }
 
     release(A_buf);
