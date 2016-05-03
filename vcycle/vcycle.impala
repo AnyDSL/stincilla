@@ -44,8 +44,8 @@ static jacobi_mask = Mask {
     size_x : 3, size_y : 3
 };
 // Dirichlet boundary handling -> 0
-//static dirichlet_lower = wrap_const_fun(const_lower, 0.0f);
-//static dirichlet_upper = wrap_const_fun(const_upper, 0.0f);
+//static dirichlet_lower = @wrap_const_fun(const_lower, 0.0f);
+//static dirichlet_upper = @wrap_const_fun(const_upper, 0.0f);
 fn dirichlet_lower(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 { const_lower(idx, lower, upper, 0.0f, out) }
 fn dirichlet_upper(idx: i32, lower: i32, upper: i32, out: fn(f32)) -> i32 { const_upper(idx, lower, upper, 0.0f, out) }
 fn jacobi_solver(x: i32, y: i32, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> () {

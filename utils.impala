@@ -88,34 +88,34 @@ fn read_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32,
     // 6 --- 7 --- 8
 
     // left
-    if region == 0 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
-    if region == 3 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
-    if region == 6 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
+    if region == 0 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
+    if region == 3 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
+    if region == 6 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
 
     // right
-    if region == 2 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
-    if region == 5 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
-    if region == 8 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
+    if region == 2 { idx_x = @bh_upper(idx_x, lower_x, upper_x, return); }
+    if region == 5 { idx_x = @bh_upper(idx_x, lower_x, upper_x, return); }
+    if region == 8 { idx_x = @bh_upper(idx_x, lower_x, upper_x, return); }
 
     // top
-    if region == 0 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
-    if region == 1 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
-    if region == 2 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
+    if region == 0 { idx_y = @bh_lower(idx_y, lower_y, upper_y, return); }
+    if region == 1 { idx_y = @bh_lower(idx_y, lower_y, upper_y, return); }
+    if region == 2 { idx_y = @bh_lower(idx_y, lower_y, upper_y, return); }
 
     // bottom
-    if region == 6 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
-    if region == 7 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
-    if region == 8 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
+    if region == 6 { idx_y = @bh_upper(idx_y, lower_y, upper_y, return); }
+    if region == 7 { idx_y = @bh_upper(idx_y, lower_y, upper_y, return); }
+    if region == 8 { idx_y = @bh_upper(idx_y, lower_y, upper_y, return); }
 
     // all in
     if region == 10 {
-        idx_x = bh_lower(idx_x, lower_x, upper_x, return);
-        idx_x = bh_upper(idx_x, lower_x, upper_x, return);
-        idx_y = bh_lower(idx_y, lower_y, upper_y, return);
-        idx_y = bh_upper(idx_y, lower_y, upper_y, return);
+        idx_x = @bh_lower(idx_x, lower_x, upper_x, return);
+        idx_x = @bh_upper(idx_x, lower_x, upper_x, return);
+        idx_y = @bh_lower(idx_y, lower_y, upper_y, return);
+        idx_y = @bh_upper(idx_y, lower_y, upper_y, return);
     }
 
-    read(idx_x, idx_y)
+    @read(idx_x, idx_y)
 }
 
 

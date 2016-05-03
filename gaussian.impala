@@ -62,8 +62,8 @@ fn main() -> i32 {
         size_x : 5, size_y : 5
     };
 
-    //let lower = wrap_const_fun(const_lower, 0.0f);
-    //let upper = wrap_const_fun(const_upper, 0.0f);
+    //let lower = @wrap_const_fun(const_lower, 0.0f);
+    //let upper = @wrap_const_fun(const_upper, 0.0f);
     let lower = clamp_lower;
     let upper = clamp_upper;
 
