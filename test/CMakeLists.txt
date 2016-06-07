@@ -33,4 +33,13 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     add_executable(reserve_shared ${RESERVE_SHARED_PROGRAM})
     target_link_libraries(reserve_shared ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
     add_test("reserve_shared" reserve_shared)
+
+    if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+        thorin_runtime_wrap(HALF_FLOAT_GPU_PROGRAM
+            BACKEND ${BACKEND}
+            FILES half_float_gpu.impala)
+        add_executable(half_float_gpu ${HALF_FLOAT_GPU_PROGRAM})
+        target_link_libraries(half_float_gpu ${THORIN_RUNTIME_LIBRARY} ${THORIN_RUNTIME_LIBRARIES})
+        add_test("half_float_gpu" half_float_gpu)
+    endif()
 endif()
