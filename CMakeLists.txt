@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 
 project(STINCILLA CXX)
+enable_testing()
 
 find_package(THORIN REQUIRED)
 include(${THORIN_CMAKE_DIR}/ThorinRuntime.cmake)
@@ -21,7 +22,7 @@ add_subdirectory(harris_corner)
 add_subdirectory(test)
 add_subdirectory(image_sharpening)
 add_subdirectory(sorting_networks)
-add_subdirectory(vcycle)
+#add_subdirectory(vcycle)
 
 # simple CPU-based examples
 thorin_runtime_wrap(MATMUL_PROGRAM
