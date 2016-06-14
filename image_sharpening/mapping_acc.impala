@@ -144,19 +144,15 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     }
 
     // reduce temporary memory
-    let grid2  = (img_gpu.width, 1, 1);
-    let block2 = (128, 1, 1);
+    let grid2  = (1, 1, 1);
+    let block2 = (1, 1, 1);
     for benchmark_acc() {
         with acc(acc_dev(), grid2, block2) @{
             let mut sum = 0;
             for x in $range(0, img_gpu.width) @{
                 sum += tmp(x);
             }
-            // TODO: make sure index computation stays on the device
-            // tmp(0) = sum;
-            if (acc_gidx() == 0) {
-                tmp(acc_gidx()) = sum;
-            }
+            tmp(0) = sum;
         }
     }
 
