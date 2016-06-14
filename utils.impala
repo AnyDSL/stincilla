@@ -145,8 +145,10 @@ fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> ()) -> i64 {
     median
 }
 
-fn benchmark_acc(body: fn() -> ()) -> () { total_kernel_timing += benchmark(thorin_get_kernel_time, 7, body) }
-fn benchmark_cpu(body: fn() -> ()) -> () { total_cpu_timing    += benchmark(thorin_get_micro_time, 27, body) }
+static iter_acc =  7;
+static iter_cpu = 27;
+fn benchmark_acc(body: fn() -> ()) -> () { total_kernel_timing += benchmark(thorin_get_kernel_time, iter_acc, body) }
+fn benchmark_cpu(body: fn() -> ()) -> () { total_cpu_timing    += benchmark(thorin_get_micro_time,  iter_cpu, body) }
 
 fn print_total_timing() -> () {
     print_string("Total timing for cpu / kernel: ");

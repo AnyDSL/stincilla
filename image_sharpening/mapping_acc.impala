@@ -1,3 +1,16 @@
+fn for_shift_down(a: i32, b: i32, body: fn(i32, fn())) -> () {
+    if a > b {
+        body(a);
+        for_shift_down(a >> 1, b, body, return)
+    }
+}
+fn for_shift_up(a: i32, b: i32, body: fn(i32, fn())) -> () {
+    if a < b {
+        body(a);
+        for_shift_up(a << 1, b, body, return)
+    }
+}
+
 fn iteration1f1i(out: Img, arr: Imgi16,
                  bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
                  body: fn(i32, i32, Acc, Acci16) -> ()
@@ -122,44 +135,46 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     release(tmp_gpu.buf);
 }
 fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
-    // temporary memory for reduction
-    let tmp_buf = acc_alloc(acc_dev(), img.width * sizeof[i32]());
+    let tmp_buf = acc_alloc(acc_dev(), sizeof[i32]());
     let mut tmp = bitcast[&[1][i32]](tmp_buf.data);
+    let sum_buf = alloc_cpu(sizeof[i32]());
+    let mut sum = bitcast[&[i32]](sum_buf.data)(0);
+    sum = 0;
+    copy(sum_buf, tmp_buf, sizeof[i32]());
 
     let img_gpu = get_img_i16(acc_alloc(acc_dev(), img.width * img.height * sizeof[i16]()), img.width, img.height);
     copy(img.buf, img_gpu.buf, img.width * img.height * sizeof[i16]());
 
-    // reduce all lines to temporary memory
-    let grid1  = (img_gpu.width, 1, 1);
-    let block1 = (128, 1, 1);
+    let grid  = (img_gpu.width, 1, 1);
+    let block = (128, 1, 1);
     for benchmark_acc() {
-        with acc(acc_dev(), grid1, block1) @{
+        with acc(acc_dev(), grid, block) @{
+            let tid = acc_tidx();
+            let mut sm_sum = reserve_shared[i32](128);
             let mut sum = 0;
             let img_acc = get_acci16(img_gpu);
             for y in $range(0, img_gpu.height) @{
                 sum += body(acc_gidx(), y, img_acc);
             }
-            tmp(acc_gidx()) = sum;
-        }
-    }
+            sm_sum(tid) = sum;
 
-    // reduce temporary memory
-    let grid2  = (1, 1, 1);
-    let block2 = (1, 1, 1);
-    for benchmark_acc() {
-        with acc(acc_dev(), grid2, block2) @{
-            let mut sum = 0;
-            for x in $range(0, img_gpu.width) @{
-                sum += tmp(x);
+            for o in @for_shift_down(128 >> 1, 0) {
+                acc_barrier();
+                if tid < o @{
+                    sm_sum(tid) += sm_sum(tid + o);
+                }
             }
-            tmp(0) = sum;
+
+            acc_barrier();
+
+            if tid == 0 {
+                atomic_add_global(&tmp(0), sm_sum(0));
+            }
         }
     }
 
-    // return sum stored in first element
-    let sum_buf = alloc_cpu(sizeof[i32]());
     copy(tmp_buf, sum_buf, sizeof[i32]());
-    let sum = bitcast[&[i32]](sum_buf.data)(0);
+    sum = bitcast[&[i32]](sum_buf.data)(0) / iter_acc;
     release(sum_buf);
     release(tmp_buf);
     release(img_gpu.buf);
@@ -192,19 +207,6 @@ fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     hist_buf
 }
 fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
-    fn for_shift_down(a: i32, b: i32, body: fn(i32, fn())) -> () {
-        if a > b {
-            body(a);
-            for_shift_down(a >> 1, b, body, return)
-        }
-    }
-    fn for_shift_up(a: i32, b: i32, body: fn(i32, fn())) -> () {
-        if a < b {
-            body(a);
-            for_shift_up(a << 1, b, body, return)
-        }
-    }
-
     let scan_buf = acc_alloc(acc_dev(), size * sizeof[i32]());
     let mut scan = bitcast[&[1][i32]](scan_buf.data);
     let     hist = bitcast[&[1][i32]](hist_buf.data);
@@ -303,7 +305,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
         for benchmark_acc() {
             with acc(acc_dev(), grid2, block2) @{
                 let tid = acc_tidx();
-                let gid = acc_gidx() + block_size; // first block hold already the correct scan results
+                let gid = acc_gidx() + block_size; // first block holds already the correct scan results
                 let mut sm_tmp = reserve_shared[i32](1);
 
                 if tid == 0 @{
@@ -313,7 +315,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
                 acc_barrier();
 
                 // write results to device memory
-                scan(gid) += sm_tmp(0);
+                scan(gid) += sm_tmp(0); // TODO: compensate for iter_acc
             }
         }
     }
