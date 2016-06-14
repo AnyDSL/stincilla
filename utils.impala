@@ -187,7 +187,7 @@ fn round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) 
 
 // &[1][f32]
 fn get_pixel_as1(img: Img, idx: i32) -> f32 { bitcast[&[1][f32]](img.buf.data)(idx) }
-fn get_pixel_ldg(img: Img, idx: i32) -> f32 { let mut ptr = bitcast[&[1][f32]](img.buf.data); ldg_f32(bitcast[&[1]f32](&ptr(idx))) }
+fn get_pixel_ldg(img: Img, idx: i32) -> f32 { let mut ptr = bitcast[&[1][f32]](img.buf.data); ldg_f32(&ptr(idx)) }
 fn set_pixel_as1(img: Img, idx: i32, val: f32) -> () { let mut ptr = bitcast[&[1][f32]](img.buf.data); ptr(idx) = val }
 fn get_acc_bh(img: Img, region: i32, bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32) -> Acc {
     get_acc_bh_offset(img, 0, 0, region, bh_lower, bh_upper)
