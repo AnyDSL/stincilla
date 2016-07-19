@@ -46,19 +46,17 @@ fn vcross(v0: vec, v1: vec) -> vec {
           z : v0.x * v1.y - v0.y * v1.x }
 }
 
-fn vnormalize(mut c: vec) -> vec {
+fn vnormalize(c: vec) -> vec {
     let length = sqrt(vdot(c, c));
 
     if fabs(length) > 1.0e-17 {
-        c.x /= length;
-        c.y /= length;
-        c.z /= length;
+        return(vec { x : c.x / length, y : c.y / length, z : c.z / length })
     }
 
     c
 }
 
-fn ray_sphere_intersect(mut isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
+fn ray_sphere_intersect(isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
     let rs = vec {
         x : ray.org.x - sphere.center.x,
         y : ray.org.y - sphere.center.y,
@@ -72,41 +70,34 @@ fn ray_sphere_intersect(mut isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
     if D > 0.0 {
         let t = -B - sqrt(D);
 
-        if t > 0.0 && t < isect.t @{
-            isect.t   = t;
-            isect.hit = 1;
-
-            isect.p.x = ray.org.x + ray.dir.x * t;
-            isect.p.y = ray.org.y + ray.dir.y * t;
-            isect.p.z = ray.org.z + ray.dir.z * t;
-
-            isect.n.x = isect.p.x - sphere.center.x;
-            isect.n.y = isect.p.y - sphere.center.y;
-            isect.n.z = isect.p.z - sphere.center.z;
-
-            isect.n = vnormalize(isect.n);
+        if t > 0.0 && t < isect.t {
+            let p = vec { x : ray.org.x + ray.dir.x * t,
+                          y : ray.org.y + ray.dir.y * t,
+                          z : ray.org.z + ray.dir.z * t };
+            let n = vec { x : isect.p.x - sphere.center.x,
+                          y : isect.p.y - sphere.center.y,
+                          z : isect.p.z - sphere.center.z };
+            let isect = Isect { t : t, p : p, n: vnormalize(n), hit : 1 };
+            return(isect)
         }
     }
 
     isect
 }
 
-fn ray_plane_intersect(mut isect: Isect, ray: Ray, plane: Plane) -> Isect {
+fn ray_plane_intersect(isect: Isect, ray: Ray, plane: Plane) -> Isect {
     let d = -vdot(plane.p, plane.n);
     let v =  vdot(ray.dir, plane.n);
 
     if fabs(v) >= 1.0e-17 @{
         let t = -(vdot(ray.org, plane.n) + d) / v;
 
-        if t > 0.0 && t < isect.t @{
-            isect.t   = t;
-            isect.hit = 1;
-
-            isect.p.x = ray.org.x + ray.dir.x * t;
-            isect.p.y = ray.org.y + ray.dir.y * t;
-            isect.p.z = ray.org.z + ray.dir.z * t;
-
-            isect.n = plane.n;
+        if t > 0.0 && t < isect.t {
+            let p = vec { x : ray.org.x + ray.dir.x * t,
+                          y : ray.org.y + ray.dir.y * t,
+                          z : ray.org.z + ray.dir.z * t };
+            let isect = Isect { t : t, p : p, n: plane.n, hit : 1 };
+            return(isect)
         }
     }
 
@@ -206,12 +197,10 @@ fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], 
                 let px =  (x as f64 + (u as f64 / (nsubsamples as f64)) - (w as f64 / 2.0)) / (w as f64 / 2.0);
                 let py = -(y as f64 + (v as f64 / (nsubsamples as f64)) - (h as f64 / 2.0)) / (h as f64 / 2.0);
 
-                let mut ray = Ray {
-                    org : vec { x : 0.0, y : 0.0, z : 0.0 },
-                    dir : vec { x : px,  y : py,  z : -1.0 }
+                let ray = Ray {
+                    org :            vec { x : 0.0, y : 0.0, z :  0.0 },
+                    dir : vnormalize(vec { x : px,  y : py,  z : -1.0 })
                 };
-
-                ray.dir = vnormalize(ray.dir);
 
                 let mut isect: Isect;
                 isect.t   = 1.0e+17;
@@ -240,41 +229,23 @@ fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], 
     }
 }
 
-fn init_scene(mut spheres: [Sphere * 3], mut plane: Plane) -> ([Sphere * 3], Plane) {
-    spheres(0).center.x = -2.0;
-    spheres(0).center.y =  0.0;
-    spheres(0).center.z = -3.5;
-    spheres(0).radius   =  0.5;
+fn init_scene() -> ([Sphere * 3], Plane) {
+    let spheres = [ Sphere { center : vec { x : -2.0, y : 0.0, z : -3.5 }, radius : 0.5 },
+                    Sphere { center : vec { x : -0.5, y : 0.0, z : -3.0 }, radius : 0.5 },
+                    Sphere { center : vec { x :  1.0, y : 0.0, z : -2.2 }, radius : 0.5 } ];
 
-    spheres(1).center.x = -0.5;
-    spheres(1).center.y =  0.0;
-    spheres(1).center.z = -3.0;
-    spheres(1).radius   =  0.5;
-
-    spheres(2).center.x =  1.0;
-    spheres(2).center.y =  0.0;
-    spheres(2).center.z = -2.2;
-    spheres(2).radius   =  0.5;
-
-    plane.p.x =  0.0;
-    plane.p.y = -0.5;
-    plane.p.z =  0.0;
-
-    plane.n.x = 0.0;
-    plane.n.y = 1.0;
-    plane.n.z = 0.0;
+    let plane = Plane { p : vec { x : 0.0, y : -0.5, z : 0.0 },
+                        n : vec { x : 0.0, y :  1.0, z : 0.0 } };
 
     (spheres, plane)
 }
 
 extern
 fn aobench() -> () {
-    let img = alloc_cpu(WIDTH*HEIGHT*3 * 1);
-    let mut spheres: [Sphere * 3];
-    let mut plane: Plane;
-    let scene = init_scene(spheres, plane);
-    spheres = scene(0);
-    plane = scene(1);
+    let img     = alloc_cpu(WIDTH*HEIGHT*3 * sizeof[u8]());
+    let scene   = init_scene();
+    let spheres = scene(0);
+    let plane   = scene(1);
     render(img, WIDTH, HEIGHT, NSUBSAMPLES, spheres, plane);
     saveppm(bitcast[&[u8]](img.data), WIDTH, HEIGHT);
     release(img);
