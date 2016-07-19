@@ -74,9 +74,9 @@ fn ray_sphere_intersect(isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
             let p = vec { x : ray.org.x + ray.dir.x * t,
                           y : ray.org.y + ray.dir.y * t,
                           z : ray.org.z + ray.dir.z * t };
-            let n = vec { x : isect.p.x - sphere.center.x,
-                          y : isect.p.y - sphere.center.y,
-                          z : isect.p.z - sphere.center.z };
+            let n = vec { x : p.x - sphere.center.x,
+                          y : p.y - sphere.center.y,
+                          z : p.z - sphere.center.z };
             let isect = Isect { t : t, p : p, n: vnormalize(n), hit : 1 };
             return(isect)
         }
