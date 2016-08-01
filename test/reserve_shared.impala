@@ -1,4 +1,4 @@
-fn range(lower: i32, upper: i32, body: fn(i32, fn())) -> () {
+fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
         body(lower);
         range(lower+1, upper, body, return)
