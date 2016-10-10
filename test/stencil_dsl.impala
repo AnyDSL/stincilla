@@ -25,7 +25,7 @@ fn apply_bh(mut index: i32,
 }
 
 fn get_elem(fld: Field, idx: i32) -> f32 { bitcast[&[f32]](fld.buf.data)(idx) }
-fn set_elem(fld: Field, idx: i32, val: f32) -> () { let mut ptr = bitcast[&[f32]](fld.buf.data); ptr(idx) = val }
+fn set_elem(fld: Field, idx: i32, val: f32) -> () { bitcast[&[f32]](fld.buf.data)(idx) = val }
 fn iterate_field(out: Field, arr: Field, stencil: [f32 * 3],
                  bh_lower: fn(i32, i32) -> i32, bh_upper: fn(i32, i32) -> i32,
                  body: fn(i32, i32, Accessor, Accessor, [f32 * 3]) -> ()) -> () {

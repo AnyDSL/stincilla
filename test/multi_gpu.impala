@@ -3,7 +3,7 @@ fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer,
                   ) -> () {
     let num_dev  = 2;
     let ids_buf  = alloc_cpu(num_dev * sizeof[f32]());
-    let mut ids  = bitcast[&[i32]](ids_buf.data);
+    let ids      = bitcast[&[i32]](ids_buf.data);
     let size_gpu = width * height / num_dev * sizeof[f32]();
 
     for dev in range(0, num_dev) {
@@ -41,7 +41,7 @@ fn main() -> int {
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
-    for x, y, mut out, arr in @iteration_multi(width, height, out_buf, arr_buf) {
+    for x, y, out, arr in @iteration_multi(width, height, out_buf, arr_buf) {
         out(y*width + x) = arr(y*width + x);
     }
 

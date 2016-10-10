@@ -2,7 +2,7 @@ fn grid_read(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i
     |x, y, z, c| bitcast[&[1][f32]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c)
 }
 fn grid_write(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32, f32) -> () {
-    |x, y, z, c, v| { let mut ptr = bitcast[&[1][f32]](buf.data); ptr(2 * ((y * width + x) * bins + z + padding) + c) = v }
+    |x, y, z, c, v| { bitcast[&[1][f32]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c) = v }
 }
 fn get_device_copy(host: &[f32], size: i32) -> Buffer {
     let img_gpu = acc_alloc(acc_dev(), size);

@@ -13,7 +13,7 @@ fn iteration(out: Buffer, width: i32, height: i32,
         for y in $outer_loop(0, height) {
             for x in inner_loop(0, width) @{
                 fn out_fun(r: u8, g: u8, b: u8) -> () {
-                    let mut out = bitcast[&[u8]](out.data);
+                    let out = bitcast[&[u8]](out.data);
                     out(3 * (y * width + x) + 0) = r;
                     out(3 * (y * width + x) + 1) = g;
                     out(3 * (y * width + x) + 2) = b;

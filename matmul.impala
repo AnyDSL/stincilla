@@ -10,7 +10,7 @@ fn get_mat(buf: Buffer, rows: i32, cols: i32) -> Mat {
         rows  : || rows,
         cols  : || cols,
         read  : |x, y| { bitcast[&[f32]](buf.data)(y * cols + x) },
-        write : |x, y, v| { let mut ptr = bitcast[&[f32]](buf.data); ptr(y * cols + x) = v },
+        write : |x, y, v| { bitcast[&[f32]](buf.data)(y * cols + x) = v },
     }
 }
 

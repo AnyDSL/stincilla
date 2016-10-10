@@ -158,10 +158,10 @@ fn l2norm(img: Img) -> f32 {
 fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
     let width   = RHS0.width;
     let height  = RHS0.height;
-    let mut RHS = ~[levels:Img];
-    let mut Sol = ~[levels:Img];
-    let mut Tmp = ~[levels:Img];
-    let mut Res = ~[levels:Img];
+    let RHS = ~[levels:Img];
+    let Sol = ~[levels:Img];
+    let Tmp = ~[levels:Img];
+    let Res = ~[levels:Img];
     for level in range(0, levels) {
         fn init_img(level: i32) -> Img {
             Img {
@@ -246,10 +246,10 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
              ) -> Img {
     let width   = RHS0.width;
     let height  = RHS0.height;
-    let mut RHS = ~[levels:Img];
-    let mut Sol = ~[levels:Img];
-    let mut Tmp = ~[levels:Img];
-    let mut Res = ~[levels:Img];
+    let RHS = ~[levels:Img];
+    let Sol = ~[levels:Img];
+    let Tmp = ~[levels:Img];
+    let Res = ~[levels:Img];
     for level in range(0, levels) {
         fn init_img(level: i32) -> Img {
             Img {
@@ -359,8 +359,7 @@ fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
 
     for y in range(0, img.height) {
         for x in range(0, img.width) {
-            let mut ptr = bitcast[&[f32]](img.buf.data);
-            ptr(y*img.stride + x) = img_data(y*img.width + x);
+            bitcast[&[f32]](img.buf.data)(y*img.stride + x) = img_data(y*img.width + x);
         }
     }
 
@@ -376,8 +375,7 @@ fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
 
     for y in range(0, out.height) {
         for x in range(0, out.width) {
-            let mut ptr = bitcast[&[f32]](out.buf.data);
-            ptr(y*out.width + x) = bitcast[&[f32]](result.buf.data)(y*result.stride + x);
+            bitcast[&[f32]](out.buf.data)(y*out.width + x) = bitcast[&[f32]](result.buf.data)(y*result.stride + x);
         }
     }
 
