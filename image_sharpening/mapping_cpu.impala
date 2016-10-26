@@ -1,5 +1,5 @@
 fn iteration1f1i(out: Img, arr: Imgi16,
-                 bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
+                 bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32,
                  body: fn(i32, i32, Acc, Acci16) -> ()
                 ) -> () {
     let out_acc = get_acc(out);
@@ -14,7 +14,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     }
 }
 fn iteration2i(out: Imgi16, arr: Imgi16,
-               bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
+               bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32,
                body: fn(i32, i32, Acci16, Acci16) -> ()
               ) -> () {
     let out_acc = get_acci16(out);
@@ -29,7 +29,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     }
 }
 fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
-                 bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
+                 bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32,
                  body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
                 ) -> () {
     let out_acc = get_acci16(out);

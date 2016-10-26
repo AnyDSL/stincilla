@@ -1,5 +1,5 @@
 fn iteration(out: Img, arr: Img,
-             bh_lower: fn(i32, i32, i32, fn(f32)) -> i32, bh_upper: fn(i32, i32, i32, fn(f32)) -> i32,
+             bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32,
              body: fn(i32, i32, Acc, Acc) -> ()
             ) -> () {
     let arr_acc = get_acc_bh(arr, 10, bh_lower, bh_upper);
