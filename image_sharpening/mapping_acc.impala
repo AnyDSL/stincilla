@@ -138,7 +138,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     let tmp_buf = acc_alloc(acc_dev(), sizeof[i32]());
     let tmp     = bitcast[&[1][i32]](tmp_buf.data);
     let sum_buf = alloc_cpu(sizeof[i32]());
-    let sum     = bitcast[&[i32]](sum_buf.data)(0);
+    let mut sum = bitcast[&[i32]](sum_buf.data)(0);
     sum = 0;
     copy(sum_buf, tmp_buf, sizeof[i32]());
 
