@@ -12,7 +12,7 @@ fn for_shift_up(a: i32, b: i32, body: fn(i32) -> ()) -> () {
 }
 
 fn iteration1f1i(out: Img, arr: Imgi16,
-                 bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
+                 bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32,
                  body: fn(i32, i32, Acc, Acci16) -> ()
                 ) -> () {
     let unroll = 1;
@@ -41,7 +41,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     release(arr_gpu.buf);
 }
 fn iteration2i(out: Imgi16, arr: Imgi16,
-               bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
+               bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32,
                body: fn(i32, i32, Acci16, Acci16) -> ()
               ) -> () {
     let unroll = 1;
@@ -70,7 +70,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     release(arr_gpu.buf);
 }
 fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
-                 bh_lower: fn(i32, i32, i32, fn(i16)) -> i32, bh_upper: fn(i32, i32, i32, fn(i16)) -> i32,
+                 bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32,
                  body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
                 ) -> () {
     let unroll = 1;
@@ -138,7 +138,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     let tmp_buf = acc_alloc(acc_dev(), sizeof[i32]());
     let tmp     = bitcast[&[1][i32]](tmp_buf.data);
     let sum_buf = alloc_cpu(sizeof[i32]());
-    let sum     = bitcast[&[i32]](sum_buf.data)(0);
+    let mut sum = bitcast[&[i32]](sum_buf.data)(0);
     sum = 0;
     copy(sum_buf, tmp_buf, sizeof[i32]());
 
