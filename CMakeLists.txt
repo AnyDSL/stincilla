@@ -22,7 +22,7 @@ add_subdirectory(harris_corner)
 add_subdirectory(test)
 add_subdirectory(image_sharpening)
 add_subdirectory(sorting_networks)
-#add_subdirectory(vcycle)
+add_subdirectory(vcycle)
 
 # simple CPU-based examples
 thorin_runtime_wrap(MATMUL_PROGRAM
