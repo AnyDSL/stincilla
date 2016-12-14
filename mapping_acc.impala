@@ -63,9 +63,8 @@ fn iteration(out: Img, arr: Img, mask: Mask,
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     let unroll = 1;
-    let config = compute_config((mask.size_x/2, mask.size_y/2), unroll);
-    let grid   = (out.width, out.height/unroll, 1);
-    let block  = config(0);
+    let (block, _) = compute_config((mask.size_x/2, mask.size_y/2), unroll);
+    let grid       = (out.width, out.height/unroll, 1);
     let get_acc_bh = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
 
     for benchmark_acc() {
@@ -96,10 +95,7 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
 
     // compute the number of blocks required for boundary handling
     let unroll = 1;
-    let config = compute_config((mask.size_x/2, mask.size_y/2), unroll);
-    let block  = config(0);
-    let bx     = config(1)(0);
-    let by     = config(1)(1);
+    let (block, (bx, by)) = compute_config((mask.size_x/2, mask.size_y/2), unroll);
     let get_acc_bh = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
 
     // define if we want to generate one big kernel or multiple kernels
@@ -223,9 +219,8 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask,
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     let unroll = 1;
-    let config = compute_config((mask.size_x/2, mask.size_y/2), unroll);
-    let grid   = (out.width, out.height/unroll, 1);
-    let block  = config(0);
+    let (block, _) = compute_config((mask.size_x/2, mask.size_y/2), unroll);
+    let grid       = (out.width, out.height/unroll, 1);
     let get_acc_bh = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
 
     // compute number of steps required to stage data to shared memory
@@ -290,11 +285,9 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
 
     let unroll = 1;
     let grid   = (out.width, out.height/unroll, 1);
-    let config_row = compute_config((mask_row.size/2, 1), unroll);
-    let config_col = compute_config((1, mask_col.size/2), unroll);
-    let block_row  = config_row(0);
-    let block_col  = config_col(0);
-    let get_acc_bh = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
+    let (block_row, _) = compute_config((mask_row.size/2, 1), unroll);
+    let (block_col, _) = compute_config((1, mask_col.size/2), unroll);
+    let get_acc_bh     = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
 
     for benchmark_acc() {
         with acc(acc_dev(), grid, block_col) @{
@@ -342,13 +335,9 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
 
     // compute the number of blocks required for boundary handling
     let unroll = 1;
-    let config_row = compute_config((mask_row.size/2, 1), unroll);
-    let config_col = compute_config((1, mask_col.size/2), unroll);
-    let block_row  = config_row(0);
-    let block_col  = config_col(0);
-    let bx         = config_row(1)(0);
-    let by         = config_col(1)(1);
-    let get_acc_bh = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
+    let (block_row, (bx, _)) = compute_config((mask_row.size/2, 1), unroll);
+    let (block_col, (_, by)) = compute_config((1, mask_col.size/2), unroll);
+    let get_acc_bh           = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
 
     let Region2DCol = [ 1, 4, 7 ];
     let Region2DRow = [ 3, 4, 5 ];
@@ -491,9 +480,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
     copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
 
     let unroll = 1;
-    let config = compute_config((mask_row.size/2, mask_col.size/2), unroll);
-    let grid   = (out.width, out.height/unroll, 1);
-    let block  = config(0);
+    let (block, _) = compute_config((mask_row.size/2, mask_col.size/2), unroll);
+    let grid       = (out.width, out.height/unroll, 1);
     let get_acc_bh = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
 
     // compute number of steps required to stage data to shared memory

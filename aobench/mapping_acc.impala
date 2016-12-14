@@ -12,9 +12,9 @@ fn rnd_u32(state: u64) -> (u32, u64) {
 }
 
 fn rnd_f64(state: u64) -> (f64, u64) {
-    let r = rnd_u32(state);
+    let (r, state) = rnd_u32(state);
     let k = 1.0 / (0xFFFFFFFFu64 as f64);
-    ((r(0) as f64) * k, r(1))
+    ((r as f64) * k, state)
 }
 
 fn iteration(out: Buffer, width: i32, height: i32,
@@ -40,9 +40,9 @@ fn iteration(out: Buffer, width: i32, height: i32,
             let seed = bitcast[&[1][u64]](seed_gpu.data);
             let mut state = seed(acc_gidy()*width + acc_gidx());
             fn rand() -> f64 {
-                let r = rnd_f64(state);
-                state = r(1);
-                r(0)
+                let (r, s) = rnd_f64(state);
+                state = s;
+                r
             }
             fn out_fun(r: u8, g: u8, b: u8) -> () {
                 let out = bitcast[&[1][u8]](out_gpu.data);

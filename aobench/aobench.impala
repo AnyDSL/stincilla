@@ -242,10 +242,8 @@ fn init_scene() -> ([Sphere * 3], Plane) {
 
 extern
 fn aobench() -> () {
-    let img     = alloc_cpu(WIDTH*HEIGHT*3 * sizeof[u8]());
-    let scene   = init_scene();
-    let spheres = scene(0);
-    let plane   = scene(1);
+    let img = alloc_cpu(WIDTH*HEIGHT*3 * sizeof[u8]());
+    let (spheres, plane) = init_scene();
     render(img, WIDTH, HEIGHT, NSUBSAMPLES, spheres, plane);
     saveppm(bitcast[&[u8]](img.data), WIDTH, HEIGHT);
     release(img);
