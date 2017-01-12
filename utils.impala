@@ -130,7 +130,7 @@ fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> ()) -> i64 {
         body();
         times(i) = get_time() - start;
     }
-    sort_i64(num_iter, bitcast[&[i64]](times));
+    sort_i64(num_iter, times);
     print_string("Timing: ");
     print_double(times(num_iter/2) as f64 / 1000.0);
     print_string(" | ");
