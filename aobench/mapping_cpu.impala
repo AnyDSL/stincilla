@@ -6,7 +6,7 @@ extern "C" {
 fn iteration(out: Buffer, width: i32, height: i32,
              body: fn(i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
             ) -> () {
-    srand48(thorin_get_micro_time());
+    srand48(get_micro_time());
     fn rand() -> f64 { drand48() }
 
     for benchmark_cpu() {

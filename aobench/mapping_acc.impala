@@ -24,7 +24,7 @@ fn iteration(out: Buffer, width: i32, height: i32,
     let block = (32, 4, 1);
 
     // initialize seed on the CPU using mrand48()
-    srand48(thorin_get_micro_time());
+    srand48(get_micro_time());
     let seed_buf = alloc_cpu(width * height * sizeof[u64]());
     let seed = bitcast[&[u64]](seed_buf.data);
     for i in $range(0, width * height) {

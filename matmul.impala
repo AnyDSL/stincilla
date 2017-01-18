@@ -130,9 +130,9 @@ fn main(i: i32) -> i32 {
     }
 
     fn bench_fun(fun: fn() -> ()) -> () {
-        let start = thorin_get_micro_time();
+        let start = get_micro_time();
         fun();
-        let end = thorin_get_micro_time();
+        let end = get_micro_time();
         print_gflops(end - start);
     }
 

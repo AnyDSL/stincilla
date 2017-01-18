@@ -1,7 +1,7 @@
 #include <cfloat>
 #include <iostream>
 
-#include <thorin_runtime.hpp>
+#include <anydsl_runtime.hpp>
 
 #include "pnm_image.h"
 
@@ -16,9 +16,9 @@ int main(int argc, const char **argv) {
     uint8_t* image = read_pnm_image(&width, &height, argc > 1 ? argv[1] : "lena.pgm");
 
     // host memory for image of width x height pixels
-    // use thorin::Array from AnyDSL runtime for memory allocation
-    thorin::Array<float>  input(width * height);
-    thorin::Array<float> output(width * height);
+    // use anydsl::Array from AnyDSL runtime for memory allocation
+    anydsl::Array<float>  input(width * height);
+    anydsl::Array<float> output(width * height);
 
     // initialize data
     for (size_t i=0; i<width*height; ++i) input[i] = (float)image[i];

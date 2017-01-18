@@ -37,7 +37,7 @@ fn init_zero(arr: &[f32], width: i32, height: i32) -> () {
 fn init_rand(arr: &[f32], width: i32, height: i32) -> () {
     for y in $range(0, height) {
         for x in range(0, width) {
-            arr(y*width + x) = thorin_random_val() * 1024f;
+            arr(y*width + x) = random_val() * 1024f;
         }
     }
 }
@@ -147,8 +147,8 @@ fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> ()) -> i64 {
 
 static iter_acc =  7;
 static iter_cpu = 27;
-fn benchmark_acc(body: fn() -> ()) -> () { total_kernel_timing += benchmark(thorin_get_kernel_time, iter_acc, body) }
-fn benchmark_cpu(body: fn() -> ()) -> () { total_cpu_timing    += benchmark(thorin_get_micro_time,  iter_cpu, body) }
+fn benchmark_acc(body: fn() -> ()) -> () { total_kernel_timing += benchmark(get_kernel_time, iter_acc, body) }
+fn benchmark_cpu(body: fn() -> ()) -> () { total_cpu_timing    += benchmark(get_micro_time,  iter_cpu, body) }
 
 fn print_total_timing() -> () {
     print_string("Total timing for cpu / kernel: ");
