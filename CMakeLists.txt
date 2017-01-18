@@ -5,7 +5,7 @@ enable_testing()
 
 find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
-include_directories(${ANYDSL_RUNTIME_DIR})
+include_directories(${ANYDSL_RUNTIME_DIR}/src)
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
