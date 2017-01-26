@@ -80,9 +80,11 @@ fn read_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32, 
     let upper_x = roi.o_x + roi.width;
     let upper_y = roi.o_y + roi.height;
 
+    // region encoding
     // 0 --- 1 --- 2
     // 3 --- 4 --- 5
     // 6 --- 7 --- 8
+    // region encoding
 
     // left
     if region == 0 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
