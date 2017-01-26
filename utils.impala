@@ -262,6 +262,30 @@ fn get_acc_offset_shared(data: &[3][f32], width: i32, height: i32, rox: i32, roy
         write : |x, y, v| set_pixel_as3(data, (y + roy) * width + x + rox, v)
     }
 }
+fn get_mask3(data : [[f32 * 3] * 3]) -> Mask {
+    Mask {
+        data : |x, y| -> f32 { data(y)(x) },
+        size_x : 3, size_y : 3
+    }
+}
+fn get_mask5(data : [[f32 * 5] * 5]) -> Mask {
+    Mask {
+        data : |x, y| -> f32 { data(y)(x) },
+        size_x : 5, size_y : 5
+    }
+}
+fn get_mask_sep3(data : [f32 * 3]) -> MaskSep {
+    MaskSep {
+        data : |x| -> f32 { data(x) },
+        size : 3
+    }
+}
+fn get_mask_sep5(data : [f32 * 5]) -> MaskSep {
+    MaskSep {
+        data : |x| -> f32 { data(x) },
+        size : 5
+    }
+}
 
 type BoundaryFn   = fn(i32, i32, i32, fn(f32) -> !) -> i32;
 type StencilFn    = fn(i32, i32, Acc, Acc, Mask) -> ();
@@ -284,21 +308,12 @@ struct Acc {
     read  : fn(i32, i32) -> f32,
     write : fn(i32, i32, f32) -> (),
 }
-struct Mask3 {
-    data : [[f32 * 3] * 3],
+struct Mask {
+    data : fn(i32, i32) -> f32,
     size_x : i32,
     size_y : i32,
 }
-struct Mask3Sep {
-    data : [f32 * 3],
-    size : i32,
-}
-struct Mask5 {
-    data : [[f32 * 5] * 5],
-    size_x : i32,
-    size_y : i32,
-}
-struct Mask5Sep {
-    data : [f32 * 5],
+struct MaskSep {
+    data : fn(i32) -> f32,
     size : i32,
 }

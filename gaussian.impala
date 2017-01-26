@@ -1,6 +1,3 @@
-type Mask = Mask5;
-type MaskSep = Mask5Sep;
-
 fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
@@ -8,7 +5,7 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
 
     for j in range(-half_range_y, half_range_y+1) {
         for i in range(-half_range_x, half_range_x+1) {
-            let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
+            let stencil_val = mask.data(j + half_range_y, i + half_range_x);
             if stencil_val != 0.0f {
                 sum += acc.read(x + i, y + j) * stencil_val;
             } else {
@@ -48,19 +45,12 @@ fn main() -> i32 {
     init_rand(bitcast[&[f32]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&[f32]](out.buf.data), out.stride, out.height);
 
-    let mask_sep = MaskSep {
-        data : [ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ],
-        size : 5
-    };
-
-    let mask = Mask {
-        data : [[ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
-                [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
-                [ 0.026151f, 0.090339f, 0.136565f, 0.090339f, 0.026151f ],
-                [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
-                [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]],
-        size_x : 5, size_y : 5
-    };
+    let mask_sep = @get_mask_sep5([ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ]);
+    let mask     = @get_mask5([[ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
+                               [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
+                               [ 0.026151f, 0.090339f, 0.136565f, 0.090339f, 0.026151f ],
+                               [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
+                               [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]]);
 
     //let lower = @wrap_const_fun(const_lower, 0.0f);
     //let upper = @wrap_const_fun(const_upper, 0.0f);

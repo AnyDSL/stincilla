@@ -1,6 +1,3 @@
-type Mask = Mask3;
-type MaskSep = Mask3Sep;
-
 fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
@@ -8,7 +5,7 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
 
     for j in range(-half_range_y, half_range_y+1) {
         for i in range(-half_range_x, half_range_x+1) {
-            let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
+            let stencil_val = mask.data(j + half_range_y, i + half_range_x);
             if stencil_val != 0.0f {
                 sum += acc.read(x + i, y + j) * stencil_val;
             } else {
@@ -23,12 +20,9 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
 
 // Deriv 2D
 fn deriv2D(RHS: Img, img: Img) -> () {
-    let mask = Mask {
-        data : [[0.0f,  1.0f, 0.0f],
-                [1.0f, -4.0f, 1.0f],
-                [0.0f,  1.0f, 0.0f]],
-        size_x : 3, size_y : 3
-    };
+    let mask = @get_mask3([[0.0f,  1.0f, 0.0f],
+                           [1.0f, -4.0f, 1.0f],
+                           [0.0f,  1.0f, 0.0f]]);
     for x, y, rhs_acc, img_acc, mask in iteration_bounds(RHS, img, mask, mirror_lower, mirror_upper) {
         rhs_acc.write(x, y, apply_stencil(x, y, img_acc, mask));
     }
@@ -38,9 +32,9 @@ fn deriv2D(RHS: Img, img: Img) -> () {
 // Jacobi
 static omega = 0.8f;
 static jacobi_mask = Mask {
-    data : [[0.00f, 0.25f, 0.00f],
-            [0.25f, 0.00f, 0.25f],
-            [0.00f, 0.25f, 0.00f]],
+    data : |x: i32, y: i32| -> f32 { [[0.00f, 0.25f, 0.00f],
+                                      [0.25f, 0.00f, 0.25f],
+                                      [0.00f, 0.25f, 0.00f]](y)(x) },
     size_x : 3, size_y : 3
 };
 // Dirichlet boundary handling -> 0
@@ -66,9 +60,9 @@ fn jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
 
 // Residual
 static residual_mask = Mask {
-    data : [[0.0f,  1.0f, 0.0f],
-            [1.0f, -4.0f, 1.0f],
-            [0.0f,  1.0f, 0.0f]],
+    data : |x: i32, y: i32| -> f32 { [[0.0f,  1.0f, 0.0f],
+                                      [1.0f, -4.0f, 1.0f],
+                                      [0.0f,  1.0f, 0.0f]](y)(x) },
     size_x : 3, size_y : 3
 };
 fn residual_fun(x: i32, y: i32, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
@@ -88,9 +82,9 @@ fn residual(Res: Img, Sol: Img, RHS: Img) -> () {
 // Restrict: arr = size x size; out = size/2 x size/2; fine -> coarse
 // coarse = Stencil * fine;
 static restrict_mask = Mask {
-    data : [[0.25f, 0.50f, 0.25f],
-            [0.50f, 1.00f, 0.50f],
-            [0.25f, 0.50f, 0.25f]],
+    data : |x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
+                                      [0.50f, 1.00f, 0.50f],
+                                      [0.25f, 0.50f, 0.25f]](y)(x) },
     size_x : 3, size_y : 3
 };
 fn restrict_fun(x: i32, y: i32, RHS: Acc, Res: Acc, mask: Mask) -> () {
@@ -115,9 +109,9 @@ fn restrict(RHS: Img, Res: Img) -> () {
 // Interpolate: arr = size/2 x size/2; out = size x size; coarse -> fine
 // fine += Stencil * coarse:
 static interpolate_mask = Mask {
-    data : [[0.25f, 0.50f, 0.25f],
-            [0.50f, 1.00f, 0.50f],
-            [0.25f, 0.50f, 0.25f]],
+    data : |x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
+                                      [0.50f, 1.00f, 0.50f],
+                                      [0.25f, 0.50f, 0.25f]](y)(x) },
     size_x : 3, size_y : 3
 };
 fn interpolate_fun(x: i32, y: i32, SolF: Acc, SolC: Acc, mask: Mask) -> () {

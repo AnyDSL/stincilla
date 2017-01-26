@@ -6,9 +6,6 @@
  *
  */
 
-type Mask = Mask3;
-type MaskSep = Mask3Sep;
-
 fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
@@ -16,7 +13,7 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
 
     for j in range(-half_range_y, half_range_y+1) {
         for i in range(-half_range_x, half_range_x+1) {
-            let stencil_val = mask.data(j + half_range_y)(i + half_range_x);
+            let stencil_val = mask.data(j + half_range_y, i + half_range_x);
             if stencil_val != 0.0f {
                 sum += acc.read(x + i, y + j) * stencil_val;
             } else {
@@ -43,18 +40,12 @@ fn harris_corner(img_data: &[f32], out_data: &[f32], width: i32, height: i32) ->
     let gyy    = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
 
     // compute the first derivative using the Sobel operator
-    let mdx = Mask {
-        data : [[ -1.0f,  0.0f,  1.0f ],
-                [ -2.0f,  0.0f,  2.0f ],
-                [ -1.0f,  0.0f,  1.0f ]],
-        size_x : 3, size_y : 3
-    };
-    let mdy = Mask {
-        data : [[ -1.0f, -2.0f, -1.0f ],
-                [  0.0f,  0.0f,  0.0f ],
-                [  1.0f,  2.0f,  1.0f ]],
-        size_x : 3, size_y : 3
-    };
+    let mdx = @get_mask3([[ -1.0f,  0.0f,  1.0f ],
+                          [ -2.0f,  0.0f,  2.0f ],
+                          [ -1.0f,  0.0f,  1.0f ]]);
+    let mdy = @get_mask3([[ -1.0f, -2.0f, -1.0f ],
+                          [  0.0f,  0.0f,  0.0f ],
+                          [  1.0f,  2.0f,  1.0f ]]);
 
     let lower = clamp_lower;
     let upper = clamp_upper;
@@ -89,12 +80,9 @@ fn harris_corner(img_data: &[f32], out_data: &[f32], width: i32, height: i32) ->
 
 
     // compute gxx, gyy, gxy using Gaussian blur
-    let mg = Mask {
-        data : [[ 0.057118f, 0.124758f, 0.057118f ],
-                [ 0.124758f, 0.272496f, 0.124758f ],
-                [ 0.057118f, 0.124758f, 0.057118f ]],
-        size_x : 3, size_y : 3
-    };
+    let mg = @get_mask3([[ 0.057118f, 0.124758f, 0.057118f ],
+                         [ 0.124758f, 0.272496f, 0.124758f ],
+                         [ 0.057118f, 0.124758f, 0.057118f ]]);
 
     for x, y, out, arr, mask in @iteration_fun(gxx, dxx, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
