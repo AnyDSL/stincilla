@@ -68,13 +68,10 @@ fn const_lower (idx: i32, lower: i32, upper: i32, cval: f32, out: fn(f32) -> !) 
 fn const_upper (idx: i32, lower: i32, upper: i32, cval: f32, out: fn(f32) -> !) -> i32 {
     if idx >= upper { out(cval) } else { idx }
 }
-fn wrap_const_fun(fun: fn(i32, i32, i32, f32, fn(f32) -> !) -> i32, cval: f32) -> fn(i32, i32, i32, fn(f32) -> !) -> i32 {
+fn wrap_const_fun(fun: fn(i32, i32, i32, f32, fn(f32) -> !) -> i32, cval: f32) -> BoundaryFn {
     |idx, lower, upper, out| fun(idx, lower, upper, cval, out)
 }
-fn read_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32,
-              bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32,
-              bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32
-             ) -> f32 {
+fn read_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> f32 {
     let mut idx_x = roi.o_x + x;
     let mut idx_y = roi.o_y + y;
 
@@ -191,19 +188,19 @@ fn round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) 
 fn get_pixel_as1(img: Img, idx: i32) -> f32 { bitcast[&[1][f32]](img.buf.data)(idx) }
 fn get_pixel_ldg(img: Img, idx: i32) -> f32 { ldg_f32(bitcast[&[1]f32](&bitcast[&[1][f32]](img.buf.data)(idx))) }
 fn set_pixel_as1(img: Img, idx: i32, val: f32) -> () { bitcast[&[1][f32]](img.buf.data)(idx) = val }
-fn get_acc_bh(img: Img, region: i32, bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32) -> Acc {
+fn get_acc_bh(img: Img, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset(img, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acc_bh_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32) -> Acc {
+fn get_acc_bh_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_asx_bh_offset(img, rox, roy, region, bh_lower, bh_upper, get_pixel_as1)
 }
-fn get_acc_tex_bh(img: Img, region: i32, bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32) -> Acc {
+fn get_acc_tex_bh(img: Img, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_tex_bh_offset(img, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acc_tex_bh_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32) -> Acc {
+fn get_acc_tex_bh_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_asx_bh_offset(img, rox, roy, region, bh_lower, bh_upper, get_pixel_ldg)
 }
-fn get_acc_asx_bh_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32, get_pixel_asx: fn(Img, i32) -> f32) -> Acc {
+fn get_acc_asx_bh_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn, get_pixel_asx: fn(Img, i32) -> f32) -> Acc {
     Acc {
         read  : |x, y|    -> f32 { read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| -> f32 { get_pixel_asx(img, y * img.stride + x) }, bh_lower, bh_upper) },
         write : |x, y, v| -> ()  { set_pixel_as1(img, (y + roy) * img.stride + x + rox, v) }
@@ -234,10 +231,10 @@ fn get_img(buf: Buffer, width: i32, height: i32) -> Img {
 // &[0][f32]
 fn get_pixel_as0(data: &[f32], idx: i32) -> f32 { data(idx) }
 fn set_pixel_as0(data: &[f32], idx: i32, val: f32) -> () { data(idx) = val }
-fn get_acc_bh_memory(data: &[f32], width: i32, height: i32, region: i32, bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32) -> Acc {
+fn get_acc_bh_memory(data: &[f32], width: i32, height: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset_memory(data, width, height, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acc_bh_offset_memory(data: &[f32], width: i32, height: i32, rox: i32, roy: i32, region: i32, bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32) -> Acc {
+fn get_acc_bh_offset_memory(data: &[f32], width: i32, height: i32, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     Acc {
         read  : |x, y|    -> f32 { read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : width, height : height }, |x, y| -> f32 { get_pixel_as0(data, y * width + x) }, bh_lower, bh_upper) },
         write : |x, y, v| -> ()  { set_pixel_as0(data, (y + roy) * width + x + rox, v) }
@@ -265,6 +262,10 @@ fn get_acc_offset_shared(data: &[3][f32], width: i32, height: i32, rox: i32, roy
         write : |x, y, v| set_pixel_as3(data, (y + roy) * width + x + rox, v)
     }
 }
+
+type BoundaryFn   = fn(i32, i32, i32, fn(f32) -> !) -> i32;
+type StencilFn    = fn(i32, i32, Acc, Acc, Mask) -> ();
+type StencilSepFn = fn(i32, i32, Acc, Acc, MaskSep, bool) -> ();
 
 // structs for images and accessors
 struct Img {

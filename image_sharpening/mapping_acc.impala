@@ -11,8 +11,7 @@ fn for_shift_up(a: i32, b: i32, body: fn(i32) -> ()) -> () {
     }
 }
 
-fn iteration1f1i(out: Img, arr: Imgi16,
-                 bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32,
+fn iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
                  body: fn(i32, i32, Acc, Acci16) -> ()
                 ) -> () {
     let unroll = 1;
@@ -40,8 +39,7 @@ fn iteration1f1i(out: Img, arr: Imgi16,
     release(out_gpu.buf);
     release(arr_gpu.buf);
 }
-fn iteration2i(out: Imgi16, arr: Imgi16,
-               bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32,
+fn iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
                body: fn(i32, i32, Acci16, Acci16) -> ()
               ) -> () {
     let unroll = 1;
@@ -69,8 +67,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16,
     release(out_gpu.buf);
     release(arr_gpu.buf);
 }
-fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img,
-                 bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32,
+fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
                  body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
                 ) -> () {
     let unroll = 1;

@@ -21,10 +21,7 @@ fn iteration_point(out: Img,
     }
 }
 
-fn iteration(out: Img, arr: Img, mask: Mask,
-             bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32,
-             body: fn(i32, i32, Acc, Acc, Mask) -> ()
-            ) -> () {
+fn iteration(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let out_acc = get_acc(out);
     let arr_acc = get_acc_bh(arr, 10, bh_lower, bh_upper);
 
@@ -37,10 +34,7 @@ fn iteration(out: Img, arr: Img, mask: Mask,
     }
 }
 
-fn iteration_bounds(out: Img, arr: Img, mask: Mask,
-                    bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32,
-                    body: fn(i32, i32, Acc, Acc, Mask) -> ()
-                   ) -> () {
+fn iteration_bounds(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     // compute the number of vector strides for boundary handling
     let bhy = mask.size_y / 2;
     let bhx = round_up(mask.size_x / 2, get_vector_length());
@@ -80,18 +74,12 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask,
     }
 }
 
-fn iteration_advanced(out: Img, arr: Img, mask: Mask,
-                      bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32,
-                      body: fn(i32, i32, Acc, Acc, Mask) -> ()
-                     ) -> () {
+fn iteration_advanced(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     // TODO: blocked loop
     iteration_bounds(out, arr, mask, bh_lower, bh_upper, body)
 }
 
-fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
-                 bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32,
-                 body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
-                ) -> () {
+fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
     // allocate temporary array
     let tmp = get_img(alloc_cpu(out.width * out.height * sizeof[f32]()), out.width, out.height);
     let out_acc   = get_acc(out);
@@ -118,10 +106,7 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
     release(tmp.buf);
 }
 
-fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
-                        bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32,
-                        body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
-                       ) -> () {
+fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
     // allocate temporary array
     let tmp = get_img(alloc_cpu(out.width * out.height * sizeof[f32]()), out.width, out.height);
 
@@ -173,10 +158,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
     release(tmp.buf);
 }
 
-fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep,
-                          bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32,
-                          body: fn(i32, i32, Acc, Acc, MaskSep, bool) -> ()
-                         ) -> () {
+fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
     let unroll = 1;
     let bhy = round_up(mask_col.size / 2, unroll);
     let bhx = round_up(mask_row.size / 2, get_vector_length());

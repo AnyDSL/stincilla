@@ -1,5 +1,4 @@
-fn iteration(out: Img, arr: Img,
-             bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32,
+fn iteration(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: BoundaryFn,
              body: fn(i32, i32, Acc, Acc) -> ()
             ) -> () {
     let grid  = (out.width, out.height, 1);

@@ -1,5 +1,5 @@
 fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
-                   bh_lower: fn(i32, i32, i32, fn(f32) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(f32) -> !) -> i32,
+                   bh_lower: BoundaryFn, bh_upper: BoundaryFn,
                    residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
                    restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {

@@ -1,5 +1,6 @@
 type Mask = Mask5;
 type MaskSep = Mask5Sep;
+type BoundaryFni16 = fn(i32, i32, i32, fn(i16) -> !) -> i32;
 
 struct Imgi16 {
     buf : Buffer,
@@ -15,10 +16,10 @@ struct Acci16 {
 // &[1][i16]
 fn get_pixeli16_as1(img: Imgi16, idx: i32) -> i16 { bitcast[&[1][i16]](img.buf.data)(idx) }
 fn set_pixeli16_as1(img: Imgi16, idx: i32, val: i16) -> () { bitcast[&[1][i16]](img.buf.data)(idx) = val }
-fn get_acci16_bh(img: Imgi16, region: i32, bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32) -> Acci16 {
+fn get_acci16_bh(img: Imgi16, region: i32, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
     get_acci16_bh_offset(img, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acci16_bh_offset(img: Imgi16, rox: i32, roy: i32, region: i32, bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32, bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32) -> Acci16 {
+fn get_acci16_bh_offset(img: Imgi16, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
     Acci16 {
         read  : |x, y|    -> i16 { read_pixeli16(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| -> i16 { get_pixeli16_as1(img, y * img.stride + x) }, bh_lower, bh_upper) },
         write : |x, y, v| -> ()  { set_pixeli16_as1(img, (y + roy) * img.stride + x + rox, v) }
@@ -36,10 +37,7 @@ fn get_acci16_offset(img: Imgi16, rox: i32, roy: i32) -> Acci16 {
 fn get_img_i16(buf: Buffer, width: i32, height: i32) -> Imgi16 {
     Imgi16 { buf : buf, width : width,  height : height, stride : width }
 }
-fn read_pixeli16(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> i16,
-                 bh_lower: fn(i32, i32, i32, fn(i16) -> !) -> i32,
-                 bh_upper: fn(i32, i32, i32, fn(i16) -> !) -> i32
-                ) -> i16 {
+fn read_pixeli16(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> i16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> i16 {
     let mut idx_x = roi.o_x + x;
     let mut idx_y = roi.o_y + y;
 
