@@ -228,10 +228,10 @@ fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
         release(Tmp(level).buf);
     }
 
-    runtime_release(0, bitcast[&i8](RHS));
-    runtime_release(0, bitcast[&i8](Sol));
-    runtime_release(0, bitcast[&i8](Tmp));
-    runtime_release(0, bitcast[&i8](Res));
+    runtime_release(0, bitcast[&[i8]](RHS));
+    runtime_release(0, bitcast[&[i8]](Sol));
+    runtime_release(0, bitcast[&[i8]](Tmp));
+    runtime_release(0, bitcast[&[i8]](Res));
 
     result
 }
@@ -342,10 +342,10 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
         release(Tmp(level).buf);
     }
 
-    runtime_release(0, bitcast[&i8](RHS));
-    runtime_release(0, bitcast[&i8](Sol));
-    runtime_release(0, bitcast[&i8](Tmp));
-    runtime_release(0, bitcast[&i8](Res));
+    runtime_release(0, bitcast[&[i8]](RHS));
+    runtime_release(0, bitcast[&[i8]](Sol));
+    runtime_release(0, bitcast[&[i8]](Tmp));
+    runtime_release(0, bitcast[&[i8]](Res));
 
     result
 }
