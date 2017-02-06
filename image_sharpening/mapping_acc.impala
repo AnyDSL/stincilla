@@ -179,7 +179,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
 }
 fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     let hist_buf = acc_alloc(acc_dev(), 256 * sizeof[i32]());
-    let     hist = bitcast[&[1][i32]](hist_buf.data);
+    let     hist = bitcast[&mut[1][i32]](hist_buf.data);
 
     let img_gpu = get_img(acc_alloc(acc_dev(), img.width * img.height * sizeof[f32]()), img.width, img.height);
     copy(img.buf, img_gpu.buf, img.width * img.height * sizeof[f32]());
@@ -205,14 +205,14 @@ fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
 }
 fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     let scan_buf = acc_alloc(acc_dev(), size * sizeof[i32]());
-    let     scan = bitcast[&[1][i32]](scan_buf.data);
-    let     hist = bitcast[&[1][i32]](hist_buf.data);
+    let     scan = bitcast[&mut[1][i32]](scan_buf.data);
+    let     hist = bitcast[&   [1][i32]](hist_buf.data);
 
     // perform scan per block in shared memory first
     let block_size = if size <= 256 { 128 } else { 256 };
     let num_blocks = size / (2 * block_size);
     let tmp_buf = acc_alloc(acc_dev(), num_blocks * sizeof[i32]());
-    let     tmp = bitcast[&[1][i32]](tmp_buf.data);
+    let     tmp = bitcast[&mut[1][i32]](tmp_buf.data);
 
     let grid  = (size / 2, 1, 1);
     let block = (block_size, 1, 1);
@@ -321,7 +321,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     scan_buf
 }
 fn find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
-    let size_buf = Buffer { device : 0, data : bitcast[&[i8]](&size) };
+    let size_buf = Buffer { device : 0, data : bitcast[&[i8]](&mut size) };
     let pos_buf  = acc_alloc(acc_dev(), sizeof[i32]());
     let pos      = bitcast[&[1][i32]](pos_buf.data);
     let scan     = bitcast[&[1][i32]](scan_buf.data);
@@ -338,7 +338,7 @@ fn find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
     }
 
     let mut result:i32;
-    let r_buf = Buffer { device : 0, data : bitcast[&[i8]](&result) };
+    let r_buf = Buffer { device : 0, data : bitcast[&[i8]](&mut result) };
     copy(pos_buf, r_buf, sizeof[i32]());
     release(pos_buf);
     result

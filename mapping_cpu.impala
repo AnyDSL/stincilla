@@ -190,7 +190,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
 
                     // index space: cache line
                     let arr_acc = get_acc_bh_offset(arr, 0, y, region_col, bh_lower, bh_upper);
-                    let tmp_acc = get_acc_memory(bitcast[&[f32]](tmp.data), out.width, unroll);
+                    let tmp_acc = get_acc_memory(bitcast[&mut[f32]](tmp.data), out.width, unroll);
                     for i in range(0, unroll) {
                         body(x, i, tmp_acc, arr_acc, mask_col, is_row);
                     }
@@ -203,7 +203,7 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                         let is_row = true;
 
                         // index space: cache line
-                        let tmp_acc = get_acc_bh_memory(bitcast[&[f32]](tmp.data), out.width, unroll, region_row, bh_lower, bh_upper);
+                        let tmp_acc = get_acc_bh_memory(bitcast[&mut[f32]](tmp.data), out.width, unroll, region_row, bh_lower, bh_upper);
                         let out_acc = get_acc_offset(out, 0, y);
                         for i in range(0, unroll) {
                             body(x, i, out_acc, tmp_acc, mask_row, is_row);

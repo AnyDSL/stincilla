@@ -42,8 +42,8 @@ fn main() -> i32 {
     let height = 4096;
     let arr    = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
     let out    = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
-    init_rand(bitcast[&[f32]](arr.buf.data), arr.stride, out.height);
-    init_zero(bitcast[&[f32]](out.buf.data), out.stride, out.height);
+    init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
 
     let mask_sep = @get_mask_sep5([ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ]);
     let mask     = @get_mask5([[ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],

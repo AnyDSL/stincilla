@@ -14,7 +14,7 @@ fn iteration(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
 }
 
 fn read(buf: Buffer, i: i32) -> f32 { bitcast[&[1][f32]](buf.data)(i) }
-fn write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&[1][f32]](buf.data)(i) = v }
+fn write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&mut[1][f32]](buf.data)(i) = v }
 
 fn main() -> i32 {
     let width   = 2048;
@@ -24,8 +24,8 @@ fn main() -> i32 {
     let arr_gpu = acc_alloc(acc_dev(), width * height * sizeof[f32]());
     let out_gpu = acc_alloc(acc_dev(), width * height * sizeof[f32]());
     for i in range(0, width*height) {
-        let arr_ptr = bitcast[&[f32]](arr.data);
-        let out_ptr = bitcast[&[f32]](out.data);
+        let arr_ptr = bitcast[&mut[f32]](arr.data);
+        let out_ptr = bitcast[&mut[f32]](out.data);
         arr_ptr(i) = i as f32;
         out_ptr(i) = 0.0f;
     }
