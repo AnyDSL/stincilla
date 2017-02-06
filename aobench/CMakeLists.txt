@@ -1,7 +1,4 @@
-wrap_impala_sources(AOBENCH_PROGRAM
-    BACKEND ${BACKEND}
-    FILES ../utils.impala mapping_${DEVICE}.impala aobench.impala)
-add_executable(aobench main.cpp ${AOBENCH_PROGRAM})
-target_link_libraries(aobench ${IMPALA_RUNTIME_LIBRARIES})
+add_test_sample(aobench ${BACKEND}
+    CXX main.cpp
+    IMPALA ../utils.impala mapping_${DEVICE}.impala aobench.impala)
 set_target_properties(aobench PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
-add_test("aobench" aobench)

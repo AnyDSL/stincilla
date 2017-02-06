@@ -4,8 +4,6 @@ project(STINCILLA CXX)
 enable_testing()
 
 find_package(IMPALA REQUIRED)
-# include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
-# include_directories(${ANYDSL_RUNTIME_DIR}/src)
 
 if(NOT BACKEND)
     set(BACKEND cpu)
@@ -20,6 +18,20 @@ endif()
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
+function (add_test_sample _name _backend)
+    CMAKE_PARSE_ARGUMENTS ( "PARGS" "" "" "CXX;IMPALA" ${ARGN} )
+    set(_infiles ${PARGS_IMPALA})
+    set(_cxxfiles ${PARGS_CXX})
+    if (NOT (_infiles OR _cxxfiles))
+        set(_infiles ${PARGS_UNPARSED_ARGUMENTS})
+    endif()
+    source_group("Impala Files" REGULAR_EXPRESSION "[.]impala$")
+    wrap_impala_sources(_outfiles BACKEND ${_backend} OUTPUT_NAME ${_name} FILES ${_infiles})
+    add_executable(${_name} ${_outfiles} ${_infiles} ${_cxxfiles})
+    target_link_libraries(${_name} ${IMPALA_RUNTIME_LIBRARIES})
+    add_test("${_name}" ${_name})
+endfunction()
+
 add_subdirectory(aobench)
 add_subdirectory(bilateral_grid)
 add_subdirectory(harris_corner)
@@ -29,31 +41,9 @@ add_subdirectory(sorting_networks)
 add_subdirectory(vcycle)
 
 # simple CPU-based examples
-wrap_impala_sources(MATMUL_PROGRAM
-    BACKEND cpu
-    FILES utils.impala matmul.impala)
-add_executable(matmul ${MATMUL_PROGRAM})
-target_link_libraries(matmul ${IMPALA_RUNTIME_LIBRARIES})
-add_test("matmul" matmul)
+add_test_sample(matmul cpu utils.impala matmul.impala)
 
 # examples based on the "mapping"
-wrap_impala_sources(GAUSSIAN_PROGRAM
-    BACKEND ${BACKEND}
-    FILES utils.impala mapping_${DEVICE}.impala gaussian.impala)
-add_executable(gaussian ${GAUSSIAN_PROGRAM})
-target_link_libraries(gaussian ${IMPALA_RUNTIME_LIBRARIES})
-add_test("gaussian" gaussian)
-
-wrap_impala_sources(BILATERAL_PROGRAM
-    BACKEND ${BACKEND}
-    FILES utils.impala mapping_${DEVICE}.impala bilateral.impala)
-add_executable(bilateral ${BILATERAL_PROGRAM})
-target_link_libraries(bilateral ${IMPALA_RUNTIME_LIBRARIES})
-add_test("bilateral" bilateral)
-
-wrap_impala_sources(JACOBI_PROGRAM
-    BACKEND ${BACKEND}
-    FILES utils.impala mapping_${DEVICE}.impala jacobi.impala)
-add_executable(jacobi ${JACOBI_PROGRAM})
-target_link_libraries(jacobi ${IMPALA_RUNTIME_LIBRARIES})
-add_test("jacobi" jacobi)
+add_test_sample(gaussian ${BACKEND} utils.impala mapping_${DEVICE}.impala gaussian.impala)
+add_test_sample(bilateral ${BACKEND} utils.impala mapping_${DEVICE}.impala bilateral.impala)
+add_test_sample(jacobi ${BACKEND} utils.impala mapping_${DEVICE}.impala jacobi.impala)
