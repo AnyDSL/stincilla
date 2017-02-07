@@ -186,10 +186,11 @@ fn sort_f32(num: i32, arr: &mut[f32]) -> () {
 fn round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
 
 
-// &[1][f32]
-fn get_pixel_as1(img: Img, idx: i32) -> f32 { bitcast[&[1][f32]](img.buf.data)(idx) }
-fn get_pixel_ldg(img: Img, idx: i32) -> f32 { ldg_f32(&bitcast[&[1][f32]](img.buf.data)(idx)) }
-fn set_pixel_as1(img: Img, idx: i32, val: f32) -> () { bitcast[&mut[1][f32]](img.buf.data)(idx) = val }
+// &   [f32] on CPU/AVX
+// &[1][f32] on CUDA/NVVM & OpenCL/SPIR
+fn get_pixel_as1(img: Img, idx: i32) -> f32 { bitcast_mem_f32(img.buf.data)(idx) }
+fn get_pixel_ldg(img: Img, idx: i32) -> f32 { ldg_f32(&bitcast_mem_f32(img.buf.data)(idx)) }
+fn set_pixel_as1(img: Img, idx: i32, val: f32) -> () { bitcast_mem_mutf32(img.buf.data)(idx) = val }
 fn get_acc_bh(img: Img, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset(img, 0, 0, region, bh_lower, bh_upper)
 }
@@ -230,7 +231,7 @@ fn get_img(buf: Buffer, width: i32, height: i32) -> Img {
     Img { buf : buf, width : width,  height : height, stride : width }
 }
 
-// &[0][f32]
+// &[f32]
 fn get_pixel_as0(data: &[f32], idx: i32) -> f32 { data(idx) }
 fn set_pixel_as0(data: &mut[f32], idx: i32, val: f32) -> () { data(idx) = val }
 fn get_acc_bh_memory(data: &mut[f32], width: i32, height: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
@@ -264,6 +265,7 @@ fn get_acc_offset_shared(data: &mut[3][f32], width: i32, height: i32, rox: i32, 
         write : |x, y, v| set_pixel_as3(data, (y + roy) * width + x + rox, v)
     }
 }
+
 fn get_mask3(data : [[f32 * 3] * 3]) -> Mask {
     Mask {
         data : |x, y| -> f32 { data(y)(x) },
