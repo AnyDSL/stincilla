@@ -173,7 +173,7 @@ fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        init_zero(bitcast[&[f32]](Tmp(level).buf.data), Tmp(level).stride, Tmp(level).height);
+        init_zero(bitcast[&mut[f32]](Tmp(level).buf.data), Tmp(level).stride, Tmp(level).height);
     }
 
     fn vcycle_intern(level: i32) -> () {
@@ -195,7 +195,7 @@ fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
 
             //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
 
-            init_zero(bitcast[&[f32]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
+            init_zero(bitcast[&mut[f32]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_intern(level+1);
 
             interpolate(Sol(level), Sol(level+1));
@@ -261,7 +261,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        init_zero(bitcast[&[f32]](Tmp(level).buf.data), Tmp(level).stride, Tmp(level).height);
+        init_zero(bitcast[&mut[f32]](Tmp(level).buf.data), Tmp(level).stride, Tmp(level).height);
     }
 
     fn vcycle_dsl_intern(level: i32) -> () {
@@ -302,7 +302,7 @@ fn vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
 
             //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
 
-            init_zero(bitcast[&[f32]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
+            init_zero(bitcast[&mut[f32]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_dsl_intern(level+1);
 
             // use iteration space of SolC, compute 4x elements
@@ -353,7 +353,7 @@ fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
 
     for y in range(0, img.height) {
         for x in range(0, img.width) {
-            bitcast[&[f32]](img.buf.data)(y*img.stride + x) = img_data(y*img.width + x);
+            bitcast[&mut[f32]](img.buf.data)(y*img.stride + x) = img_data(y*img.width + x);
         }
     }
 
@@ -369,7 +369,7 @@ fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
 
     for y in range(0, out.height) {
         for x in range(0, out.width) {
-            bitcast[&[f32]](out.buf.data)(y*out.width + x) = bitcast[&[f32]](result.buf.data)(y*result.stride + x);
+            bitcast[&mut[f32]](out.buf.data)(y*out.width + x) = bitcast[&[f32]](result.buf.data)(y*result.stride + x);
         }
     }
 

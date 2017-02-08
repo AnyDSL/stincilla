@@ -35,7 +35,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
                     for yi in range(0, step * unroll) {
                         for x in $inner_row(bounds_row(0), bounds_row(1)) @{
                             let region   = Region2D(3 * iter_col + iter_row);
-                            let tmp_acc  = get_acc_memory(bitcast[&[f32]](tmp.data), Sol.stride, step * unroll);
+                            let tmp_acc  = get_acc_memory(bitcast[&mut[f32]](tmp.data), Sol.stride, step * unroll);
                             let rhsf_acc = get_acc_offset(RHSF, 0, y);
                             let sol_acc  = get_acc_bh_offset(Sol, 0, y, region, bh_lower, bh_upper);
                             residual(x, yi, tmp_acc, sol_acc, rhsf_acc, residual_mask);
@@ -44,7 +44,7 @@ fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
                 }
                 // restrict: index space == cache line
                 for yi in range(0, unroll) {
-                    let tmp_acc  = get_acc_memory(bitcast[&[f32]](tmp.data), Sol.stride, step * unroll);
+                    let tmp_acc  = get_acc_memory(bitcast[&mut[f32]](tmp.data), Sol.stride, step * unroll);
                     let rhsc_acc = get_acc_offset(RHSC, 0, y/step + yi);
                     for x in $range(0, RHSC.width) @{
                         restrict(x, yi, rhsc_acc, tmp_acc, restrict_mask);
