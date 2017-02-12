@@ -98,7 +98,7 @@ fn matmul_auto_tiled(C: Mat, A: Mat, B: Mat) -> () {
         }
     }
 
-    tiled_matmul();
+    tiled_matmul()
 }
 
 

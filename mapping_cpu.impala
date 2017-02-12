@@ -74,9 +74,74 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upp
     }
 }
 
+fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> () {
+    fn get_step(lvl: i32) -> i32 { // size -> 1024 -> 1
+        if lvl == 0 { 2048 } else { 1 }
+    }
+    let x_upper = xu;
+    let x_lower = xl;
+
+    fn tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
+        let step = get_step(cur_lvl);
+        if step == 1 {
+            for y in $range(yl, yu) {
+                for x in range(xl, min(xu, x_upper)) @{
+                    body(x, y);
+                }
+            }
+        } else {
+            let step = if xl == x_lower { step - xl } else { step };
+            for x in $range_step(xl, xu, step) @{
+                tile(cur_lvl + 1, x, x + step, yl, yu);
+            }
+        }
+    }
+
+    tile(0, xl, xu, yl, yu)
+}
+
 fn iteration_advanced(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    // TODO: blocked loop
-    iteration_bounds(out, arr, mask, bh_lower, bh_upper, body)
+    // compute the number of vector strides for boundary handling
+    let bhy = mask.size_y / 2;
+    let bhx = round_up(mask.size_x / 2, get_vector_length());
+
+    // (minx, maxx, miny, maxy)
+    let width  = out.width;
+    let height = out.height;
+    let Bounds2D = [
+        (0          , bhx        , 0           , bhy),
+        (bhx        , width - bhx, 0           , bhy),
+        (width - bhx, width      , 0           , bhy),
+
+        (0          , bhx        , bhy         , height - bhy),
+        (bhx        , width - bhx, bhy         , height - bhy),
+        (width - bhx, width      , bhy         , height - bhy),
+
+        (0          , bhx        , height - bhy, height),
+        (bhx        , width - bhx, height - bhy, height),
+        (width - bhx, width      , height - bhy, height)
+    ];
+
+    for benchmark_cpu() {
+        for iter in @range(0, 9) {
+            let bounds = Bounds2D(iter);
+            let region = Region2D(iter);
+            let arr_acc = get_acc_bh(arr, region, bh_lower, bh_upper);
+            let out_acc = get_acc(out);
+            //let outer_loop_fun = if region == 4 { outer_loop } else { range };
+            // gets slower when computed in parallel
+
+            if region == 4 {
+                @tiled_loop(bounds(0), bounds(1), bounds(2), bounds(3), |x, y| body(x, y, out_acc, arr_acc, mask));
+            } else {
+                for y in $range(bounds(2), bounds(3)) {
+                    for x in inner_loop(bounds(0), bounds(1)) @{
+                        body(x, y, out_acc, arr_acc, mask);
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
