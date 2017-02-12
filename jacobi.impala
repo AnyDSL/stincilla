@@ -1,22 +1,3 @@
-fn apply_stencil(x: i32, y: i32, acc: Acc, stencil: Mask) -> f32 {
-    let mut sum = 0.0f;
-    let half_range_y = stencil.size_y / 2;
-    let half_range_x = stencil.size_x / 2;
-
-    for j in range(-half_range_y, half_range_y+1) {
-        for i in range(-half_range_x, half_range_x+1) {
-            let stencil_val = stencil.data(j + half_range_y, i + half_range_x);
-            if stencil_val != 0.0f {
-                sum += acc.read(x + i, y + j) * stencil_val;
-            } else {
-                // additional logic for empty stencil value
-            }
-        }
-    }
-
-    sum
-}
-
 fn main() -> i32 {
     let width  = 2048;
     let height = 2048;

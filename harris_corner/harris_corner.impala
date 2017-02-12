@@ -6,26 +6,6 @@
  *
  */
 
-fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
-    let mut sum = 0.0f;
-    let half_range_y = mask.size_y / 2;
-    let half_range_x = mask.size_x / 2;
-
-    for j in range(-half_range_y, half_range_y+1) {
-        for i in range(-half_range_x, half_range_x+1) {
-            let stencil_val = mask.data(j + half_range_y, i + half_range_x);
-            if stencil_val != 0.0f {
-                sum += acc.read(x + i, y + j) * stencil_val;
-            } else {
-                // additional logic for empty stencil value
-            }
-        }
-    }
-
-    sum
-}
-
-
 extern
 fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32) -> () {
     let input  = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](img_data) }, width : width, height : height, stride : width };

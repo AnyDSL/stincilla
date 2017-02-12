@@ -35,21 +35,21 @@ add_test("matmul" matmul)
 # examples based on the "mapping"
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     BACKEND ${BACKEND}
-    FILES utils.impala mapping_${DEVICE}.impala gaussian.impala)
+    FILES utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
 target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
 
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     BACKEND ${BACKEND}
-    FILES utils.impala mapping_${DEVICE}.impala bilateral.impala)
+    FILES utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
 add_executable(bilateral ${BILATERAL_PROGRAM})
 target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
 
 anydsl_runtime_wrap(JACOBI_PROGRAM
     BACKEND ${BACKEND}
-    FILES utils.impala mapping_${DEVICE}.impala jacobi.impala)
+    FILES utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
 add_executable(jacobi ${JACOBI_PROGRAM})
 target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("jacobi" jacobi)

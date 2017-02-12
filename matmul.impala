@@ -14,8 +14,6 @@ fn get_mat(buf: Buffer, rows: i32, cols: i32) -> Mat {
     }
 }
 
-fn min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
-
 
 fn matmul_golden(C: Mat, A: Mat, B: Mat) -> () {
     for i in $range(0, C.rows()) {
