@@ -1,8 +1,11 @@
+fn set_pixeli16_fn(img: Imgi16) -> fn(i32, i16) -> () { |idx, val| bitcast[&mut[i16]](img.buf.data)(idx) = val }
+fn get_pixeli16_fn(img: Imgi16) -> fn(i32) -> i16 { |idx| bitcast[&[i16]](img.buf.data)(idx) }
+
 fn iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
                  body: fn(i32, i32, Acc, Acci16) -> ()
                 ) -> () {
-    let out_acc = get_acc(out);
-    let arr_acc = get_acci16_bh(arr, 10, bh_lower, bh_upper);
+    let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+    let arr_acc = get_acci16_bh(arr, set_pixeli16_fn(arr), get_pixeli16_fn(arr), 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -15,8 +18,8 @@ fn iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bound
 fn iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
                body: fn(i32, i32, Acci16, Acci16) -> ()
               ) -> () {
-    let out_acc = get_acci16(out);
-    let arr_acc = get_acci16_bh(arr, 10, bh_lower, bh_upper);
+    let out_acc = get_acci16(out, set_pixeli16_fn(out), get_pixeli16_fn(out));
+    let arr_acc = get_acci16_bh(arr, set_pixeli16_fn(arr), get_pixeli16_fn(arr), 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -29,9 +32,9 @@ fn iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
 fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
                  body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
                 ) -> () {
-    let out_acc = get_acci16(out);
-    let img_acc = get_acci16_bh(img, 10, bh_lower, bh_upper);
-    let map_acc = get_acc(map);
+    let out_acc = get_acci16(out, set_pixeli16_fn(out), get_pixeli16_fn(out));
+    let img_acc = get_acci16_bh(img, set_pixeli16_fn(img), get_pixeli16_fn(img), 10, bh_lower, bh_upper);
+    let map_acc = get_acc(map, set_pixel_fn(map), get_pixel_fn(map));
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -44,9 +47,9 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh
 fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
                body: fn(i32, i32, Acci16, Acci16, Acci16) -> ()
               ) -> () {
-    let out_acc = get_acci16(out);
-    let img_acc = get_acci16(img);
-    let tmp_acc = get_acci16(tmp);
+    let out_acc = get_acci16(out, set_pixeli16_fn(out), get_pixeli16_fn(out));
+    let img_acc = get_acci16(img, set_pixeli16_fn(img), get_pixeli16_fn(img));
+    let tmp_acc = get_acci16(tmp, set_pixeli16_fn(tmp), get_pixeli16_fn(tmp));
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -58,7 +61,7 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
 }
 fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     let mut sum = 0;
-    let img_acc = get_acci16(img);
+    let img_acc = get_acci16(img, set_pixeli16_fn(img), get_pixeli16_fn(img));
     for y in $range(0, img.height) {
         for x in inner_loop(0, img.width) @{
             sum += body(x, y, img_acc);
@@ -69,7 +72,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
 fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     let hist_buf = alloc_cpu(256 * sizeof[i32]());
     let     hist = bitcast[&mut[i32]](hist_buf.data);
-    let img_acc  = get_acc(img);
+    let img_acc  = get_acc(img, set_pixel_fn(img), get_pixel_fn(img));
 
     for i in $range(0, 256) {
         hist(i) = 0;

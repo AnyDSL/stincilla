@@ -1,9 +1,8 @@
-fn iteration(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: BoundaryFn,
-             body: fn(i32, i32, Acc, Acc) -> ()
-            ) -> () {
+fn iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: BoundaryFn,
+                    body: fn(i32, i32, Acc, Acc) -> ()
+                   ) -> () {
     let grid  = (out.width, out.height, 1);
     let block = (128, 1, 1);
-    let get_acc_bh = if acc_use_tex() { get_acc_tex_bh } else { get_acc_bh };
 
     let out_gpu = get_img(acc_alloc(acc_dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
     let arr_gpu = get_img(acc_alloc(acc_dev(), arr.width * arr.height * sizeof[f32]()), arr.width, arr.height);
@@ -13,8 +12,8 @@ fn iteration(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: BoundaryFn,
         with acc(acc_dev(), grid, block) @{
             let gid_x = acc_gidx();
             let gid_y = acc_gidy();
-            let arr_acc = get_acc_bh(arr_gpu, 10, bh_lower, bh_upper);
-            let out_acc = get_acc(out_gpu);
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
             body(gid_x, gid_y, out_acc, arr_acc);
         }
     }

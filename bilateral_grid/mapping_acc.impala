@@ -1,7 +1,9 @@
-fn grid_read(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32) -> f32 {
+fn img_read_fn(img: Buffer, width: i32) -> fn(i32, i32) -> f32 { |x: i32, y: i32| bitcast[&[1][f32]](img.data)(y * width + x) }
+fn img_write_fn(img: Buffer, width: i32) -> fn(i32, i32, f32) -> () { |x: i32, y: i32, v: f32| bitcast[&mut[1][f32]](img.data)(y * width + x) = v }
+fn grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32) -> f32 {
     |x, y, z, c| bitcast[&[1][f32]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c)
 }
-fn grid_write(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32, f32) -> () {
+fn grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32, f32) -> () {
     |x, y, z, c, v| { bitcast[&mut[1][f32]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c) = v }
 }
 fn get_device_copy(host: &[f32], size: i32) -> Buffer {

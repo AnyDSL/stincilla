@@ -7,10 +7,13 @@ static Region2DRow = [ 3, 4, 5 ];
 fn get_device_copy(img: Img) -> Img { img }
 fn release_device_copy(img: Img) -> () { }
 
-fn iteration_point(out: Img,
-                   body: fn(i32, i32, Acc) -> ()
-                  ) -> () {
-    let out_acc = get_acc(out);
+fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[f32]](img.buf.data)(idx) = val }
+fn get_pixel_fn(img: Img) -> fn(i32) -> f32 { |idx| bitcast[&[f32]](img.buf.data)(idx) }
+fn set_pixel_memory_fn(buf: Buffer) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[f32]](buf.data)(idx) = val }
+fn get_pixel_memory_fn(buf: Buffer) -> fn(i32) -> f32 { |idx| bitcast[&[f32]](buf.data)(idx) }
+
+fn iteration_point(out: Img, body: fn(i32, i32, Acc) -> ()) -> () {
+    let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -22,8 +25,8 @@ fn iteration_point(out: Img,
 }
 
 fn iteration(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let out_acc = get_acc(out);
-    let arr_acc = get_acc_bh(arr, 10, bh_lower, bh_upper);
+    let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+    let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -60,8 +63,8 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upp
         for iter in @range(0, 9) {
             let bounds = Bounds2D(iter);
             let region = Region2D(iter);
-            let arr_acc = get_acc_bh(arr, region, bh_lower, bh_upper);
-            let out_acc = get_acc(out);
+            let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
+            let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
             //let outer_loop_fun = if region == 4 { outer_loop } else { range };
             // gets slower when computed in parallel
 
@@ -126,8 +129,8 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_u
         for iter in @range(0, 9) {
             let bounds = Bounds2D(iter);
             let region = Region2D(iter);
-            let arr_acc = get_acc_bh(arr, region, bh_lower, bh_upper);
-            let out_acc = get_acc(out);
+            let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
+            let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
             //let outer_loop_fun = if region == 4 { outer_loop } else { range };
             // gets slower when computed in parallel
 
@@ -147,10 +150,10 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_u
 fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
     // allocate temporary array
     let tmp = get_img(alloc_cpu(out.width * out.height * sizeof[f32]()), out.width, out.height);
-    let out_acc   = get_acc(out);
-    let tmp_acc_w = get_acc(tmp);
-    let tmp_acc_r = get_acc_bh(tmp, 10, bh_lower, bh_upper);
-    let arr_acc   = get_acc_bh(arr, 10, bh_lower, bh_upper);
+    let out_acc   = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+    let tmp_acc_w = get_acc(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp));
+    let tmp_acc_r = get_acc_bh(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp), 10, bh_lower, bh_upper);
+    let arr_acc   = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -194,8 +197,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         for iter in @range(0, 3) {
             let bounds = Bounds2DCol(iter);
             let region = Region2DCol(iter);
-            let arr_acc = get_acc_bh(arr, region, bh_lower, bh_upper);
-            let tmp_acc = get_acc(tmp);
+            let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
+            let tmp_acc = get_acc(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp));
             let outer_loop_fun = if region == 4 { outer_loop } else { range };
             for y in $outer_loop_fun(bounds(0), bounds(1)) {
                 for x in inner_loop(0, out.width) @{
@@ -208,8 +211,8 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         for iter in @range(0, 3) {
             let bounds = Bounds2DRow(iter);
             let region = Region2DRow(iter);
-            let tmp_acc = get_acc_bh(tmp, region, bh_lower, bh_upper);
-            let out_acc = get_acc(out);
+            let tmp_acc = get_acc_bh(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp), region, bh_lower, bh_upper);
+            let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
             let outer_loop_fun = if region == 4 { outer_loop } else { range };
             for y in $outer_loop_fun(0, out.height) {
                 for x in inner_loop(bounds(0), bounds(1)) @{
@@ -254,8 +257,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                     let is_row = false;
 
                     // index space: cache line
-                    let arr_acc = get_acc_bh_offset(arr, 0, y, region_col, bh_lower, bh_upper);
-                    let tmp_acc = get_acc_memory(bitcast[&mut[f32]](tmp.data), out.width, unroll);
+                    let arr_acc = get_acc_bh_offset(arr, set_pixel_fn(arr), get_pixel_fn(arr), 0, y, region_col, bh_lower, bh_upper);
+                    let tmp_acc = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), out.width, unroll);
                     for i in range(0, unroll) {
                         body(x, i, tmp_acc, arr_acc, mask_col, is_row);
                     }
@@ -268,8 +271,8 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                         let is_row = true;
 
                         // index space: cache line
-                        let tmp_acc = get_acc_bh_memory(bitcast[&mut[f32]](tmp.data), out.width, unroll, region_row, bh_lower, bh_upper);
-                        let out_acc = get_acc_offset(out, 0, y);
+                        let tmp_acc = get_acc_bh_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), out.width, unroll, region_row, bh_lower, bh_upper);
+                        let out_acc = get_acc_offset(out, set_pixel_fn(out), get_pixel_fn(out), 0, y);
                         for i in range(0, unroll) {
                             body(x, i, out_acc, tmp_acc, mask_row, is_row);
                         }

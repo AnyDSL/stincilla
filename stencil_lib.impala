@@ -148,84 +148,51 @@ fn read_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32, 
 }
 
 // &   [f32] on CPU/AVX
-// &[1][f32] on CUDA/NVVM & OpenCL/SPIR
-fn get_pixel_as1(img: Img, idx: i32) -> f32 { bitcast_mem_f32(img.buf.data)(idx) }
-fn get_pixel_ldg(img: Img, idx: i32) -> f32 { ldg_f32(&bitcast_mem_f32(img.buf.data)(idx)) }
-fn set_pixel_as1(img: Img, idx: i32, val: f32) -> () { bitcast_mem_mutf32(img.buf.data)(idx) = val }
-fn get_acc_bh(img: Img, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    get_acc_bh_offset(img, 0, 0, region, bh_lower, bh_upper)
+// &[1][f32] on CUDA/NVVM & OpenCL
+fn get_acc_bh(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+    get_acc_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acc_bh_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    get_acc_asx_bh_offset(img, rox, roy, region, bh_lower, bh_upper, get_pixel_as1)
-}
-fn get_acc_tex_bh(img: Img, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    get_acc_tex_bh_offset(img, 0, 0, region, bh_lower, bh_upper)
-}
-fn get_acc_tex_bh_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    get_acc_asx_bh_offset(img, rox, roy, region, bh_lower, bh_upper, get_pixel_ldg)
-}
-fn get_acc_asx_bh_offset(img: Img, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn, get_pixel_asx: fn(Img, i32) -> f32) -> Acc {
+fn get_acc_bh_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     Acc {
-        read  : |x, y|    -> f32 { read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| -> f32 { get_pixel_asx(img, y * img.stride + x) }, bh_lower, bh_upper) },
-        write : |x, y, v| -> ()  { set_pixel_as1(img, (y + roy) * img.stride + x + rox, v) }
+        read  : |x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
+        write : |x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
     }
 }
-fn get_acc(img: Img) -> Acc {
-    get_acc_offset(img, 0, 0)
+fn get_acc(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32) -> Acc {
+    get_acc_offset(img, set_pixel, get_pixel, 0, 0)
 }
-fn get_acc_offset(img: Img, rox: i32, roy: i32) -> Acc {
-    get_acc_asx_offset(img, rox, roy, get_pixel_as1)
-}
-fn get_acc_tex(img: Img) -> Acc {
-    get_acc_tex_offset(img, 0, 0)
-}
-fn get_acc_tex_offset(img: Img, rox: i32, roy: i32) -> Acc {
-    get_acc_asx_offset(img, rox, roy, get_pixel_ldg)
-}
-fn get_acc_asx_offset(img: Img, rox: i32, roy: i32, get_pixel_asx: fn(Img, i32) -> f32) -> Acc {
+fn get_acc_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32) -> Acc {
     Acc {
-        read  : |x, y|    get_pixel_asx(img, (y + roy) * img.stride + x + rox),
-        write : |x, y, v| set_pixel_as1(img, (y + roy) * img.stride + x + rox, v)
+        read  : |x, y|    get_pixel((y + roy) * img.stride + x + rox),
+        write : |x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
     }
 }
+
+// &   [f32] on CPU/AVX
+// &[3][f32] on CUDA/NVVM & OpenCL
+fn get_acc_bh_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+    get_acc_bh_offset_memory(set_pixel, get_pixel, width, height, 0, 0, region, bh_lower, bh_upper)
+}
+fn get_acc_bh_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+    Acc {
+        read  : |x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : width, height : height }, |x, y| { get_pixel(y * width + x) }, bh_lower, bh_upper),
+        write : |x, y, v| set_pixel((y + roy) * width + x + rox, v)
+    }
+}
+fn get_acc_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32) -> Acc {
+    get_acc_offset_memory(set_pixel, get_pixel, width, height, 0, 0)
+}
+fn get_acc_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32) -> Acc {
+    Acc {
+        read  : |x, y|    get_pixel((y + roy) * width + x + rox),
+        write : |x, y, v| set_pixel((y + roy) * width + x + rox, v)
+    }
+}
+
 fn get_img(buf: Buffer, width: i32, height: i32) -> Img {
     Img { buf : buf, width : width,  height : height, stride : width }
 }
 
-// &[f32]
-fn get_pixel_as0(data: &[f32], idx: i32) -> f32 { data(idx) }
-fn set_pixel_as0(data: &mut[f32], idx: i32, val: f32) -> () { data(idx) = val }
-fn get_acc_bh_memory(data: &mut[f32], width: i32, height: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    get_acc_bh_offset_memory(data, width, height, 0, 0, region, bh_lower, bh_upper)
-}
-fn get_acc_bh_offset_memory(data: &mut[f32], width: i32, height: i32, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    Acc {
-        read  : |x, y|    -> f32 { read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : width, height : height }, |x, y| -> f32 { get_pixel_as0(data, y * width + x) }, bh_lower, bh_upper) },
-        write : |x, y, v| -> ()  { set_pixel_as0(data, (y + roy) * width + x + rox, v) }
-    }
-}
-fn get_acc_memory(data: &mut[f32], width: i32, height: i32) -> Acc {
-    get_acc_offset_memory(data, width, height, 0, 0)
-}
-fn get_acc_offset_memory(data: &mut[f32], width: i32, height: i32, rox: i32, roy: i32) -> Acc {
-    Acc {
-        read  : |x, y|    get_pixel_as0(data, (y + roy) * width + x + rox),
-        write : |x, y, v| set_pixel_as0(data, (y + roy) * width + x + rox, v)
-    }
-}
-
-// &[3][f32]
-fn get_pixel_as3(data: &[3][f32], idx: i32) -> f32 { data(idx) }
-fn set_pixel_as3(data: &mut[3][f32], idx: i32, val: f32) -> () { data(idx) = val }
-fn get_acc_shared(data: &mut[3][f32], width: i32, height: i32) -> Acc {
-    get_acc_offset_shared(data, width, height, 0, 0)
-}
-fn get_acc_offset_shared(data: &mut[3][f32], width: i32, height: i32, rox: i32, roy: i32) -> Acc {
-    Acc {
-        read  : |x, y|    get_pixel_as3(data, (y + roy) * width + x + rox),
-        write : |x, y, v| set_pixel_as3(data, (y + roy) * width + x + rox, v)
-    }
-}
 
 fn get_mask3(data : [[f32 * 3] * 3]) -> Mask {
     Mask {
