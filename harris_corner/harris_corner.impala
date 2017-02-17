@@ -31,10 +31,10 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
     let upper = clamp_upper;
     let iteration_fun = iteration;
 
-    for x, y, out, arr, mask in @iteration_fun(dx, input, mdx, lower, upper) {
+    for math, x, y, out, arr, mask in @iteration_fun(math, dx, input, mdx, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for x, y, out, arr, mask in @iteration_fun(dy, input, mdy, lower, upper) {
+    for math, x, y, out, arr, mask in @iteration_fun(math, dy, input, mdy, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
 
@@ -42,15 +42,15 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
     // compute dxx, dyy, dxy
     let dx_dev = @get_device_copy(dx);
     let dy_dev = @get_device_copy(dy);
-    for x, y, out in @iteration_point(dxx) {
+    for math, x, y, out in @iteration_point(math, dxx) {
         let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
         out.write(x, y, dx.read(x, y) * dx.read(x, y));
     }
-    for x, y, out in @iteration_point(dyy) {
+    for math, x, y, out in @iteration_point(math, dyy) {
         let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
         out.write(x, y, dy.read(x, y) * dy.read(x, y));
     }
-    for x, y, out in @iteration_point(dxy) {
+    for math, x, y, out in @iteration_point(math, dxy) {
         let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
         let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
         out.write(x, y, dx.read(x, y) * dy.read(x, y));
@@ -64,13 +64,13 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
                          [ 0.124758f, 0.272496f, 0.124758f ],
                          [ 0.057118f, 0.124758f, 0.057118f ]]);
 
-    for x, y, out, arr, mask in @iteration_fun(gxx, dxx, mg, lower, upper) {
+    for math, x, y, out, arr, mask in @iteration_fun(math, gxx, dxx, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for x, y, out, arr, mask in @iteration_fun(gyy, dyy, mg, lower, upper) {
+    for math, x, y, out, arr, mask in @iteration_fun(math, gyy, dyy, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for x, y, out, arr, mask in @iteration_fun(gxy, dxy, mg, lower, upper) {
+    for math, x, y, out, arr, mask in @iteration_fun(math, gxy, dxy, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
 
@@ -79,7 +79,7 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
     let gxx_dev = @get_device_copy(gxx);
     let gyy_dev = @get_device_copy(gyy);
     let gxy_dev = @get_device_copy(gxy);
-    for x, y, out in @iteration_point(harris) {
+    for math, x, y, out in @iteration_point(math, harris) {
         let gxx_acc = get_acc(gxx_dev, set_pixel_fn(gxx_dev), get_pixel_fn(gxx_dev));
         let gyy_acc = get_acc(gyy_dev, set_pixel_fn(gyy_dev), get_pixel_fn(gyy_dev));
         let gxy_acc = get_acc(gxy_dev, set_pixel_fn(gxy_dev), get_pixel_fn(gxy_dev));

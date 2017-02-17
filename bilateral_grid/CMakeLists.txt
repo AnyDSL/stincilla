@@ -1,6 +1,5 @@
 anydsl_runtime_wrap(BILATERAL_GRID_PROGRAM
-    BACKEND ${BACKEND}
-    FILES ../utils.impala mapping_${DEVICE}.impala bilateral_grid.impala)
+    FILES ../${BACKEND_FILE} ../utils.impala mapping_${DEVICE}.impala bilateral_grid.impala)
 add_executable(bilateral_grid main.cpp ${BILATERAL_GRID_PROGRAM})
 target_link_libraries(bilateral_grid ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(bilateral_grid PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)

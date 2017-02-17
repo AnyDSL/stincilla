@@ -1,6 +1,5 @@
 anydsl_runtime_wrap(HARRIS_CORNER_PROGRAM
-    BACKEND ${BACKEND}
-    FILES ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala harris_corner.impala)
+    FILES ../${BACKEND_FILE} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala harris_corner.impala)
 add_executable(harris_corner main.cpp ${HARRIS_CORNER_PROGRAM})
 target_link_libraries(harris_corner ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(harris_corner PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)

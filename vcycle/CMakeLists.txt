@@ -1,6 +1,5 @@
 anydsl_runtime_wrap(VCYCLE_PROGRAM
-    BACKEND ${BACKEND}
-    FILES ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala vcycle.impala)
+    FILES ../${BACKEND_FILE} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala vcycle.impala)
 add_executable(vcycle main.cpp ${VCYCLE_PROGRAM})
 target_link_libraries(vcycle ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(vcycle PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)

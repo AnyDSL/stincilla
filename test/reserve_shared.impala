@@ -6,23 +6,23 @@ fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
 }
 
 fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) -> () {
-    let arr_buf_gpu = acc_alloc(acc_dev(), width * height * sizeof[f32]());
-    let out_buf_gpu = acc_alloc(acc_dev(), width * height * sizeof[f32]());
+    let arr_buf_gpu = acc.alloc(acc.dev(), width * height * sizeof[f32]());
+    let out_buf_gpu = acc.alloc(acc.dev(), width * height * sizeof[f32]());
     let     arr_gpu = bitcast[&   [1][f32]](arr_buf_gpu.data);
     let     out_gpu = bitcast[&mut[1][f32]](out_buf_gpu.data);
     copy(arr, arr_buf_gpu, width * height * sizeof[f32]());
 
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
-    with acc(acc_dev(), grid, block) @{
+    with acc.exec(acc.dev(), grid, block) @{
         let shared = reserve_shared[f32](block(0) * block(1));
         // arr -> shared
-        body(acc_gidx(), acc_gidy(),
+        body(acc.gidx(), acc.gidy(),
              |x, y|      { arr_gpu(y*width + x) },
-             |x, y, val| {  shared(acc_tidx()) = val; });
+             |x, y, val| {  shared(acc.tidx()) = val; });
         // shared -> out
-        body(acc_gidx(), acc_gidy(),
-             |x, y|      {  shared(acc_tidx()) },
+        body(acc.gidx(), acc.gidy(),
+             |x, y|      {  shared(acc.tidx()) },
              |x, y, val| { out_gpu(y*width + x) = val; });
     }
 
