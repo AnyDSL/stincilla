@@ -7,3 +7,7 @@ static atomic_min_shared = opencl_atomic_min_shared;
 fn is_nvvm() -> bool { false }
 fn is_cuda() -> bool { false }
 fn is_opencl() -> bool { true }
+fn is_x86() -> bool { false }
+fn is_sse() -> bool { false }
+fn is_avx() -> bool { false }
+fn is_avx2() -> bool { false }
