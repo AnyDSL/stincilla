@@ -1,0 +1,35 @@
+static math = cpu_intrinsics;
+fn is_nvvm() -> bool { false }
+fn is_cuda() -> bool { false }
+fn is_opencl() -> bool { false }
+fn is_x86() -> bool { true }
+fn is_sse() -> bool { true }
+fn is_avx() -> bool { true }
+fn is_avx2() -> bool { false }
+
+fn get_vector_length() -> int { 8 }
+fn get_alignment() -> int { 32 }
+fn get_thread_count() -> int { 4 }
+
+fn outer_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
+    for i in parallel(@get_thread_count(), lower, upper) {
+        body(i);
+    }
+}
+fn outer_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
+    for i in parallel(@get_thread_count(), 0, (upper-lower)/step) {
+        body(i * step + lower);
+    }
+}
+fn inner_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
+    // TODO: make sure lower and upper are a multiple of vector length
+    for i in vectorize(@get_vector_length(), @get_alignment(), lower, upper) {
+        body(i);
+    }
+}
+fn inner_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
+    // TODO: make sure lower and upper are a multiple of vector length
+    for i in vectorize(@get_vector_length(), @get_alignment(), 0, (upper-lower)/step) {
+        body(i * step + lower);
+    }
+}

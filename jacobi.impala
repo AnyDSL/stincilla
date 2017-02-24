@@ -19,7 +19,7 @@ fn main() -> i32 {
     //let iteration_fun = iteration_bounds;           // SS + BH
     //let iteration_fun = iteration_advanced;         // SS + SM
 
-    for x, y, out_acc, arr_acc, stencil in @iteration_fun(out, arr, stencil, lower, upper) {
+    for math, x, y, out_acc, arr_acc, stencil in @iteration_fun(math, out, arr, stencil, lower, upper) {
         out_acc.write(x, y, apply_stencil(x, y, arr_acc, stencil));
     }
     print_total_timing();

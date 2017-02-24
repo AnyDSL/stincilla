@@ -8,8 +8,8 @@ fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
 fn iteration(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
-    with acc(acc_dev(), grid, block) @{
-        body(acc_gidx(), acc_gidy());
+    with acc.exec(acc.dev(), grid, block) @{
+        body(acc.gidx(), acc.gidy());
     }
 }
 
@@ -21,8 +21,8 @@ fn main() -> i32 {
     let height  = 2048;
     let arr     = alloc_cpu(width * height * sizeof[f32]());
     let out     = alloc_cpu(width * height * sizeof[f32]());
-    let arr_gpu = acc_alloc(acc_dev(), width * height * sizeof[f32]());
-    let out_gpu = acc_alloc(acc_dev(), width * height * sizeof[f32]());
+    let arr_gpu = acc.alloc(acc.dev(), width * height * sizeof[f32]());
+    let out_gpu = acc.alloc(acc.dev(), width * height * sizeof[f32]());
     for i in range(0, width*height) {
         let arr_ptr = bitcast[&mut[f32]](arr.data);
         let out_ptr = bitcast[&mut[f32]](out.data);

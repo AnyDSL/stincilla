@@ -7,6 +7,15 @@ find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
 
+set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL")
+if(NOT BACKEND)
+    set(BACKEND cpu CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL" FORCE)
+endif()
+string(TOLOWER "${BACKEND}" BACKEND)
+message(STATUS "Selected backend: ${BACKEND}")
+
+set(BACKEND_FILE intrinsics_${BACKEND}.impala)
+
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
 else()
@@ -26,30 +35,26 @@ add_subdirectory(vcycle)
 
 # simple CPU-based examples
 anydsl_runtime_wrap(MATMUL_PROGRAM
-    BACKEND cpu
-    FILES utils.impala matmul.impala)
+    FILES ${BACKEND_FILE} utils.impala matmul.impala)
 add_executable(matmul ${MATMUL_PROGRAM})
 target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("matmul" matmul)
 
 # examples based on the "mapping"
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
-    BACKEND ${BACKEND}
-    FILES utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
+    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
 target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
 
 anydsl_runtime_wrap(BILATERAL_PROGRAM
-    BACKEND ${BACKEND}
-    FILES utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
+    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
 add_executable(bilateral ${BILATERAL_PROGRAM})
 target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
 
 anydsl_runtime_wrap(JACOBI_PROGRAM
-    BACKEND ${BACKEND}
-    FILES utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
+    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
 add_executable(jacobi ${JACOBI_PROGRAM})
 target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("jacobi" jacobi)

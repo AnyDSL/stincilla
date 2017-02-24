@@ -3,8 +3,8 @@ extern "C" {
     fn srand48(i64) -> ();
 }
 
-fn iteration(out: Buffer, width: i32, height: i32,
-             body: fn(i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
+fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
+             body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
             ) -> () {
     srand48(get_micro_time());
     fn rand() -> f64 { drand48() }
@@ -18,7 +18,7 @@ fn iteration(out: Buffer, width: i32, height: i32,
                     out(3 * (y * width + x) + 1) = g;
                     out(3 * (y * width + x) + 2) = b;
                 }
-                body(x, y, out_fun, rand);
+                body(math, x, y, out_fun, rand);
             }
         }
     }

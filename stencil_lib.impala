@@ -1,6 +1,6 @@
 type BoundaryFn   = fn(i32, i32, i32, fn(f32) -> !) -> i32;
-type StencilFn    = fn(i32, i32, Acc, Acc, Mask) -> ();
-type StencilSepFn = fn(i32, i32, Acc, Acc, MaskSep, bool) -> ();
+type StencilFn    = fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> ();
+type StencilSepFn = fn(Intrinsics, i32, i32, Acc, Acc, MaskSep, bool) -> ();
 
 struct Img {
     buf : Buffer,
