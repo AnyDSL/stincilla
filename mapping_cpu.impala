@@ -77,25 +77,91 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upp
     }
 }
 
-fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> () {
-    fn get_step(lvl: i32) -> i32 { // size -> 1024 -> 1
-        if lvl == 0 { 2048 } else { 1 }
+struct CacheSizes {
+    sizes : [i32 * 3],
+    count : i32,
+}
+
+fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn(i32, i32) -> ()) -> () {
+    fn get_tile_dims(mask: Mask, img: Img) -> (i32, i32) {
+        // TODO make this dimension independent, currently only 2D is supported
+        // TODO get cache information from machine/compiler/somewhere else
+
+        let caches = CacheSizes {sizes: [32*1024, 256*1024, 20*1024*1024], count: 3}; // in bytes
+        let element_size = sizeof[i32](); // TODO make this dynamic based on used type. templates?
+        
+        //print_string("img: (");
+        //print_int(img.width);
+        //print_string(", ");
+        //print_int(img.height);
+        //print_string(" : ");
+        //print_int(img.stride);
+        //print_string(")\n");
+        //
+        //print_string("mask: (");
+        //print_int(mask.size_x);
+        //print_string(", ");
+        //print_int(mask.size_y);
+        //print_string(")\n");
+        
+        let mut inner_tile_size = img.width;
+        for i in range(0, caches.count) {
+            // This is a worst-case model, correct for box stencils, pessimistic for all others
+            // TODO take detailed shape into account
+            let cache_blocked = ((caches.sizes(i) / (mask.size_y*element_size) / 100 * 90)>>6)<<6;
+            if cache_blocked < img.width && cache_blocked > 200 {
+                inner_tile_size = cache_blocked;
+            }
+            
+            //print_int(cache_sizes(i));
+            //print_string(" <= ");
+            //print_int(img.width*mask.size_y*element_size);
+            //if cache_sizes(i) <= img.width*mask.size_y*element_size {
+            //    print_string(" = false; ");
+            //} else {
+            //    print_string(" = true; ");
+            //}
+        }
+        //print_string("\nRecommended inner tiling: ");
+        //print_int(inner_tile_size);
+        //print_string("\n");
+        
+        (inner_tile_size, img.height)
     }
+    
     let x_upper = xu;
     let x_lower = xl;
+    let y_upper = yu;
+    let y_lower = yl;
 
     fn tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
-        let step = get_step(cur_lvl);
-        if step == 1 {
-            for y in $range(yl, yu) {
-                for x in range(xl, min(xu, x_upper)) @{
-                    body(x, y);
+        //print_string("tile(");
+        //print_int(cur_lvl);
+        //print_string(", ");
+        //print_int(xl);
+        //print_string(", ");
+        //print_int(xu);
+        //print_string(", ");
+        //print_int(yl);
+        //print_string(", ");
+        //print_int(yu);
+        //print_string(")\n");
+     
+        let (xtile_dim, ytile_dim) = @get_tile_dims(mask, img);
+        if cur_lvl == 0 {
+             // we always start from 0 to align tiles, no matter what boundary is skipped over
+            for x in $range_step(0, xu, xtile_dim) {
+                for y in $range_step(0, yu, ytile_dim) @{
+                    tile(cur_lvl + 1,
+                         max(x, xl), min(x + xtile_dim, xu),
+                         max(y, yl), min(y + ytile_dim, yu));
                 }
             }
         } else {
-            let step = if xl == x_lower { step - xl } else { step };
-            for x in $range_step(xl, xu, step) @{
-                tile(cur_lvl + 1, x, x + step, yl, yu);
+            for y in range(yl, yu) {
+                for x in range(xl, xu) @{
+                    body(x, y);
+                }
             }
         }
     }
@@ -135,7 +201,7 @@ fn iteration_advanced(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_u
             // gets slower when computed in parallel
 
             if region == 4 {
-                @tiled_loop(bounds(0), bounds(1), bounds(2), bounds(3), |x, y| body(x, y, out_acc, arr_acc, mask));
+                @tiled_loop(bounds(0), bounds(1), bounds(2), bounds(3), mask, arr, |x, y| body(x, y, out_acc, arr_acc, mask));
             } else {
                 for y in $range(bounds(2), bounds(3)) {
                     for x in inner_loop(bounds(0), bounds(1)) @{
