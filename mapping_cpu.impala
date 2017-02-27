@@ -83,6 +83,7 @@ struct CacheSizes {
 }
 
 fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn(i32, i32) -> ()) -> () {
+    let debug_tiling = false;
     fn get_tile_dims(mask: Mask, img: Img) -> (i32, i32) {
         // TODO make this dimension independent, currently only 2D is supported
         // TODO get cache information from machine/compiler/somewhere else
@@ -90,41 +91,48 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
         let caches = CacheSizes {sizes: [32*1024, 256*1024, 20*1024*1024], count: 3}; // in bytes
         let element_size = sizeof[i32](); // TODO make this dynamic based on used type. templates?
         
-        //print_string("img: (");
-        //print_int(img.width);
-        //print_string(", ");
-        //print_int(img.height);
-        //print_string(" : ");
-        //print_int(img.stride);
-        //print_string(")\n");
-        //
-        //print_string("mask: (");
-        //print_int(mask.size_x);
-        //print_string(", ");
-        //print_int(mask.size_y);
-        //print_string(")\n");
+        if debug_tiling @{        
+            print_string("img: (");
+            print_int(img.width);
+            print_string(", ");
+            print_int(img.height);
+            print_string(" : ");
+            print_int(img.stride);
+            print_string(")\n");
+            
+            print_string("mask: (");
+            print_int(mask.size_x);
+            print_string(", ");
+            print_int(mask.size_y);
+            print_string(")\n");
+        }
         
         let mut inner_tile_size = img.width;
         for i in range(0, caches.count) {
             // This is a worst-case model, correct for box stencils, pessimistic for all others
             // TODO take detailed shape into account
+            let min_loop_length = 200; // contols when loop should be blocked
             let cache_blocked = ((caches.sizes(i) / (mask.size_y*element_size) / 100 * 90)>>6)<<6;
-            if cache_blocked < img.width && cache_blocked > 200 {
+            if cache_blocked < img.width && cache_blocked > min_loop_length {
                 inner_tile_size = cache_blocked;
             }
             
-            //print_int(cache_sizes(i));
-            //print_string(" <= ");
-            //print_int(img.width*mask.size_y*element_size);
-            //if cache_sizes(i) <= img.width*mask.size_y*element_size {
-            //    print_string(" = false; ");
-            //} else {
-            //    print_string(" = true; ");
-            //}
+            if debug_tiling @{        
+                print_int(caches.sizes(i));
+                print_string(" <= ");
+                print_int(img.width*mask.size_y*element_size);
+                if caches.sizes(i) <= img.width*mask.size_y*element_size {
+                    print_string(" = false; ");
+                } else {
+                    print_string(" = true; ");
+                }
+            }
         }
-        //print_string("\nRecommended inner tiling: ");
-        //print_int(inner_tile_size);
-        //print_string("\n");
+        if debug_tiling @{        
+            print_string("\nRecommended inner tiling: ");
+            print_int(inner_tile_size);
+            print_string("\n");
+        }
         
         (inner_tile_size, img.height)
     }
@@ -135,17 +143,19 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
     let y_lower = yl;
 
     fn tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
-        //print_string("tile(");
-        //print_int(cur_lvl);
-        //print_string(", ");
-        //print_int(xl);
-        //print_string(", ");
-        //print_int(xu);
-        //print_string(", ");
-        //print_int(yl);
-        //print_string(", ");
-        //print_int(yu);
-        //print_string(")\n");
+        if debug_tiling @{        
+            print_string("tile(");
+            print_int(cur_lvl);
+            print_string(", ");
+            print_int(xl);
+            print_string(", ");
+            print_int(xu);
+            print_string(", ");
+            print_int(yl);
+            print_string(", ");
+            print_int(yu);
+            print_string(")\n");
+        }
      
         let (xtile_dim, ytile_dim) = @get_tile_dims(mask, img);
         if cur_lvl == 0 {
