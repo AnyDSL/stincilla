@@ -8,13 +8,13 @@ extern "C" {
 fn rnd_u32(state: u64) -> (u32, u64) {
     let hi = state >> 32u64;
     let lo = state & 0xFFFFFFFFu64;
-    ((lo as u32) ^ (hi as u32), lo * 4294883355u64 + hi)
+    (lo as u32 ^ hi as u32, lo * 4294883355u64 + hi)
 }
 
 fn rnd_f64(state: u64) -> (f64, u64) {
     let (r, state) = rnd_u32(state);
-    let k = 1.0 / (0xFFFFFFFFu64 as f64);
-    ((r as f64) * k, state)
+    let k = 1.0 / 0xFFFFFFFFu64 as f64;
+    (r as f64 * k, state)
 }
 
 fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
