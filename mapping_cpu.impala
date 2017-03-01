@@ -7,34 +7,37 @@ static Region2DRow = [ 3, 4, 5 ];
 fn get_device_copy(img: Img) -> Img { img }
 fn release_device_copy(img: Img) -> () { }
 
-fn iteration_point(out: Img,
-                   body: fn(i32, i32, Acc) -> ()
-                  ) -> () {
-    let out_acc = get_acc(out);
+fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[f32]](img.buf.data)(idx) = val }
+fn get_pixel_fn(img: Img) -> fn(i32) -> f32 { |idx| bitcast[&[f32]](img.buf.data)(idx) }
+fn set_pixel_memory_fn(buf: Buffer) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[f32]](buf.data)(idx) = val }
+fn get_pixel_memory_fn(buf: Buffer) -> fn(i32) -> f32 { |idx| bitcast[&[f32]](buf.data)(idx) }
+
+fn iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) @{
-                body(x, y, out_acc);
+                body(math, x, y, out_acc);
             }
         }
     }
 }
 
-fn iteration(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let out_acc = get_acc(out);
-    let arr_acc = get_acc_bh(arr, 10, bh_lower, bh_upper);
+fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+    let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) @{
-                body(x, y, out_acc, arr_acc, mask);
+                body(math, x, y, out_acc, arr_acc, mask);
             }
         }
     }
 }
 
-fn iteration_bounds(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     // compute the number of vector strides for boundary handling
     let bhy = mask.size_y / 2;
     let bhx = round_up(mask.size_x / 2, get_vector_length());
@@ -60,45 +63,110 @@ fn iteration_bounds(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upp
         for iter in @range(0, 9) {
             let bounds = Bounds2D(iter);
             let region = Region2D(iter);
-            let arr_acc = get_acc_bh(arr, region, bh_lower, bh_upper);
-            let out_acc = get_acc(out);
+            let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
+            let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
             //let outer_loop_fun = if region == 4 { outer_loop } else { range };
             // gets slower when computed in parallel
 
             for y in $range(bounds(2), bounds(3)) {
                 for x in inner_loop(bounds(0), bounds(1)) @{
-                    body(x, y, out_acc, arr_acc, mask);
+                    body(math, x, y, out_acc, arr_acc, mask);
                 }
             }
         }
     }
 }
 
-fn iteration_advanced(out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    // TODO: blocked loop
-    iteration_bounds(out, arr, mask, bh_lower, bh_upper, body)
+fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> () {
+    fn get_step(lvl: i32) -> i32 { // size -> 1024 -> 1
+        if lvl == 0 { 2048 } else { 1 }
+    }
+    let x_upper = xu;
+    let x_lower = xl;
+
+    fn tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
+        let step = get_step(cur_lvl);
+        if step == 1 {
+            for y in $range(yl, yu) {
+                for x in range(xl, min(xu, x_upper)) @{
+                    body(x, y);
+                }
+            }
+        } else {
+            let step = if xl == x_lower { step - xl } else { step };
+            for x in $range_step(xl, xu, step) @{
+                tile(cur_lvl + 1, x, x + step, yl, yu);
+            }
+        }
+    }
+
+    tile(0, xl, xu, yl, yu)
 }
 
-fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
+fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    // compute the number of vector strides for boundary handling
+    let bhy = mask.size_y / 2;
+    let bhx = round_up(mask.size_x / 2, get_vector_length());
+
+    // (minx, maxx, miny, maxy)
+    let width  = out.width;
+    let height = out.height;
+    let Bounds2D = [
+        (0          , bhx        , 0           , bhy),
+        (bhx        , width - bhx, 0           , bhy),
+        (width - bhx, width      , 0           , bhy),
+
+        (0          , bhx        , bhy         , height - bhy),
+        (bhx        , width - bhx, bhy         , height - bhy),
+        (width - bhx, width      , bhy         , height - bhy),
+
+        (0          , bhx        , height - bhy, height),
+        (bhx        , width - bhx, height - bhy, height),
+        (width - bhx, width      , height - bhy, height)
+    ];
+
+    for benchmark_cpu() {
+        for iter in @range(0, 9) {
+            let bounds = Bounds2D(iter);
+            let region = Region2D(iter);
+            let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
+            let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+            //let outer_loop_fun = if region == 4 { outer_loop } else { range };
+            // gets slower when computed in parallel
+
+            if region == 4 {
+                @tiled_loop(bounds(0), bounds(1), bounds(2), bounds(3), |x, y| body(math, x, y, out_acc, arr_acc, mask));
+            } else {
+                for y in $range(bounds(2), bounds(3)) {
+                    for x in inner_loop(bounds(0), bounds(1)) @{
+                        body(math, x, y, out_acc, arr_acc, mask);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
     // allocate temporary array
     let tmp = get_img(alloc_cpu(out.width * out.height * sizeof[f32]()), out.width, out.height);
-    let out_acc   = get_acc(out);
-    let tmp_acc_w = get_acc(tmp);
-    let tmp_acc_r = get_acc_bh(tmp, 10, bh_lower, bh_upper);
-    let arr_acc   = get_acc_bh(arr, 10, bh_lower, bh_upper);
+    let out_acc   = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+    let tmp_acc_w = get_acc(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp));
+    let tmp_acc_r = get_acc_bh(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp), 10, bh_lower, bh_upper);
+    let arr_acc   = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), 10, bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) @{
                 let is_row = false;
-                body(x, y, tmp_acc_w, arr_acc, mask_col, is_row);
+                body(math, x, y, tmp_acc_w, arr_acc, mask_col, is_row);
             }
         }
 
         for y in $outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) @{
                 let is_row = true;
-                body(x, y, out_acc, tmp_acc_r, mask_row, is_row);
+                body(math, x, y, out_acc, tmp_acc_r, mask_row, is_row);
             }
         }
     }
@@ -106,7 +174,7 @@ fn iteration_sep(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lo
     release(tmp.buf);
 }
 
-fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
+fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
     // allocate temporary array
     let tmp = get_img(alloc_cpu(out.width * out.height * sizeof[f32]()), out.width, out.height);
 
@@ -129,13 +197,13 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         for iter in @range(0, 3) {
             let bounds = Bounds2DCol(iter);
             let region = Region2DCol(iter);
-            let arr_acc = get_acc_bh(arr, region, bh_lower, bh_upper);
-            let tmp_acc = get_acc(tmp);
+            let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
+            let tmp_acc = get_acc(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp));
             let outer_loop_fun = if region == 4 { outer_loop } else { range };
             for y in $outer_loop_fun(bounds(0), bounds(1)) {
                 for x in inner_loop(0, out.width) @{
                     let is_row = false;
-                    body(x, y, tmp_acc, arr_acc, mask_col, is_row);
+                    body(math, x, y, tmp_acc, arr_acc, mask_col, is_row);
                 }
             }
         }
@@ -143,13 +211,13 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
         for iter in @range(0, 3) {
             let bounds = Bounds2DRow(iter);
             let region = Region2DRow(iter);
-            let tmp_acc = get_acc_bh(tmp, region, bh_lower, bh_upper);
-            let out_acc = get_acc(out);
+            let tmp_acc = get_acc_bh(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp), region, bh_lower, bh_upper);
+            let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
             let outer_loop_fun = if region == 4 { outer_loop } else { range };
             for y in $outer_loop_fun(0, out.height) {
                 for x in inner_loop(bounds(0), bounds(1)) @{
                     let is_row = true;
-                    body(x, y, out_acc, tmp_acc, mask_row, is_row);
+                    body(math, x, y, out_acc, tmp_acc, mask_row, is_row);
                 }
             }
         }
@@ -158,7 +226,7 @@ fn iteration_sep_bounds(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep
     release(tmp.buf);
 }
 
-fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
+fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
     let unroll = 1;
     let bhy = round_up(mask_col.size / 2, unroll);
     let bhx = round_up(mask_row.size / 2, get_vector_length());
@@ -189,10 +257,10 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                     let is_row = false;
 
                     // index space: cache line
-                    let arr_acc = get_acc_bh_offset(arr, 0, y, region_col, bh_lower, bh_upper);
-                    let tmp_acc = get_acc_memory(bitcast[&mut[f32]](tmp.data), out.width, unroll);
+                    let arr_acc = get_acc_bh_offset(arr, set_pixel_fn(arr), get_pixel_fn(arr), 0, y, region_col, bh_lower, bh_upper);
+                    let tmp_acc = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), out.width, unroll);
                     for i in range(0, unroll) {
-                        body(x, i, tmp_acc, arr_acc, mask_col, is_row);
+                        body(math, x, i, tmp_acc, arr_acc, mask_col, is_row);
                     }
                 }
                 for iter_row in range(0, 3) {
@@ -203,10 +271,10 @@ fn iteration_sep_advanced(out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskS
                         let is_row = true;
 
                         // index space: cache line
-                        let tmp_acc = get_acc_bh_memory(bitcast[&mut[f32]](tmp.data), out.width, unroll, region_row, bh_lower, bh_upper);
-                        let out_acc = get_acc_offset(out, 0, y);
+                        let tmp_acc = get_acc_bh_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), out.width, unroll, region_row, bh_lower, bh_upper);
+                        let out_acc = get_acc_offset(out, set_pixel_fn(out), get_pixel_fn(out), 0, y);
                         for i in range(0, unroll) {
-                            body(x, i, out_acc, tmp_acc, mask_row, is_row);
+                            body(math, x, i, out_acc, tmp_acc, mask_row, is_row);
                         }
                     }
                 }

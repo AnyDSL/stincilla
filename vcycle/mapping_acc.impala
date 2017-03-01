@@ -1,42 +1,41 @@
-fn iteration_merge(RHSC: Img, Sol: Img, RHSF: Img,
+fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
                    bh_lower: BoundaryFn, bh_upper: BoundaryFn,
-                   residual: fn(i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
-                   restrict: fn(i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
+                   residual: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
+                   restrict: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
-    let sol_gpu  = get_img(acc_alloc(acc_dev(), Sol.stride  * Sol.height  * sizeof[f32]()), Sol.width,  Sol.height);
-    let rhsf_gpu = get_img(acc_alloc(acc_dev(), RHSF.stride * RHSF.height * sizeof[f32]()), RHSF.width, RHSF.height);
-    let rhsc_gpu = get_img(acc_alloc(acc_dev(), RHSC.stride * RHSC.height * sizeof[f32]()), RHSC.width, RHSC.height);
+    let sol_gpu  = get_img(acc.alloc(acc.dev(), Sol.stride  * Sol.height  * sizeof[f32]()), Sol.width,  Sol.height);
+    let rhsf_gpu = get_img(acc.alloc(acc.dev(), RHSF.stride * RHSF.height * sizeof[f32]()), RHSF.width, RHSF.height);
+    let rhsc_gpu = get_img(acc.alloc(acc.dev(), RHSC.stride * RHSC.height * sizeof[f32]()), RHSC.width, RHSC.height);
     copy(RHSF.buf, rhsf_gpu.buf, rhsf_gpu.width * rhsf_gpu.height * sizeof[f32]());
     copy(Sol.buf,  sol_gpu.buf,  sol_gpu.width  * sol_gpu.height  * sizeof[f32]());
 
     let step  = 2; // restrict by 2x
     let grid  = (Sol.width, Sol.height, 1);
     let block = (64, step, 1);
-    let get_acc_bh_offset = if acc_use_tex() { get_acc_tex_bh_offset } else { get_acc_bh_offset };
 
     for benchmark_acc() {
-        with acc(acc_dev(), grid, block) @{
-            let tid_x = acc_tidx();
-            let tid_y = acc_tidy();
-            let gid_y = acc_gidy();
+        with acc.exec(acc.dev(), grid, block) @{
+            let tid_x = acc.tidx();
+            let tid_y = acc.tidy();
+            let gid_y = acc.gidy();
 
             let spm_stride = block(0);
             let spm_height = block(1);
             let spm = reserve_shared[f32](spm_stride * spm_height);
 
             // residual: index space == block
-            let tmp_acc  = get_acc_shared(spm, spm_stride, spm_height);
-            let rhsf_acc = get_acc_offset(rhsf_gpu, acc_bdimx() * acc_bidx(), acc_bdimy() * acc_bidy());
-            let sol_acc  = get_acc_bh_offset(sol_gpu, acc_bdimx() * acc_bidx(), acc_bdimy() * acc_bidy(), 10  /* all */, bh_lower, bh_upper);
-            residual(tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
+            let tmp_acc  = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
+            let rhsf_acc = get_acc_offset(rhsf_gpu, set_pixel_fn(rhsf_gpu), get_pixel_fn(rhsf_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy());
+            let sol_acc  = get_acc_bh_offset(sol_gpu, set_pixel_fn(sol_gpu), get_pixel_ldg_fn(sol_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy(), 10  /* all */, bh_lower, bh_upper);
+            residual(math, tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
 
-            acc_barrier();
+            acc.barrier();
 
             // restrict: index space == block
             if tid_x < block(0) / step && gid_y % step == 0 @{
-                let tmp_acc = get_acc_shared(spm, spm_stride, spm_height);
-                let rhs_acc = get_acc_offset(rhsc_gpu, acc_bdimx() * acc_bidx()/step, acc_bdimy() * acc_bidy()/step);
-                restrict(tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
+                let tmp_acc = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
+                let rhs_acc = get_acc_offset(rhsc_gpu, set_pixel_fn(rhsc_gpu), get_pixel_fn(rhsc_gpu), acc.bdimx() * acc.bidx()/step, acc.bdimy() * acc.bidy()/step);
+                restrict(math, tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
             }
         }
     }

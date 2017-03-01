@@ -14,8 +14,6 @@ fn get_mat(buf: Buffer, rows: i32, cols: i32) -> Mat {
     }
 }
 
-fn min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
-
 
 fn matmul_golden(C: Mat, A: Mat, B: Mat) -> () {
     for i in $range(0, C.rows()) {
@@ -100,7 +98,7 @@ fn matmul_auto_tiled(C: Mat, A: Mat, B: Mat) -> () {
         }
     }
 
-    tiled_matmul();
+    tiled_matmul()
 }
 
 
@@ -119,12 +117,12 @@ fn main(i: i32) -> i32 {
     init_rand(bitcast[&mut[f32]](A_buf.data), A.cols(), A.rows());
     init_rand(bitcast[&mut[f32]](B_buf.data), B.cols(), B.rows());
 
-    let nops = (2 as i64) * (l as i64) * (m as i64) * (n as i64);
+    let nops = 2 as i64 * l as i64 * m as i64 * n as i64;
     fn print_gflops(time: i64) -> () {
         print_string("Timing: ");
         print_double(time as f64 / 1000.0);
         print_string(" ms\n");
-        let gflops = (1.0e-9 * (nops as f64)) / (time as f64 * 1.0e-6);
+        let gflops = (1.0e-9 * nops as f64) / (time as f64 * 1.0e-6);
         print_double(gflops);
         print_string(" GFLOPS\n")
     }

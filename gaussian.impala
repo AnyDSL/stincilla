@@ -1,42 +1,3 @@
-fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
-    let mut sum = 0.0f;
-    let half_range_y = mask.size_y / 2;
-    let half_range_x = mask.size_x / 2;
-
-    for j in range(-half_range_y, half_range_y+1) {
-        for i in range(-half_range_x, half_range_x+1) {
-            let stencil_val = mask.data(j + half_range_y, i + half_range_x);
-            if stencil_val != 0.0f {
-                sum += acc.read(x + i, y + j) * stencil_val;
-            } else {
-                // additional logic for empty stencil value
-            }
-        }
-    }
-
-    sum
-}
-fn apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32 {
-    let mut sum = 0.0f;
-    let half_range = mask.size / 2;
-
-    for i in range(-half_range, half_range+1) {
-        let stencil_val = mask.data(i + half_range);
-        if stencil_val != 0.0f {
-            if row {
-                sum += acc.read(x + i, y) * stencil_val;
-            } else {
-                sum += acc.read(x, y + i) * stencil_val;
-            }
-        } else {
-            // additional logic for empty stencil value
-        }
-    }
-
-    sum
-}
-
-
 fn main() -> i32 {
     let width  = 4096;
     let height = 4096;
@@ -64,7 +25,7 @@ fn main() -> i32 {
         //let iteration_sep_fun = iteration_sep_bounds;   // SEP + SS + BH
         //let iteration_sep_fun = iteration_sep_advanced; // SEP + SS + SM
 
-        for x, y, out_acc, arr_acc, mask, is_row in @iteration_sep_fun(out, arr, mask_sep, mask_sep, lower, upper) {
+        for math, x, y, out_acc, arr_acc, mask, is_row in @iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) {
             out_acc.write(x, y, apply_stencil_sep(x, y, arr_acc, mask, is_row));
         }
     } else {
@@ -72,7 +33,7 @@ fn main() -> i32 {
         //let iteration_fun = iteration_bounds;           // SS + BH
         //let iteration_fun = iteration_advanced;         // SS + SM
 
-        for x, y, out_acc, arr_acc, mask in @iteration_fun(out, arr, mask, lower, upper) {
+        for math, x, y, out_acc, arr_acc, mask in @iteration_fun(math, out, arr, mask, lower, upper) {
             out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
         }
     }
@@ -80,8 +41,8 @@ fn main() -> i32 {
 
     fn reference() -> i32 {
         let mut passed = 0;
-        let arr_acc = get_acc_bh(arr, 10, lower, upper);
-        let out_acc = get_acc(out);
+        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), 10, lower, upper);
+        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
         for y in $range(0, out.height) {
             for x in range(0, out.width) @{
                 let ref = apply_stencil(x, y, arr_acc, mask);
