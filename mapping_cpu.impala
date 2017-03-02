@@ -83,7 +83,7 @@ struct CacheSizes {
 }
 
 fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn(i32, i32) -> ()) -> () {
-    let debug_tiling = false;
+    let debug_tiling = true;
     fn get_tile_dims(mask: Mask, img: Img) -> (i32, i32) {
         // TODO make this dimension independent, currently only 2D is supported
         // TODO get cache information from machine/compiler/somewhere else
@@ -107,12 +107,55 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
             print_string(")\n");
         }
 
+        // Analyze stencil:
+        let mut max_distance = (0, 0);
+        let mut sum_distances = (0, 0);
+        {
+            let mut last_idx = (-1, -1);
+            let mut idx = (0, 0);
+            for y in range(0, mask.size_y) {
+                for x in range(0, mask.size_x) {
+                    idx = (x, y);
+                    let m = mask.data(x,y);
+                    if m != 0.0f {
+                        if last_idx(0) != -1 {
+                            let dist = (idx(0) - last_idx(0),
+                                        idx(1) - last_idx(1));
+                            if (dist(1) > max_distance(1) ||
+                                (dist(1) == max_distance(1) && dist(0) > max_distance(0))) {
+                                max_distance = dist;
+                            }
+                            sum_distances(0) += dist(0);
+                            sum_distances(1) += dist(1);
+                        }
+                        last_idx = idx;
+                    }
+                }
+            }
+        }
+
+        if debug_tiling {
+            print_string(" (max, sum) = ((");
+            print_int(max_distance(0));
+            print_string(", ");
+            print_int(max_distance(1));
+            print_string("), (");
+            print_int(sum_distances(0));
+            print_string(", ");
+            print_int(sum_distances(1));
+            print_string(")) = ");
+            print_int(max_distance(0)+sum_distances(0)+(max_distance(1)+sum_distances(1))*img.width);
+            print_string("\n");
+        }
+
         let mut inner_tile_size = img.width;
         for i in range(0, caches.count) {
-            // This is a worst-case model, correct for box stencils, pessimistic for all others
-            // TODO take detailed shape into account
             let min_loop_length = 200; // controls when loop should be blocked
-            let cache_blocked = ((caches.sizes(i) / (mask.size_y*element_size) / 100 * 90)>>6)<<6;
+            let cache_blocked = (((caches.sizes(i)
+                                   - max_distance(0) - sum_distances(0)) /
+                                  (max_distance(1)+sum_distances(1)) * element_size / 100 * 90)
+                                  >>6)<<6;
+
             if cache_blocked < img.width && cache_blocked > min_loop_length {
                 inner_tile_size = cache_blocked;
             }
