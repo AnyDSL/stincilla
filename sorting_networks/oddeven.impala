@@ -16,7 +16,7 @@ fn oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> 
             oddeven_merge(lo, n, m);        // even subsequence
             oddeven_merge(lo + r, n, m);    // odd subsequence
             for i in range_step(lo + r, lo + n - r, m) {
-                $compare_and_swap(i, i + r);
+                compare_and_swap(i, i + r);
             }
         } else {
             $compare_and_swap(lo, lo + r);
