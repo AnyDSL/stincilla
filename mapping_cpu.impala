@@ -90,8 +90,8 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
 
         let caches = CacheSizes {sizes: [32*1024, 256*1024, 20*1024*1024], count: 3}; // in bytes
         let element_size = sizeof[i32](); // TODO make this dynamic based on used type. templates?
-        
-        if debug_tiling @{        
+
+        if debug_tiling {
             print_string("img: (");
             print_int(img.width);
             print_string(", ");
@@ -99,25 +99,25 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
             print_string(" : ");
             print_int(img.stride);
             print_string(")\n");
-            
+
             print_string("mask: (");
             print_int(mask.size_x);
             print_string(", ");
             print_int(mask.size_y);
             print_string(")\n");
         }
-        
+
         let mut inner_tile_size = img.width;
         for i in range(0, caches.count) {
             // This is a worst-case model, correct for box stencils, pessimistic for all others
             // TODO take detailed shape into account
-            let min_loop_length = 200; // contols when loop should be blocked
+            let min_loop_length = 200; // controls when loop should be blocked
             let cache_blocked = ((caches.sizes(i) / (mask.size_y*element_size) / 100 * 90)>>6)<<6;
             if cache_blocked < img.width && cache_blocked > min_loop_length {
                 inner_tile_size = cache_blocked;
             }
-            
-            if debug_tiling @{        
+
+            if debug_tiling {
                 print_int(caches.sizes(i));
                 print_string(" <= ");
                 print_int(img.width*mask.size_y*element_size);
@@ -128,22 +128,22 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
                 }
             }
         }
-        if debug_tiling @{        
+        if debug_tiling {
             print_string("\nRecommended inner tiling: ");
             print_int(inner_tile_size);
             print_string("\n");
         }
-        
+
         (inner_tile_size, img.height)
     }
-    
+
     let x_upper = xu;
     let x_lower = xl;
     let y_upper = yu;
     let y_lower = yl;
 
     fn tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
-        if debug_tiling @{        
+        if debug_tiling {
             print_string("tile(");
             print_int(cur_lvl);
             print_string(", ");
@@ -156,7 +156,7 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
             print_int(yu);
             print_string(")\n");
         }
-     
+
         let (xtile_dim, ytile_dim) = @get_tile_dims(mask, img);
         if cur_lvl == 0 {
              // we always start from 0 to align tiles, no matter what boundary is skipped over
@@ -354,6 +354,7 @@ fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSe
                         }
                     }
                 }
+
                 release(tmp);
             }
         }
