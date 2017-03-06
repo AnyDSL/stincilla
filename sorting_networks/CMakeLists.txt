@@ -1,2 +1,2 @@
 add_test_sample(median
-    ../utils.impala ../stencil_lib.impala mapping_${DEVICE}.impala oddeven.impala median.impala)
+    ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala oddeven.impala median.impala)
