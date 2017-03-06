@@ -1,12 +1,12 @@
 // odd-even merge sort works only for power of two
-fn oddeven_merge_sort(length: i32, mut arr: [f32 * 4]) -> () {
+fn oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) -> () {
     fn compare_and_swap(i: i32, j: i32) -> () {
         //print_int(i); print_string(", ");
         //print_int(j); print_string("\n");
-        if arr(i) > arr(j) {
-            let tmp = arr(i);
-            arr(i) = arr(j);
-            arr(j) = tmp;
+        if read(i) > read(j) {
+            let tmp = read(i);
+            write(i, read(j));
+            write(j, tmp);
         }
     }
 
@@ -19,7 +19,7 @@ fn oddeven_merge_sort(length: i32, mut arr: [f32 * 4]) -> () {
                 compare_and_swap(i, i + r);
             }
         } else {
-            compare_and_swap(lo, lo + r);
+            $compare_and_swap(lo, lo + r);
         }
     }
 
@@ -45,7 +45,7 @@ fn test_main(input: &[f32]) -> f32 {
             arr(i) = input(i);
         }
 
-        oddeven_merge_sort(length, arr);
+        oddeven_merge_sort(length, |idx| arr(idx), |idx, val| arr(idx) = val);
         print_total_timing();
 
         // return median
