@@ -1,4 +1,6 @@
 anydsl_runtime_wrap(BILATERAL_GRID_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala mapping_${DEVICE}.impala bilateral_grid.impala)
 add_executable(bilateral_grid main.cpp ${BILATERAL_GRID_PROGRAM})
 target_link_libraries(bilateral_grid ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
