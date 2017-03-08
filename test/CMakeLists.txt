@@ -31,7 +31,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
 
     if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
         anydsl_runtime_wrap(HALF_FLOAT_GPU_PROGRAM
-            FILES half_float_gpu.impala)
+            FILES ../${BACKEND_FILE} half_float_gpu.impala)
         add_executable(half_float_gpu ${HALF_FLOAT_GPU_PROGRAM})
         target_link_libraries(half_float_gpu ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
         add_test("half_float_gpu" half_float_gpu)
