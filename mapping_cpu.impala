@@ -83,55 +83,49 @@ struct CacheSizes {
 }
 
 fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn(i32, i32) -> ()) -> () {
-    let debug_tiling = true;
+    let debug_tiling = false;
     fn get_tile_dims(mask: Mask, img: Img) -> (i32, i32) {
         // TODO make this dimension independent, currently only 2D is supported
         // TODO get cache information from machine/compiler/somewhere else
 
         let caches = CacheSizes {sizes: [32*1024, 256*1024, 20*1024*1024], count: 3}; // in bytes
-        let element_size = sizeof[i32](); // TODO make this dynamic based on used type. templates?
-
-        if debug_tiling {
-            print_string("img: (");
-            print_int(img.width);
-            print_string(", ");
-            print_int(img.height);
-            print_string(" : ");
-            print_int(img.stride);
-            print_string(")\n");
-
-            print_string("mask: (");
-            print_int(mask.size_x);
-            print_string(", ");
-            print_int(mask.size_y);
-            print_string(")\n");
-        }
+        let element_size = 4; // TODO make this dynamic based on used type. templates?
 
         // Analyze stencil:
-        let mut max_distance = (0, 0);
-        let mut sum_distances = (0, 0);
-        {
-            let mut last_idx = (-1, -1);
-            let mut idx = (0, 0);
-            for y in range(0, mask.size_y) {
-                for x in range(0, mask.size_x) {
-                    idx = (x, y);
-                    let m = mask.data(x,y);
-                    if m != 0.0f {
-                        if last_idx(0) != -1 {
-                            let dist = (idx(0) - last_idx(0),
-                                        idx(1) - last_idx(1));
-                            if (dist(1) > max_distance(1) ||
-                                (dist(1) == max_distance(1) && dist(0) > max_distance(0))) {
-                                max_distance = dist;
-                            }
-                            sum_distances(0) += dist(0);
-                            sum_distances(1) += dist(1);
-                        }
-                        last_idx = idx;
-                    }
+        fn distances(idx: (i32, i32), last_idx: (i32, i32), sum_dist: (i32, i32), max_dist: (i32, i32)) -> ((i32, i32), (i32, i32)) {
+            if idx(0) >= mask.size_x {
+                // end of mask line
+                distances((0, idx(1)+1), last_idx, sum_dist, max_dist)
+            } else if idx(1) >= mask.size_y {
+                // end of stencil mask
+                (sum_dist, max_dist)
+            } else if mask.data(idx(0), idx(1)) == 0.0f {
+                // ignore zero mask values
+                distances((idx(0)+1, idx(1)), last_idx, sum_dist, max_dist)
+            } else if last_idx(0) == -1 {
+                // first non-zero mask value found
+                // last_idx = idx
+                distances((idx(0)+1, idx(1)), idx, sum_dist, max_dist)
+            } else {
+                // calculate distance and update sum and max
+                let dist = (idx(0) - last_idx(0),
+                            idx(1) - last_idx(1));
+                let mut new_max_dist = max_dist;
+                if (dist(1) > max_dist(1) ||
+                    (dist(1) == max_dist(1) && dist(0) > max_dist(0))) {
+                    new_max_dist = dist;
                 }
+                distances((idx(0)+1, idx(1)), idx,
+                          (sum_dist(0)+dist(0), sum_dist(1)+dist(1)),
+                          new_max_dist)
             }
+        }
+        let (sum_distances, max_distance) = @distances((0,0), (-1,-1), (0,0), (0,0));
+        if debug_tiling {
+            pe_info("sum(0)", sum_distances(0));
+            pe_info("sum(1)", sum_distances(1));
+            pe_info("max(0)", max_distance(0));
+            pe_info("max(1)", max_distance(1));
         }
 
         if debug_tiling {
@@ -148,36 +142,33 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
             print_string("\n");
         }
 
-        let mut inner_tile_size = img.width;
-        for i in range(0, caches.count) {
+        fn cache_tile(cache_lvl: i32, max_tile_size: i32) -> i32 {
             let min_loop_length = 200; // controls when loop should be blocked
-            let cache_blocked = (((caches.sizes(i)
-                                   - max_distance(0) - sum_distances(0)) /
-                                  (max_distance(1)+sum_distances(1)) * element_size / 100 * 90)
-                                  >>6)<<6;
 
-            if cache_blocked < img.width && cache_blocked > min_loop_length {
-                inner_tile_size = cache_blocked;
-            }
-
-            if debug_tiling {
-                print_int(caches.sizes(i));
-                print_string(" <= ");
-                print_int(img.width*mask.size_y*element_size);
-                if caches.sizes(i) <= img.width*mask.size_y*element_size {
-                    print_string(" = false; ");
+            if cache_lvl < 0 {
+                max_tile_size
+            } else {
+                let proposed_tile_size = (((caches.sizes(cache_lvl) / element_size
+                                            - max_distance(0) - sum_distances(0)) /
+                                            (max_distance(1)+sum_distances(1))
+                                            * 100 / 90)>>6)<<6;
+                if proposed_tile_size < max_tile_size && proposed_tile_size > min_loop_length {
+                    cache_tile(cache_lvl - 1, proposed_tile_size)
                 } else {
-                    print_string(" = true; ");
+                    cache_tile(cache_lvl - 1, max_tile_size)
                 }
             }
         }
+        let tile_size = @cache_tile(caches.count - 1, img.width);
+
         if debug_tiling {
+            pe_info("tile_size", tile_size);
             print_string("\nRecommended inner tiling: ");
-            print_int(inner_tile_size);
+            print_int(tile_size);
             print_string("\n");
         }
 
-        (inner_tile_size, img.height)
+        (tile_size, img.height)
     }
 
     let x_upper = xu;
@@ -201,6 +192,10 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
         }
 
         let (xtile_dim, ytile_dim) = @get_tile_dims(mask, img);
+        if debug_tiling {
+            pe_info("x tile dim", xtile_dim);
+            pe_info("y tile dim", ytile_dim);
+        }
         if cur_lvl == 0 {
              // we always start from 0 to align tiles, no matter what boundary is skipped over
             for x in $range_step(0, xu, xtile_dim) {
