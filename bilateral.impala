@@ -1,5 +1,5 @@
 fn closeness(math: Intrinsics, c_d: f32, xf: i32, yf: i32) -> f32 {
-    math.expf(-c_d * (xf*xf as f32)) * math.expf(-c_d * (yf*yf as f32))
+    math.expf(-c_d * (xf*xf) as f32) * math.expf(-c_d * (yf*yf) as f32)
 }
 fn similarity(math: Intrinsics, c_r: f32, xi: f32, x: f32) -> f32 {
     let diff = xi - x;
@@ -83,7 +83,7 @@ fn main() -> i32 {
     //                        [0.018316f, 0.033746f, 0.055638f, 0.082085f, 0.108368f, 0.128022f, 0.135335f, 0.128022f, 0.108368f, 0.082085f, 0.055638f, 0.033746f, 0.018316f]]);
 
     let sigma_d = mask.size_x / 4;
-    let c_d = 1.0f / (2.0f * (sigma_d*sigma_d as f32));
+    let c_d = 1.0f / (2.0f * (sigma_d*sigma_d) as f32);
 
     let lower = clamp_lower;
     let upper = clamp_upper;
@@ -117,7 +117,7 @@ fn main() -> i32 {
                 if err > EPS  { passed = 42; }
             }
         }
-        rms_err = cpu_intrinsics.sqrtf(rms_err / (out.width*out.height as f32));
+        rms_err = cpu_intrinsics.sqrtf(rms_err / (out.width*out.height) as f32);
         if passed == 0 {
             print_string("Test PASSED!\n");
         } else {

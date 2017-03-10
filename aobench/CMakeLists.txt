@@ -1,4 +1,6 @@
 anydsl_runtime_wrap(AOBENCH_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala mapping_${DEVICE}.impala aobench.impala)
 add_executable(aobench main.cpp ${AOBENCH_PROGRAM})
 target_link_libraries(aobench ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})

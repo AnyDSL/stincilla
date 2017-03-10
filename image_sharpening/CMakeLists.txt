@@ -1,4 +1,6 @@
 anydsl_runtime_wrap(SHARPENING_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala sharpening.impala)
 add_executable(sharpening main.cpp ${SHARPENING_PROGRAM})
 target_link_libraries(sharpening ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})

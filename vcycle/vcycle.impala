@@ -124,7 +124,7 @@ fn l2norm(img: Img) -> f32 {
             l2sum += value*value;
         }
     }
-    cpu_intrinsics.sqrtf(l2sum) / (img.width*img.height as f32)
+    cpu_intrinsics.sqrtf(l2sum) / (img.width*img.height) as f32
 }
 
 

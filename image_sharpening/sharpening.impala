@@ -315,9 +315,9 @@ fn sobel(x: i32, y: i32, tmp: Acci16, img: Acci16) -> () {
         }
     }
 
-    //let g = cpu_intrinsics.fabsf((g_x + g_y) as f32) / 4.0f as i16;
-    //let g = cpu_intrinsics.sqrtf((g_x * g_x + g_y * g_y) as f32) / 5.66f as i16;
-    let g = cpu_intrinsics.sqrtf((g_x * g_x + g_y * g_y) as f32) as i16;
+    //let g = math.fabsf((g_x + g_y) as f32) / 4.0f as i16;
+    //let g = math.sqrtf((g_x * g_x + g_y * g_y) as f32) / 5.66f as i16;
+    let g = math.sqrtf((g_x * g_x + g_y * g_y) as f32) as i16;
 
     // thresholding - we want no gradient image in this case
     let val = if g > 150i16 { 1i16 } else { 0i16 };

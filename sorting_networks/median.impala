@@ -10,11 +10,11 @@ fn main() -> i32 {
     for x, y, out, arr in @iteration_median(out, arr, clamp_lower, clamp_upper) {
         fn median() -> f32 {
             let mut tmp: [f32 * 4];
-            for i in range(-length/2, +length/2 + 1) {
+            for i in range(-length/2, +length/2) {
                 tmp(i + length / 2) = arr.read(x + i, y);
             }
 
-            oddeven_merge_sort(length, tmp);
+            oddeven_merge_sort(length, |idx| tmp(idx), |idx, val| tmp(idx) = val);
 
             tmp((length - 1) / 2)
         }
@@ -30,7 +30,7 @@ fn main() -> i32 {
             for x in range(0, out.width) @{
                 fn median() -> f32 {
                     let mut tmp: [f32 * 4];
-                    for i in range(-length/2, +length/2 + 1) {
+                    for i in range(-length/2, +length/2) {
                         let x_clamped = clamp_upper(clamp_lower(x + i, 0, arr.width, return), 0, arr.width, return);
                         tmp(i + length / 2) = arr_acc.read(x_clamped, y);
                     }
