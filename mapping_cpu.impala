@@ -151,7 +151,7 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
                 let proposed_tile_size = (((caches.sizes(cache_lvl) / element_size
                                             - max_distance(0) - sum_distances(0)) /
                                             (max_distance(1)+sum_distances(1))
-                                            * 100 / 90)>>6)<<6;
+                                            * 90 / 100)>>6)<<6;
                 if proposed_tile_size < max_tile_size && proposed_tile_size > min_loop_length {
                     cache_tile(cache_lvl - 1, proposed_tile_size)
                 } else {
