@@ -11,3 +11,4 @@ fn is_x86() -> bool { false }
 fn is_sse() -> bool { false }
 fn is_avx() -> bool { false }
 fn is_avx2() -> bool { false }
+fn has_ldg() -> bool { false }

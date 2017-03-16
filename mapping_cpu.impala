@@ -78,7 +78,7 @@ fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: 
 }
 
 fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> () {
-    fn get_step(lvl: i32) -> i32 { // size -> 1024 -> 1
+    fn get_step(lvl: i32) -> i32 { // size -> 2048 -> 1
         if lvl == 0 { 2048 } else { 1 }
     }
     let x_upper = xu;
@@ -86,6 +86,8 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> (
 
     fn tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
         let step = get_step(cur_lvl);
+        pe_info("step size", step);
+
         if step == 1 {
             for y in $range(yl, yu) {
                 for x in range(xl, min(xu, x_upper)) @{

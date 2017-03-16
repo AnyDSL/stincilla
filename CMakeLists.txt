@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(STINCILLA CXX)
 enable_testing()
 
-find_package(IMPALA REQUIRED)
+find_package(Impala REQUIRED)
 
 set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL")
 if(NOT BACKEND)
@@ -20,6 +20,9 @@ else()
     set(DEVICE "acc")
 endif()
 
+set(CLANG_FLAGS -march=native)
+set(IMPALA_FLAGS --log-level info)
+
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
@@ -32,9 +35,9 @@ function (add_test_sample _name)
     endif()
     set(_backend_file ${BACKEND_FILE})
     source_group("Impala Files" REGULAR_EXPRESSION "[.]impala$")
-    wrap_impala_sources(_outfiles OUTPUT_NAME ${_name} FILES ${_infiles} ${_backend_file})
+    wrap_impala_sources(_outfiles OUTPUT_NAME ${_name} CLANG_FLAGS ${CLANG_FLAGS} IMPALA_FLAGS ${IMPALA_FLAGS} FILES ${_infiles} ${_backend_file})
     add_executable(${_name} ${_outfiles} ${_infiles} ${_backend_file} ${_cxxfiles})
-    target_link_libraries(${_name} ${IMPALA_RUNTIME_LIBRARIES})
+    target_link_libraries(${_name} ${Impala_RUNTIME_LIBRARIES})
     add_test("${_name}" ${_name})
 endfunction()
 
