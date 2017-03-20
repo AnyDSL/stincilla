@@ -84,46 +84,47 @@ struct CacheSizes {
 
 fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn(i32, i32) -> ()) -> () {
     let debug_tiling = false;
+
+    // analyze stencil
+    fn distances(idx: (i32, i32), last_idx: (i32, i32), sum_dist: (i32, i32), max_dist: (i32, i32)) -> ((i32, i32), (i32, i32)) {
+        if idx(0) >= mask.size_x {
+            // end of mask line
+            distances((0, idx(1)+1), last_idx, sum_dist, max_dist)
+        } else if idx(1) >= mask.size_y {
+            // end of stencil mask
+            (sum_dist, max_dist)
+        } else if mask.data(idx(0), idx(1)) == 0.0f {
+            // ignore zero mask values
+            distances((idx(0)+1, idx(1)), last_idx, sum_dist, max_dist)
+        } else if last_idx(0) == -1 {
+            // first non-zero mask value found
+            // last_idx = idx
+            distances((idx(0)+1, idx(1)), idx, sum_dist, max_dist)
+        } else {
+            // calculate distance and update sum and max
+            let dist = (idx(0) - last_idx(0),
+                        idx(1) - last_idx(1));
+            let mut new_max_dist = max_dist;
+            if (dist(1) > max_dist(1) ||
+                (dist(1) == max_dist(1) && dist(0) > max_dist(0))) {
+                new_max_dist = dist;
+            }
+            distances((idx(0)+1, idx(1)), idx,
+                      (sum_dist(0)+dist(0), sum_dist(1)+dist(1)),
+                      new_max_dist)
+        }
+    }
+    let (sum_distances, max_distance) = distances((0,0), (-1,-1), (0,0), (0,0));
+
+    pe_info("sum", sum_distances);
+    pe_info("max", max_distance);
+
     fn get_tile_dims(mask: Mask, img: Img) -> (i32, i32) {
         // TODO make this dimension independent, currently only 2D is supported
         // TODO get cache information from machine/compiler/somewhere else
 
         let caches = CacheSizes {sizes: [32*1024, 256*1024, 20*1024*1024], count: 3}; // in bytes
         let element_size = 4; // TODO make this dynamic based on used type. templates?
-
-        // Analyze stencil:
-        fn distances(idx: (i32, i32), last_idx: (i32, i32), sum_dist: (i32, i32), max_dist: (i32, i32)) -> ((i32, i32), (i32, i32)) {
-            if idx(0) >= mask.size_x {
-                // end of mask line
-                distances((0, idx(1)+1), last_idx, sum_dist, max_dist)
-            } else if idx(1) >= mask.size_y {
-                // end of stencil mask
-                (sum_dist, max_dist)
-            } else if mask.data(idx(0), idx(1)) == 0.0f {
-                // ignore zero mask values
-                distances((idx(0)+1, idx(1)), last_idx, sum_dist, max_dist)
-            } else if last_idx(0) == -1 {
-                // first non-zero mask value found
-                // last_idx = idx
-                distances((idx(0)+1, idx(1)), idx, sum_dist, max_dist)
-            } else {
-                // calculate distance and update sum and max
-                let dist = (idx(0) - last_idx(0),
-                            idx(1) - last_idx(1));
-                let mut new_max_dist = max_dist;
-                if (dist(1) > max_dist(1) ||
-                    (dist(1) == max_dist(1) && dist(0) > max_dist(0))) {
-                    new_max_dist = dist;
-                }
-                distances((idx(0)+1, idx(1)), idx,
-                          (sum_dist(0)+dist(0), sum_dist(1)+dist(1)),
-                          new_max_dist)
-            }
-        }
-        let (sum_distances, max_distance) = distances((0,0), (-1,-1), (0,0), (0,0));
-
-        pe_info("sum", sum_distances);
-        pe_info("max", max_distance);
 
         if debug_tiling {
             print_string(" (max, sum) = ((");
