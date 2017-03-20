@@ -120,13 +120,10 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
                           new_max_dist)
             }
         }
-        let (sum_distances, max_distance) = @distances((0,0), (-1,-1), (0,0), (0,0));
-        if debug_tiling {
-            pe_info("sum(0)", sum_distances(0));
-            pe_info("sum(1)", sum_distances(1));
-            pe_info("max(0)", max_distance(0));
-            pe_info("max(1)", max_distance(1));
-        }
+        let (sum_distances, max_distance) = distances((0,0), (-1,-1), (0,0), (0,0));
+
+        pe_info("sum", sum_distances);
+        pe_info("max", max_distance);
 
         if debug_tiling {
             print_string(" (max, sum) = ((");
@@ -159,7 +156,7 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
                 }
             }
         }
-        let tile_size = @cache_tile(caches.count - 1, img.width);
+        let tile_size = cache_tile(caches.count - 1, img.width);
 
         if debug_tiling {
             pe_info("tile_size", tile_size);
@@ -191,22 +188,23 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
             print_string(")\n");
         }
 
-        let (xtile_dim, ytile_dim) = @get_tile_dims(mask, img);
-        if debug_tiling {
-            pe_info("x tile dim", xtile_dim);
-            pe_info("y tile dim", ytile_dim);
-        }
+        let (xtile_dim, ytile_dim) = get_tile_dims(mask, img);
+
+        pe_info("tile dim (x, y)", (xtile_dim, ytile_dim));
+        pe_info("x (lower, upper)", (xl, xu));
+        pe_info("y (lower, upper)", (yl, yu));
+
         if cur_lvl == 0 {
              // we always start from 0 to align tiles, no matter what boundary is skipped over
-            for x in $range_step(0, xu, xtile_dim) {
-                for y in $range_step(0, yu, ytile_dim) @{
+            for x in range_step(0, xu, xtile_dim) {
+                for y in range_step(0, yu, ytile_dim) {
                     tile(cur_lvl + 1,
                          max(x, xl), min(x + xtile_dim, xu),
                          max(y, yl), min(y + ytile_dim, yu));
                 }
             }
         } else {
-            for y in range(yl, yu) {
+            for y in $range(yl, yu) {
                 for x in range(xl, xu) @{
                     body(x, y);
                 }
