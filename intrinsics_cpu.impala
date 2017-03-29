@@ -24,12 +24,12 @@ fn outer_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> ()
 fn inner_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
     if lower < upper {
         body(lower);
-        inner_loop(lower+1, upper, body, return)
+        inner_loop(lower+1, upper, body)
     }
 }
 fn inner_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
     if lower < upper {
         body(lower);
-        inner_loop_step(lower+step, upper, step, body, return)
+        inner_loop_step(lower+step, upper, step, body)
     }
 }

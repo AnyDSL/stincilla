@@ -44,7 +44,7 @@ fn bitonic_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) ->
 fn range_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
         body(lower);
-        range_step(lower+step, upper, step, body, return)
+        range_step(lower+step, upper, step, body)
     }
 }
 fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range_step(lower, upper, 1, body) }

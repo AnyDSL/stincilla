@@ -4,13 +4,13 @@ fn get_pixeli16_fn(img: Imgi16) -> fn(i32) -> i16 { |idx| bitcast[&[1][i16]](img
 fn for_shift_down(a: i32, b: i32, body: fn(i32) -> ()) -> () {
     if a > b {
         body(a);
-        for_shift_down(a >> 1, b, body, return)
+        for_shift_down(a >> 1, b, body)
     }
 }
 fn for_shift_up(a: i32, b: i32, body: fn(i32) -> ()) -> () {
     if a < b {
         body(a);
-        for_shift_up(a << 1, b, body, return)
+        for_shift_up(a << 1, b, body)
     }
 }
 
