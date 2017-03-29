@@ -31,7 +31,7 @@ fn main() -> i32 {
                 fn median() -> f32 {
                     let mut tmp: [f32 * 4];
                     for i in range(-length/2, +length/2) {
-                        let x_clamped = clamp_upper(clamp_lower(x + i, 0, arr.width), 0, arr.width);
+                        let x_clamped = clamp_upper(clamp_lower(x + i, 0, arr.width, return), 0, arr.width, return);
                         tmp(i + length / 2) = arr_acc.read(x_clamped, y);
                     }
                     sort_f32(length, &mut tmp);
