@@ -3,9 +3,7 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(STINCILLA CXX)
 enable_testing()
 
-find_package(AnyDSL-runtime REQUIRED)
-include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
-include_directories(${ANYDSL_RUNTIME_DIR}/src)
+find_package(Impala REQUIRED)
 
 set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL")
 if(NOT BACKEND)
@@ -14,7 +12,7 @@ endif()
 string(TOLOWER "${BACKEND}" BACKEND)
 message(STATUS "Selected backend: ${BACKEND}")
 
-set(BACKEND_FILE intrinsics_${BACKEND}.impala)
+set(BACKEND_FILE ${CMAKE_CURRENT_SOURCE_DIR}/intrinsics_${BACKEND}.impala)
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
@@ -28,6 +26,21 @@ set(IMPALA_FLAGS --log-level info)
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
+function (add_test_sample _name)
+    CMAKE_PARSE_ARGUMENTS ( "PARGS" "" "" "CXX;IMPALA" ${ARGN} )
+    set(_infiles ${PARGS_IMPALA})
+    set(_cxxfiles ${PARGS_CXX})
+    if (NOT (_infiles OR _cxxfiles))
+        set(_infiles ${PARGS_UNPARSED_ARGUMENTS})
+    endif()
+    set(_backend_file ${BACKEND_FILE})
+    source_group("Impala Files" REGULAR_EXPRESSION "[.]impala$")
+    wrap_impala_sources(_outfiles OUTPUT_NAME ${_name} CLANG_FLAGS ${CLANG_FLAGS} IMPALA_FLAGS ${IMPALA_FLAGS} FILES ${_infiles} ${_backend_file})
+    add_executable(${_name} ${_outfiles} ${_infiles} ${_backend_file} ${_cxxfiles})
+    target_link_libraries(${_name} ${Impala_RUNTIME_LIBRARIES})
+    add_test("${_name}" ${_name})
+endfunction()
+
 add_subdirectory(aobench)
 add_subdirectory(bilateral_grid)
 add_subdirectory(harris_corner)
@@ -37,35 +50,9 @@ add_subdirectory(sorting_networks)
 add_subdirectory(vcycle)
 
 # simple CPU-based examples
-anydsl_runtime_wrap(MATMUL_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala matmul.impala)
-add_executable(matmul ${MATMUL_PROGRAM})
-target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("matmul" matmul)
+add_test_sample(matmul utils.impala matmul.impala)
 
 # examples based on the "mapping"
-anydsl_runtime_wrap(GAUSSIAN_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
-add_executable(gaussian ${GAUSSIAN_PROGRAM})
-target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("gaussian" gaussian)
-
-anydsl_runtime_wrap(BILATERAL_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
-add_executable(bilateral ${BILATERAL_PROGRAM})
-target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("bilateral" bilateral)
-
-anydsl_runtime_wrap(JACOBI_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
-add_executable(jacobi ${JACOBI_PROGRAM})
-target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("jacobi" jacobi)
+add_test_sample(gaussian utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
+add_test_sample(bilateral utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
+add_test_sample(jacobi utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
