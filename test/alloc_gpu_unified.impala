@@ -6,9 +6,10 @@ fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
 }
 
 fn iteration(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
+    let acc   = accelerator(device_id);
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
-    with acc.exec(acc.dev(), grid, block) @{
+    with acc.exec(grid, block) @{
         body(acc.gidx(), acc.gidy());
     }
 }
@@ -19,8 +20,9 @@ fn write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&mut[1][f32]](buf.data)(i)
 fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
-    let arr_buf = acc.alloc_unified(acc.dev(), width * height * sizeof[f32]());
-    let out_buf = acc.alloc_unified(acc.dev(), width * height * sizeof[f32]());
+    let acc     = accelerator(device_id);
+    let arr_buf = acc.alloc_unified(width * height * sizeof[f32]());
+    let out_buf = acc.alloc_unified(width * height * sizeof[f32]());
     let arr_cpu = bitcast[&mut[f32]](arr_buf.data);
     let out_cpu = bitcast[&mut[f32]](out_buf.data);
     for i in range(0, width*height) {

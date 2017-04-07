@@ -12,11 +12,12 @@ fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer,
         let block = (128, 1, 1);
 
         ids(dev) = with spawn() @{
-            let arr_gpu = acc.alloc(dev, size_gpu);
-            let out_gpu = acc.alloc(dev, size_gpu);
+            let acc = accelerator(dev);
+            let arr_gpu = acc.alloc(size_gpu);
+            let out_gpu = acc.alloc(size_gpu);
             copy_offset(arr, offset, arr_gpu, 0, size_gpu);
 
-            with acc.exec(dev, grid, block) @{
+            with acc.exec(grid, block) @{
                 body(acc.gidx(), acc.gidy(), bitcast[&mut[1][f32]](out_gpu.data), bitcast[&[1][f32]](arr_gpu.data));
             }
 

@@ -3,9 +3,10 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
                    residual: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
                    restrict: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
-    let sol_gpu  = get_img(acc.alloc(acc.dev(), Sol.stride  * Sol.height  * sizeof[f32]()), Sol.width,  Sol.height);
-    let rhsf_gpu = get_img(acc.alloc(acc.dev(), RHSF.stride * RHSF.height * sizeof[f32]()), RHSF.width, RHSF.height);
-    let rhsc_gpu = get_img(acc.alloc(acc.dev(), RHSC.stride * RHSC.height * sizeof[f32]()), RHSC.width, RHSC.height);
+    let acc      = accelerator(device_id);
+    let sol_gpu  = get_img(acc.alloc(Sol.stride  * Sol.height  * sizeof[f32]()), Sol.width,  Sol.height);
+    let rhsf_gpu = get_img(acc.alloc(RHSF.stride * RHSF.height * sizeof[f32]()), RHSF.width, RHSF.height);
+    let rhsc_gpu = get_img(acc.alloc(RHSC.stride * RHSC.height * sizeof[f32]()), RHSC.width, RHSC.height);
     copy(RHSF.buf, rhsf_gpu.buf, rhsf_gpu.width * rhsf_gpu.height * sizeof[f32]());
     copy(Sol.buf,  sol_gpu.buf,  sol_gpu.width  * sol_gpu.height  * sizeof[f32]());
 
@@ -14,7 +15,7 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
     let block = (64, step, 1);
 
     for benchmark_acc() {
-        with acc.exec(acc.dev(), grid, block) @{
+        with acc.exec(grid, block) @{
             let tid_x = acc.tidx();
             let tid_y = acc.tidy();
             let gid_y = acc.gidy();

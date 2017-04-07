@@ -1,4 +1,5 @@
-static acc = cuda_accelerator;
+fn accelerator(dev: i32) -> Accelerator { cuda_accelerator(dev) }
+static device_id = 0;
 static math = cuda_intrinsics;
 static atomic_add_global = cuda_atomic_add_global;
 static atomic_add_shared = cuda_atomic_add_shared;

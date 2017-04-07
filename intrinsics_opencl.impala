@@ -1,4 +1,5 @@
-static acc = opencl_accelerator;
+fn accelerator(dev: i32) -> Accelerator { nvvm_accelerator(dev) }
+static device_id = 0;
 static math = opencl_intrinsics;
 static atomic_add_global = opencl_atomic_add_global;
 static atomic_add_shared = opencl_atomic_add_shared;
