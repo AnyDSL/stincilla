@@ -11,6 +11,9 @@ fn get_vector_length() -> int { 8 }
 fn get_alignment() -> int { 32 }
 fn get_thread_count() -> int { 4 }
 
+// amount of full vector iterations that trigger loop vectorization
+static simdIterThreshold = 2;
+
 fn outer_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
     for i in parallel(get_thread_count(), lower, upper) {
         body(i);
@@ -21,15 +24,43 @@ fn outer_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> ()
         body(i * step + lower);
     }
 }
-fn inner_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
-    // TODO: make sure lower and upper are a multiple of vector length
-    for i in vectorize(get_vector_length(), get_alignment(), lower, upper) {
-        body(i);
+
+fn inner_loop_scalar(lower: int, upper: int, body: fn(int) -> ()) -> () {
+    if lower < upper {
+        body(lower);
+        inner_loop_scalar(lower+1, upper, body)
     }
 }
+
+fn inner_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
+    if upper - lower < get_vector_length() * simdIterThreshold {
+        inner_loop_scalar(lower, upper, body);
+    } else {
+     let leftOverStart = upper - (upper - lower) % get_vector_length();
+     for i in vectorize(get_vector_length(), get_alignment(), lower, upper) {
+         body(i);
+     }
+     inner_loop_scalar(leftOverStart, upper, body);
+    }
+}
+
+fn inner_loop_step_scalar(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
+    if lower < upper {
+        body(lower);
+        inner_loop_step_scalar(lower+step, upper, step, body)
+    }
+}
+
 fn inner_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
-    // TODO: make sure lower and upper are a multiple of vector length
-    for i in vectorize(get_vector_length(), get_alignment(), 0, (upper-lower)/step) {
-        body(i * step + lower);
+    if (upper - lower) < get_vector_length() * simdIterThreshold * step {
+        body(lower);
+        inner_loop_step_scalar(lower + step, upper, step, body);
+
+    } else {
+     let leftOverStart = upper - (upper - lower) % (get_vector_length() * step);
+     for i in vectorize(get_vector_length(), get_alignment(), 0, (upper-lower)/step) {
+         body(i * step + lower);
+     }
+     inner_loop_step_scalar(leftOverStart, upper, step, body)
     }
 }
