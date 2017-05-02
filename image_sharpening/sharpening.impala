@@ -31,8 +31,12 @@ fn get_acci16_offset(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i
         write : |x, y, v| { set_pixel((y + roy) * img.stride + x + rox, v) }
     }
 }
-fn get_img_i16(buf: Buffer, width: i32, height: i32) -> Imgi16 {
-    Imgi16 { buf : buf, width : width,  height : height, stride : width }
+fn alloc_imgi16(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Imgi16 {
+    let stride = round_up(width * sizeof[i16](), 64) / sizeof[i16]();
+    Imgi16 { buf : alloc(stride * height * sizeof[i16]()), width : width,  height : height, stride : stride }
+}
+fn copy_imgi16(src: Imgi16, dst: Imgi16) -> () {
+    copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[i16]());
 }
 fn read_pixeli16(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> i16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> i16 {
     let mut idx_x = roi.o_x + x;

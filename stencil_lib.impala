@@ -189,10 +189,15 @@ fn get_acc_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f3
     }
 }
 
-fn get_img(buf: Buffer, width: i32, height: i32) -> Img {
-    Img { buf : buf, width : width,  height : height, stride : width }
+fn alloc_img(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Img {
+    let stride = round_up(width * sizeof[f32](), 64) / sizeof[f32]();
+    pe_info("width, height, stride", (width, height, stride));
+    Img { buf : alloc(stride * height * sizeof[f32]()), width : width,  height : height, stride : stride }
 }
 
+fn copy_img(src: Img, dst: Img) -> () {
+    copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[f32]());
+}
 
 fn get_mask3(data : [[f32 * 3] * 3]) -> Mask {
     Mask {

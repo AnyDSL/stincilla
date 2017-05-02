@@ -151,7 +151,7 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
 
 fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
     // allocate temporary array
-    let tmp = get_img(alloc_cpu(out.width * out.height * sizeof[f32]()), out.width, out.height);
+    let tmp       = alloc_img(out.width, out.height, alloc_cpu);
     let out_acc   = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
     let tmp_acc_w = get_acc(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp));
     let tmp_acc_r = get_acc_bh(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp), 10, bh_lower, bh_upper);
@@ -178,7 +178,7 @@ fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_c
 
 fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
     // allocate temporary array
-    let tmp = get_img(alloc_cpu(out.width * out.height * sizeof[f32]()), out.width, out.height);
+    let tmp = alloc_img(out.width, out.height, alloc_cpu);
 
     let bhy = mask_col.size / 2;
     let bhx = round_up(mask_row.size / 2, get_vector_length());
