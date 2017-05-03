@@ -4,9 +4,9 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
                    restrict: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
                   ) -> () {
     let acc      = accelerator(device_id);
-    let sol_gpu  = alloc_img(Sol.width,  Sol.height,  acc.alloc);
-    let rhsf_gpu = alloc_img(RHSF.width, RHSF.height, acc.alloc);
-    let rhsc_gpu = alloc_img(RHSC.width, RHSC.height, acc.alloc);
+    let sol_gpu  = alloc_img(Sol,  acc.alloc);
+    let rhsf_gpu = alloc_img(RHSF, acc.alloc);
+    let rhsc_gpu = alloc_img(RHSC, acc.alloc);
     copy_img(RHSF, rhsf_gpu);
     copy_img(Sol,  sol_gpu);
 

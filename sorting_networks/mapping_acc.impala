@@ -5,8 +5,8 @@ fn iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: Boundary
     let grid  = (out.width, out.height, 1);
     let block = (128, 1, 1);
 
-    let out_gpu = alloc_img(out.width, out.height, acc.alloc);
-    let arr_gpu = alloc_img(arr.width, arr.height, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+    let arr_gpu = alloc_img(arr, acc.alloc);
     copy_img(arr, arr_gpu);
 
     for benchmark_acc() {

@@ -22,8 +22,8 @@ fn iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bound
     let grid   = (out.width, out.height/unroll, 1);
     let block  = (32, 4, 1);
 
-    let out_gpu = alloc_img   (out.width, out.height, acc.alloc);
-    let arr_gpu = alloc_imgi16(arr.width, arr.height, acc.alloc);
+    let out_gpu = alloc_img   (out, acc.alloc);
+    let arr_gpu = alloc_imgi16(arr, acc.alloc);
     copy_imgi16(arr, arr_gpu);
 
     for benchmark_acc() {
@@ -51,8 +51,8 @@ fn iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
     let grid   = (out.width, out.height/unroll, 1);
     let block  = (32, 4, 1);
 
-    let out_gpu = alloc_imgi16(out.width, out.height, acc.alloc);
-    let arr_gpu = alloc_imgi16(arr.width, arr.height, acc.alloc);
+    let out_gpu = alloc_imgi16(out, acc.alloc);
+    let arr_gpu = alloc_imgi16(arr, acc.alloc);
     copy_imgi16(arr, arr_gpu);
 
     for benchmark_acc() {
@@ -80,9 +80,9 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh
     let grid   = (out.width, out.height/unroll, 1);
     let block  = (32, 4, 1);
 
-    let out_gpu = alloc_imgi16(out.width, out.height, acc.alloc);
-    let img_gpu = alloc_imgi16(img.width, img.height, acc.alloc);
-    let map_gpu = alloc_img   (map.width, map.height, acc.alloc);
+    let out_gpu = alloc_imgi16(out, acc.alloc);
+    let img_gpu = alloc_imgi16(img, acc.alloc);
+    let map_gpu = alloc_img   (map, acc.alloc);
     copy_imgi16(img, img_gpu);
     copy_img   (map, map_gpu);
 
@@ -113,9 +113,9 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     let grid   = (out.width, out.height/unroll, 1);
     let block  = (32, 4, 1);
 
-    let out_gpu = alloc_imgi16(out.width, out.height, acc.alloc);
-    let img_gpu = alloc_imgi16(img.width, img.height, acc.alloc);
-    let tmp_gpu = alloc_imgi16(tmp.width, tmp.height, acc.alloc);
+    let out_gpu = alloc_imgi16(out, acc.alloc);
+    let img_gpu = alloc_imgi16(img, acc.alloc);
+    let tmp_gpu = alloc_imgi16(tmp, acc.alloc);
     copy_imgi16(img, img_gpu);
     copy_imgi16(tmp, tmp_gpu);
 
@@ -146,7 +146,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     bitcast[&mut[i32]](sum_buf.data)(0) = 0;
     copy(sum_buf, tmp_buf, sizeof[i32]());
 
-    let img_gpu = alloc_imgi16(img.width, img.height, acc.alloc);
+    let img_gpu = alloc_imgi16(img, acc.alloc);
     copy_imgi16(img, img_gpu);
 
     let grid  = (img_gpu.width, 1, 1);
@@ -189,7 +189,7 @@ fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     let hist_buf = acc.alloc(256 * sizeof[i32]());
     let     hist = bitcast[&mut[1][i32]](hist_buf.data);
 
-    let img_gpu = alloc_img(img.width, img.height, acc.alloc);
+    let img_gpu = alloc_img(img, acc.alloc);
     copy_img(img, img_gpu);
 
     let grid  = (img.width, 1, 1);
