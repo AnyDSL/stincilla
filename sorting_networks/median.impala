@@ -2,8 +2,8 @@ fn main() -> i32 {
     let length = 4;
     let width  = 4096;
     let height = 4096;
-    let arr    = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
-    let out    = Img { buf : alloc_cpu(width * height * sizeof[f32]()), width : width, height : height, stride : width };
+    let arr    = @create_img(width, height, alloc_cpu);
+    let out    = @create_img(width, height, alloc_cpu);
     init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
 
