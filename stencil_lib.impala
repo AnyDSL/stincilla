@@ -102,9 +102,6 @@ fn wrap_const_fun(fun: fn(i32, i32, i32, f32, fn(f32) -> !) -> i32, cval: f32) -
 }
 
 fn read_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> f32 {
-    let mut idx_x = roi.o_x + x;
-    let mut idx_y = roi.o_y + y;
-
     let lower_x = roi.o_x;
     let lower_y = roi.o_y;
     let upper_x = roi.o_x + roi.width;
@@ -116,33 +113,31 @@ fn read_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32, 
     // 6 --- 7 --- 8
     // region encoding
 
-    // left
-    if region == 0 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
-    if region == 3 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
-    if region == 6 { idx_x = bh_lower(idx_x, lower_x, upper_x, return); }
+    let idx_x = match region {
+        0 => bh_lower(roi.o_x + x, lower_x, upper_x, return),
+        1 =>          roi.o_x + x,
+        2 => bh_upper(roi.o_x + x, lower_x, upper_x, return),
+        3 => bh_lower(roi.o_x + x, lower_x, upper_x, return),
+        4 =>          roi.o_x + x,
+        5 => bh_upper(roi.o_x + x, lower_x, upper_x, return),
+        6 => bh_lower(roi.o_x + x, lower_x, upper_x, return),
+        7 =>          roi.o_x + x,
+        8 => bh_upper(roi.o_x + x, lower_x, upper_x, return),
+        _ => bh_upper(bh_lower(roi.o_x + x, lower_x, upper_x, return), lower_x, upper_x, return),
+    };
 
-    // right
-    if region == 2 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
-    if region == 5 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
-    if region == 8 { idx_x = bh_upper(idx_x, lower_x, upper_x, return); }
-
-    // top
-    if region == 0 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
-    if region == 1 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
-    if region == 2 { idx_y = bh_lower(idx_y, lower_y, upper_y, return); }
-
-    // bottom
-    if region == 6 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
-    if region == 7 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
-    if region == 8 { idx_y = bh_upper(idx_y, lower_y, upper_y, return); }
-
-    // all in
-    if region == 10 {
-        idx_x = bh_lower(idx_x, lower_x, upper_x, return);
-        idx_x = bh_upper(idx_x, lower_x, upper_x, return);
-        idx_y = bh_lower(idx_y, lower_y, upper_y, return);
-        idx_y = bh_upper(idx_y, lower_y, upper_y, return);
-    }
+    let idx_y = match region {
+        0 => bh_lower(roi.o_y + y, lower_y, upper_y, return),
+        1 => bh_lower(roi.o_y + y, lower_y, upper_y, return),
+        2 => bh_lower(roi.o_y + y, lower_y, upper_y, return),
+        3 =>          roi.o_y + y,
+        4 =>          roi.o_y + y,
+        5 =>          roi.o_y + y,
+        6 => bh_upper(roi.o_y + y, lower_y, upper_y, return),
+        7 => bh_upper(roi.o_y + y, lower_y, upper_y, return),
+        8 => bh_upper(roi.o_y + y, lower_y, upper_y, return),
+        _ => bh_upper(bh_lower(roi.o_y + y, lower_y, upper_y, return), lower_y, upper_y, return),
+    };
 
     @read(idx_x, idx_y)
 }
