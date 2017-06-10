@@ -2,6 +2,7 @@ static math = cpu_intrinsics;
 fn is_nvvm() -> bool { false }
 fn is_cuda() -> bool { false }
 fn is_opencl() -> bool { false }
+fn is_amdgpu() -> bool { false }
 fn is_x86() -> bool { true }
 fn is_sse() -> bool { true }
 fn is_avx() -> bool { true }

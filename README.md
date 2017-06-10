@@ -6,7 +6,7 @@ Stincilla requires a working AnyDSL installation. A script to build the [impala]
 
 ## Building ##
 The setup.sh configures Stincilla and sets all required paths. The backend for code generation will be set to ```cpu```. This can be changed via CMake:
-* ```BACKEND``` : defines the backend to generate code for (supported values: ```cpu```, ```avx```, ```nvvm```, ```cuda```, ```opencl```)
+* ```BACKEND``` : defines the backend to generate code for (supported values: ```cpu```, ```avx```, ```nvvm```, ```cuda```, ```opencl```, ```amdgpu```)
 
 Example:
 ```bash
