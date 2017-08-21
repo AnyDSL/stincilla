@@ -75,7 +75,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
-            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
             for i in range(0, unroll) {
@@ -249,7 +249,7 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
                     let idx_x = gid_x - range_row + x*bdim_x;
 
                     if lid_x < spm_stride && lid_y < spm_height @{
-                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper); // TODO: set region!
+                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper); // TODO: set region!
                         let spm_acc = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
                         spm_acc.write(lid_x, lid_y, gpu_acc.read(idx_x, idx_y));
                     }
@@ -290,7 +290,7 @@ fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_c
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
             let is_row = false;
 
-            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper);
             let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
 
             for i in range(0, unroll) {
@@ -304,7 +304,7 @@ fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_c
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
             let is_row = true;
 
-            let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), 10, bh_lower, bh_upper);
+            let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
             for i in range(0, unroll) {
@@ -503,7 +503,7 @@ fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSe
                     let idx_x = gid_x - range_row + x*bdim_x;
 
                     if lid_x < spm_stride && lid_y < spm_height_col @{
-                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper); // TODO: set region!
+                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper); // TODO: set region!
                         let spm_acc = get_acc_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col);
                         spm_acc.write(lid_x, lid_y, gpu_acc.read(idx_x, idx_y));
                     }

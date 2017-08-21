@@ -1,6 +1,7 @@
-type BoundaryFn   = fn(i32, i32, i32, fn(f32) -> !) -> i32;
+type BoundaryFn   = fn(i32, i32, i32) -> BorderMode;
 type StencilFn    = fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> ();
 type StencilSepFn = fn(Intrinsics, i32, i32, Acc, Acc, MaskSep, bool) -> ();
+type Region       = (Border, Border);
 
 struct Img {
     buf : Buffer,
@@ -30,6 +31,15 @@ struct Mask {
 struct MaskSep {
     data : fn(i32) -> f32,
     size : i32,
+}
+
+enum Border {
+    Lower, Center, Upper, Unknown
+}
+
+enum BorderMode {
+    Index(i32),
+    Const(f32)
 }
 
 fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
@@ -72,82 +82,110 @@ fn apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32 
 }
 
 // border handling functions
-fn nobh_center (idx: i32, lower: i32, upper: i32, out: fn(f32) -> !) -> i32 { idx }
-fn clamp_lower (idx: i32, lower: i32, upper: i32, out: fn(f32) -> !) -> i32 {
-    if idx < lower { lower } else { idx }
+fn get_border(border: i32) -> Border {
+    match border {
+        0 => Border::Left,
+        1 => Border::Center,
+        _ => Border::Right
+    }
 }
-fn clamp_upper (idx: i32, lower: i32, upper: i32, out: fn(f32) -> !) -> i32 {
-    if idx >= upper { upper - 1 } else { idx }
+fn get_bounds(lower: i32, upper: i32, bh_pixels: i32, border: Border) -> (i32, i32) {
+    match border {
+        Border::Lower  => (lower, bh_pixels),
+        Border::Center => (bh_pixels, upper - bh_pixels),
+        Border::Upper  => (upper - bh_pixels, upper)
+    }
 }
-fn mirror_lower(idx: i32, lower: i32, upper: i32, out: fn(f32) -> !) -> i32 {
-    if idx < lower { lower + (lower - idx-1) } else { idx }
+fn iterate_1dregion(body: fn(Border) -> ()) -> () {
+    for row in @range(0, 3) {
+        let border = get_border(row);
+        body(border);
+    }
 }
-fn mirror_upper(idx: i32, lower: i32, upper: i32, out: fn(f32) -> !) -> i32 {
-    if idx >= upper { upper - (idx+1 - upper) } else { idx }
-}
-fn repeat_lower(idx: i32, lower: i32, upper: i32, out: fn(f32) -> !) -> i32 {
-    if idx < lower { idx + (lower + upper) } else { idx }
-}
-fn repeat_upper(idx: i32, lower: i32, upper: i32, out: fn(f32) -> !) -> i32 {
-    if idx >= upper { idx - (lower + upper) } else { idx }
-}
-fn const_lower (idx: i32, lower: i32, upper: i32, cval: f32, out: fn(f32) -> !) -> i32 {
-    if idx < lower { out(cval) } else { idx }
-}
-fn const_upper (idx: i32, lower: i32, upper: i32, cval: f32, out: fn(f32) -> !) -> i32 {
-    if idx >= upper { out(cval) } else { idx }
-}
-fn wrap_const_fun(fun: fn(i32, i32, i32, f32, fn(f32) -> !) -> i32, cval: f32) -> BoundaryFn {
-    |idx, lower, upper, out| fun(idx, lower, upper, cval, out)
+fn iterate_2dregion(body: fn(Region) -> ()) -> () {
+    for row in @range(0, 3) {
+        let row_border = get_border(row);
+        for col in range(0, 3) {
+            let col_border = get_border(col);
+            body(Region::Known(row_border, col_border));
+        }
+    }
 }
 
-fn read_pixel(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> f32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> f32 {
+fn nobh_center (idx: i32, lower: i32, upper: i32) -> BorderMode { BorderMode::Index(idx) }
+fn clamp_lower (idx: i32, lower: i32, upper: i32) -> BorderMode {
+    BorderMode::Index(if idx < lower { lower } else { idx })
+}
+fn clamp_upper (idx: i32, lower: i32, upper: i32) -> BorderMode {
+    BorderMode::Index(if idx >= upper { upper - 1 } else { idx })
+}
+fn mirror_lower(idx: i32, lower: i32, upper: i32) -> BorderMode {
+    BorderMode::Index(if idx < lower { lower + (lower - idx-1) } else { idx })
+}
+fn mirror_upper(idx: i32, lower: i32, upper: i32) -> BorderMode {
+    BorderMode::Index(if idx >= upper { upper - (idx+1 - upper) } else { idx })
+}
+fn repeat_lower(idx: i32, lower: i32, upper: i32) -> BorderMode {
+    BorderMode::Index(if idx < lower { idx + (lower + upper) } else { idx })
+}
+fn repeat_upper(idx: i32, lower: i32, upper: i32) -> BorderMode {
+    BorderMode::Index(if idx >= upper { idx - (lower + upper) } else { idx })
+}
+fn const_lower (idx: i32, lower: i32, upper: i32, cval: f32) -> BorderMode {
+    if idx < lower { BorderMode::Const(cval) } else { BorderMode::Index(idx) }
+}
+fn const_upper (idx: i32, lower: i32, upper: i32, cval: f32) -> BorderMode {
+    if idx >= upper { BorderMode::Const(cval) } else { BorderMode::Index(idx) }
+}
+fn wrap_const_fun(fun: fn(i32, i32, i32, f32) -> BorderMode, cval: f32) -> BoundaryFn {
+    |idx, lower, upper| fun(idx, lower, upper, cval)
+}
+
+fn map_border_mode(mode: BorderMode, bh_fun: fn(i32) -> BorderMode) -> BorderMode {
+    match mode {
+        BorderMode::Index(idx) => bh_fun(idx),
+        BorderMode::Const(val) => val
+    }
+}
+
+fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> f32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> f32 {
     let lower_x = roi.o_x;
     let lower_y = roi.o_y;
     let upper_x = roi.o_x + roi.width;
     let upper_y = roi.o_y + roi.height;
 
-    // region encoding
-    // 0 --- 1 --- 2
-    // 3 --- 4 --- 5
-    // 6 --- 7 --- 8
-    // region encoding
-
-    let idx_x = match region {
-        0 => bh_lower(roi.o_x + x, lower_x, upper_x, return),
-        1 =>          roi.o_x + x,
-        2 => bh_upper(roi.o_x + x, lower_x, upper_x, return),
-        3 => bh_lower(roi.o_x + x, lower_x, upper_x, return),
-        4 =>          roi.o_x + x,
-        5 => bh_upper(roi.o_x + x, lower_x, upper_x, return),
-        6 => bh_lower(roi.o_x + x, lower_x, upper_x, return),
-        7 =>          roi.o_x + x,
-        8 => bh_upper(roi.o_x + x, lower_x, upper_x, return),
-        _ => bh_upper(bh_lower(roi.o_x + x, lower_x, upper_x, return), lower_x, upper_x, return),
+    let (mode_x, mode_y) = match region {
+        (row, col) => {
+            let mode_x = match row {
+                Border::Lower  => bh_lower(roi.o_x + x, lower_x, upper_x),
+                Border::Center => BorderMode::Index(roi.o_x + x),
+                Border::Upper  => bh_upper(roi.o_x + x, lower_x, upper_x),
+                _              => map_border_mode(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
+            };
+            let mode_y = match col {
+                Border::Lower  => bh_lower(roi.o_y + y, lower_y, upper_y),
+                Border::Center => BorderMode::Index(roi.o_y + y),
+                Border::Upper  => bh_upper(roi.o_y + y, lower_y, upper_y),
+                _              => map_border_mode(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
+            };
+            (mode_x, mode_y)
+        }
     };
 
-    let idx_y = match region {
-        0 => bh_lower(roi.o_y + y, lower_y, upper_y, return),
-        1 => bh_lower(roi.o_y + y, lower_y, upper_y, return),
-        2 => bh_lower(roi.o_y + y, lower_y, upper_y, return),
-        3 =>          roi.o_y + y,
-        4 =>          roi.o_y + y,
-        5 =>          roi.o_y + y,
-        6 => bh_upper(roi.o_y + y, lower_y, upper_y, return),
-        7 => bh_upper(roi.o_y + y, lower_y, upper_y, return),
-        8 => bh_upper(roi.o_y + y, lower_y, upper_y, return),
-        _ => bh_upper(bh_lower(roi.o_y + y, lower_y, upper_y, return), lower_y, upper_y, return),
-    };
-
-    @read(idx_x, idx_y)
+    match (mode_x, mode_y) {
+        (BorderMode::Index(x), BorderMode::Index(y)) => @read(x, y),
+        (BorderMode::Const(c), _) => c,
+        (_, BorderMode::Const(c)) => c,
+        _ => undef()
+    }
 }
 
 // &   [f32] on CPU/AVX
 // &[1][f32] on CUDA/NVVM & OpenCL
-fn get_acc_bh(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+fn get_acc_bh(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acc_bh_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+fn get_acc_bh_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     Acc {
         read  : |x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
         write : |x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
@@ -165,10 +203,10 @@ fn get_acc_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) ->
 
 // &   [f32] on CPU/AVX
 // &[3][f32] on CUDA/NVVM & OpenCL
-fn get_acc_bh_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+fn get_acc_bh_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset_memory(set_pixel, get_pixel, width, height, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acc_bh_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+fn get_acc_bh_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     Acc {
         read  : |x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : width, height : height }, |x, y| { get_pixel(y * width + x) }, bh_lower, bh_upper),
         write : |x, y, v| set_pixel((y + roy) * width + x + rox, v)
