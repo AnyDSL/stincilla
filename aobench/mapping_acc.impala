@@ -1,35 +1,16 @@
-extern "C" {
-    fn mrand48() -> i64;
-    fn srand48(i64) -> ();
-}
-
-// MWC64X Random Number Generator
-// http://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
-fn rnd_u32(state: u64) -> (u32, u64) {
-    let hi = state >> 32u64;
-    let lo = state & 0xFFFFFFFFu64;
-    (lo as u32 ^ hi as u32, lo * 4294883355u64 + hi)
-}
-
-fn rnd_f64(state: u64) -> (f64, u64) {
-    let (r, state) = rnd_u32(state);
-    let k = 1.0 / 0xFFFFFFFFu64 as f64;
-    (r as f64 * k, state)
-}
-
 fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
              body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
             ) -> () {
-    let acc = accelerator(device_id);
+    let acc   = accelerator(device_id);
     let grid  = (width, height, 1);
     let block = (32, 4, 1);
 
-    // initialize seed on the CPU using mrand48()
-    srand48(get_micro_time());
+    // initialize seed on the CPU
+    random_seed(get_micro_time());
     let seed_buf = alloc_cpu(width * height * sizeof[u64]());
     let seed = bitcast[&mut[u64]](seed_buf.data);
     for i in $range(0, width * height) {
-        seed(i) = mrand48() as u64;
+        seed(i) = random_val_u64();
     }
 
     let seed_gpu = acc.alloc(width * height * sizeof[u64]());
