@@ -37,7 +37,7 @@ fn init_zero(arr: &mut[f32], width: i32, height: i32) -> () {
 fn init_rand(arr: &mut[f32], width: i32, height: i32) -> () {
     for y in $range(0, height) {
         for x in range(0, width) {
-            arr(y*width + x) = random_val() * 1024f;
+            arr(y*width + x) = random_val_f32() * 1024f;
         }
     }
 }
