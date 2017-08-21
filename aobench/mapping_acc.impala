@@ -6,7 +6,7 @@ fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
     let block = (32, 4, 1);
 
     // initialize seed on the CPU
-    random_seed(get_micro_time());
+    random_seed(get_micro_time() as u32);
     let seed_buf = alloc_cpu(width * height * sizeof[u64]());
     let seed = bitcast[&mut[u64]](seed_buf.data);
     for i in $range(0, width * height) {
