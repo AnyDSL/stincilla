@@ -122,10 +122,10 @@ fn main(i: i32) -> i32 {
     let nops = 2 as i64 * l as i64 * m as i64 * n as i64;
     fn print_gflops(time: i64) -> () {
         print_string("Timing: ");
-        print_double(time as f64 / 1000.0);
+        print_f64(time as f64 / 1000.0);
         print_string(" ms\n");
         let gflops = (1.0e-9 * nops as f64) / (time as f64 * 1.0e-6);
-        print_double(gflops);
+        print_f64(gflops);
         print_string(" GFLOPS\n")
     }
 
