@@ -93,7 +93,7 @@ fn get_bounds(lower: i32, upper: i32, bh_pixels: i32, border: Border) -> (i32, i
     match border {
         Border::Lower  => (lower, bh_pixels),
         Border::Center => (bh_pixels, upper - bh_pixels),
-        Border::Upper  => (upper - bh_pixels, upper)
+        _ /* Border::Upper */ => (upper - bh_pixels, upper)
     }
 }
 fn iterate_1dregion(body: fn(Border) -> ()) -> () {
@@ -107,7 +107,7 @@ fn iterate_2dregion(body: fn(Region) -> ()) -> () {
         let row_border = get_border(row);
         for col in range(0, 3) {
             let col_border = get_border(col);
-            body(Region::Known(row_border, col_border));
+            body((row_border, col_border));
         }
     }
 }
@@ -144,7 +144,7 @@ fn wrap_const_fun(fun: fn(i32, i32, i32, f32) -> BorderMode, cval: f32) -> Bound
 fn map_border_mode(mode: BorderMode, bh_fun: fn(i32) -> BorderMode) -> BorderMode {
     match mode {
         BorderMode::Index(idx) => bh_fun(idx),
-        BorderMode::Const(val) => val
+        _ /* BorderMode::Const(val) */ => mode
     }
 }
 
