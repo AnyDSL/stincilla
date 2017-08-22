@@ -42,7 +42,7 @@ fn iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Ac
     let out_gpu = alloc_img(out, acc.alloc);
 
     let unroll = 1;
-    let grid   = (out.width, out.height/unroll, 1);
+    let grid   = (out.width, out.height / unroll, 1);
     let block  = (128, 1, 1);
 
     for benchmark_acc() {
@@ -68,14 +68,14 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
     copy_img(arr, arr_gpu);
 
     let unroll = 1;
-    let (block, _) = compute_config((mask.size_x/2, mask.size_y/2), unroll);
-    let grid       = (out.width, out.height/unroll, 1);
+    let (block, _) = compute_config((mask.size_x / 2, mask.size_y / 2), unroll);
+    let grid       = (out.width, out.height / unroll, 1);
 
     for benchmark_acc() {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
-            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper);
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Unknown, Border::Unknown), bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
             for i in range(0, unroll) {
@@ -97,13 +97,13 @@ fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: 
 
     // compute the number of blocks required for boundary handling
     let unroll = 1;
-    let (block, (bx, by)) = compute_config((mask.size_x/2, mask.size_y/2), unroll);
+    let (block, (bx, by)) = compute_config((mask.size_x / 2, mask.size_y / 2), unroll);
 
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
 
     if big_kernel {
-        let grid = (out.width, out.height/unroll, 1);
+        let grid = (out.width, out.height / unroll, 1);
 
         for benchmark_acc() {
             with acc.exec(grid, block) @{
@@ -116,51 +116,48 @@ fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: 
                 let gid_y   = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
                 let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
-                // 0 --- 1 --- 2
-                // 3 --- 4 --- 5
-                // 6 --- 7 --- 8
-                if bid_x < bx && bid_y < by @{                          // top-left: 0
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 0, bh_lower, bh_upper);
+                if bid_x < bx && bid_y < by @{                          // top-left
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Lower, Border::Lower), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
-                } else if bid_x >= gdim_x-bx && bid_y < by @{           // top-right: 2
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 2, bh_lower, bh_upper);
+                } else if bid_x >= gdim_x-bx && bid_y < by @{           // top-right
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Upper, Border::Lower), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
-                } else if bid_y < by @{                                 // top: 1
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 1, bh_lower, bh_upper);
+                } else if bid_y < by @{                                 // top
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Center, Border::Lower), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
-                } else if bid_y >= gdim_y-by && bid_x < bx @{           // bottom-left: 6
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 6, bh_lower, bh_upper);
+                } else if bid_y >= gdim_y-by && bid_x < bx @{           // bottom-left
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Lower, Border::Upper), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
-                } else if bid_y >= gdim_y-by && bid_x >= gdim_x-bx @{   // bottom-right: 8
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 8, bh_lower, bh_upper);
+                } else if bid_y >= gdim_y-by && bid_x >= gdim_x-bx @{   // bottom-right
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Upper, Border::Upper), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
-                } else if bid_y >= gdim_y-by @{                         // bottom: 7
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 7, bh_lower, bh_upper);
+                } else if bid_y >= gdim_y-by @{                         // bottom
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Center, Border::Upper), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
-                } else if bid_x >= gdim_x-bx @{                         // right: 5
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 5, bh_lower, bh_upper);
+                } else if bid_x >= gdim_x-bx @{                         // right
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Upper, Border::Center), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
-                } else if bid_x < bx @{                                 // left: 3
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 3, bh_lower, bh_upper);
+                } else if bid_x < bx @{                                 // left
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Lower, Border::Center), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
-                } else @{                                               // center: 4
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 4, bh_lower, bh_upper);
+                } else @{                                               // center
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Center, Border::Center), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
                     }
@@ -168,35 +165,19 @@ fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: 
             }
         }
     } else {
-        // bounds account for unroll factor
-        let hu = out.height/unroll;
-        let Bounds2D = [
-            (0                      , bx*block(0)            , 0               , by*block(1)),
-            (bx*block(0)            , out.width - bx*block(0), 0               , by*block(1)),
-            (out.width - bx*block(0), out.width              , 0               , by*block(1)),
-
-            (0                      , bx*block(0)            , by*block(1)     , hu - by*block(1)),
-            (bx*block(0)            , out.width - bx*block(0), by*block(1)     , hu - by*block(1)),
-            (out.width - bx*block(0), out.width              , by*block(1)     , hu - by*block(1)),
-
-            (0                      , bx*block(0)            , hu - by*block(1), hu),
-            (bx*block(0)            , out.width - bx*block(0), hu - by*block(1), hu),
-            (out.width - bx*block(0), out.width              , hu - by*block(1), hu)
-        ];
-
-        for region in @range(0, 9) {
-            let bounds = Bounds2D(region);
-            let grid   = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
+        for region in @iterate_2dregion() {
+            let (border_row, border_col) = region;
+            let bounds_row = get_bounds(0, out.width,           bx * block(0), border_row);
+            let bounds_col = get_bounds(0, out.height / unroll, by * block(1), border_col);
+            let grid       = (bounds_row(1) - bounds_row(0), bounds_col(1) - bounds_col(0), 1);
 
             let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
             for benchmark_acc() {
                 with acc.exec(grid, block) @{
-                    let gid_x = bounds(0) +
-                                acc.tidx() + acc.bdimx() * acc.bidx();
-                    let gid_y = bounds(2) * unroll +
-                                acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+                    let gid_x = bounds_row(0)          + acc.tidx() + acc.bdimx() * acc.bidx();
+                    let gid_y = bounds_col(0) * unroll + acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
 
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * acc.bdimy(), out_acc, arr_acc, mask);
@@ -218,15 +199,15 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
     copy_img(arr, arr_gpu);
 
     let unroll = 1;
-    let (block, _) = compute_config((mask.size_x/2, mask.size_y/2), unroll);
-    let grid       = (out.width, out.height/unroll, 1);
+    let (block, _) = compute_config((mask.size_x / 2, mask.size_y / 2), unroll);
+    let grid       = (out.width, out.height / unroll, 1);
 
     // compute number of steps required to stage data to shared memory
     let range_row = mask.size_x / 2;
     let range_col = mask.size_y / 2;
     let steps_x   = 2;
-    let offset_y  = if (mask.size_y-1)%block(1) == 0 { 0 } else { 1 };
-    let steps_y   = unroll + (mask.size_y-1)/block(1) + offset_y;
+    let offset_y  = if (mask.size_y-1) % block(1) == 0 { 0 } else { 1 };
+    let steps_y   = unroll + (mask.size_y-1) / block(1) + offset_y;
 
     for benchmark_acc() {
         with acc.exec(grid, block) @{
@@ -249,7 +230,7 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
                     let idx_x = gid_x - range_row + x*bdim_x;
 
                     if lid_x < spm_stride && lid_y < spm_height @{
-                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper); // TODO: set region!
+                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Unknown, Border::Unknown), bh_lower, bh_upper); // TODO: set region!
                         let spm_acc = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
                         spm_acc.write(lid_x, lid_y, gpu_acc.read(idx_x, idx_y));
                     }
@@ -280,9 +261,9 @@ fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_c
     copy_img(arr, arr_gpu);
 
     let unroll = 1;
-    let grid   = (out.width, out.height/unroll, 1);
-    let (block_row, _) = compute_config((mask_row.size/2, 1), unroll);
-    let (block_col, _) = compute_config((1, mask_col.size/2), unroll);
+    let grid   = (out.width, out.height / unroll, 1);
+    let (block_row, _) = compute_config((mask_row.size / 2, 1), unroll);
+    let (block_col, _) = compute_config((1, mask_col.size / 2), unroll);
 
     for benchmark_acc() {
         with acc.exec(grid, block_col) @{
@@ -290,7 +271,7 @@ fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_c
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
             let is_row = false;
 
-            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper);
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Unknown, Border::Unknown), bh_lower, bh_upper);
             let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
 
             for i in range(0, unroll) {
@@ -304,7 +285,7 @@ fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_c
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
             let is_row = true;
 
-            let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper);
+            let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Border::Unknown, Border::Unknown), bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
             for i in range(0, unroll) {
@@ -328,8 +309,8 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
 
     // compute the number of blocks required for boundary handling
     let unroll = 1;
-    let (block_row, (bx, _)) = compute_config((mask_row.size/2, 1), unroll);
-    let (block_col, (_, by)) = compute_config((1, mask_col.size/2), unroll);
+    let (block_row, (bx, _)) = compute_config((mask_row.size / 2, 1), unroll);
+    let (block_col, (_, by)) = compute_config((1, mask_col.size / 2), unroll);
 
     let Region2DCol = [ 1, 4, 7 ];
     let Region2DRow = [ 3, 4, 5 ];
@@ -338,31 +319,31 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
     let big_kernel = false;
 
     if big_kernel {
-        let grid = (out.width, out.height/unroll, 1);
+        let grid = (out.width, out.height / unroll, 1);
 
         // column component
         for benchmark_acc() {
-            let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
             with acc.exec(grid, block_col) @{
-                let bid_y  = acc.bidy();
-                let bdim_y = acc.bdimy();
-                let gdim_y = acc.gdimy();
-                let gid_x  = acc.gidx();
-                let gid_y  = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
-                let is_row = false;
+                let bid_y   = acc.bidy();
+                let bdim_y  = acc.bdimy();
+                let gdim_y  = acc.gdimy();
+                let gid_x   = acc.gidx();
+                let gid_y   = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+                let is_row  = false;
+                let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
 
-                if bid_y < by @{                                // top: 1
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region2DCol(0), bh_lower, bh_upper);
+                if bid_y < by @{                                // top
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Center, Border::Lower), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
-                } else if bid_y >= gdim_y-by @{                 // bottom: 7
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region2DCol(2), bh_lower, bh_upper);
+                } else if bid_y >= gdim_y-by @{                 // bottom
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Center, Border::Upper), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
-                } else @{                                       // center: 4
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region2DCol(1), bh_lower, bh_upper);
+                } else @{                                       // center
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Center, Border::Center), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
@@ -381,18 +362,18 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
                 let is_row  = true;
                 let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
-                if bid_x < bx @{                                // left: 3
-                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), Region2DRow(0), bh_lower, bh_upper);
+                if bid_x < bx @{                                // left
+                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Border::Lower, Border::Center), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
-                } else if bid_x >= gdim_x-bx @{                 // right: 5
-                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), Region2DRow(2), bh_lower, bh_upper);
+                } else if bid_x >= gdim_x-bx @{                 // right
+                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Border::Upper, Border::Center), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
-                } else @{                                       // center: 4
-                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), Region2DRow(1), bh_lower, bh_upper);
+                } else @{                                       // center
+                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Border::Center, Border::Center), bh_lower, bh_upper);
                     for i in range(0, unroll) {
                         body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
@@ -400,16 +381,9 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
             }
         }
     } else {
-        let hu = out.height / unroll;
-        let Bounds2DCol = [
-            (0                   , by*block_col(1)),
-            (by*block_col(1)     , hu - by*block_col(1)),
-            (hu - by*block_col(1), hu)
-        ];
-
-        for iter in @range(0, 3) {
-            let region = Region2DCol(iter);
-            let bounds = Bounds2DCol(iter);
+        for border_col in @iterate_1dregion() {
+            let bounds = get_bounds(0, out.height / unroll, by * block_col(1), border_col);
+            let region = (Border::Center, border_col);
             let grid   = (out.width, bounds(1) - bounds(0), 1);
 
             let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
@@ -418,8 +392,7 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
             for benchmark_acc() {
                 with acc.exec(grid, block_col) @{
                     let gid_x = acc.gidx();
-                    let gid_y = bounds(0) * unroll +
-                                acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+                    let gid_y = bounds(0) * unroll + acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
                     let is_row = false;
 
                     for i in range(0, unroll) {
@@ -429,16 +402,10 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
             }
         }
 
-        let Bounds2DRow = [
-            (0                          , bx*block_row(0)),
-            (bx*block_row(0)            , out.width - bx*block_row(0)),
-            (out.width - bx*block_row(0), out.width)
-        ];
-
-        for iter in @range(0, 3) {
-            let region = Region2DRow(iter);
-            let bounds = Bounds2DRow(iter);
-            let grid   = (bounds(1) - bounds(0), out.height/unroll, 1);
+        for border_row in @iterate_1dregion() {
+            let bounds = get_bounds(0, out.width, bx * block_row(0), border_row);
+            let region = (border_row, Border::Center);
+            let grid   = (bounds(1) - bounds(0), out.height / unroll, 1);
 
             let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), region, bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
@@ -470,15 +437,15 @@ fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSe
     copy_img(arr, arr_gpu);
 
     let unroll = 1;
-    let (block, _) = compute_config((mask_row.size/2, mask_col.size/2), unroll);
-    let grid       = (out.width, out.height/unroll, 1);
+    let (block, _) = compute_config((mask_row.size / 2, mask_col.size / 2), unroll);
+    let grid       = (out.width, out.height / unroll, 1);
 
     // compute number of steps required to stage data to shared memory
     let range_row = mask_row.size / 2;
     let range_col = mask_col.size / 2;
-    let offset_y  = if (mask_col.size-1)%block(1) == 0 { 0 } else { 1 };
+    let offset_y  = if (mask_col.size-1) % block(1) == 0 { 0 } else { 1 };
     let steps_x   = 2;
-    let steps_y   = unroll + (mask_col.size-1)/block(1) + offset_y;
+    let steps_y   = unroll + (mask_col.size-1) / block(1) + offset_y;
 
     for benchmark_acc() {
         with acc.exec(grid, block) @{
@@ -503,7 +470,7 @@ fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSe
                     let idx_x = gid_x - range_row + x*bdim_x;
 
                     if lid_x < spm_stride && lid_y < spm_height_col @{
-                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region(Border::Unknown, Border::Unknown), bh_lower, bh_upper); // TODO: set region!
+                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Border::Unknown, Border::Unknown), bh_lower, bh_upper); // TODO: set region!
                         let spm_acc = get_acc_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col);
                         spm_acc.write(lid_x, lid_y, gpu_acc.read(idx_x, idx_y));
                     }
