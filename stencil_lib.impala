@@ -1,7 +1,7 @@
-type BoundaryFn   = fn(i32, i32, i32) -> BorderMode;
+type BoundaryFn   = fn(i32, i32, i32) -> BoundaryMode;
 type StencilFn    = fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> ();
 type StencilSepFn = fn(Intrinsics, i32, i32, Acc, Acc, MaskSep, bool) -> ();
-type Region       = (Border, Border);
+type Region       = (Boundary, Boundary);
 
 struct Img {
     buf : Buffer,
@@ -33,11 +33,11 @@ struct MaskSep {
     size : i32,
 }
 
-enum Border {
+enum Boundary {
     Lower, Center, Upper, Unknown
 }
 
-enum BorderMode {
+enum BoundaryMode {
     Index(i32),
     Const(f32)
 }
@@ -82,21 +82,21 @@ fn apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32 
 }
 
 // border handling functions
-fn get_border(border: i32) -> Border {
+fn get_border(border: i32) -> Boundary {
     match border {
-        0 => Border::Left,
-        1 => Border::Center,
-        _ => Border::Right
+        0 => Boundary::Left,
+        1 => Boundary::Center,
+        _ => Boundary::Right
     }
 }
-fn get_bounds(lower: i32, upper: i32, bh_pixels: i32, border: Border) -> (i32, i32) {
+fn get_bounds(lower: i32, upper: i32, bh_pixels: i32, border: Boundary) -> (i32, i32) {
     match border {
-        Border::Lower  => (lower, bh_pixels),
-        Border::Center => (bh_pixels, upper - bh_pixels),
-        _ /* Border::Upper */ => (upper - bh_pixels, upper)
+        Boundary::Lower  => (lower, bh_pixels),
+        Boundary::Center => (bh_pixels, upper - bh_pixels),
+        _ /* Boundary::Upper */ => (upper - bh_pixels, upper)
     }
 }
-fn iterate_1dregion(body: fn(Border) -> ()) -> () {
+fn iterate_1dregion(body: fn(Boundary) -> ()) -> () {
     for row in @range(0, 3) {
         let border = get_border(row);
         body(border);
@@ -112,39 +112,39 @@ fn iterate_2dregion(body: fn(Region) -> ()) -> () {
     }
 }
 
-fn nobh_center (idx: i32, lower: i32, upper: i32) -> BorderMode { BorderMode::Index(idx) }
-fn clamp_lower (idx: i32, lower: i32, upper: i32) -> BorderMode {
-    BorderMode::Index(if idx < lower { lower } else { idx })
+fn nobh_center (idx: i32, lower: i32, upper: i32) -> BoundaryMode { BoundaryMode::Index(idx) }
+fn clamp_lower (idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+    BoundaryMode::Index(if idx < lower { lower } else { idx })
 }
-fn clamp_upper (idx: i32, lower: i32, upper: i32) -> BorderMode {
-    BorderMode::Index(if idx >= upper { upper - 1 } else { idx })
+fn clamp_upper (idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+    BoundaryMode::Index(if idx >= upper { upper - 1 } else { idx })
 }
-fn mirror_lower(idx: i32, lower: i32, upper: i32) -> BorderMode {
-    BorderMode::Index(if idx < lower { lower + (lower - idx-1) } else { idx })
+fn mirror_lower(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+    BoundaryMode::Index(if idx < lower { lower + (lower - idx-1) } else { idx })
 }
-fn mirror_upper(idx: i32, lower: i32, upper: i32) -> BorderMode {
-    BorderMode::Index(if idx >= upper { upper - (idx+1 - upper) } else { idx })
+fn mirror_upper(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+    BoundaryMode::Index(if idx >= upper { upper - (idx+1 - upper) } else { idx })
 }
-fn repeat_lower(idx: i32, lower: i32, upper: i32) -> BorderMode {
-    BorderMode::Index(if idx < lower { idx + (lower + upper) } else { idx })
+fn repeat_lower(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+    BoundaryMode::Index(if idx < lower { idx + (lower + upper) } else { idx })
 }
-fn repeat_upper(idx: i32, lower: i32, upper: i32) -> BorderMode {
-    BorderMode::Index(if idx >= upper { idx - (lower + upper) } else { idx })
+fn repeat_upper(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+    BoundaryMode::Index(if idx >= upper { idx - (lower + upper) } else { idx })
 }
-fn const_lower (idx: i32, lower: i32, upper: i32, cval: f32) -> BorderMode {
-    if idx < lower { BorderMode::Const(cval) } else { BorderMode::Index(idx) }
+fn const_lower (idx: i32, lower: i32, upper: i32, cval: f32) -> BoundaryMode {
+    if idx < lower { BoundaryMode::Const(cval) } else { BoundaryMode::Index(idx) }
 }
-fn const_upper (idx: i32, lower: i32, upper: i32, cval: f32) -> BorderMode {
-    if idx >= upper { BorderMode::Const(cval) } else { BorderMode::Index(idx) }
+fn const_upper (idx: i32, lower: i32, upper: i32, cval: f32) -> BoundaryMode {
+    if idx >= upper { BoundaryMode::Const(cval) } else { BoundaryMode::Index(idx) }
 }
-fn wrap_const_fun(fun: fn(i32, i32, i32, f32) -> BorderMode, cval: f32) -> BoundaryFn {
+fn wrap_const_fun(fun: fn(i32, i32, i32, f32) -> BoundaryMode, cval: f32) -> BoundaryFn {
     |idx, lower, upper| fun(idx, lower, upper, cval)
 }
 
-fn map_border_mode(mode: BorderMode, bh_fun: fn(i32) -> BorderMode) -> BorderMode {
+fn map_border_mode(mode: BoundaryMode, bh_fun: fn(i32) -> BoundaryMode) -> BoundaryMode {
     match mode {
-        BorderMode::Index(idx) => bh_fun(idx),
-        _ /* BorderMode::Const(val) */ => mode
+        BoundaryMode::Index(idx) => bh_fun(idx),
+        _ /* BoundaryMode::Const(val) */ => mode
     }
 }
 
@@ -157,25 +157,25 @@ fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> f3
     let (mode_x, mode_y) = match region {
         (row, col) => {
             let mode_x = match row {
-                Border::Lower  => bh_lower(roi.o_x + x, lower_x, upper_x),
-                Border::Center => BorderMode::Index(roi.o_x + x),
-                Border::Upper  => bh_upper(roi.o_x + x, lower_x, upper_x),
-                _              => map_border_mode(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
+                Boundary::Lower  => bh_lower(roi.o_x + x, lower_x, upper_x),
+                Boundary::Center => BoundaryMode::Index(roi.o_x + x),
+                Boundary::Upper  => bh_upper(roi.o_x + x, lower_x, upper_x),
+                _                => map_border_mode(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
             };
             let mode_y = match col {
-                Border::Lower  => bh_lower(roi.o_y + y, lower_y, upper_y),
-                Border::Center => BorderMode::Index(roi.o_y + y),
-                Border::Upper  => bh_upper(roi.o_y + y, lower_y, upper_y),
-                _              => map_border_mode(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
+                Boundary::Lower  => bh_lower(roi.o_y + y, lower_y, upper_y),
+                Boundary::Center => BoundaryMode::Index(roi.o_y + y),
+                Boundary::Upper  => bh_upper(roi.o_y + y, lower_y, upper_y),
+                _                => map_border_mode(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
             };
             (mode_x, mode_y)
         }
     };
 
     match (mode_x, mode_y) {
-        (BorderMode::Index(x), BorderMode::Index(y)) => @read(x, y),
-        (BorderMode::Const(c), _) => c,
-        (_, BorderMode::Const(c)) => c,
+        (BoundaryMode::Index(x), BoundaryMode::Index(y)) => @read(x, y),
+        (BoundaryMode::Const(c), _) => c,
+        (_, BoundaryMode::Const(c)) => c,
         _ => undef()
     }
 }
