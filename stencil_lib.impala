@@ -84,9 +84,9 @@ fn apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32 
 // border handling functions
 fn get_border(border: i32) -> Boundary {
     match border {
-        0 => Boundary::Left,
+        0 => Boundary::Lower,
         1 => Boundary::Center,
-        _ => Boundary::Right
+        _ => Boundary::Upper
     }
 }
 fn get_bounds(lower: i32, upper: i32, bh_pixels: i32, border: Boundary) -> (i32, i32) {
