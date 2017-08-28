@@ -166,9 +166,9 @@ fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: 
         }
     } else {
         for region in @iterate_2dregion() {
-            let (border_row, border_col) = region;
-            let bounds_row = get_bounds(0, out.width,           bx * block(0), border_row);
-            let bounds_col = get_bounds(0, out.height / unroll, by * block(1), border_col);
+            let (boundary_row, boundary_col) = region;
+            let bounds_row = get_bounds(0, out.width,           bx * block(0), boundary_row);
+            let bounds_col = get_bounds(0, out.height / unroll, by * block(1), boundary_col);
             let grid       = (bounds_row(1) - bounds_row(0), bounds_col(1) - bounds_col(0), 1);
 
             let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
@@ -381,9 +381,9 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
             }
         }
     } else {
-        for border_col in @iterate_1dregion() {
-            let bounds = get_bounds(0, out.height / unroll, by * block_col(1), border_col);
-            let region = (Boundary::Center, border_col);
+        for boundary_col in @iterate_1dregion() {
+            let bounds = get_bounds(0, out.height / unroll, by * block_col(1), boundary_col);
+            let region = (Boundary::Center, boundary_col);
             let grid   = (out.width, bounds(1) - bounds(0), 1);
 
             let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
@@ -402,9 +402,9 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
             }
         }
 
-        for border_row in @iterate_1dregion() {
-            let bounds = get_bounds(0, out.width, bx * block_row(0), border_row);
-            let region = (border_row, Boundary::Center);
+        for boundary_row in @iterate_1dregion() {
+            let bounds = get_bounds(0, out.width, bx * block_row(0), boundary_row);
+            let region = (boundary_row, Boundary::Center);
             let grid   = (bounds(1) - bounds(0), out.height / unroll, 1);
 
             let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), region, bh_lower, bh_upper);

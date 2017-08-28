@@ -81,16 +81,16 @@ fn apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32 
     sum
 }
 
-// border handling functions
-fn get_border(border: i32) -> Boundary {
-    match border {
+// boundary handling functions
+fn get_boundary(boundary: i32) -> Boundary {
+    match boundary {
         0 => Boundary::Lower,
         1 => Boundary::Center,
         _ => Boundary::Upper
     }
 }
-fn get_bounds(lower: i32, upper: i32, bh_pixels: i32, border: Boundary) -> (i32, i32) {
-    match border {
+fn get_bounds(lower: i32, upper: i32, bh_pixels: i32, boundary: Boundary) -> (i32, i32) {
+    match boundary {
         Boundary::Lower  => (lower, bh_pixels),
         Boundary::Center => (bh_pixels, upper - bh_pixels),
         _ /* Boundary::Upper */ => (upper - bh_pixels, upper)
@@ -98,16 +98,16 @@ fn get_bounds(lower: i32, upper: i32, bh_pixels: i32, border: Boundary) -> (i32,
 }
 fn iterate_1dregion(body: fn(Boundary) -> ()) -> () {
     for row in @range(0, 3) {
-        let border = get_border(row);
-        body(border);
+        let boundary = get_boundary(row);
+        body(boundary);
     }
 }
 fn iterate_2dregion(body: fn(Region) -> ()) -> () {
     for row in @range(0, 3) {
-        let row_border = get_border(row);
+        let row_boundary = get_boundary(row);
         for col in range(0, 3) {
-            let col_border = get_border(col);
-            body((row_border, col_border));
+            let col_boundary = get_boundary(col);
+            body((row_boundary, col_boundary));
         }
     }
 }
@@ -141,7 +141,7 @@ fn wrap_const_fun(fun: fn(i32, i32, i32, f32) -> BoundaryMode, cval: f32) -> Bou
     |idx, lower, upper| fun(idx, lower, upper, cval)
 }
 
-fn map_border_mode(mode: BoundaryMode, bh_fun: fn(i32) -> BoundaryMode) -> BoundaryMode {
+fn map_boundary_mode(mode: BoundaryMode, bh_fun: fn(i32) -> BoundaryMode) -> BoundaryMode {
     match mode {
         BoundaryMode::Index(idx) => bh_fun(idx),
         _ /* BoundaryMode::Const(val) */ => mode
@@ -160,13 +160,13 @@ fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> f3
                 Boundary::Lower  => bh_lower(roi.o_x + x, lower_x, upper_x),
                 Boundary::Center => BoundaryMode::Index(roi.o_x + x),
                 Boundary::Upper  => bh_upper(roi.o_x + x, lower_x, upper_x),
-                _                => map_border_mode(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
+                _                => map_boundary_mode(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
             };
             let mode_y = match col {
                 Boundary::Lower  => bh_lower(roi.o_y + y, lower_y, upper_y),
                 Boundary::Center => BoundaryMode::Index(roi.o_y + y),
                 Boundary::Upper  => bh_upper(roi.o_y + y, lower_y, upper_y),
-                _                => map_border_mode(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
+                _                => map_boundary_mode(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
             };
             (mode_x, mode_y)
         }

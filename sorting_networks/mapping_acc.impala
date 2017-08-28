@@ -13,7 +13,7 @@ fn iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: Boundary
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.gidy();
-            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Unknown, Boundary::Center), bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
             body(gid_x, gid_y, out_acc, arr_acc);
         }

@@ -38,9 +38,9 @@ fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: 
 
     for benchmark_cpu() {
         for region in @iterate_2dregion() {
-            let (border_row, border_col) = region;
-            let bounds_row = get_bounds(0, out.width,  bhx, border_row);
-            let bounds_col = get_bounds(0, out.height, bhy, border_col);
+            let (boundary_row, boundary_col) = region;
+            let bounds_row = get_bounds(0, out.width,  bhx, boundary_row);
+            let bounds_col = get_bounds(0, out.height, bhy, boundary_col);
             let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
             let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
             //let outer_loop_fun = if region == Boundary::Center { outer_loop } else { range };
@@ -90,9 +90,9 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
 
     for benchmark_cpu() {
         for region in @iterate_2dregion() {
-            let (border_row, border_col) = region;
-            let bounds_row = get_bounds(0, out.width,  bhx, border_row);
-            let bounds_col = get_bounds(0, out.height, bhy, border_col);
+            let (boundary_row, boundary_col) = region;
+            let bounds_row = get_bounds(0, out.width,  bhx, boundary_row);
+            let bounds_col = get_bounds(0, out.height, bhy, boundary_col);
             let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
             let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
             //let outer_loop_fun = if region == Boundary::Center { outer_loop } else { range };
@@ -147,12 +147,12 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
     let bhx = round_up(mask_row.size / 2, get_vector_length());
 
     for benchmark_cpu() {
-        for border_col in @iterate_1dregion() {
-            let bounds = get_bounds(0, out.height, bhy, border_col);
-            let region = (Boundary::Center, border_col);
+        for boundary_col in @iterate_1dregion() {
+            let bounds = get_bounds(0, out.height, bhy, boundary_col);
+            let region = (Boundary::Center, boundary_col);
             let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
             let tmp_acc = get_acc(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp));
-            let outer_loop_fun = match border_col { Boundary::Center => outer_loop, _ => range };
+            let outer_loop_fun = match boundary_col { Boundary::Center => outer_loop, _ => range };
             for y in $outer_loop_fun(bounds(0), bounds(1)) {
                 for x in inner_loop(0, out.width) @{
                     let is_row = false;
@@ -161,12 +161,12 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
             }
         }
 
-        for border_row in @iterate_1dregion() {
-            let bounds = get_bounds(0, out.width, bhx, border_row);
-            let region = (border_row, Boundary::Center);
+        for boundary_row in @iterate_1dregion() {
+            let bounds = get_bounds(0, out.width, bhx, boundary_row);
+            let region = (boundary_row, Boundary::Center);
             let tmp_acc = get_acc_bh(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp), region, bh_lower, bh_upper);
             let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
-            let outer_loop_fun = match border_row { Boundary::Center => outer_loop, _ => range };
+            let outer_loop_fun = match boundary_row { Boundary::Center => outer_loop, _ => range };
             for y in $outer_loop_fun(0, out.height) {
                 for x in inner_loop(bounds(0), bounds(1)) @{
                     let is_row = true;
@@ -186,10 +186,10 @@ fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSe
     let bhx = round_up(mask_row.size / 2, get_vector_length());
 
     for benchmark_cpu() {
-        for border_col in @iterate_1dregion() {
-            let bounds_col = get_bounds(0, out.height, bhy, border_col);
-            let region_col = (Boundary::Center, border_col);
-            let (outer_col, inner_col) = match border_col { Boundary::Center => (outer_loop_step, inner_loop), _ => (range_step, range) };
+        for boundary_col in @iterate_1dregion() {
+            let bounds_col = get_bounds(0, out.height, bhy, boundary_col);
+            let region_col = (Boundary::Center, boundary_col);
+            let (outer_col, inner_col) = match boundary_col { Boundary::Center => (outer_loop_step, inner_loop), _ => (range_step, range) };
             for y in $outer_col(bounds_col(0), bounds_col(1), unroll) @{
                 // allocate temporary array per thread
                 let tmp = alloc_cpu(out.width * unroll * sizeof[f32]());
@@ -204,10 +204,10 @@ fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSe
                         body(math, x, i, tmp_acc, arr_acc, mask_col, is_row);
                     }
                 }
-                for border_row in @iterate_1dregion() {
-                    let bounds_row = get_bounds(0, out.width,  bhx, border_row);
-                    let region_row = (border_row, Boundary::Center);
-                    let inner_row  = match border_row { Boundary::Center => inner_loop, _ => range };
+                for boundary_row in @iterate_1dregion() {
+                    let bounds_row = get_bounds(0, out.width, bhx, boundary_row);
+                    let region_row = (boundary_row, Boundary::Center);
+                    let inner_row  = match boundary_row { Boundary::Center => inner_loop, _ => range };
                     for x in $inner_row(bounds_row(0), bounds_row(1)) @{
                         let is_row = true;
 

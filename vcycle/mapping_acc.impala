@@ -27,7 +27,7 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
             // residual: index space == block
             let tmp_acc  = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
             let rhsf_acc = get_acc_offset(rhsf_gpu, set_pixel_fn(rhsf_gpu), get_pixel_fn(rhsf_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy());
-            let sol_acc  = get_acc_bh_offset(sol_gpu, set_pixel_fn(sol_gpu), get_pixel_ldg_fn(sol_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy(), 10  /* all */, bh_lower, bh_upper);
+            let sol_acc  = get_acc_bh_offset(sol_gpu, set_pixel_fn(sol_gpu), get_pixel_ldg_fn(sol_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy(), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
             residual(math, tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
 
             acc.barrier();

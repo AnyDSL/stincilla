@@ -31,7 +31,7 @@ fn iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bound
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-            let arr_acc = get_acci16_bh(arr_gpu, set_pixeli16_fn(arr_gpu), get_pixeli16_fn(arr_gpu), 10, bh_lower, bh_upper);
+            let arr_acc = get_acci16_bh(arr_gpu, set_pixeli16_fn(arr_gpu), get_pixeli16_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc.bdimy(), out_acc, arr_acc);
@@ -60,7 +60,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
             let out_acc = get_acci16(out_gpu, set_pixeli16_fn(out_gpu), get_pixeli16_fn(out_gpu));
-            let arr_acc = get_acci16_bh(arr_gpu, set_pixeli16_fn(arr_gpu), get_pixeli16_fn(arr_gpu), 10, bh_lower, bh_upper);
+            let arr_acc = get_acci16_bh(arr_gpu, set_pixeli16_fn(arr_gpu), get_pixeli16_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
             for i in range(0, unroll) {
                 body(gid_x, gid_y + i * acc.bdimy(), out_acc, arr_acc);
@@ -91,7 +91,7 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
             let out_acc = get_acci16(out_gpu, set_pixeli16_fn(out_gpu), get_pixeli16_fn(out_gpu));
-            let img_acc = get_acci16_bh(img_gpu, set_pixeli16_fn(img_gpu), get_pixeli16_fn(img_gpu), 10, bh_lower, bh_upper);
+            let img_acc = get_acci16_bh(img_gpu, set_pixeli16_fn(img_gpu), get_pixeli16_fn(img_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
             let map_acc = get_acc(map_gpu, set_pixel_fn(map_gpu), get_pixel_fn(map_gpu));
 
             for i in range(0, unroll) {
