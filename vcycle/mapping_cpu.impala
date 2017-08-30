@@ -21,19 +21,19 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
     ];
 
     for benchmark_cpu() {
-        for iter_col in @range(0, 3) {
+        for iter_col in range(0, 3) {
             let bounds_col = Bounds2DCol(iter_col);
             //let outer_col  = if iter_col == 1 { outer_loop_step } else { range_step };
             // allocate temporary array
             let tmp = alloc_cpu(Sol.stride * step * unroll * sizeof[f32]());
             // gets slower when computed in parallel
-            for y in $range_step(bounds_col(0), bounds_col(1), step * unroll) @{
+            for y in range_step(bounds_col(0), $bounds_col(1), step * unroll) {
                 // residual: index space == cache line
                 for iter_row in range(0, 3) {
                     let bounds_row = Bounds2DRow(iter_row);
                     let inner_row  = if iter_row == 1 { inner_loop } else { range };
                     for yi in range(0, step * unroll) {
-                        for x in $inner_row(bounds_row(0), bounds_row(1)) @{
+                        for x in inner_row(bounds_row(0), $bounds_row(1)) {
                             let region   = Region2D(3 * iter_col + iter_row);
                             let tmp_acc  = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), Sol.stride, step * unroll);
                             let rhsf_acc = get_acc_offset(RHSF, set_pixel_fn(RHSF), get_pixel_fn(RHSF), 0, y);
@@ -46,7 +46,7 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
                 for yi in range(0, unroll) {
                     let tmp_acc  = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), Sol.stride, step * unroll);
                     let rhsc_acc = get_acc_offset(RHSC, set_pixel_fn(RHSC), get_pixel_fn(RHSC), 0, y/step + yi);
-                    for x in $range(0, RHSC.width) @{
+                    for x in range(0, $RHSC.width) {
                         restrict(math, x, yi, rhsc_acc, tmp_acc, restrict_mask);
                     }
                 }

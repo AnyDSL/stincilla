@@ -137,7 +137,7 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
             // gets slower when computed in parallel
 
             if region == 4 {
-                tiled_loop(bounds(0), bounds(1), bounds(2), bounds(3), |x, y| body(math, x, y, out_acc, arr_acc, mask));
+                tiled_loop(bounds(0), bounds(1), bounds(2), bounds(3), @@|x, y| body(math, x, y, out_acc, arr_acc, mask));
             } else {
                 for y in range(bounds(2), $bounds(3)) {
                     for x in inner_loop(bounds(0), $bounds(1)) {
