@@ -1,20 +1,20 @@
-fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+fn @?lower & ?upper range(lower: i32, @@upper: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
         body(lower);
-        range(lower+1, upper, body)
+        range(lower+1, upper, body, return)
     }
 }
 
-fn iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
+fn @@iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
-    with acc.exec(grid, block) @{
+    with acc.exec(grid, block) {
         body(acc.gidx(), acc.gidy());
     }
 }
 
-fn read(buf: Buffer, i: i32) -> f32 { bitcast[&[1][f32]](buf.data)(i) }
-fn write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&mut[1][f32]](buf.data)(i) = v }
+fn @@read(buf: Buffer, i: i32) -> f32 { bitcast[&[1][f32]](buf.data)(i) }
+fn @@write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&mut[1][f32]](buf.data)(i) = v }
 
 fn main() -> i32 {
     let width   = 2048;
@@ -24,7 +24,7 @@ fn main() -> i32 {
     let out     = alloc_cpu(width * height * sizeof[f32]());
     let arr_gpu = acc.alloc(width * height * sizeof[f32]());
     let out_gpu = acc.alloc(width * height * sizeof[f32]());
-    for i in range(0, width*height) {
+    for i in range(0, $width*height) {
         let arr_ptr = bitcast[&mut[f32]](arr.data);
         let out_ptr = bitcast[&mut[f32]](out.data);
         arr_ptr(i) = i as f32;
@@ -33,7 +33,7 @@ fn main() -> i32 {
 
     copy(arr, arr_gpu, width * height * sizeof[f32]());
 
-    for x, y in @iteration(acc, width, height) {
+    for x, y in iteration(acc, width, height) {
         let idx = y*width + x;
         write(out_gpu, idx, read(arr_gpu, idx));
     }
@@ -41,7 +41,7 @@ fn main() -> i32 {
     copy(out_gpu, out, width * height * sizeof[f32]());
 
     let mut passed = 0;
-    for i in range(0, width*height) {
+    for i in range(0, $width*height) {
         if bitcast[&[f32]](out.data)(i) != bitcast[&[f32]](arr.data)(i) { passed++; }
     }
     if passed == 0 {
