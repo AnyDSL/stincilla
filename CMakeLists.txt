@@ -22,7 +22,7 @@ else()
     set(DEVICE "acc")
 endif()
 
-set(CLANG_FLAGS -march=native)
+set(CLANG_FLAGS -march=native -fPIC)
 set(IMPALA_FLAGS --log-level info)
 
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)

@@ -3,14 +3,14 @@ fn main() -> i32 {
     let height = 2048;
     let a      = 0.2f;
     let b      = 1.0f - 4.0f * a;
-    let arr    = @create_img(width, height, alloc_cpu);
-    let out    = @create_img(width, height, alloc_cpu);
+    let arr    = create_img(width, height, alloc_cpu);
+    let out    = create_img(width, height, alloc_cpu);
     init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
 
-    let stencil = @get_mask3([[0.0f, b, 0.0f],
-                              [   b, a, b   ],
-                              [0.0f, b, 0.0f]]);
+    let stencil = get_mask3([[0.0f, b, 0.0f],
+                             [   b, a, b   ],
+                             [0.0f, b, 0.0f]]);
 
     let lower = clamp_lower;
     let upper = clamp_upper;
@@ -19,17 +19,17 @@ fn main() -> i32 {
     //let iteration_fun = iteration_bounds;           // SS + BH
     //let iteration_fun = iteration_advanced;         // SS + SM
 
-    for math, x, y, out_acc, arr_acc, stencil in @iteration_fun(math, out, arr, stencil, lower, upper) {
+    for math, x, y, out_acc, arr_acc, stencil in iteration_fun(math, out, arr, stencil, lower, upper) {
         out_acc.write(x, y, apply_stencil(x, y, arr_acc, stencil));
     }
     print_total_timing();
 
-    fn reference() -> i32 {
+    fn @@reference() -> i32 {
         let mut passed = 0;
         let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), 10, lower, upper);
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
-        for y in $range(0, out.height) {
-            for x in range(0, out.width) @{
+        for y in range(0, $out.height) {
+            for x in range(0, $out.width) {
                 let ref = apply_stencil(x, y, arr_acc, stencil);
                 let mut diff = ref - out_acc.read(x, y);
                 if diff < 0.0f  { diff = -diff; }
@@ -44,7 +44,7 @@ fn main() -> i32 {
         passed
     }
 
-    let result = @reference();
+    let result = reference();
 
     release(arr.buf);
     release(out.buf);
