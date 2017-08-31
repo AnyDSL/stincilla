@@ -9,8 +9,166 @@ fn get_pixel_ldg_fn(img: Img) -> fn(i32) -> f32 { if has_ldg() { |idx| get_ldg_f
 fn set_pixel_shared_fn(data: &mut[3][f32]) -> fn(i32, f32) -> () { |idx, val| data(idx) = val }
 fn get_pixel_shared_fn(data: &[3][f32]) -> fn(i32) -> f32 { |idx| data(idx) }
 
+struct Swin1D {
+    write: fn (int, f32) -> (),
+    read: fn (int) -> f32,
+    begin: int,
+    end: int
+}
 
+struct Swin2D {
+    write: fn (int, int, f32) -> (),
+    read: fn (int, int) -> f32,
+    begin: (int, int),
+    end: (int, int)
+}
+
+fn new_swin1D(begin: int, end: int) -> Swin1D {
+    if end == begin {
+        Swin1D {
+            write: |_, _| (),
+            read:  |_| undef[f32](),
+            begin: begin,
+            end:   end
+        }
+    } else if begin + 1 == end {
+        let mut value : f32;
+        Swin1D {
+            write: |i, v| value = v,
+            read:  |i| value,
+            begin: begin,
+            end:   end
+        }
+    } else {
+        let m = (end + begin) / 2;
+        let left  = new_swin1D(begin, m);
+        let right = new_swin1D(m, end);
+        Swin1D {
+            write: |i, v| if i >= m { right.write(i, v) } else { left.write(i, v) },
+            read:  |i|    if i >= m { right.read(i) } else { left.read(i) },
+            begin: begin,
+            end:   end
+        }
+    }
+}
+
+fn new_swin2D(begin: (int, int), end: (int, int)) -> Swin2D {
+    let (begin_x, begin_y) = begin;
+    let (end_x, end_y)     = end;
+    if end_y == begin_y {
+        Swin2D {
+            write: |_, _, _| (),
+            read: |_, _| undef[f32](),
+            begin: begin,
+            end:   end
+        }
+    } else if begin_y + 1 == end_y {
+        let row = new_swin1D(begin_x, end_x);
+        Swin2D {
+            write: |x, y, v| row.write(x, v),
+            read:  |x, y|    row.read(x),
+            begin: begin,
+            end:   end
+        }
+    } else {
+        let m = (end_y + begin_y) / 2;
+        let left  = new_swin2D((begin_x, begin_y), (end_x, m));
+        let right = new_swin2D((begin_x, m),       (end_x, end_y));
+        Swin2D {
+            write: |x, y, v| if y >= m { right.write(x, y, v) } else { left.write(x, y, v) },
+            read:  |x, y|    if y >= m { right.read(x, y) } else { left.read(x, y) },
+            begin: begin,
+            end:   end
+        }
+    }
+}
+
+fn shift_swin(lbuf : Acc, swin : Swin2D) -> () {
+    let (begin_x, begin_y) = swin.begin;
+    let (end_x, end_y) = swin.end;
+
+    // Shift sliding window
+    for j in @range(begin_y, end_y) {
+        for i in @range(begin_x, end_x - 1) {
+            @swin.write(i, j, @swin.read(i + 1, j));
+        }
+    }
+
+    // Read new col
+    for j in @range(begin_y, end_y - 1) {
+        @swin.write(end_x - 1, j, lbuf.read(0, j));
+    }
+}
+
+fn get_acc_sw(swin: Swin2D) -> Acc {
+    Acc {
+        read: |x, y|      swin.read(x, y),
+        write: |x, y, v|  swin.write(x, y, v)
+    }
+}
+
+// image -> lbuf -> sw -> output
 fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height;
+
+        let lbuf        = reserve_shared[f32](lbuf_size);
+        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
+
+        let arr_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+        let swin_acc = get_acc_sw(swin);
+
+        let mut col_idx = 0;
+        let mut row_idx = 0;
+        for clock_tick in $range(0, life_time){
+            let out_acc = Acc {
+                read: |x, y|      {temp_acc.read(x, y)},
+                write: |x, y, v|  {temp_acc.write(col_idx - half_range_x, row_idx - half_range_y, v)}
+            };
+
+            // read new pixel
+            let pix_new = arr_acc.read(col_idx, row_idx);
+
+            // shift sliding window
+            @shift_swin(lbuf_acc, swin);
+            @swin.write(mask.size_x - 1, mask.size_y - 1, pix_new);
+
+            // shift lbuf
+            for i in $range(0, lbuf_size - 1){
+                lbuf(i) = lbuf(i + 1);
+            }
+            lbuf(lbuf_size - 1) = pix_new;
+
+            // write output
+            if clock_tick > initial_delay {
+                @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
+            }
+
+            col_idx++;
+            if col_idx == arr.width {col_idx = 0; row_idx++;}
+            if row_idx == arr.height{row_idx = 0;}
+        }
+    }
+    copy_img(out_gpu, out);
+}
+
+// v4 -> v5 : remove sliding window use shared memory
+// write after shift
+fn iteration_v5(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
     let out_gpu = alloc_img(out, acc.alloc);
