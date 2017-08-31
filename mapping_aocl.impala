@@ -1,0 +1,552 @@
+fn compute_config(range_mask: (i32, i32), unroll: i32) -> ((i32, i32, i32), (i32, i32)) {
+    fn compute_config_y (y_max: i32) -> i32 {
+        if range_mask(1) > 1 { return(y_max) }
+        for n in range(1, y_max+1) {
+            if n * unroll >= range_mask(1) { return(n) }
+        }
+        y_max
+    }
+
+    let config_y_max = 4;   // must be 1 for CPU on Mac OS X
+    let config_x_max = 128; // use 256 for AMD GPUs; 512 for Intel MIC
+
+    let threads_y = compute_config_y(config_y_max);
+    let threads_x = config_x_max / threads_y;
+
+    let blocks_x = round_up(range_mask(0), threads_x) / threads_x;
+    let blocks_y = round_up(range_mask(1), threads_y) / threads_y;
+
+    ((threads_x, threads_y, 1), (blocks_x, blocks_y))
+}
+
+fn get_device_copy(img: Img) -> Img {
+    let acc = accelerator(device_id);
+    let img_gpu = alloc_img(img, acc.alloc);
+    copy_img(img, img_gpu);
+    img_gpu
+}
+
+fn release_device_copy(img: Img) -> () {
+    release(img.buf)
+}
+
+fn get_ldg_fn() -> fn(&[1]f32) -> f32 { if is_nvvm() { nvvm_ldg_f32 } else { cuda_ldg_f32 } }
+fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[1][f32]](img.buf.data)(idx) = val }
+fn get_pixel_fn(img: Img) -> fn(i32) -> f32 { |idx| bitcast[&[1][f32]](img.buf.data)(idx) }
+fn get_pixel_ldg_fn(img: Img) -> fn(i32) -> f32 { if has_ldg() { |idx| get_ldg_fn()(&bitcast[&[1][f32]](img.buf.data)(idx)) } else { get_pixel_fn(img) } }
+fn set_pixel_shared_fn(data: &mut[3][f32]) -> fn(i32, f32) -> () { |idx, val| data(idx) = val }
+fn get_pixel_shared_fn(data: &[3][f32]) -> fn(i32) -> f32 { |idx| data(idx) }
+
+fn iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    let acc = accelerator(device_id);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    let unroll = 1;
+    let grid   = (out.width, out.height/unroll, 1);
+    let block  = (128, 1, 1);
+
+    for benchmark_acc() {
+        with acc.exec(grid, block) @{
+            let gid_x = acc.gidx();
+            let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+
+            for i in range(0, unroll) {
+                body(math, gid_x, gid_y + i * acc.bdimy(), out_acc);
+            }
+        }
+    }
+
+    copy_img(out_gpu, out);
+    release(out_gpu.buf);
+}
+
+fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+    copy_img(arr, arr_gpu);
+
+    let unroll = 1;
+    let (block, _) = compute_config((mask.size_x/2, mask.size_y/2), unroll);
+    let grid       = (out.width, out.height/unroll, 1);
+
+    for benchmark_acc() {
+        with acc.exec(grid, block) @{
+            let gid_x = acc.gidx();
+            let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+
+            for i in range(0, unroll) {
+                body(math, gid_x, gid_y + i * acc.bdimy(), out_acc, arr_acc, mask);
+            }
+        }
+    }
+
+    copy_img(out_gpu, out);
+    release(arr_gpu.buf);
+    release(out_gpu.buf);
+}
+
+fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+    copy_img(arr, arr_gpu);
+
+    // compute the number of blocks required for boundary handling
+    let unroll = 1;
+    let (block, (bx, by)) = compute_config((mask.size_x/2, mask.size_y/2), unroll);
+
+    // define if we want to generate one big kernel or multiple kernels
+    let big_kernel = false;
+
+    if big_kernel {
+        let grid = (out.width, out.height/unroll, 1);
+
+        for benchmark_acc() {
+            with acc.exec(grid, block) @{
+                let bid_x   = acc.bidx();
+                let bid_y   = acc.bidy();
+                let bdim_y  = acc.bdimy();
+                let gdim_x  = acc.gdimx();
+                let gdim_y  = acc.gdimy();
+                let gid_x   = acc.gidx();
+                let gid_y   = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+                let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+
+                // 0 --- 1 --- 2
+                // 3 --- 4 --- 5
+                // 6 --- 7 --- 8
+                if bid_x < bx && bid_y < by @{                          // top-left: 0
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 0, bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                } else if bid_x >= gdim_x-bx && bid_y < by @{           // top-right: 2
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 2, bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                } else if bid_y < by @{                                 // top: 1
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 1, bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                } else if bid_y >= gdim_y-by && bid_x < bx @{           // bottom-left: 6
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 6, bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                } else if bid_y >= gdim_y-by && bid_x >= gdim_x-bx @{   // bottom-right: 8
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 8, bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                } else if bid_y >= gdim_y-by @{                         // bottom: 7
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 7, bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                } else if bid_x >= gdim_x-bx @{                         // right: 5
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 5, bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                } else if bid_x < bx @{                                 // left: 3
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 3, bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                } else @{                                               // center: 4
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 4, bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, arr_acc, mask);
+                    }
+                }
+            }
+        }
+    } else {
+        // bounds account for unroll factor
+        let hu = out.height/unroll;
+        let Bounds2D = [
+            (0                      , bx*block(0)            , 0               , by*block(1)),
+            (bx*block(0)            , out.width - bx*block(0), 0               , by*block(1)),
+            (out.width - bx*block(0), out.width              , 0               , by*block(1)),
+
+            (0                      , bx*block(0)            , by*block(1)     , hu - by*block(1)),
+            (bx*block(0)            , out.width - bx*block(0), by*block(1)     , hu - by*block(1)),
+            (out.width - bx*block(0), out.width              , by*block(1)     , hu - by*block(1)),
+
+            (0                      , bx*block(0)            , hu - by*block(1), hu),
+            (bx*block(0)            , out.width - bx*block(0), hu - by*block(1), hu),
+            (out.width - bx*block(0), out.width              , hu - by*block(1), hu)
+        ];
+
+        for region in @range(0, 9) {
+            let bounds = Bounds2D(region);
+            let grid   = (bounds(1) - bounds(0), bounds(3) - bounds(2), 1);
+
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
+            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+
+            for benchmark_acc() {
+                with acc.exec(grid, block) @{
+                    let gid_x = bounds(0) +
+                                acc.tidx() + acc.bdimx() * acc.bidx();
+                    let gid_y = bounds(2) * unroll +
+                                acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * acc.bdimy(), out_acc, arr_acc, mask);
+                    }
+                }
+            }
+        }
+    }
+
+    copy_img(out_gpu, out);
+    release(arr_gpu.buf);
+    release(out_gpu.buf);
+}
+
+fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+    copy_img(arr, arr_gpu);
+
+    let unroll = 1;
+    let (block, _) = compute_config((mask.size_x/2, mask.size_y/2), unroll);
+    let grid       = (out.width, out.height/unroll, 1);
+
+    // compute number of steps required to stage data to shared memory
+    let range_row = mask.size_x / 2;
+    let range_col = mask.size_y / 2;
+    let steps_x   = 2;
+    let offset_y  = if (mask.size_y-1)%block(1) == 0 { 0 } else { 1 };
+    let steps_y   = unroll + (mask.size_y-1)/block(1) + offset_y;
+
+    for benchmark_acc() {
+        with acc.exec(grid, block) @{
+            let tid_x  = acc.tidx();
+            let tid_y  = acc.tidy();
+            let bdim_x = acc.bdimx();
+            let bdim_y = acc.bdimy();
+            let gid_x  = acc.gidx();
+            let gid_y  = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+
+            let spm_stride =          block(0) + 2 * range_row;
+            let spm_height = unroll * block(1) + 2 * range_col;
+            let spm        = reserve_shared[f32](spm_stride * spm_height);
+
+            for y in range(0, steps_y) {
+                let lid_y = tid_y             + y*bdim_y;
+                let idx_y = gid_y - range_col + y*bdim_y;
+                for x in range(0, steps_x) {
+                    let lid_x = tid_x             + x*bdim_x;
+                    let idx_x = gid_x - range_row + x*bdim_x;
+
+                    if lid_x < spm_stride && lid_y < spm_height @{
+                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper); // TODO: set region!
+                        let spm_acc = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
+                        spm_acc.write(lid_x, lid_y, gpu_acc.read(idx_x, idx_y));
+                    }
+                }
+            }
+
+            acc.barrier();
+
+            for i in range(0, unroll) {
+                // index space: block
+                let out_acc =        get_acc_offset(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy() * unroll + i * bdim_y);
+                let arr_acc = get_acc_offset_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height, range_row,                   range_col + i * bdim_y);
+                body(math, tid_x, tid_y, out_acc, arr_acc, mask);
+            }
+        }
+    }
+
+    copy_img(out_gpu, out);
+    release(arr_gpu.buf);
+    release(out_gpu.buf);
+}
+
+fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+    let tmp_gpu = alloc_img(out, acc.alloc);
+    copy_img(arr, arr_gpu);
+
+    let unroll = 1;
+    let grid   = (out.width, out.height/unroll, 1);
+    let (block_row, _) = compute_config((mask_row.size/2, 1), unroll);
+    let (block_col, _) = compute_config((1, mask_col.size/2), unroll);
+
+    for benchmark_acc() {
+        with acc.exec(grid, block_col) @{
+            let gid_x = acc.gidx();
+            let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+            let is_row = false;
+
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+            let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
+
+            for i in range(0, unroll) {
+                body(math, gid_x, gid_y + i * acc.bdimy(), tmp_acc, arr_acc, mask_col, is_row);
+            }
+        }
+    }
+    for benchmark_acc() {
+        with acc.exec(grid, block_row) @{
+            let gid_x = acc.gidx();
+            let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+            let is_row = true;
+
+            let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), 10, bh_lower, bh_upper);
+            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+
+            for i in range(0, unroll) {
+                body(math, gid_x, gid_y + i * acc.bdimy(), out_acc, tmp_acc, mask_row, is_row);
+            }
+        }
+    }
+
+    copy_img(out_gpu, out);
+    release(arr_gpu.buf);
+    release(out_gpu.buf);
+    release(tmp_gpu.buf);
+}
+
+fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+    let tmp_gpu = alloc_img(out, acc.alloc);
+    copy_img(arr, arr_gpu);
+
+    // compute the number of blocks required for boundary handling
+    let unroll = 1;
+    let (block_row, (bx, _)) = compute_config((mask_row.size/2, 1), unroll);
+    let (block_col, (_, by)) = compute_config((1, mask_col.size/2), unroll);
+
+    let Region2DCol = [ 1, 4, 7 ];
+    let Region2DRow = [ 3, 4, 5 ];
+
+    // define if we want to generate one big kernel or multiple kernels
+    let big_kernel = false;
+
+    if big_kernel {
+        let grid = (out.width, out.height/unroll, 1);
+
+        // column component
+        for benchmark_acc() {
+            let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
+            with acc.exec(grid, block_col) @{
+                let bid_y  = acc.bidy();
+                let bdim_y = acc.bdimy();
+                let gdim_y = acc.gdimy();
+                let gid_x  = acc.gidx();
+                let gid_y  = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+                let is_row = false;
+
+                if bid_y < by @{                                // top: 1
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region2DCol(0), bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
+                    }
+                } else if bid_y >= gdim_y-by @{                 // bottom: 7
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region2DCol(2), bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
+                    }
+                } else @{                                       // center: 4
+                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), Region2DCol(1), bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
+                    }
+                }
+            }
+        }
+
+        // row component
+        for benchmark_acc() {
+            with acc.exec(grid, block_row) @{
+                let bid_x   = acc.bidx();
+                let bdim_y  = acc.bdimy();
+                let gdim_x  = acc.gdimx();
+                let gid_x   = acc.gidx();
+                let gid_y   = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+                let is_row  = true;
+                let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+
+                if bid_x < bx @{                                // left: 3
+                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), Region2DRow(0), bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
+                    }
+                } else if bid_x >= gdim_x-bx @{                 // right: 5
+                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), Region2DRow(2), bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
+                    }
+                } else @{                                       // center: 4
+                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), Region2DRow(1), bh_lower, bh_upper);
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
+                    }
+                }
+            }
+        }
+    } else {
+        let hu = out.height / unroll;
+        let Bounds2DCol = [
+            (0                   , by*block_col(1)),
+            (by*block_col(1)     , hu - by*block_col(1)),
+            (hu - by*block_col(1), hu)
+        ];
+
+        for iter in @range(0, 3) {
+            let region = Region2DCol(iter);
+            let bounds = Bounds2DCol(iter);
+            let grid   = (out.width, bounds(1) - bounds(0), 1);
+
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
+            let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
+
+            for benchmark_acc() {
+                with acc.exec(grid, block_col) @{
+                    let gid_x = acc.gidx();
+                    let gid_y = bounds(0) * unroll +
+                                acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+                    let is_row = false;
+
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * acc.bdimy(), tmp_acc, arr_acc, mask_col, is_row);
+                    }
+                }
+            }
+        }
+
+        let Bounds2DRow = [
+            (0                          , bx*block_row(0)),
+            (bx*block_row(0)            , out.width - bx*block_row(0)),
+            (out.width - bx*block_row(0), out.width)
+        ];
+
+        for iter in @range(0, 3) {
+            let region = Region2DRow(iter);
+            let bounds = Bounds2DRow(iter);
+            let grid   = (bounds(1) - bounds(0), out.height/unroll, 1);
+
+            let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), region, bh_lower, bh_upper);
+            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+
+            for benchmark_acc() {
+                with acc.exec(grid, block_row) @{
+                    let gid_x = bounds(0) + acc.gidx();
+                    let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+                    let is_row = true;
+
+                    for i in range(0, unroll) {
+                        body(math, gid_x, gid_y + i * acc.bdimy(), out_acc, tmp_acc, mask_row, is_row);
+                    }
+                }
+            }
+        }
+    }
+
+    copy_img(out_gpu, out);
+    release(arr_gpu.buf);
+    release(out_gpu.buf);
+    release(tmp_gpu.buf);
+}
+
+fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilSepFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+    copy_img(arr, arr_gpu);
+
+    let unroll = 1;
+    let (block, _) = compute_config((mask_row.size/2, mask_col.size/2), unroll);
+    let grid       = (out.width, out.height/unroll, 1);
+
+    // compute number of steps required to stage data to shared memory
+    let range_row = mask_row.size / 2;
+    let range_col = mask_col.size / 2;
+    let offset_y  = if (mask_col.size-1)%block(1) == 0 { 0 } else { 1 };
+    let steps_x   = 2;
+    let steps_y   = unroll + (mask_col.size-1)/block(1) + offset_y;
+
+    for benchmark_acc() {
+        with acc.exec(grid, block) @{
+            let tid_x  = acc.tidx();
+            let tid_y  = acc.tidy();
+            let bdim_x = acc.bdimx();
+            let bdim_y = acc.bdimy();
+            let gid_x  = acc.gidx();
+            let gid_y  = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
+
+            let spm_stride     =          block(0) + 2 * range_row;
+            let spm_height_col = unroll * block(1) + 2 * range_col;
+            let spm_height_row = unroll * block(1);
+            let spm_col = reserve_shared[f32](spm_stride * spm_height_col);
+            let spm_row = reserve_shared[f32](spm_stride * spm_height_row);
+
+            for y in range(0, steps_y) {
+                let lid_y = tid_y             + y*bdim_y;
+                let idx_y = gid_y - range_col + y*bdim_y;
+                for x in range(0, steps_x) {
+                    let lid_x = tid_x             + x*bdim_x;
+                    let idx_x = gid_x - range_row + x*bdim_x;
+
+                    if lid_x < spm_stride && lid_y < spm_height_col @{
+                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper); // TODO: set region!
+                        let spm_acc = get_acc_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col);
+                        spm_acc.write(lid_x, lid_y, gpu_acc.read(idx_x, idx_y));
+                    }
+                }
+            }
+
+            acc.barrier();
+
+            for i in range(0, unroll) {
+                let is_row = false;
+                {
+                    // index space: block
+                    let out_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_row), get_pixel_shared_fn(spm_row), spm_stride, spm_height_row, range_row,             i * bdim_y);
+                    let arr_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col, range_row, range_col + i * bdim_y);
+                    body(math, tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
+                }
+                if tid_x < range_row @{
+                    // left halo
+                    let out_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_row), get_pixel_shared_fn(spm_row), spm_stride, spm_height_row, 0,             i * bdim_y);
+                    let arr_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col, 0, range_col + i * bdim_y);
+                    body(math, tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
+                }
+                if tid_x >= bdim_x-range_row @{
+                    // right halo
+                    let out_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_row), get_pixel_shared_fn(spm_row), spm_stride, spm_height_row, range_row + range_row,             i * bdim_y);
+                    let arr_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col, range_row + range_row, range_col + i * bdim_y);
+                    body(math, tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
+                }
+            }
+
+            acc.barrier();
+
+            for i in range(0, unroll) {
+                // index space: block
+                let is_row  = true;
+                let out_acc =        get_acc_offset(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy() * unroll + i * bdim_y);
+                let arr_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_row), get_pixel_shared_fn(spm_row), spm_stride, spm_height_row, range_row,                   i * bdim_y);
+                body(math, tid_x, tid_y, out_acc, arr_acc, mask_row, is_row);
+            }
+        }
+    }
+
+    copy_img(out_gpu, out);
+    release(arr_gpu.buf);
+    release(out_gpu.buf);
+}

@@ -1,0 +1,118 @@
+fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
+    let height = 10;
+    let width  = 10;
+    let upper_x = roi_x + width;
+    let upper_y = roi_y + height;
+
+    print_string("@(y = ");
+    print_i32(roi_y);
+    print_string(",\t");
+    print_string("x = ");
+    print_i32(roi_x);
+    print_string(")\n");
+    for y in range(0, upper_y) {
+        for x in range(0, upper_x) {
+            let pixel = arr.read(x, y);
+            print_f32(pixel);
+            print_string("\t\t");
+        }
+        print_string("\n");
+    }
+}
+
+
+fn main() -> i32 {
+    let width  = 256; //1024;
+    let height = 256; //1024;
+    let arr    = @create_img(width, height, alloc_cpu);
+    let out    = @create_img(width, height, alloc_cpu);
+    init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
+
+    //Ref
+    let ref    = @create_img(width, height, alloc_cpu);
+
+    let mask_sep = @get_mask_sep5([ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ]);
+    let mask     = @get_mask5([[ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
+                               [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
+                               [ 0.026151f, 0.090339f, 0.136565f, 0.090339f, 0.026151f ],
+                               [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
+                               [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]]);
+
+    //let lower = @wrap_const_fun(const_lower, 0.0f);
+    //let upper = @wrap_const_fun(const_upper, 0.0f);
+    let lower = clamp_lower;
+    let upper = clamp_upper;
+    //let lower = nobh_center;
+    //let upper = nobh_center;
+
+    let sep = false;
+
+    if sep {
+        let iteration_sep_fun = iteration_sep;          // SEP + SS
+        //let iteration_sep_fun = iteration_sep_bounds;   // SEP + SS + BH
+        //let iteration_sep_fun = iteration_sep_advanced; // SEP + SS + SM
+
+        for math, x, y, out_acc, arr_acc, mask, is_row in @iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) {
+            out_acc.write(x, y, apply_stencil_sep(x, y, arr_acc, mask, is_row));
+        }
+    } else {
+        let iteration_fun = iteration;                  // SS
+        //let iteration_fun = iteration_bounds;           // SS + BH
+        //let iteration_fun = iteration_advanced;         // SS + SM
+
+        for math, x, y, out_acc, arr_acc, mask in @iteration_fun(math, out, arr, mask, lower, upper) {
+            out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+        }
+    }
+    print_total_timing();
+
+    fn reference() -> i32 {
+        let mut passed = 0;
+        let mut err_x = 0; 
+        let mut err_y = 0;
+        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), 10, lower, upper);
+        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
+        let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[f32]](ref.buf.data)(idx) = val }, |idx| bitcast[&[f32]](ref.buf.data)(idx));
+
+        let offset_x = 2;
+        let offset_y = 2;
+        for y in $range(0, out.height) {
+            for x in range(0, out.width) @{
+                let ref_data = apply_stencil(x, y, arr_acc, mask);
+                let mut diff = ref_data - out_acc.read(x, y);
+                if y > offset_y && y < out.height - offset_y && x > offset_x && x < out.width - offset_x {
+                    if diff < 0.0f  { diff = -diff; }
+                    if diff > 0.01f { 
+                        if passed == 0 { err_x = x; err_y = y;};
+                        passed = 42; }
+                }
+                ref_acc.write(x, y, ref_data);
+            }
+        }
+
+        let roi_y = 0;
+        let roi_x = 0;
+        print_string("input image:\n");
+        display_image(arr_acc, roi_y, roi_x);
+        print_string("output image:\n");
+        display_image(out_acc, roi_y, roi_x);
+
+        if passed == 0 {
+            print_string("Test PASSED!\n");
+        } else {
+            print_string("ref image:\n");
+            display_image(ref_acc, roi_y, roi_x);
+            print_string("Test FAILED @ (");
+            print_i32(err_x); print_string(", "); print_i32(err_y); print_string(")!\n");
+        }
+        passed
+    }
+
+    let result = @reference();
+
+    release(arr.buf);
+    release(out.buf);
+
+    result
+}

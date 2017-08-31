@@ -7,9 +7,9 @@ find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
 
-set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU")
+set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU, OPENCL_INTEL_FPGA")
 if(NOT BACKEND)
-    set(BACKEND cpu CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU" FORCE)
+    set(BACKEND cpu CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU, OPENCL_INTEL_FPGA" FORCE)
 endif()
 string(TOLOWER "${BACKEND}" BACKEND)
 message(STATUS "Selected backend: ${BACKEND}")
@@ -19,7 +19,11 @@ set(BACKEND_FILE intrinsics_${BACKEND}.impala)
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
 else()
-    set(DEVICE "acc")
+    if(BACKEND STREQUAL "OPENCL_INTEL_FPGA")
+        set(DEVICE "aocl")
+    else()
+        set(DEVICE "acc")
+    endif()
 endif()
 
 set(CLANG_FLAGS -march=native)
@@ -53,6 +57,14 @@ anydsl_runtime_wrap(GAUSSIAN_PROGRAM
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
 target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
+
+anydsl_runtime_wrap(GAUSSIAN_DEBUG_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian_debug.impala)
+add_executable(gaussian_debug ${GAUSSIAN_DEBUG_PROGRAM})
+target_link_libraries(gaussian_debug ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("gaussian_debug" gaussian_debug)
 
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
