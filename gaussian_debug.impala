@@ -48,15 +48,15 @@ fn main() -> i32 {
 
     let sep = false;
 
-    if sep {
-        let iteration_sep_fun = iteration_sep;          // SEP + SS
-        //let iteration_sep_fun = iteration_sep_bounds;   // SEP + SS + BH
-        //let iteration_sep_fun = iteration_sep_advanced; // SEP + SS + SM
-
-        for math, x, y, out_acc, arr_acc, mask, is_row in @iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) {
-            out_acc.write(x, y, apply_stencil_sep(x, y, arr_acc, mask, is_row));
-        }
-    } else {
+//    if sep {
+//        let iteration_sep_fun = iteration_sep;          // SEP + SS
+//        //let iteration_sep_fun = iteration_sep_bounds;   // SEP + SS + BH
+//        //let iteration_sep_fun = iteration_sep_advanced; // SEP + SS + SM
+//
+//        for math, x, y, out_acc, arr_acc, mask, is_row in @iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) {
+//            out_acc.write(x, y, apply_stencil_sep(x, y, arr_acc, mask, is_row));
+//        }
+//    } else {
         let iteration_fun = iteration;                  // SS
         //let iteration_fun = iteration_bounds;           // SS + BH
         //let iteration_fun = iteration_advanced;         // SS + SM
@@ -64,7 +64,7 @@ fn main() -> i32 {
         for math, x, y, out_acc, arr_acc, mask in @iteration_fun(math, out, arr, mask, lower, upper) {
             out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
         }
-    }
+//    }
     print_total_timing();
 
     fn reference() -> i32 {
