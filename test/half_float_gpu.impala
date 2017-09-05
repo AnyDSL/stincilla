@@ -11,6 +11,7 @@ fn iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> ()
     with acc.exec(grid, block) @{
         body(acc.gidx(), acc.gidy());
     }
+    acc.sync();
 }
 
 fn read(buf: Buffer, i: i32) -> f16 { bitcast[&[1][f16]](buf.data)(i) }

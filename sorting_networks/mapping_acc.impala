@@ -9,7 +9,7 @@ fn iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: Boundary
     let arr_gpu = alloc_img(arr, acc.alloc);
     copy_img(arr, arr_gpu);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.gidy();
