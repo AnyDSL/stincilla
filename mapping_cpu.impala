@@ -4,15 +4,15 @@ static Region2D    = [ 0, 1, 2,
 static Region2DCol = [ 1, 4, 7 ];
 static Region2DRow = [ 3, 4, 5 ];
 
-fn @@get_device_copy(img: Img) -> Img { img }
-fn @@release_device_copy(img: Img) -> () { }
+fn @get_device_copy(img: Img) -> Img { img }
+fn @release_device_copy(img: Img) -> () { }
 
-fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { @@|idx, val| bitcast[&mut[f32]](img.buf.data)(idx) = val }
-fn get_pixel_fn(img: Img) -> fn(i32) -> f32 { @@|idx| bitcast[&[f32]](img.buf.data)(idx) }
-fn set_pixel_memory_fn(buf: Buffer) -> fn(i32, f32) -> () { @@|idx, val| bitcast[&mut[f32]](buf.data)(idx) = val }
-fn get_pixel_memory_fn(buf: Buffer) -> fn(i32) -> f32 { @@|idx| bitcast[&[f32]](buf.data)(idx) }
+fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut[f32]](img.buf.data)(idx) = val }
+fn get_pixel_fn(img: Img) -> fn(i32) -> f32 { @|idx| bitcast[&[f32]](img.buf.data)(idx) }
+fn set_pixel_memory_fn(buf: Buffer) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut[f32]](buf.data)(idx) = val }
+fn get_pixel_memory_fn(buf: Buffer) -> fn(i32) -> f32 { @|idx| bitcast[&[f32]](buf.data)(idx) }
 
-fn @@iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
     let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
 
     for benchmark_cpu() {
@@ -24,7 +24,7 @@ fn @@iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, 
     }
 }
 
-fn @@iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
     let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), 10, bh_lower, bh_upper);
 
@@ -37,7 +37,7 @@ fn @@iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bound
     }
 }
 
-fn @@iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+fn @iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     // compute the number of vector strides for boundary handling
     let bhy = mask.size_y / 2;
     let bhx = round_up(mask.size_x / 2, get_vector_length());
@@ -68,8 +68,8 @@ fn @@iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
             //let outer_loop_fun = if region == 4 { outer_loop } else { range };
             // gets slower when computed in parallel
 
-            for y in range(bounds(2), $bounds(3)) {
-                for x in inner_loop(bounds(0), $bounds(1)) {
+            for y in range(bounds(2), bounds(3)) {
+                for x in inner_loop(bounds(0), bounds(1)) {
                     body(math, x, y, out_acc, arr_acc, mask);
                 }
             }
@@ -77,7 +77,7 @@ fn @@iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
     }
 }
 
-fn @@tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> () {
+fn @tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> () {
     fn get_step(lvl: i32) -> i32 { // size -> 2048 -> 1
         if lvl == 0 { 2048 } else { 1 }
     }
@@ -137,7 +137,7 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
             // gets slower when computed in parallel
 
             if region == 4 {
-                tiled_loop(bounds(0), bounds(1), bounds(2), bounds(3), @@|x, y| body(math, x, y, out_acc, arr_acc, mask));
+                tiled_loop(bounds(0), bounds(1), bounds(2), bounds(3), @|x, y| body(math, x, y, out_acc, arr_acc, mask));
             } else {
                 for y in range(bounds(2), $bounds(3)) {
                     for x in inner_loop(bounds(0), $bounds(1)) {
