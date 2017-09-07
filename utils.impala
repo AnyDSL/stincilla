@@ -1,21 +1,23 @@
-fn @?lower & ?upper range_step(lower: i32, @@upper: i32, @@step: i32, body: fn(i32) -> ()) -> () {
+fn @(?lower & ?upper) range_step(lower: i32, upper: i32, @step: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
         body(lower);
         range_step(lower+step, upper, step, body)
     }
 }
 
-fn @?upper & ?lower range_step_rev(upper: i32, @@lower: i32, step: i32, body: fn(i32) -> ()) -> () {
+fn @(?upper & ?lower) range_step_rev(upper: i32, lower: i32, @step: i32, body: fn(i32) -> ()) -> () {
     if upper > lower {
         body(upper);
         range_step_rev(upper-step, lower, step, body)
     }
 }
 
-fn @@range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range_step(lower, upper, 1, body) }
-fn @@range_rev(upper: i32, lower: i32, body: fn(i32) -> ()) -> () { range_step_rev(upper, lower, 1, body) }
+fn @range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range_step($lower, $upper, 1, body) }
+fn @range_rev(upper: i32, lower: i32, body: fn(i32) -> ()) -> () { range_step_rev($upper, $lower, 1, body) }
 
-fn @?lower & ?upper range_times_two(lower: i32, @@upper: i32, body: fn(i32) -> ()) -> () {
+fn @unroll(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range_step(lower, upper, 1, body) }
+
+fn @(?lower & ?upper) range_times_two(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
         body(lower);
         range_times_two(lower*2, upper, body)
@@ -35,11 +37,11 @@ fn init_rand(arr: &mut[f32], width: i32, height: i32) -> () {
     }
 }
 
-fn @@min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
-fn @@max(a: i32, b: i32) -> i32 { if a > b { a } else { b } }
+fn @min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
+fn @max(a: i32, b: i32) -> i32 { if a > b { a } else { b } }
 
 // nearest multiple of num
-fn @@round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
+fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
 
 static mut total_kernel_timing = 0i64;
 static mut total_cpu_timing = 0i64;
@@ -47,7 +49,7 @@ static mut total_cpu_timing = 0i64;
 fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> ()) -> i64 {
     let times_buf = alloc_cpu(num_iter * sizeof[i64]());
     let times = bitcast[&mut[i64]](times_buf.data);
-    for i in range(0, $num_iter) {
+    for i in range(0, num_iter) {
         let start = get_time();
         body();
         times(i) = get_time() - start;
@@ -80,7 +82,7 @@ fn print_total_timing() -> () {
     print_string(" ms\n")
 }
 
-fn @?num sort_i64(num: i32, arr: &mut[i64]) -> () {
+fn @(?num) sort_i64(num: i32, arr: &mut[i64]) -> () {
     // insertion sort
     for i in range(1, num) {
         let x = arr(i);
@@ -92,7 +94,7 @@ fn @?num sort_i64(num: i32, arr: &mut[i64]) -> () {
         arr(j) = x;
     }
 }
-fn @?num sort_f32(num: i32, arr: &mut[f32]) -> () {
+fn @(?num) sort_f32(num: i32, arr: &mut[f32]) -> () {
     // insertion sort
     for i in range(1, num) {
         let x = arr(i);
