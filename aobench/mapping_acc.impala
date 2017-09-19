@@ -17,7 +17,7 @@ fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
     let out_gpu  = acc.alloc(width * height * 3 * sizeof[u8]());
     copy(seed_buf, seed_gpu, width * height * sizeof[u64]());
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let seed = bitcast[&[1][u64]](seed_gpu.data);
             let mut state = seed(acc.gidy()*width + acc.gidx());

@@ -18,6 +18,7 @@ fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(i
             with acc.exec(grid, block) {
                 body(acc.gidx(), acc.gidy(), bitcast[&mut[1][f32]](out_gpu.data), bitcast[&[1][f32]](arr_gpu.data));
             }
+            acc.sync();
 
             copy_offset(out_gpu, 0, out, offset, size_gpu);
             release(out_gpu);

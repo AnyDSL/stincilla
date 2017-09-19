@@ -14,7 +14,7 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
     let grid  = (Sol.width, Sol.height, 1);
     let block = (64, step, 1);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let tid_x = acc.tidx();
             let tid_y = acc.tidy();
