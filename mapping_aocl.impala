@@ -163,6 +163,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             if row_idx == arr.height{row_idx = 0;}
         }
     }
+    acc.sync();
     copy_img(out_gpu, out);
 }
 
@@ -224,6 +225,7 @@ fn iteration_v1(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boun
             if row_ridx == arr.height{row_ridx = 0;}
         }
     }
+    acc.sync();
     copy_img(out_gpu, out);
 }
 
@@ -286,6 +288,7 @@ fn iteration_v1_1(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bo
             if row_ridx == arr.height{row_ridx = 0;}
         }
     }
+    acc.sync();
     copy_img(out_gpu, out);
 }
 
@@ -347,6 +350,7 @@ fn iteration_v2(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boun
             if row_ridx == arr.height{row_ridx = 0;}
         }
     }
+    acc.sync();
     copy_img(out_gpu, out);
 }
 
@@ -409,6 +413,7 @@ fn iteration_v3(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boun
             if row_ridx == arr.height{row_ridx = 0;}
         }
     }
+    acc.sync();
     copy_img(out_gpu, out);
 }
 
@@ -475,6 +480,7 @@ fn iteration_v3_1(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bo
             if row_ridx == arr.height{row_ridx = 0;}
         }
     }
+    acc.sync();
     copy_img(out_gpu, out);
 }
 
@@ -538,6 +544,7 @@ fn iteration_v4(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boun
             if row_ridx == arr.height{row_ridx = 0;}
         }
     }
+    acc.sync();
     copy_img(out_gpu, out);
 }
 
@@ -594,6 +601,7 @@ fn iteration_v5(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boun
             if row_ridx == arr.height{row_ridx = 0;}
         }
     }
+    acc.sync();
     copy_img(out_gpu, out);
     //release(arr_gpu.buf);
     //release(out_gpu.buf);
