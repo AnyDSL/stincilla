@@ -26,6 +26,7 @@ fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i3
              |x, y|      {  shared(acc.tidx()) },
              |x, y, val| { out_gpu(y*width + x) = val; });
     }
+    acc.sync();
 
     copy(out_buf_gpu, out, width * height * sizeof[f32]());
     release(out_buf_gpu);

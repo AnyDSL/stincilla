@@ -34,7 +34,7 @@ fn iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
     let grid   = (bgrid.width(), bgrid.height() / unroll, 1);
     let block  = (32, 4, 1);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -51,7 +51,7 @@ fn iteration_space(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let grid   = (width, height / unroll, 1);
     let block  = (32, 4, 1);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
