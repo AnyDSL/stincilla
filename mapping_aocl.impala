@@ -100,6 +100,23 @@ fn shift_swin(lbuf : Acc, swin : Swin2D) -> () {
     }
 }
 
+fn shift_swin_full(lbuf : Acc, swin : Swin2D) -> () {
+    let (begin_x, begin_y) = swin.begin;
+    let (end_x, end_y) = swin.end;
+
+    // Shift sliding window
+    for j in @range(begin_y, end_y) {
+        for i in @range(begin_x, end_x - 1) {
+            @swin.write(i, j, @swin.read(i + 1, j));
+        }
+    }
+
+    // Read new col
+    for j in @range(begin_y, end_y) {
+        @swin.write(end_x - 1, j, lbuf.read(0, j));
+    }
+}
+
 fn get_acc_sw(swin: Swin2D) -> Acc {
     Acc {
         read: |x, y|      swin.read(x, y),
@@ -484,6 +501,75 @@ fn iteration_v3_1(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bo
     copy_img(out_gpu, out);
 }
 
+// v3_1 -> v3_2 :
+fn iteration_v3_2(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height;
+
+        let lbuf        = reserve_shared[f32](lbuf_size);
+        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
+
+        let arr_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+        let swin_acc = get_acc_sw(swin);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time + 1){
+            let out_acc = Acc {
+                read: |x, y|      {temp_acc.read(x, y)},
+                write: |x, y, v|  if clock_tick > initial_delay + 1 {
+                                    temp_acc.write(col_widx, row_widx, v);
+                                    col_widx++;
+                                    if col_widx == arr.width {
+                                        col_widx = 0; row_widx++;}
+                                  }
+            };
+
+            // write output
+            @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
+            //if clock_tick > initial_delay + 1 {
+            //    col_widx++;
+            //    if col_widx == arr.width {col_widx = 0; row_widx++;}
+            //}
+
+            // read new pixel
+            let pix_new = arr_acc.read(col_ridx, row_ridx);
+
+            // shift sliding window
+            @shift_swin(lbuf_acc, swin);
+            @swin.write(mask.size_x - 1, mask.size_y - 1, pix_new);
+
+            // shift lbuf
+            for i in $range(0, lbuf_size - 1){
+                lbuf(i) = lbuf(i + 1);
+            }
+            lbuf(lbuf_size - 1) = pix_new;
+
+            col_ridx++;
+            if col_ridx == arr.width {col_ridx = 0; row_ridx++;}
+            if row_ridx == arr.height{row_ridx = 0;}
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+
+
 
 // v3 -> v4 : remove sliding window use shared memory
 // Converging to Altera style
@@ -606,9 +692,414 @@ fn iteration_v5(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boun
     //release(out_gpu.buf);
 }
 
+// v5 -> v5_1 : write condition moved to accessor (as in v1_1)
+fn iteration_v5_1(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
 
-// v5 -> v6 :
-fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height + mask.size_x;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+
+        let arr_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let out_acc = Acc {
+                read: |x, y|      {temp_acc.read(x, y)},
+                write: |x, y, v|  if clock_tick > initial_delay {
+                                    temp_acc.write(col_widx, row_widx, v);
+                                    col_widx++;
+                                    if col_widx == arr.width {
+                                        col_widx = 0; row_widx++;
+                                    }
+                                  }
+            };
+
+            // read new pixel
+            let pix_new = arr_acc.read(col_ridx, row_ridx);
+
+            // shift lbuf
+            for i in $range(0, lbuf_size - 1){
+                lbuf(i) = lbuf(i + 1);
+            }
+            lbuf(lbuf_size - 1) = pix_new;
+
+            // write output
+            @body(math, half_range_x, half_range_y, out_acc, lbuf_acc, mask);
+
+            col_ridx++;
+            if col_ridx == arr.width {col_ridx = 0; row_ridx++;}
+            if row_ridx == arr.height{row_ridx = 0;}
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+// v5_1 -> v5_2 : accessor for read as well
+fn iteration_v5_2(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height + mask.size_x;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {let mut pix_read = 0.0f;
+                                    if clock_tick < process_time {
+                                        pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                    }
+                                    pix_read},
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|      {temp_out_acc.read(x, y)},
+                write: |x, y, v|  if clock_tick > initial_delay {
+                                    temp_out_acc.write(col_widx, row_widx, v);
+                                    col_widx++;
+                                    if col_widx == arr.width {
+                                        col_widx = 0; row_widx++;
+                                    }
+                                  }
+            };
+
+            // read new pixel
+            let pix_new = in_acc.read(col_ridx, row_ridx);
+
+            // shift lbuf
+            for i in $range(0, lbuf_size - 1){
+                lbuf(i) = lbuf(i + 1);
+            }
+            lbuf(lbuf_size - 1) = pix_new;
+
+            // write output
+            @body(math, half_range_x, half_range_y, out_acc, lbuf_acc, mask);
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+// v5_2 -> v5_3 : accessor read condition is moved from read
+fn iteration_v5_3(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height + mask.size_x;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|    {
+                                    let pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                    col_ridx++;
+                                    if col_ridx == arr.width {
+                                        col_ridx = 0; row_ridx++;
+                                    }
+                                    pix_read
+                                },
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|      {temp_out_acc.read(x, y)},
+                write: |x, y, v|  if clock_tick > initial_delay {
+                                    temp_out_acc.write(col_widx, row_widx, v);
+                                    col_widx++;
+                                    if col_widx == arr.width {
+                                        col_widx = 0; row_widx++;
+                                    }
+                                  }
+            };
+
+            {
+                // read new pixel
+                let mut pix_new = 0.0f;
+                if clock_tick < process_time {
+                    pix_new = in_acc.read(col_ridx, row_ridx);
+                }
+
+                // shift lbuf
+                for i in $range(0, lbuf_size - 1){
+                    lbuf(i) = lbuf(i + 1);
+                }
+                lbuf(lbuf_size - 1) = pix_new;
+            }
+
+            // write output
+            @body(math, half_range_x, half_range_y, out_acc, lbuf_acc, mask);
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+// v5_3 -> v5_4 : execution conditions are moved from accessor to loop
+fn iteration_v5_4(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height + mask.size_x;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {
+                                        let pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                        pix_read
+                                    },
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|        {temp_out_acc.read(x, y)},
+                write: |x, y, v|    {
+                                        temp_out_acc.write(col_widx, row_widx, v);
+                                        col_widx++;
+                                        if col_widx == arr.width {
+                                            col_widx = 0; row_widx++;
+                                        }
+                                    }
+            };
+
+            {
+                // read new pixel
+                let mut pix_new = 0.0f;
+                if clock_tick < process_time {
+                    pix_new = in_acc.read(col_ridx, row_ridx);
+                }
+
+                // shift lbuf
+                for i in $range(0, lbuf_size - 1){
+                    lbuf(i) = lbuf(i + 1);
+                }
+                lbuf(lbuf_size - 1) = pix_new;
+            }
+
+            // write output
+            if clock_tick > initial_delay {
+                @body(math, half_range_x, half_range_y, out_acc, lbuf_acc, mask);
+            }
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+// v5_4 -> v5_5 : select for new pixel read
+fn iteration_v5_5(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height + mask.size_x;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {
+                                        let pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                        pix_read
+                                    },
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|        {temp_out_acc.read(x, y)},
+                write: |x, y, v|    { 
+                                        temp_out_acc.write(col_widx, row_widx, v);
+                                        col_widx++;
+                                        if col_widx == arr.width {
+                                            col_widx = 0; row_widx++;
+                                        }
+                                    }
+            };
+
+            { 
+                let pix_new = select(clock_tick < process_time, in_acc.read(col_ridx, row_ridx), 0.0f);
+
+                // shift lbuf
+                for i in $range(0, lbuf_size - 1){
+                    lbuf(i) = lbuf(i + 1);
+                }
+                lbuf(lbuf_size - 1) = pix_new;
+            }
+
+            // write output
+            if clock_tick > initial_delay {
+                @body(math, half_range_x, half_range_y, out_acc, lbuf_acc, mask);
+            }
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+// v5_5 -> v5_6 : new pixel read in a pipelined manner (similar to v8_3) 
+fn iteration_v5_6(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height + mask.size_x;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        let mut pix_new_next;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {
+                                        let pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                        pix_read
+                                    },
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|        {temp_out_acc.read(x, y)},
+                write: |x, y, v|    {
+                                        temp_out_acc.write(col_widx, row_widx, v);
+                                        col_widx++;
+                                        if col_widx == arr.width {
+                                            col_widx = 0; row_widx++;
+                                        }
+                                    }
+            };
+
+            {
+                let pix_new = pix_new_next;
+
+                // shift lbuf
+                for i in $range(0, lbuf_size - 1){
+                    lbuf(i) = lbuf(i + 1);
+                }
+                lbuf(lbuf_size - 1) = pix_new;
+                
+                pix_new_next = select(clock_tick < process_time, in_acc.read(col_ridx, row_ridx), pix_new);
+            }
+
+            // write output
+            if clock_tick > initial_delay {
+                @body(math, half_range_x, half_range_y, out_acc, lbuf_acc, mask);
+            }
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+
+// v5 -> v6 : state machine
+fn iteration_v6(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
     let out_gpu = alloc_img(out, acc.alloc);
@@ -641,6 +1132,9 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 
                 col_ridx++;
                 if col_ridx == arr.width {col_ridx = 0; row_ridx++;}
+                //let col_finished_flag = (col_ridx == arr.width);
+                //col_ridx = select(col_finished_flag, 0, col_ridx);
+                //row_ridx = select(col_finished_flag, row_ridx++, row_ridx);
 
                 let pix_new = arr_acc.read(col_ridx, row_ridx);
                 shift(pix_new)
@@ -678,6 +1172,522 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             read()
         }
         state_machine()
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+// v7 -> v5_2 + v1_1 : lb -> sw ->out 
+fn iteration_v7(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+        let swin_acc = get_acc_sw(swin);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {let mut pix_read = 0.0f; 
+                                    if clock_tick < process_time {
+                                        pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                    }
+                                    pix_read},
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|      {temp_out_acc.read(x, y)},
+                write: |x, y, v|  if clock_tick > initial_delay {
+                                    temp_out_acc.write(col_widx, row_widx, v);
+                                    col_widx++;
+                                    if col_widx == arr.width {
+                                        col_widx = 0; row_widx++;
+                                    }
+                                  }
+            };
+
+            // read new pixel
+            let pix_new = in_acc.read(col_ridx, row_ridx);
+
+             // shift sliding window                                              
+             @shift_swin(lbuf_acc, swin);                                         
+             @swin.write(mask.size_x - 1, mask.size_y - 1, pix_new);              
+
+            // shift lbuf
+            for i in $range(0, lbuf_size - 1){
+                lbuf(i) = lbuf(i + 1);
+            }
+            lbuf(lbuf_size - 1) = pix_new;
+
+            // write output
+            @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
+            //out_acc.write(half_range_x, half_range_y, swin_acc.read(half_range_x, half_range_y));
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+// v7 -> v7_1 : swin reads only from line buffer 
+fn iteration_v7_1(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height + 1;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+        let swin_acc = get_acc_sw(swin);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {let mut pix_read = 0.0f; 
+                                    if clock_tick < process_time {
+                                        pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                    }
+                                    pix_read},
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|      {temp_out_acc.read(x, y)},
+                write: |x, y, v|  if clock_tick > initial_delay {
+                                    temp_out_acc.write(col_widx, row_widx, v);
+                                    col_widx++;
+                                    if col_widx == arr.width {
+                                        col_widx = 0; row_widx++;
+                                    }
+                                  }
+            };
+
+            // read new pixel
+            let pix_new = in_acc.read(col_ridx, row_ridx);
+
+             // shift sliding window                                              
+             @shift_swin_full(lbuf_acc, swin);                                         
+
+            // shift lbuf
+            for i in $range(0, lbuf_size - 1){
+                lbuf(i) = lbuf(i + 1);
+            }
+            lbuf(lbuf_size - 1) = pix_new;
+
+            // write output
+            @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+// v7_1 -> v7_2 : line buffer = 5 image rows 
+fn iteration_v7_2(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y;
+        let lbuf_size   = lbuf_stride * lbuf_height;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * (half_range_y + 1) + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+        let swin_acc = get_acc_sw(swin);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {let mut pix_read = 0.0f; 
+                                    if clock_tick < process_time {
+                                        pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                    }
+                                    pix_read},
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|      {temp_out_acc.read(x, y)},
+                write: |x, y, v|  if clock_tick > initial_delay {
+                                    temp_out_acc.write(col_widx, row_widx, v);
+                                    col_widx++;
+                                    if col_widx == arr.width {
+                                        col_widx = 0; row_widx++;
+                                    }
+                                  }
+            };
+
+            // read new pixel
+            let pix_new = in_acc.read(col_ridx, row_ridx);
+
+             // shift sliding window                                              
+             @shift_swin_full(lbuf_acc, swin);                                         
+
+            // shift lbuf
+            for i in $range(0, lbuf_size - 1){
+                lbuf(i) = lbuf(i + 1);
+            }
+            lbuf(lbuf_size - 1) = pix_new;
+
+            // write output
+            @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+//v8 = v5_5 + swin (simialar ro v7 but with select) 
+fn iteration_v8(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+        let swin_acc = get_acc_sw(swin);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {
+                                        let pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                        pix_read
+                                    },
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|        {temp_out_acc.read(x, y)},
+                write: |x, y, v|    {
+                                        temp_out_acc.write(col_widx, row_widx, v);
+                                        col_widx++;
+                                        if col_widx == arr.width {
+                                            col_widx = 0; row_widx++;
+                                        }
+                                    }
+            };
+
+            {
+                // read new pix
+                let pix_new = select(clock_tick < process_time, in_acc.read(col_ridx, row_ridx), 0.0f);
+
+                // shift sliding window
+                @shift_swin(lbuf_acc, swin);
+                @swin.write(mask.size_x - 1, mask.size_y - 1, pix_new);
+
+                // shift lbuf
+                for i in $range(0, lbuf_size - 1){
+                    lbuf(i) = lbuf(i + 1);
+                }
+                lbuf(lbuf_size - 1) = pix_new;
+            }
+
+            // write output
+            if clock_tick > initial_delay {
+                @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
+            }
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+//v8 -> v8_1 : swin reads from lbuf (similar to v7_1)
+fn iteration_v8_1(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y - 1;
+        let lbuf_size   = lbuf_stride * lbuf_height + 1;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * half_range_y + half_range_x;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+        let swin_acc = get_acc_sw(swin);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {
+                                        let pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                        pix_read
+                                    },
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|        {temp_out_acc.read(x, y)},
+                write: |x, y, v|    { 
+                                        temp_out_acc.write(col_widx, row_widx, v);
+                                        col_widx++;
+                                        if col_widx == arr.width {
+                                            col_widx = 0; row_widx++;
+                                        }
+                                    }
+            };
+
+            { 
+                // read new pix
+                let pix_new = select(clock_tick < process_time, in_acc.read(col_ridx, row_ridx), 0.0f);
+
+                // shift sliding window
+                @shift_swin_full(lbuf_acc, swin);
+
+                // shift lbuf
+                for i in $range(0, lbuf_size - 1){
+                    lbuf(i) = lbuf(i + 1);
+                }
+                lbuf(lbuf_size - 1) = pix_new;
+            }
+
+            // write output
+            if clock_tick > initial_delay {
+                @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
+            }
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+//v8_1 -> v8_2 : line buffer = 5 image rows (similar to v7_2)
+fn iteration_v8_2(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y;
+        let lbuf_size   = lbuf_stride * lbuf_height;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * (half_range_y + 1) + half_range_x - 1;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+        let swin_acc = get_acc_sw(swin);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {
+                                        let pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                        pix_read
+                                    },
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|        {temp_out_acc.read(x, y)},
+                write: |x, y, v|    { 
+                                        temp_out_acc.write(col_widx, row_widx, v);
+                                        col_widx++;
+                                        if col_widx == arr.width {
+                                            col_widx = 0; row_widx++;
+                                        }
+                                    }
+            };
+
+            {
+                // read new pix
+                let pix_new = select(clock_tick < process_time, in_acc.read(col_ridx, row_ridx), 0.0f);
+
+                // shift sliding window
+                @shift_swin_full(lbuf_acc, swin);
+
+                // shift lbuf
+                for i in $range(0, lbuf_size - 1){
+                    lbuf(i) = lbuf(i + 1);
+                }
+                lbuf(lbuf_size - 1) = pix_new;
+            }
+
+            // write output
+            if clock_tick > initial_delay {
+                @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
+            }
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+//v8_2 -> v8_3 :
+fn iteration_v8_3(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let lbuf_stride = arr_gpu.stride;
+        let lbuf_height = mask.size_y;
+        let lbuf_size   = lbuf_stride * lbuf_height;
+        let half_range_y    = mask.size_y / 2;
+        let half_range_x    = mask.size_x / 2;
+        let process_time    = arr.width * arr.height;
+        let initial_delay   = arr.width * (half_range_y + 1) + half_range_x;
+        let life_time       = initial_delay + process_time;
+
+        let lbuf = reserve_shared[f32](lbuf_size);
+        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
+
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
+        let swin_acc = get_acc_sw(swin);
+
+        let mut col_ridx = 0; let mut row_ridx = 0;
+        let mut col_widx = 0; let mut row_widx = 0;
+        let mut pix_new_next;
+        for clock_tick in $range(0, life_time){
+            let in_acc = Acc {
+                read: |x, y|        {
+                                        let pix_read = temp_in_acc.read(col_ridx, row_ridx);
+                                        col_ridx++;
+                                        if col_ridx == arr.width {
+                                            col_ridx = 0; row_ridx++;
+                                        }
+                                        pix_read
+                                    },
+                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
+            };
+            let out_acc = Acc {
+                read: |x, y|        {temp_out_acc.read(x, y)},
+                write: |x, y, v|    {
+                                        temp_out_acc.write(col_widx, row_widx, v);
+                                        col_widx++;
+                                        if col_widx == arr.width {
+                                            col_widx = 0; row_widx++;
+                                        }
+                                    }
+            };
+
+            {
+                // read new pix
+                let pix_new = pix_new_next;
+
+                // shift sliding window
+                @shift_swin_full(lbuf_acc, swin);
+
+                // shift lbuf
+                for i in $range(0, lbuf_size - 1){
+                    lbuf(i) = lbuf(i + 1);
+                }
+                lbuf(lbuf_size - 1) = pix_new;
+
+                pix_new_next = select(clock_tick < process_time, in_acc.read(col_ridx, row_ridx), pix_new);
+
+            }
+
+            // write output
+            if clock_tick > initial_delay {
+                @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
+            }
+        }
     }
     acc.sync();
     copy_img(out_gpu, out);
