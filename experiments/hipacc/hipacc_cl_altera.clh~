@@ -1,0 +1,1352 @@
+#pragma OPENCL EXTENSION cl_altera_channels : enable
+
+#define ARRY  0
+#define CHNNL 1
+
+
+
+/* ***************** ADDITIONAL DATA STRUCTURES **************************** */
+typedef struct{char16 s[2];}char32;
+typedef struct{char16 s[4];}char64;
+typedef struct{char16 s[8];}char128;
+typedef struct{char16 s[16];}char256;
+
+typedef struct{uchar16 s[2];}uchar32;
+typedef struct{uchar16 s[4];}uchar64;
+typedef struct{uchar16 s[8];}uchar128;
+typedef struct{uchar16 s[16];}uchar256;
+
+typedef struct{short16 s[2];}short32;
+typedef struct{short16 s[4];}short64;
+typedef struct{short16 s[8];}short128;
+typedef struct{short16 s[16];}short256;
+
+typedef struct{ushort16 s[2];}ushort32;
+typedef struct{ushort16 s[4];}ushort64;
+typedef struct{ushort16 s[8];}ushort128;
+typedef struct{ushort16 s[16];}ushort256;
+
+typedef struct{int16 s[2];}int32;
+typedef struct{int16 s[4];}int64;
+typedef struct{int16 s[8];}int128;
+typedef struct{int16 s[16];}int256;
+
+typedef struct{uint16 s[2];}uint32;
+typedef struct{uint16 s[4];}uint64;
+typedef struct{uint16 s[8];}uint128;
+typedef struct{uint16 s[16];}uint256;
+
+typedef struct{long16 s[2];}long32;
+typedef struct{long16 s[4];}long64;
+typedef struct{long16 s[8];}long128;
+typedef struct{long16 s[16];}long256;
+
+typedef struct{ulong16 s[2];}ulong32;
+typedef struct{ulong16 s[4];}ulong64;
+typedef struct{ulong16 s[8];}ulong128;
+typedef struct{ulong16 s[16];}ulong256;
+
+typedef struct{float16 s[2];}float32;
+typedef struct{float16 s[4];}float64;
+typedef struct{float16 s[8];}float128;
+typedef struct{float16 s[16];}float256;
+
+typedef struct{double16 s[2];}double32;
+typedef struct{double16 s[4];}double64;
+typedef struct{double16 s[8];}double128;
+typedef struct{double16 s[16];}double256;
+
+
+/* *******Stringification Support for Vectorization ********** */
+#define char1   	char
+#define char12   	char2
+#define char14   	char4
+#define char18   	char8
+#define char116   	char16
+#define char21   	char2
+#define char22   	char4
+#define char24   	char8
+#define char28   	char16
+#define char216   	char32
+#define char41   	char4
+#define char42   	char8
+#define char44   	char16
+#define char48   	char32
+#define char416   	char64
+#define char81   	char8
+#define char82   	char16
+#define char84   	char32
+#define char88   	char64
+#define char816   	char128
+#define char161   	char16
+#define char162   	char32
+#define char164   	char64
+#define char168   	char128
+#define char1616   	char256
+
+#define uchar1   	uchar
+#define uchar12   	uchar2
+#define uchar14   	uchar4
+#define uchar18   	uchar8
+#define uchar116   	uchar16
+#define uchar21   	uchar2
+#define uchar22   	uchar4
+#define uchar24   	uchar8
+#define uchar28   	uchar16
+#define uchar216   	uchar32
+#define uchar41   	uchar4
+#define uchar42   	uchar8
+#define uchar44   	uchar16
+#define uchar48   	uchar32
+#define uchar416   	uchar64
+#define uchar81   	uchar8
+#define uchar82   	uchar16
+#define uchar84   	uchar32
+#define uchar88   	uchar64
+#define uchar816   	uchar128
+#define uchar161   	uchar16
+#define uchar162   	uchar32
+#define uchar164   	uchar64
+#define uchar168   	uchar128
+#define uchar1616   	uchar256
+
+#define short1   	short
+#define short12   	short2
+#define short14   	short4
+#define short18   	short8
+#define short116   	short16
+#define short21   	short2
+#define short22   	short4
+#define short24   	short8
+#define short28   	short16
+#define short216   	short32
+#define short41   	short4
+#define short42   	short8
+#define short44   	short16
+#define short48   	short32
+#define short416   	short64
+#define short81   	short8
+#define short82   	short16
+#define short84   	short32
+#define short88   	short64
+#define short816   	short128
+#define short161   	short16
+#define short162   	short32
+#define short164   	short64
+#define short168   	short128
+#define short1616   	short256
+
+#define ushort1   	ushort
+#define ushort12   	ushort2
+#define ushort14   	ushort4
+#define ushort18   	ushort8
+#define ushort116   	ushort16
+#define ushort21   	ushort2
+#define ushort22   	ushort4
+#define ushort24   	ushort8
+#define ushort28   	ushort16
+#define ushort216   	ushort32
+#define ushort41   	ushort4
+#define ushort42   	ushort8
+#define ushort44   	ushort16
+#define ushort48   	ushort32
+#define ushort416   	ushort64
+#define ushort81   	ushort8
+#define ushort82   	ushort16
+#define ushort84   	ushort32
+#define ushort88   	ushort64
+#define ushort816   	ushort128
+#define ushort161   	ushort16
+#define ushort162   	ushort32
+#define ushort164   	ushort64
+#define ushort168   	ushort128
+#define ushort1616   	ushort256
+
+#define int1   	int
+#define int12   	int2
+#define int14   	int4
+#define int18   	int8
+#define int116   	int16
+#define int21   	int2
+#define int22   	int4
+#define int24   	int8
+#define int28   	int16
+#define int216   	int32
+#define int41   	int4
+#define int42   	int8
+#define int44   	int16
+#define int48   	int32
+#define int416   	int64
+#define int81   	int8
+#define int82   	int16
+#define int84   	int32
+#define int88   	int64
+#define int816   	int128
+#define int161   	int16
+#define int162   	int32
+#define int164   	int64
+#define int168   	int128
+#define int1616   	int256
+
+#define uint1   	uint
+#define uint12   	uint2
+#define uint14   	uint4
+#define uint18   	uint8
+#define uint116   	uint16
+#define uint21   	uint2
+#define uint22   	uint4
+#define uint24   	uint8
+#define uint28   	uint16
+#define uint216   	uint32
+#define uint41   	uint4
+#define uint42   	uint8
+#define uint44   	uint16
+#define uint48   	uint32
+#define uint416   	uint64
+#define uint81   	uint8
+#define uint82   	uint16
+#define uint84   	uint32
+#define uint88   	uint64
+#define uint816   	uint128
+#define uint161   	uint16
+#define uint162   	uint32
+#define uint164   	uint64
+#define uint168   	uint128
+#define uint1616   	uint256
+
+#define long1   	long
+#define long12   	long2
+#define long14   	long4
+#define long18   	long8
+#define long116   	long16
+#define long21   	long2
+#define long22   	long4
+#define long24   	long8
+#define long28   	long16
+#define long216   	long32
+#define long41   	long4
+#define long42   	long8
+#define long44   	long16
+#define long48   	long32
+#define long416   	long64
+#define long81   	long8
+#define long82   	long16
+#define long84   	long32
+#define long88   	long64
+#define long816   	long128
+#define long161   	long16
+#define long162   	long32
+#define long164   	long64
+#define long168   	long128
+#define long1616   	long256
+
+#define ulong1   	ulong
+#define ulong12   	ulong2
+#define ulong14   	ulong4
+#define ulong18   	ulong8
+#define ulong116   	ulong16
+#define ulong21   	ulong2
+#define ulong22   	ulong4
+#define ulong24   	ulong8
+#define ulong28   	ulong16
+#define ulong216   	ulong32
+#define ulong41   	ulong4
+#define ulong42   	ulong8
+#define ulong44   	ulong16
+#define ulong48   	ulong32
+#define ulong416   	ulong64
+#define ulong81   	ulong8
+#define ulong82   	ulong16
+#define ulong84   	ulong32
+#define ulong88   	ulong64
+#define ulong816   	ulong128
+#define ulong161   	ulong16
+#define ulong162   	ulong32
+#define ulong164   	ulong64
+#define ulong168   	ulong128
+#define ulong1616   	ulong256
+
+#define float1   	float
+#define float12   	float2
+#define float14   	float4
+#define float18   	float8
+#define float116   	float16
+#define float21   	float2
+#define float22   	float4
+#define float24   	float8
+#define float28   	float16
+#define float216   	float32
+#define float41   	float4
+#define float42   	float8
+#define float44   	float16
+#define float48   	float32
+#define float416   	float64
+#define float81   	float8
+#define float82   	float16
+#define float84   	float32
+#define float88   	float64
+#define float816   	float128
+#define float161   	float16
+#define float162   	float32
+#define float164   	float64
+#define float168   	float128
+#define float1616   	float256
+
+#define double1   	double
+#define double12   	double2
+#define double14   	double4
+#define double18   	double8
+#define double116   	double16
+#define double21   	double2
+#define double22   	double4
+#define double24   	double8
+#define double28   	double16
+#define double216   	double32
+#define double41   	double4
+#define double42   	double8
+#define double44   	double16
+#define double48   	double32
+#define double416   	double64
+#define double81   	double8
+#define double82   	double16
+#define double84   	double32
+#define double88   	double64
+#define double816   	double128
+#define double161   	double16
+#define double162   	double32
+#define double164   	double64
+#define double168   	double128
+#define double1616   	double256
+
+
+/* ********************** Tools for Kernel Code **************************** */
+#define createChannel(TYPE, NAME, VECT_SIZE) \
+            channel TYPE ## VECT_SIZE NAME __attribute__((depth(1)))
+
+
+#define getWindowAt(ARRAY, __x, __y) ARRAY[__y][__x]
+
+
+/* ******************** Boundary Conditions******************************** */
+/*********************************************************** Select OUTPUT */
+#define SELECT_OUT_UNDEFINED(DC__bVECT_INDX, VECT_INDX, DCVECT_SIZE, wndOUT, wndIN, DCselectOUT, DC__SlidingSIZE, DCy, DCx) \
+        _Pragma("unroll") for (uint __j = 0; __j < __SIZE_Y; __j++) { \
+            _Pragma("unroll") for (uint __i = 0; __i < __SIZE_X; __i++){ \
+                    wndOUT[__j][__i] = wndIN[__j][VECT_INDX+__i];\
+            }\
+        }
+
+
+#define SELECT_OUT_CONSTANT(__bVECT_INDX, VECT_INDX, VECT_SIZE, wndOUT, wndIN, DCselectOUT, __SlidingSIZE, __y, __x, constVar) \
+        bool selectOUT[__SIZE_X][__SIZE_Y];\
+        /* Initialize selection signals */ \
+        _Pragma("unroll")\
+        for(uint __j=0; __j< __SIZE_Y; __j++)\
+            _Pragma("unroll")\
+            for(uint __i=0; __i<__SIZE_X; __i++)\
+                selectOUT[__j][__i]=0;\
+        /* Update selection signals according to __y */ \
+        _Pragma("unroll") for (uint __j=0; __j< __halfSIZE_Y; __j++){\
+            _Pragma("unroll") for(uint __i=0; __i<__SIZE_X; __i++){\
+                if(__y<__j+1)        selectOUT[__halfSIZE_Y-1-__j][__i] = 1;\
+                if(__y>__HEIGHT-2-__j) selectOUT[__halfSIZE_Y+1+__j][__i] = 1;\
+            }\
+        }\
+        /* Update selection signals according to __x */ \
+        _Pragma("unroll") for (uint __i=0; __i< __halfSIZE_X; __i++){\
+            _Pragma("unroll") for(uint __j=0; __j<__SIZE_Y; __j++){\
+                if(__x+VECT_INDX<__i+1) selectOUT[__j][__halfSIZE_X-1-__i] = 1;\
+                if(__x+VECT_INDX>__WIDTH-2-__i) selectOUT[__j][__halfSIZE_X+1+__i] = 1;\
+            }\
+        }\
+        /* Select output data according to selection signals */ \
+        _Pragma("unroll") \
+        for (uint __j = 0; __j < __SIZE_Y; __j++) { \
+            _Pragma("unroll") \
+            for (uint __i = 0; __i < __SIZE_X; __i++) { \
+                wndOUT[__j][__i] = selectOUT[__j][__i] ? constVar : wndIN[__j][VECT_INDX+__i];\
+            }\
+        }
+
+
+#define SELECT_OUT_CLAMP(__bVECT_INDX, VECT_INDX, VECT_SIZE, wndOUT, wndIN, selectOUT, __SlidingSIZE, DCy, DCx) \
+        _Pragma("unroll") for (uint __j = 0; __j < __SIZE_Y; __j++) { \
+            _Pragma("unroll") for (uint __i = 0; __i < __SIZE_X; __i++){ \
+                if( (__halfSIZE_X > __bVECT_INDX+VECT_SIZE-1-VECT_INDX) &&\
+                    (__i > __halfSIZE_X) &&\
+                    (__i > __SIZE_X-2-(__halfSIZE_X-(__bVECT_INDX+VECT_SIZE-VECT_INDX))) )\
+                    wndOUT[__j][__i] = selectOUT ? wndIN[__j][__SlidingSIZE-2*__halfSIZE_X+__i-1]\
+                                             : wndIN[__j][VECT_INDX+__i];\
+                else\
+                    wndOUT[__j][__i] = wndIN[__j][VECT_INDX+__i];\
+            }\
+        }
+
+
+#define SELECT_OUT_MIRROR(__bVECT_INDX, VECT_INDX, VECT_SIZE, wndOUT, wndIN, selectOUT, __SlidingSIZE, DCy, DCx) \
+        SELECT_OUT_CLAMP(__bVECT_INDX, VECT_INDX, VECT_SIZE, wndOUT, wndIN, selectOUT, __SlidingSIZE, DCy, DCx) \
+
+
+#define SELECT_OUT_MIRROR_101(__bVECT_INDX, VECT_INDX, VECT_SIZE, wndOUT, wndIN, selectOUT, __SlidingSIZE, DCy, DCx) \
+        SELECT_OUT_CLAMP(__bVECT_INDX, VECT_INDX, VECT_SIZE, wndOUT, wndIN, selectOUT, __SlidingSIZE, DCy, DCx) \
+
+
+/********************************** Warp pixel row coming from row buffer */
+#define WARPy_UNDEFINED(VECT_SIZE, wnd, __rselect, __SlidingCoordNewP, __y, DCx)
+
+
+#define WARPy_CONSTANT(VECT_SIZE, wnd, __rselect, __SlidingCoordNewP, __y, DCx)
+
+
+#define WARPy_CLAMP(VECT_SIZE, wnd, __rselect, __SlidingCoordNewP, __y, DCx) \
+        _Pragma("unroll")  for (uint __j=0; __j< __halfSIZE_Y; __j++){\
+            _Pragma("unroll") for(uint __i=0; __i<VECT_SIZE; __i++){\
+                if( __y<=__j )\
+                    wnd[__halfSIZE_Y-1-__j][__SlidingCoordNewP+__i] = wnd[__halfSIZE_Y-__j][__SlidingCoordNewP+__i];\
+                if( __y>=__HEIGHT-1-__j )\
+                    wnd[__halfSIZE_Y+1+__j][__SlidingCoordNewP+__i] = wnd[__halfSIZE_Y+__j][__SlidingCoordNewP+__i];\
+            }\
+        }\
+        \
+        /* Right Boundary Condition */ \
+        if(!__rselect){\
+            _Pragma("unroll") for(uint __j=0; __j<__SIZE_Y; __j++)\
+                _Pragma("unroll")\
+                for(int __i=__halfSIZE_X; (__i>__halfSIZE_X-VECT_SIZE && __i>0); __i--)\
+                    wnd[__j][__SlidingCoordNewP+VECT_SIZE+__i-1] = wnd[__j][__SlidingCoordNewP+VECT_SIZE-1];\
+        }
+
+
+#define WARPy_MIRROR(VECT_SIZE, wnd, __rselect, __SlidingCoordNewP, __y, DCx) \
+        _Pragma("unroll")  for (uint __j=0; __j< __halfSIZE_Y; __j++){\
+            _Pragma("unroll") for(uint jc=0; jc<__halfSIZE_Y; jc++){\
+                _Pragma("unroll") for(uint __i=0; __i<VECT_SIZE; __i++){\
+                    if(__y==__j && jc<__halfSIZE_Y-__j)\
+                        wnd[jc][__SlidingCoordNewP+__i] = wnd[__SIZE_Y-2-2*__j-jc][__SlidingCoordNewP+__i];\
+                    if(__y==__HEIGHT-1-__j && jc<__halfSIZE_Y-__j)\
+                        wnd[__SIZE_Y-1-jc][__SlidingCoordNewP+__i] = wnd[1+2*__j+jc][__SlidingCoordNewP+__i];\
+                }\
+            }\
+        }\
+        \
+        /* Right Boundary Condition */ \
+        if(!__rselect){\
+            _Pragma("unroll") for(uint __j=0; __j<__SIZE_Y; __j++){\
+                /* Shift right boundary pixels (Better Fanout) */ \
+                if(__halfSIZE_X > VECT_SIZE){\
+                    _Pragma("unroll") for(uint __i=0; __i<__halfSIZE_X-VECT_SIZE; __i++)\
+                        wnd[__j][__SlidingCoordNewP+VECT_SIZE+__i] = wnd[__j][__SlidingCoordNewP+VECT_SIZE+__i+VECT_SIZE];\
+                }\
+                /* Store new pixels */ \
+                _Pragma("unroll")\
+                for(int __i=__halfSIZE_X; (__i>__halfSIZE_X-VECT_SIZE && __i>0); __i--)\
+                    wnd[__j][__SlidingCoordNewP+VECT_SIZE-1+__i] = wnd[__j][__SlidingCoordNewP+VECT_SIZE-1-__halfSIZE_X+__i];\
+            }\
+        }
+
+
+#define WARPy_MIRROR_101(VECT_SIZE, wnd, __rselect, __SlidingCoordNewP, __y, DCx) \
+        _Pragma("unroll")  for (uint __j=0; __j< __halfSIZE_Y; __j++){\
+            _Pragma("unroll") for(uint jc=0; jc<__halfSIZE_Y; jc++){\
+                _Pragma("unroll") for(uint __i=0; __i<VECT_SIZE; __i++){\
+                    if(__y==__j && jc<__halfSIZE_Y-__j)\
+                        wnd[jc][__SlidingCoordNewP+__i] = wnd[__SIZE_Y-1-2*__j-jc][__SlidingCoordNewP+__i];\
+                    if(__y==__HEIGHT-1-__j && jc<__halfSIZE_Y-__j)\
+                        wnd[__SIZE_Y-1-jc][__SlidingCoordNewP+__i] = wnd[2*__j+jc][__SlidingCoordNewP+__i];\
+                }\
+            }\
+        }\
+        /* Left Boundary Condition 0th pixel */ \
+        if(__x==0) for(uint __j=0; __j<__SIZE_Y; __j++)\
+            wnd[__j][0] = wnd[__j][__SIZE_X-1];\
+        \
+        /* Right Boundary Condition */ \
+        if(!__rselect){\
+            _Pragma("unroll") for(uint __j=0; __j<__SIZE_Y; __j++){\
+                /* Shift right boundary pixels (Better Fanout) */ \
+                if(__halfSIZE_X > VECT_SIZE){\
+                    _Pragma("unroll") for(uint __i=0; __i<__halfSIZE_X-VECT_SIZE; __i++)\
+                        wnd[__j][__SlidingCoordNewP+VECT_SIZE+__i] = wnd[__j][__SlidingCoordNewP+VECT_SIZE+__i+VECT_SIZE];\
+                }\
+                /* Store new pixels */ \
+                _Pragma("unroll")\
+                for(int __i=__halfSIZE_X; (__i>__halfSIZE_X-VECT_SIZE && __i>0); __i--)\
+                    wnd[__j][__SlidingCoordNewP+VECT_SIZE-1+__i] = wnd[__j][__SlidingCoordNewP+VECT_SIZE-2-__halfSIZE_X+__i];\
+            }\
+        }
+
+
+/*************************************************** Shift Sliding Window */
+#define SLIDEWx_UNDEFINED(VECT_SIZE, INTYPE, wnd, newPixel, __SlidingCoordNewP, __j, DCx)\
+        /* Shift old pixels */ \
+        _Pragma("unroll") for(uint __i=0; __i<__SlidingCoordNewP; __i++)\
+            wnd[__j][__i] = wnd[__j][__i+VECT_SIZE];\
+        /* Store new pixels */ \
+        _Pragma("unroll") for(uint __i=0; __i<VECT_SIZE; __i++)\
+            wnd[__j][__SlidingCoordNewP+__i] = ((INTYPE*)&newPixel)[__i];
+
+
+#define SLIDEWx_CONSTANT(VECT_SIZE, INTYPE, wnd, newPixel, __SlidingCoordNewP, __j, DCx)\
+        SLIDEWx_UNDEFINED(VECT_SIZE, INTYPE, wnd, newPixel, __SlidingCoordNewP, __j, DCx)\
+
+#define SLIDEWx_CLAMP(VECT_SIZE, INTYPE, wnd, newPixel, __SlidingCoordNewP, __j, __x)\
+        /* Shift old pixels */ \
+        _Pragma("unroll") for(uint __i=0; __i<__SlidingCoordNewP; __i++)\
+            wnd[__j][__i] = wnd[__j][__i+VECT_SIZE];\
+        /* Shift right boundary pixels (Better Fanout) */ \
+        if(__halfSIZE_X > VECT_SIZE){\
+            _Pragma("unroll") for(uint __i=0; __i<__halfSIZE_X-VECT_SIZE; __i++)\
+                wnd[__j][__SlidingCoordNewP+VECT_SIZE+__i] = wnd[__j][__SlidingCoordNewP+VECT_SIZE+__i+VECT_SIZE];\
+        }\
+        /* Store new pixels */ \
+        _Pragma("unroll") for(uint __i=0; __i<VECT_SIZE; __i++)\
+            wnd[__j][__SlidingCoordNewP+__i] = ((INTYPE*)&newPixel)[__i];\
+        /* Left Boundary Condition */ \
+        if(__x==0){\
+            INTYPE bndPixel = wnd[__j][__halfSIZE_X];\
+            for(uint __i=0; __i<__halfSIZE_X; __i++) wnd[__j][__i] = bndPixel;\
+        }\
+
+
+#define SLIDEWx_MIRROR(VECT_SIZE, INTYPE, wnd, newPixel, __SlidingCoordNewP, __j, __x)\
+        /* Shift old pixels */ \
+        _Pragma("unroll") for(uint __i=0; __i<__SlidingCoordNewP; __i++)\
+            wnd[__j][__i] = wnd[__j][__i+VECT_SIZE];\
+        /* Store new pixels */ \
+        _Pragma("unroll") for(uint __i=0; __i<VECT_SIZE; __i++)\
+            wnd[__j][__SlidingCoordNewP+__i] = ((INTYPE*)&newPixel)[__i];\
+        /* Left Boundary Condition */ \
+        if(__x==0){\
+            for(uint __i=0; __i<__halfSIZE_X; __i++) wnd[__j][__i] = wnd[__j][__SIZE_X-2-__i];\
+        }\
+
+
+#define SLIDEWx_MIRROR_101(VECT_SIZE, INTYPE, wnd, newPixel, __SlidingCoordNewP, __j, __x)\
+        /* Shift old pixels */ \
+        _Pragma("unroll") for(uint __i=0; __i<__SlidingCoordNewP; __i++)\
+            wnd[__j][__i] = wnd[__j][__i+VECT_SIZE];\
+        /* Store new pixels */ \
+        _Pragma("unroll") for(uint __i=0; __i<VECT_SIZE; __i++)\
+            wnd[__j][__SlidingCoordNewP+__i] = ((INTYPE*)&newPixel)[__i];\
+        /* Left Boundary Condition */ \
+        if(__x==0){\
+            for(uint __i=0; __i<__halfSIZE_X; __i++) wnd[__j][__i] = wnd[__j][__SIZE_X-1-__i];\
+        }\
+
+
+/* ***********************PROCESS TYPES************************************* */
+#define readPixelfARRY(VECT_SIZE, INTYPE, outPIXEL, inARRAY, index) \
+            outPIXEL = ((__global INTYPE ## VECT_SIZE *)inARRAY)[index]; \
+
+
+#define readPixelfCHNNL(DCVECT_SIZE, DCINTYPE, outPIXEL, inCHANNEL, DCindex)\
+            outPIXEL = read_channel_altera(inCHANNEL); \
+            mem_fence(CLK_CHANNEL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); \
+
+
+#define write2ARRY(VECT_SIZE, OUTTYPE, outARRAY, outPIXEL, index) \
+            ((__global OUTTYPE ## VECT_SIZE *)outARRAY)[index] = outPIXEL; \
+
+
+#define write2CHNNL(DCVECT_SIZE, DCOUTTYPE, outCHANNEL, outPIXEL, DCindex) \
+            write_channel_altera(outCHANNEL, outPIXEL); \
+            mem_fence(CLK_CHANNEL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); \
+
+
+/* ******************VECTORIZED PIPELINE FUNCTIONS********************************* */
+#define processPixels(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, SRC, READTYPE, IM_WIDTH, IM_HEIGHT, KERNEL) \
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    \
+    uint __count = 0; \
+    uint __x = 0, __y = 0;\
+    while (__count != __vecSIZE) { \
+        INTYPE ## VECT_SIZE __newpixel; \
+        readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+        /* Execute Kernel According to Boundary Conditions */ \
+        OUTTYPE ## VECT_SIZE __outPixel;\
+        _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+            ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(((INTYPE*)&__newpixel)[__vi]);\
+        }\
+        write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count);\
+       \
+        __x+=VECT_SIZE; \
+        if(__x == __WIDTH){\
+            __x = 0; \
+            __y++;\
+        }\
+        __count++; \
+    }
+
+
+#define process(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, SRC, READTYPE, IM_WIDTH, IM_HEIGHT, KERNEL, KRNL_SIZE_X, KRNL_SIZE_Y, BORDER, ...) \
+    const int __SIZE_X = KRNL_SIZE_X;\
+    const int __SIZE_Y = KRNL_SIZE_Y;\
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const int __halfSIZE_Y = (__SIZE_Y >> 1);\
+    const int __halfSIZE_X = (__SIZE_X >> 1);\
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    const uint __DELAY     = ((__WIDTH*__halfSIZE_Y) + __halfSIZE_X);\
+    \
+    const uint __vecWIDTH = ((__WIDTH-1)/VECT_SIZE)+1; \
+    const uint __vecDELAY = ((__DELAY-1)/VECT_SIZE)+1; \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    const uint __Nvec = ((__halfSIZE_X-1)/VECT_SIZE)+1;\
+    const uint __SlidingSIZE = __halfSIZE_X+(1+__Nvec)*VECT_SIZE+__halfSIZE_X;\
+    const uint __SlidingCoordNewP = __SlidingSIZE-__halfSIZE_X-VECT_SIZE;\
+    \
+    INTYPE ## VECT_SIZE __rows[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding[__SIZE_Y][__SlidingSIZE]; \
+    uint __count = 0; \
+    uint __x = 0, __y = 0, __y_next = 0;\
+    bool __rselect=0; \
+    uint __bVECT_INDX = (__Nvec-1)*VECT_SIZE;\
+    while (__count != __vecDELAY+__vecSIZE) { \
+        /* Shift Row Buffers and Sliding Window */ \
+        _Pragma("unroll") \
+        for(uint __j=0; __j<__SIZE_Y-1; ++__j){ \
+            INTYPE ## VECT_SIZE __newPixel = __rows[__j][__vecWIDTH-1]; \
+            if(__j != 0) __rows[__j-1][0] = __newPixel;\
+            _Pragma("unroll") \
+            for(uint __i = __vecWIDTH-1; __i > 0; --__i) __rows[__j][__i] = __rows[__j][__i - 1]; \
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding, __newPixel, __SlidingCoordNewP, __j, __x);\
+        }\
+        INTYPE ## VECT_SIZE __newpixel; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+            __rows[__SIZE_Y-2][0] = __newpixel; \
+        }\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding, __newpixel, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        /* Warp pixel row coming from row buffer */ \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        /* Execute Kernel According to Boundary Conditions */ \
+        if (__count >= __vecDELAY) { \
+            OUTTYPE ## VECT_SIZE __outPixel;\
+            _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+                INTYPE __wnd[__SIZE_Y][__SIZE_X]; \
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd, __wnd_sliding, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(__wnd);\
+            }\
+            write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count-__vecDELAY);\
+           \
+            __x+=VECT_SIZE; \
+            const uint rflagCoord = __halfSIZE_X>VECT_SIZE ? __WIDTH-__Nvec*VECT_SIZE : __WIDTH-VECT_SIZE;\
+            if(__x == rflagCoord){\
+                __rselect=1;\
+                __y_next++;\
+            }else if (__x == __WIDTH) { \
+                __x = 0; \
+                __y = __y_next; \
+                __rselect = 0;\
+                __bVECT_INDX = (__Nvec-1) * VECT_SIZE;\
+            }else if(__x > rflagCoord){\
+                __bVECT_INDX-= VECT_SIZE;\
+            }\
+        } \
+        ++__count; \
+    }
+
+/* ******************Multiple Inputs********************************* */
+
+#define process5to1(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, SRC, READTYPE, SRC1, READTYPE1, SRC2, READTYPE2, SRC3, READTYPE3, SRC4, READTYPE4, IM_WIDTH, IM_HEIGHT, KERNEL, KRNL_SIZE_X, KRNL_SIZE_Y, BORDER, ...) \
+    const int __SIZE_X = KRNL_SIZE_X;\
+    const int __SIZE_Y = KRNL_SIZE_Y;\
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const int __halfSIZE_Y = (__SIZE_Y >> 1);\
+    const int __halfSIZE_X = (__SIZE_X >> 1);\
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    const uint __DELAY     = ((__WIDTH*__halfSIZE_Y) + __halfSIZE_X);\
+    \
+    const uint __vecWIDTH = ((__WIDTH-1)/VECT_SIZE)+1; \
+    const uint __vecDELAY = ((__DELAY-1)/VECT_SIZE)+1; \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    const uint __Nvec = ((__halfSIZE_X-1)/VECT_SIZE)+1;\
+    const uint __SlidingSIZE = __halfSIZE_X+(1+__Nvec)*VECT_SIZE+__halfSIZE_X;\
+    const uint __SlidingCoordNewP = __SlidingSIZE-__halfSIZE_X-VECT_SIZE;\
+    \
+    uint __count = 0; \
+    uint __x = 0, __y = 0, __y_next = 0;\
+    bool __rselect=0; \
+    uint __bVECT_INDX = (__Nvec-1)*VECT_SIZE;\
+    /* 0th Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding[__SIZE_Y][__SlidingSIZE]; \
+    /* 1st Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows1[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding1[__SIZE_Y][__SlidingSIZE]; \
+    /* 2nd Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows2[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding2[__SIZE_Y][__SlidingSIZE]; \
+    /* 3rd Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows3[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding3[__SIZE_Y][__SlidingSIZE]; \
+    /* 4th Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows4[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding4[__SIZE_Y][__SlidingSIZE]; \
+    while (__count != __vecDELAY+__vecSIZE) { \
+        /* Shift Row Buffers and Sliding Window */ \
+        _Pragma("unroll") \
+        for(uint __j=0; __j<__SIZE_Y-1; ++__j){ \
+            INTYPE ## VECT_SIZE __newPixel  =  __rows[__j][__vecWIDTH-1]; \
+            INTYPE ## VECT_SIZE __newPixel1 = __rows1[__j][__vecWIDTH-1]; \
+            INTYPE ## VECT_SIZE __newPixel2 = __rows2[__j][__vecWIDTH-1]; \
+            INTYPE ## VECT_SIZE __newPixel3 = __rows3[__j][__vecWIDTH-1]; \
+            INTYPE ## VECT_SIZE __newPixel4 = __rows4[__j][__vecWIDTH-1]; \
+            if(__j != 0){\
+                 __rows[__j-1][0] = __newPixel;\
+                __rows1[__j-1][0] = __newPixel1;\
+                __rows2[__j-1][0] = __newPixel2;\
+                __rows3[__j-1][0] = __newPixel3;\
+                __rows4[__j-1][0] = __newPixel4;\
+            }\
+            _Pragma("unroll") \
+            for(uint __i = __vecWIDTH-1; __i > 0; --__i){\
+              __rows[__j][__i]  =  __rows[__j][__i - 1]; \
+              __rows1[__j][__i] = __rows1[__j][__i - 1]; \
+              __rows2[__j][__i] = __rows2[__j][__i - 1]; \
+              __rows3[__j][__i] = __rows3[__j][__i - 1]; \
+              __rows4[__j][__i] = __rows4[__j][__i - 1]; \
+            }\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE,  __wnd_sliding,  __newPixel, __SlidingCoordNewP, __j, __x);\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding1, __newPixel1, __SlidingCoordNewP, __j, __x);\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding2, __newPixel2, __SlidingCoordNewP, __j, __x);\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding3, __newPixel3, __SlidingCoordNewP, __j, __x);\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding4, __newPixel4, __SlidingCoordNewP, __j, __x);\
+        }\
+        INTYPE ## VECT_SIZE __newpixel; \
+        INTYPE ## VECT_SIZE __newpixel1; \
+        INTYPE ## VECT_SIZE __newpixel2; \
+        INTYPE ## VECT_SIZE __newpixel3; \
+        INTYPE ## VECT_SIZE __newpixel4; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+            __rows[__SIZE_Y-2][0] = __newpixel; \
+            readPixelf ## READTYPE1(VECT_SIZE, INTYPE, __newpixel1, SRC1, __count);\
+            __rows1[__SIZE_Y-2][0] = __newpixel1; \
+            readPixelf ## READTYPE2(VECT_SIZE, INTYPE, __newpixel2, SRC2, __count);\
+            __rows2[__SIZE_Y-2][0] = __newpixel2; \
+            readPixelf ## READTYPE3(VECT_SIZE, INTYPE, __newpixel3, SRC3, __count);\
+            __rows3[__SIZE_Y-2][0] = __newpixel3; \
+            readPixelf ## READTYPE4(VECT_SIZE, INTYPE, __newpixel4, SRC4, __count);\
+            __rows4[__SIZE_Y-2][0] = __newpixel4; \
+        }\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE , __wnd_sliding,  __newpixel, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding1, __newpixel1, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding2, __newpixel2, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding3, __newpixel3, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding4, __newpixel4, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        /* Warp pixel row coming from row buffer */ \
+        WARPy_ ## BORDER(VECT_SIZE,  __wnd_sliding, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding1, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding2, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding3, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding4, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        /* Execute Kernel According to Boundary Conditions */ \
+        if (__count >= __vecDELAY) { \
+            OUTTYPE ## VECT_SIZE __outPixel;\
+            _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+                INTYPE  __wnd[__SIZE_Y][__SIZE_X]; \
+                INTYPE __wnd1[__SIZE_Y][__SIZE_X]; \
+                INTYPE __wnd2[__SIZE_Y][__SIZE_X]; \
+                INTYPE __wnd3[__SIZE_Y][__SIZE_X]; \
+                INTYPE __wnd4[__SIZE_Y][__SIZE_X]; \
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE,  __wnd,  __wnd_sliding, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd1, __wnd_sliding1, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd2, __wnd_sliding2, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd3, __wnd_sliding3, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd4, __wnd_sliding4, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(__wnd, __wnd1, __wnd2, __wnd3, __wnd4);\
+            }\
+            write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count-__vecDELAY);\
+           \
+            __x+=VECT_SIZE; \
+            const uint rflagCoord = __halfSIZE_X>VECT_SIZE ? __WIDTH-__Nvec*VECT_SIZE : __WIDTH-VECT_SIZE;\
+            if(__x == rflagCoord){\
+                __rselect=1;\
+                __y_next++;\
+            }else if (__x == __WIDTH) { \
+                __x = 0; \
+                __y = __y_next; \
+                __rselect = 0;\
+                __bVECT_INDX = (__Nvec-1) * VECT_SIZE;\
+            }else if(__x > rflagCoord){\
+                __bVECT_INDX-= VECT_SIZE;\
+            }\
+        } \
+        ++__count; \
+    }
+
+
+#define processPixels3to1(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, SRC, READTYPE, SRC1, READTYPE1, SRC2, READTYPE2, IM_WIDTH, IM_HEIGHT, KERNEL) \
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    \
+    uint __count = 0; \
+    uint __x = 0, __y = 0;\
+    while (__count != __vecSIZE) { \
+        INTYPE ## VECT_SIZE __newpixel; \
+        INTYPE ## VECT_SIZE __newpixel1; \
+        INTYPE ## VECT_SIZE __newpixel2; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+            readPixelf ## READTYPE1(VECT_SIZE, INTYPE, __newpixel1, SRC1, __count);\
+            readPixelf ## READTYPE2(VECT_SIZE, INTYPE, __newpixel2, SRC2, __count);\
+        }\
+        /* Execute Kernel According to Boundary Conditions */ \
+        OUTTYPE ## VECT_SIZE __outPixel;\
+        _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+            ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(((INTYPE*)&__newpixel)[__vi], ((INTYPE*)&__newpixel1)[__vi], ((INTYPE*)&__newpixel2)[__vi]);\
+        }\
+        write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count);\
+       \
+        __x+=VECT_SIZE; \
+        if(__x == __WIDTH-VECT_SIZE){\
+            __x = 0; \
+            __y++;\
+        }\
+        __count++; \
+    }
+
+
+#define process3to1(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, SRC, READTYPE, SRC1, READTYPE1, SRC2, READTYPE2, IM_WIDTH, IM_HEIGHT, KERNEL, KRNL_SIZE_X, KRNL_SIZE_Y, BORDER, ...) \
+    const int __SIZE_X = KRNL_SIZE_X;\
+    const int __SIZE_Y = KRNL_SIZE_Y;\
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const int __halfSIZE_Y = (__SIZE_Y >> 1);\
+    const int __halfSIZE_X = (__SIZE_X >> 1);\
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    const uint __DELAY     = ((__WIDTH*__halfSIZE_Y) + __halfSIZE_X);\
+    \
+    const uint __vecWIDTH = ((__WIDTH-1)/VECT_SIZE)+1; \
+    const uint __vecDELAY = ((__DELAY-1)/VECT_SIZE)+1; \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    const uint __Nvec = ((__halfSIZE_X-1)/VECT_SIZE)+1;\
+    const uint __SlidingSIZE = __halfSIZE_X+(1+__Nvec)*VECT_SIZE+__halfSIZE_X;\
+    const uint __SlidingCoordNewP = __SlidingSIZE-__halfSIZE_X-VECT_SIZE;\
+    \
+    uint __count = 0; \
+    uint __x = 0, __y = 0, __y_next = 0;\
+    bool __rselect=0; \
+    uint __bVECT_INDX = (__Nvec-1)*VECT_SIZE;\
+    /* 0th Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding[__SIZE_Y][__SlidingSIZE]; \
+    /* 1st Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows1[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding1[__SIZE_Y][__SlidingSIZE]; \
+    /* 2nd Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows2[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding2[__SIZE_Y][__SlidingSIZE]; \
+    while (__count != __vecDELAY+__vecSIZE) { \
+        /* Shift Row Buffers and Sliding Window */ \
+        _Pragma("unroll") \
+        for(uint __j=0; __j<__SIZE_Y-1; ++__j){ \
+            INTYPE ## VECT_SIZE __newPixel  =  __rows[__j][__vecWIDTH-1]; \
+            INTYPE ## VECT_SIZE __newPixel1 = __rows1[__j][__vecWIDTH-1]; \
+            INTYPE ## VECT_SIZE __newPixel2 = __rows2[__j][__vecWIDTH-1]; \
+            if(__j != 0){\
+                 __rows[__j-1][0] = __newPixel;\
+                __rows1[__j-1][0] = __newPixel1;\
+                __rows2[__j-1][0] = __newPixel2;\
+            }\
+            _Pragma("unroll") \
+            for(uint __i = __vecWIDTH-1; __i > 0; --__i){\
+              __rows[__j][__i]  =  __rows[__j][__i - 1]; \
+              __rows1[__j][__i] = __rows1[__j][__i - 1]; \
+              __rows2[__j][__i] = __rows2[__j][__i - 1]; \
+            }\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE,  __wnd_sliding,  __newPixel, __SlidingCoordNewP, __j, __x);\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding1, __newPixel1, __SlidingCoordNewP, __j, __x);\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding2, __newPixel2, __SlidingCoordNewP, __j, __x);\
+        }\
+        INTYPE ## VECT_SIZE __newpixel; \
+        INTYPE ## VECT_SIZE __newpixel1; \
+        INTYPE ## VECT_SIZE __newpixel2; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+            __rows[__SIZE_Y-2][0] = __newpixel; \
+            readPixelf ## READTYPE1(VECT_SIZE, INTYPE, __newpixel1, SRC1, __count);\
+            __rows1[__SIZE_Y-2][0] = __newpixel1; \
+            readPixelf ## READTYPE2(VECT_SIZE, INTYPE, __newpixel2, SRC2, __count);\
+            __rows2[__SIZE_Y-2][0] = __newpixel2; \
+        }\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE , __wnd_sliding,  __newpixel, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding1, __newpixel1, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding2, __newpixel2, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        /* Warp pixel row coming from row buffer */ \
+        WARPy_ ## BORDER(VECT_SIZE,  __wnd_sliding, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding1, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding2, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        /* Execute Kernel According to Boundary Conditions */ \
+        if (__count >= __vecDELAY) { \
+            OUTTYPE ## VECT_SIZE __outPixel;\
+            _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+                INTYPE  __wnd[__SIZE_Y][__SIZE_X]; \
+                INTYPE __wnd1[__SIZE_Y][__SIZE_X]; \
+                INTYPE __wnd2[__SIZE_Y][__SIZE_X]; \
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE,  __wnd,  __wnd_sliding, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd1, __wnd_sliding1, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd2, __wnd_sliding2, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(__wnd, __wnd1, __wnd2);\
+            }\
+            write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count-__vecDELAY);\
+           \
+            __x+=VECT_SIZE; \
+            const uint rflagCoord = __halfSIZE_X>VECT_SIZE ? __WIDTH-__Nvec*VECT_SIZE : __WIDTH-VECT_SIZE;\
+            if(__x == rflagCoord){\
+                __rselect=1;\
+                __y_next++;\
+            }else if (__x == __WIDTH) { \
+                __x = 0; \
+                __y = __y_next; \
+                __rselect = 0;\
+                __bVECT_INDX = (__Nvec-1) * VECT_SIZE;\
+            }else if(__x > rflagCoord){\
+                __bVECT_INDX-= VECT_SIZE;\
+            }\
+        } \
+        ++__count; \
+    }
+
+#define processPixels2to1(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, SRC, READTYPE, SRC1, READTYPE1, IM_WIDTH, IM_HEIGHT, KERNEL) \
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    \
+    uint __count = 0; \
+    uint __x = 0, __y = 0;\
+    while (__count != __vecSIZE) { \
+        INTYPE ## VECT_SIZE __newpixel; \
+        INTYPE ## VECT_SIZE __newpixel1; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+            readPixelf ## READTYPE1(VECT_SIZE, INTYPE, __newpixel1, SRC1, __count);\
+        }\
+        /* Execute Kernel According to Boundary Conditions */ \
+        OUTTYPE ## VECT_SIZE __outPixel;\
+        _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+            ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(((INTYPE*)&__newpixel)[__vi], ((INTYPE*)&__newpixel1)[__vi]);\
+        }\
+        write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count);\
+       \
+        __x+=VECT_SIZE; \
+        if(__x == __WIDTH-VECT_SIZE){\
+            __x = 0; \
+            __y++;\
+        }\
+        __count++; \
+    }
+
+
+#define process2to1(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, SRC, READTYPE, SRC1, READTYPE1, IM_WIDTH, IM_HEIGHT, KERNEL, KRNL_SIZE_X, KRNL_SIZE_Y, BORDER, ...) \
+    const int __SIZE_X = KRNL_SIZE_X;\
+    const int __SIZE_Y = KRNL_SIZE_Y;\
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const int __halfSIZE_Y = (__SIZE_Y >> 1);\
+    const int __halfSIZE_X = (__SIZE_X >> 1);\
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    const uint __DELAY     = ((__WIDTH*__halfSIZE_Y) + __halfSIZE_X);\
+    \
+    const uint __vecWIDTH = ((__WIDTH-1)/VECT_SIZE)+1; \
+    const uint __vecDELAY = ((__DELAY-1)/VECT_SIZE)+1; \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    const uint __Nvec = ((__halfSIZE_X-1)/VECT_SIZE)+1;\
+    const uint __SlidingSIZE = __halfSIZE_X+(1+__Nvec)*VECT_SIZE+__halfSIZE_X;\
+    const uint __SlidingCoordNewP = __SlidingSIZE-__halfSIZE_X-VECT_SIZE;\
+    \
+    uint __count = 0; \
+    uint __x = 0, __y = 0, __y_next = 0;\
+    bool __rselect=0; \
+    uint __bVECT_INDX = (__Nvec-1)*VECT_SIZE;\
+    /* 0th Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding[__SIZE_Y][__SlidingSIZE]; \
+    /* 1st Process Row Buffer and Sliding Window */\
+    INTYPE ## VECT_SIZE __rows1[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding1[__SIZE_Y][__SlidingSIZE]; \
+    while (__count != __vecDELAY+__vecSIZE) { \
+        /* Shift Row Buffers and Sliding Window */ \
+        _Pragma("unroll") \
+        for(uint __j=0; __j<__SIZE_Y-1; ++__j){ \
+            INTYPE ## VECT_SIZE __newPixel  =  __rows[__j][__vecWIDTH-1]; \
+            INTYPE ## VECT_SIZE __newPixel1 = __rows1[__j][__vecWIDTH-1]; \
+            if(__j != 0){\
+                 __rows[__j-1][0] = __newPixel;\
+                __rows1[__j-1][0] = __newPixel1;\
+            }\
+            _Pragma("unroll") \
+            for(uint __i = __vecWIDTH-1; __i > 0; --__i){\
+              __rows[__j][__i]  =  __rows[__j][__i - 1]; \
+              __rows1[__j][__i] = __rows1[__j][__i - 1]; \
+            }\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE,  __wnd_sliding,  __newPixel, __SlidingCoordNewP, __j, __x);\
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding1, __newPixel1, __SlidingCoordNewP, __j, __x);\
+        }\
+        INTYPE ## VECT_SIZE __newpixel; \
+        INTYPE ## VECT_SIZE __newpixel1; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+            __rows[__SIZE_Y-2][0] = __newpixel; \
+            readPixelf ## READTYPE1(VECT_SIZE, INTYPE, __newpixel1, SRC1, __count);\
+            __rows1[__SIZE_Y-2][0] = __newpixel1; \
+        }\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE , __wnd_sliding,  __newpixel, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding1, __newpixel1, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        /* Warp pixel row coming from row buffer */ \
+        WARPy_ ## BORDER(VECT_SIZE,  __wnd_sliding, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding1, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        /* Execute Kernel According to Boundary Conditions */ \
+        if (__count >= __vecDELAY) { \
+            OUTTYPE ## VECT_SIZE __outPixel;\
+            _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+                INTYPE  __wnd[__SIZE_Y][__SIZE_X]; \
+                INTYPE __wnd1[__SIZE_Y][__SIZE_X]; \
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE,  __wnd,  __wnd_sliding, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd1, __wnd_sliding1, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(__wnd, __wnd1);\
+            }\
+            write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count-__vecDELAY);\
+           \
+            __x+=VECT_SIZE; \
+            const uint rflagCoord = __halfSIZE_X>VECT_SIZE ? __WIDTH-__Nvec*VECT_SIZE : __WIDTH-VECT_SIZE;\
+            if(__x == rflagCoord){\
+                __rselect=1;\
+                __y_next++;\
+            }else if (__x == __WIDTH) { \
+                __x = 0; \
+                __y = __y_next; \
+                __rselect = 0;\
+                __bVECT_INDX = (__Nvec-1) * VECT_SIZE;\
+            }else if(__x > rflagCoord){\
+                __bVECT_INDX-= VECT_SIZE;\
+            }\
+        } \
+        ++__count; \
+    }
+
+/* ******************Multiple Outputs********************************* */
+
+#define processPixels2to2(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, DST1, WRTTYPE1, SRC, READTYPE, SRC1, READTYPE1, IM_WIDTH, IM_HEIGHT, KERNEL) \
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    \
+    uint __count = 0; \
+    uint __x = 0, __y = 0;\
+    while (__count != __vecSIZE) { \
+        INTYPE ## VECT_SIZE __newpixel; \
+        INTYPE ## VECT_SIZE __newpixel1; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+            readPixelf ## READTYPE1(VECT_SIZE, INTYPE, __newpixel1, SRC1, __count);\
+        }\
+        /* Execute Kernel According to Boundary Conditions */ \
+        OUTTYPE ## VECT_SIZE __outPixel;\
+        _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+            ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(((INTYPE*)&__newpixel)[__vi], ((INTYPE*)&__newpixel1)[__vi]);\
+        }\
+        write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count);\
+        write2 ## WRTTYPE1(VECT_SIZE, OUTTYPE, DST1, __outPixel, __count);\
+       \
+        __x+=VECT_SIZE; \
+        if(__x == __WIDTH-VECT_SIZE){\
+            __x = 0; \
+            __y++;\
+        }\
+        __count++; \
+    }
+
+
+#define processPixels1to2(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, DST1, WRTTYPE1, SRC, READTYPE, IM_WIDTH, IM_HEIGHT, KERNEL) \
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    \
+    uint __count = 0; \
+    uint __x = 0, __y = 0;\
+    while (__count != __vecSIZE) { \
+        INTYPE ## VECT_SIZE __newpixel; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+        }\
+        /* Execute Kernel According to Boundary Conditions */ \
+        OUTTYPE ## VECT_SIZE __outPixel;\
+        _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+            ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(((INTYPE*)&__newpixel)[__vi]);\
+        }\
+        write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count);\
+        write2 ## WRTTYPE1(VECT_SIZE, OUTTYPE, DST1, __outPixel, __count);\
+       \
+        __x+=VECT_SIZE; \
+        if(__x == __WIDTH-VECT_SIZE){\
+            __x = 0; \
+            __y++;\
+        }\
+        __count++; \
+    }
+
+#define process1to2(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, DST1, WRTTYPE1, SRC, READTYPE, IM_WIDTH, IM_HEIGHT, KERNEL, KRNL_SIZE_X, KRNL_SIZE_Y, BORDER, ...) \
+    const int __SIZE_X = KRNL_SIZE_X;\
+    const int __SIZE_Y = KRNL_SIZE_Y;\
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const int __halfSIZE_Y = (__SIZE_Y >> 1);\
+    const int __halfSIZE_X = (__SIZE_X >> 1);\
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    const uint __DELAY     = ((__WIDTH*__halfSIZE_Y) + __halfSIZE_X);\
+    \
+    const uint __vecWIDTH = ((__WIDTH-1)/VECT_SIZE)+1; \
+    const uint __vecDELAY = ((__DELAY-1)/VECT_SIZE)+1; \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    const uint __Nvec = ((__halfSIZE_X-1)/VECT_SIZE)+1;\
+    const uint __SlidingSIZE = __halfSIZE_X+(1+__Nvec)*VECT_SIZE+__halfSIZE_X;\
+    const uint __SlidingCoordNewP = __SlidingSIZE-__halfSIZE_X-VECT_SIZE;\
+    \
+    INTYPE ## VECT_SIZE __rows[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding[__SIZE_Y][__SlidingSIZE]; \
+    uint __count = 0; \
+    uint __x = 0, __y = 0, __y_next = 0;\
+    bool __rselect=0; \
+    uint __bVECT_INDX = (__Nvec-1)*VECT_SIZE;\
+    while (__count != __vecDELAY+__vecSIZE) { \
+        /* Shift Row Buffers and Sliding Window */ \
+        _Pragma("unroll") \
+        for(uint __j=0; __j<__SIZE_Y-1; ++__j){ \
+            INTYPE ## VECT_SIZE __newPixel = __rows[__j][__vecWIDTH-1]; \
+            if(__j != 0) __rows[__j-1][0] = __newPixel;\
+            _Pragma("unroll") \
+            for(uint __i = __vecWIDTH-1; __i > 0; --__i) __rows[__j][__i] = __rows[__j][__i - 1]; \
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding, __newPixel, __SlidingCoordNewP, __j, __x);\
+        }\
+        INTYPE ## VECT_SIZE __newpixel; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+            __rows[__SIZE_Y-2][0] = __newpixel; \
+        }\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding, __newpixel, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        /* Warp pixel row coming from row buffer */ \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        /* Execute Kernel According to Boundary Conditions */ \
+        if (__count >= __vecDELAY) { \
+            OUTTYPE ## VECT_SIZE __outPixel;\
+            _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+                INTYPE __wnd[__SIZE_Y][__SIZE_X]; \
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd, __wnd_sliding, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(__wnd);\
+            }\
+            write2 ## WRTTYPE(VECT_SIZE, OUTTYPE,  DST, __outPixel, __count-__vecDELAY);\
+            write2 ## WRTTYPE1(VECT_SIZE, OUTTYPE, DST1, __outPixel, __count-__vecDELAY);\
+           \
+            __x+=VECT_SIZE; \
+            const uint rflagCoord = __halfSIZE_X>VECT_SIZE ? __WIDTH-__Nvec*VECT_SIZE : __WIDTH-VECT_SIZE;\
+            if(__x == rflagCoord){\
+                __rselect=1;\
+                __y_next++;\
+            }else if (__x == __WIDTH) { \
+                __x = 0; \
+                __y = __y_next; \
+                __rselect = 0;\
+                __bVECT_INDX = (__Nvec-1) * VECT_SIZE;\
+            }else if(__x > rflagCoord){\
+                __bVECT_INDX-= VECT_SIZE;\
+            }\
+        } \
+        ++__count; \
+    }
+
+
+#define process1to3(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, DST1, WRTTYPE1, DST2, WRTTYPE2, SRC, READTYPE, IM_WIDTH, IM_HEIGHT, KERNEL, KRNL_SIZE_X, KRNL_SIZE_Y, BORDER, ...) \
+    const int __SIZE_X = KRNL_SIZE_X;\
+    const int __SIZE_Y = KRNL_SIZE_Y;\
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const int __halfSIZE_Y = (__SIZE_Y >> 1);\
+    const int __halfSIZE_X = (__SIZE_X >> 1);\
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    const uint __DELAY     = ((__WIDTH*__halfSIZE_Y) + __halfSIZE_X);\
+    \
+    const uint __vecWIDTH = ((__WIDTH-1)/VECT_SIZE)+1; \
+    const uint __vecDELAY = ((__DELAY-1)/VECT_SIZE)+1; \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    const uint __Nvec = ((__halfSIZE_X-1)/VECT_SIZE)+1;\
+    const uint __SlidingSIZE = __halfSIZE_X+(1+__Nvec)*VECT_SIZE+__halfSIZE_X;\
+    const uint __SlidingCoordNewP = __SlidingSIZE-__halfSIZE_X-VECT_SIZE;\
+    \
+    INTYPE ## VECT_SIZE __rows[__SIZE_Y-1][__vecWIDTH];\
+    INTYPE __wnd_sliding[__SIZE_Y][__SlidingSIZE]; \
+    uint __count = 0; \
+    uint __x = 0, __y = 0, __y_next = 0;\
+    bool __rselect=0; \
+    uint __bVECT_INDX = (__Nvec-1)*VECT_SIZE;\
+    while (__count != __vecDELAY+__vecSIZE) { \
+        /* Shift Row Buffers and Sliding Window */ \
+        _Pragma("unroll") \
+        for(uint __j=0; __j<__SIZE_Y-1; ++__j){ \
+            INTYPE ## VECT_SIZE __newPixel = __rows[__j][__vecWIDTH-1]; \
+            if(__j != 0) __rows[__j-1][0] = __newPixel;\
+            _Pragma("unroll") \
+            for(uint __i = __vecWIDTH-1; __i > 0; --__i) __rows[__j][__i] = __rows[__j][__i - 1]; \
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding, __newPixel, __SlidingCoordNewP, __j, __x);\
+        }\
+        INTYPE ## VECT_SIZE __newpixel; \
+        if (__count < __vecSIZE) { \
+            readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+            __rows[__SIZE_Y-2][0] = __newpixel; \
+        }\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding, __newpixel, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        /* Warp pixel row coming from row buffer */ \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        /* Execute Kernel According to Boundary Conditions */ \
+        if (__count >= __vecDELAY) { \
+            OUTTYPE ## VECT_SIZE __outPixel;\
+            _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+                INTYPE __wnd[__SIZE_Y][__SIZE_X]; \
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd, __wnd_sliding, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(__wnd);\
+            }\
+            write2 ## WRTTYPE(VECT_SIZE, OUTTYPE,  DST, __outPixel, __count-__vecDELAY);\
+            write2 ## WRTTYPE1(VECT_SIZE, OUTTYPE, DST1, __outPixel, __count-__vecDELAY);\
+            write2 ## WRTTYPE2(VECT_SIZE, OUTTYPE, DST2, __outPixel, __count-__vecDELAY);\
+           \
+            __x+=VECT_SIZE; \
+            const uint rflagCoord = __halfSIZE_X>VECT_SIZE ? __WIDTH-__Nvec*VECT_SIZE : __WIDTH-VECT_SIZE;\
+            if(__x == rflagCoord){\
+                __rselect=1;\
+                __y_next++;\
+            }else if (__x == __WIDTH) { \
+                __x = 0; \
+                __y = __y_next; \
+                __rselect = 0;\
+                __bVECT_INDX = (__Nvec-1) * VECT_SIZE;\
+            }else if(__x > rflagCoord){\
+                __bVECT_INDX-= VECT_SIZE;\
+            }\
+        } \
+        ++__count; \
+    }
+
+
+/* **********VECTORIZED PIPELINE FUNCTION with SMALL ROW BUFFER************** */
+
+#define processB(VECT_SIZE, OUTTYPE, INTYPE, DST, WRTTYPE, SRC, READTYPE, IM_WIDTH, IM_HEIGHT, KERNEL, KRNL_SIZE_X, KRNL_SIZE_Y, BORDER, ...) \
+    const int __SIZE_X = FILT_SIZE_X;\
+    const int __SIZE_Y = FILT_SIZE_Y;\
+    const int __WIDTH  = IM_WIDTH;\
+    const int __HEIGHT = IM_HEIGHT;\
+    \
+    const int __halfSIZE_Y = (__SIZE_Y >> 1);\
+    const int __halfSIZE_X = (__SIZE_X >> 1);\
+    const uint __SIZE      = (__WIDTH * __HEIGHT);\
+    const uint __DELAY     = ((__WIDTH*__halfSIZE_Y) + __halfSIZE_X);\
+    \
+    const uint __vecDELAY = ((__DELAY-1)/VECT_SIZE)+1; \
+    const uint __vecSIZE  = ((__SIZE-1)/VECT_SIZE)+1; \
+    const uint __Nvec = ((__halfSIZE_X-1)/VECT_SIZE)+1;\
+    const uint __vecWIDTHpadded = ((__WIDTH-1)/VECT_SIZE)+1; \
+    const uint __vecWIDTH = __vecWIDTHpadded-(1+__Nvec); \
+    const uint __SlidingSIZE = __halfSIZE_X+(1+__Nvec)*VECT_SIZE+__halfSIZE_X;\
+    const uint __SlidingCoordNewP = __SlidingSIZE-__halfSIZE_X-VECT_SIZE;\
+    \
+    INTYPE ## VECT_SIZE __rows[__SIZE_Y-1][__vecWIDTHpadded];\
+    INTYPE __wnd_sliding[__SIZE_Y][__SlidingSIZE]; \
+    uint __count = 0; \
+    uint __x = 0, __y = 0, __y_next = 0;\
+    bool __rselect=0; \
+    uint __bVECT_INDX = (__Nvec-1)*VECT_SIZE;\
+    while (__count != __vecDELAY+__vecSIZE) { \
+        /* Shift Row Buffers and Sliding Window */ \
+        _Pragma("unroll") \
+        for(uint __j=0; __j<__SIZE_Y-1; ++__j){ \
+            SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE, __wnd_sliding, __rows[__j][__vecWIDTH-1], __SlidingCoordNewP, __j, __x);\
+            _Pragma("unroll") \
+            for(uint __i = __vecWIDTH-1; __i > 0; --__i) __rows[__j][__i] = __rows[__j][__i - 1]; \
+            _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++)\
+                ((OUTTYPE*)&__rows[__j][0])[__vi] = ((INTYPE*)&__wnd_sliding[__j+1][__halfSIZE_X])[__vi];\
+        }\
+        INTYPE ## VECT_SIZE __newpixel; \
+        if (__count < __vecSIZE)  readPixelf ## READTYPE(VECT_SIZE, INTYPE, __newpixel, SRC, __count);\
+        SLIDEWx_ ## BORDER(VECT_SIZE, INTYPE ,__wnd_sliding, __newpixel, __SlidingCoordNewP, __SIZE_Y-1, __x);\
+        /* Warp pixel row coming from row buffer */ \
+        WARPy_ ## BORDER(VECT_SIZE, __wnd_sliding, __rselect, __SlidingCoordNewP, __y_next, __x); \
+        /* Execute Kernel According to Boundary Conditions */ \
+        if (__count >= __vecDELAY) { \
+            OUTTYPE ## VECT_SIZE __outPixel;\
+            _Pragma("unroll") for(int __vi=0; __vi<VECT_SIZE; __vi++){\
+                INTYPE __wnd[__SIZE_Y][__SIZE_X]; \
+                SELECT_OUT_ ## BORDER(__bVECT_INDX, __vi, VECT_SIZE, __wnd, __wnd_sliding, __rselect, __SlidingSIZE, __y, __x, ##__VA_ARGS__);\
+                ((OUTTYPE*)&__outPixel)[__vi] = KERNEL(__wnd);\
+            }\
+            write2 ## WRTTYPE(VECT_SIZE, OUTTYPE, DST, __outPixel, __count-__vecDELAY);\
+           \
+            __x+=VECT_SIZE; \
+            const uint rflagCoord = __halfSIZE_X>VECT_SIZE ? __WIDTH-__Nvec*VECT_SIZE : __WIDTH-VECT_SIZE;\
+            if(__x == rflagCoord){\
+                __rselect=1;\
+                __y_next++;\
+            }else if (__x == __WIDTH) { \
+                __x = 0; \
+                __y = __y_next; \
+                __rselect = 0;\
+                __bVECT_INDX = (__Nvec-1) * VECT_SIZE;\
+            }else if(__x > rflagCoord){\
+                __bVECT_INDX-= VECT_SIZE;\
+            }\
+        } \
+        ++__count; \
+    }
+
+
+
+
+//if( (__x<=2 && __x>=248) && __y<1 ){ \
+//   printf("wnd_SLD = {__y = %u __x = %u}\n",__y, __x);\
+//   for (uint __j = 0; __j < __SIZE_Y; ++__j) { \
+//       for (uint __i = 0; __i < __SlidingSIZE; ++__i) { \
+//           printf("wndS[%u][%u]=%d\t",__j,__i, __wnd_sliding[__j][__i]);\
+//       } \
+//       printf("\n");\
+//   } \
+//}\
+//
+//
+//
+//
+//
+//if( (__x<=2 && __x>=252) && __y<1 ){ \
+//   printf("__vi = %u\n", __vi);\
+//   printf("__bVECT_INDX = %u\n",__bVECT_INDX);\
+//   printf("wnd_OUT = {__y = %u __x = %u}\n",__y, __x+__vi);\
+//   for (uint __j = 0; __j < __SIZE_Y; ++__j) { \
+//       for (uint __i = 0; __i < __SIZE_X; ++__i) { \
+//           printf("wndO[%u][%u]=%d\t",__j,__i, __wnd[__j][__i]);\
+//       } \
+//       printf("\n");\
+//   } \
+//}\

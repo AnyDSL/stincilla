@@ -434,7 +434,7 @@ fn iteration_v3(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boun
     copy_img(out_gpu, out);
 }
 
-// v3 -> v3_1 : change accessor
+// v3 -> v3_1 : change write accessor
 fn iteration_v3_1(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
@@ -500,75 +500,6 @@ fn iteration_v3_1(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bo
     acc.sync();
     copy_img(out_gpu, out);
 }
-
-// v3_1 -> v3_2 :
-fn iteration_v3_2(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    let arr_gpu = alloc_img(arr, acc.alloc);
-    let out_gpu = alloc_img(out, acc.alloc);
-
-    copy_img(arr, arr_gpu);
-    with acc.exec((1,1,1), (1,1,1)) @{
-        let half_range_y    = mask.size_y / 2;
-        let half_range_x    = mask.size_x / 2;
-        let process_time    = arr.width * arr.height;
-        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
-        let life_time       = initial_delay + process_time;
-        let lbuf_stride = arr_gpu.stride;
-        let lbuf_height = mask.size_y - 1;
-        let lbuf_size   = lbuf_stride * lbuf_height;
-
-        let lbuf        = reserve_shared[f32](lbuf_size);
-        let swin = @new_swin2D((0, 0), (mask.size_x, mask.size_y));
-
-        let arr_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
-        let temp_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-        let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), lbuf_stride, lbuf_height);
-        let swin_acc = get_acc_sw(swin);
-
-        let mut col_ridx = 0; let mut row_ridx = 0;
-        let mut col_widx = 0; let mut row_widx = 0;
-        for clock_tick in $range(0, life_time + 1){
-            let out_acc = Acc {
-                read: |x, y|      {temp_acc.read(x, y)},
-                write: |x, y, v|  if clock_tick > initial_delay + 1 {
-                                    temp_acc.write(col_widx, row_widx, v);
-                                    col_widx++;
-                                    if col_widx == arr.width {
-                                        col_widx = 0; row_widx++;}
-                                  }
-            };
-
-            // write output
-            @body(math, half_range_x, half_range_y, out_acc, swin_acc, mask);
-            //if clock_tick > initial_delay + 1 {
-            //    col_widx++;
-            //    if col_widx == arr.width {col_widx = 0; row_widx++;}
-            //}
-
-            // read new pixel
-            let pix_new = arr_acc.read(col_ridx, row_ridx);
-
-            // shift sliding window
-            @shift_swin(lbuf_acc, swin);
-            @swin.write(mask.size_x - 1, mask.size_y - 1, pix_new);
-
-            // shift lbuf
-            for i in $range(0, lbuf_size - 1){
-                lbuf(i) = lbuf(i + 1);
-            }
-            lbuf(lbuf_size - 1) = pix_new;
-
-            col_ridx++;
-            if col_ridx == arr.width {col_ridx = 0; row_ridx++;}
-            if row_ridx == arr.height{row_ridx = 0;}
-        }
-    }
-    acc.sync();
-    copy_img(out_gpu, out);
-}
-
-
 
 
 // v3 -> v4 : remove sliding window use shared memory
@@ -886,7 +817,7 @@ fn iteration_v5_3(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bo
     copy_img(out_gpu, out);
 }
 
-// v5_3 -> v5_4 : execution conditions are moved from accessor to loop
+// v5_3 -> v5_4 : write condition is moved from accessor to the execution of the body
 fn iteration_v5_4(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
@@ -1615,7 +1546,7 @@ fn iteration_v8_2(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bo
     copy_img(out_gpu, out);
 }
 
-//v8_2 -> v8_3 :
+//v8_2 -> v8_3 : pix_new_next
 fn iteration_v8_3(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);

@@ -1,0 +1,60 @@
+TEST                         II ALUTs   Regs     Logic  RAM  DSP   Freq
+simple/comp_bin_17        	 1  39954   75071    35994  411  25     97.21  simple        : only shared memory
+simple_v1/comp_bin_17     	 1  39954   75006    36042  411  25     97.08  simple_v1     : datapath is moved to kernel
+CreateKern/comp_bin_17    	 1  52594   78546    37705  436  25    108.89  CreateKern 
+CreateKern_lmem/comp_bin_17  1  51631   78225    37339  435  25    100.66  CreateKen_lmem: local attribute to lbuf
+hipacc/comp_bin_17        	 1  58526   106672   51770  596  25     91.96  hipacc
+hipacc_lmem/comp_bin_17   	 1  59235   106703   51962  596  25     92.25  hipacc_lmem   : local attribute to lbuf
+
+v0/comp_bin_17            	 1  52510   78883    37758  437  25    110.83    v0         : image -> lbuf -> sw -> output
+v1/comp_bin_17            	 1  52725   78586    37709  435  25    105.81    v0 -> v1   : write indexes
+v1_1/comp_bin_17          	 1  52726   78425    37705  435  25    104.54    v1 -> v1_1 : write condition is moved to accessor 
+
+v2/comp_bin_17            	 1  43760   77474    39878  505  25    101.61    v1 -> v2   : write before read
+v3/comp_bin_17            	 1  52780   77078    37254  504  25    102.27    v2 -> v3   : always write (before read) 
+v3_1/comp_bin_17          	 1  43727   77239    39296  505  25    103.95    v3 -> v3_1 : change write accessor (write after initial delay, before read) 
+
+v4/comp_bin_17            	 1  51672   79153    37259  436  25    101.52    v3 -> v4     : remove sliding window use shared memory
+v5/comp_bin_17            	 1  40533   74882    37189  411  25     97.40    v4 -> v5     : write after shift (no sliding window)
+v5_1/comp_bin_17          	 1  40701   75536    37172  412  25     88.83    v5 -> v5_1   : write condition moved to accessor (as in v1_1) 
+v5_2/comp_bin_17          	 1  50405   76560    35787  377  25    107.07    v5_1 -> v5_2 : accessor for read as well
+v5_3/comp_bin_17          	 1  50419   76724    35769  377  25    106.48    v5_2 -> v5_3 : accessor read condition is moved from read
+v5_4/comp_bin_17          	 1  50396   76653    35603  377  25    101.45    v5_3 -> v5_4 : write condition is moved from accessor to the execution of the body
+v5_5/comp_bin_17          	 1  40405   75719    36758  415  25     90.23    v5_4 -> v5_5 : select for new pixel read
+v5_6/comp_bin_17          	 1  51151   76107    35911  415  25    103.74    v5_5 -> v5_6 : new pixel read in a pipelined manner (similar to v8_3)
+
+v7/comp_bin_17            	 1  46129   84545    42729  427  29     97.77    v7           = v5_2 + v1_1 : lb -> sw ->out
+v7_1/comp_bin_17          	 1  45626   84859    42482  491  25    101.72    v7 -> v7_1   : swin reads only from line buffer
+v7_2/comp_bin_17          	 1  45749   84918    42636  491  25    100.0     v7_1 -> v7_2 : line buffer = 5 image rows
+
+v8/comp_bin_17            	 1  52658   78548    37594  438  25    111.11    v8           = v5_5 + swin (simialar ro v7 but with select)
+v8_1/comp_bin_17          	 1  51649   78115    37276  488  25    106.25    v8 -> v8_1   : swin reads from lbuf (similar to v7_1)
+v8_2/comp_bin_17          	 1  53185   80355    38233  488  25    106.93    v8_1 -> v8_2 : line buffer = 5 image rows (similar to v7_2)
+v8_3/comp_bin_17          	 1  53987   80881    38765  491  25    104.68    v8_2 -> v8_3 : pix_new_next
+
+
+Use 
+  accessor for read (v5_1 -> v5_2)
+  
+  ? pix_next          (v5_5 -> v5_6)
+  ? write after shift (v4 -> v5, no swin)
+
+Don't Use
+  swin reads only from line b
+  line buffer = 5 image rows
+  select        (v5_4 -> v5_5)
+  
+  ? pix_next    (v8_2 -> v8_3)
+
+
+
+Best Results:
+    no swin -> v5_4
+       swin -> v8
+
+          TEST     II ALUTs   Regs    Logic  RAM  DSP   Freq
+ no_swin  simple   1  39954   75071   35994  411  25    97.21
+            v5     1  40533   74882   37189  411  25    97.40
+            v5_4   1  50396   76653   35603  377  25    101.45
+swin  CreateKern   1  52594   78546   37705  436  25    108.89
+              v8   1  52658   78548   37594  438  25    111.11
