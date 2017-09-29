@@ -68,13 +68,13 @@ fn read_pixeli16(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) ->
                 Boundary::Lower  => bh_lower(roi.o_x + x, lower_x, upper_x),
                 Boundary::Center => BoundaryModei16::Index(roi.o_x + x),
                 Boundary::Upper  => bh_upper(roi.o_x + x, lower_x, upper_x),
-                _                => map_boundary_mode(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
+                _                => map_boundary_modei16(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
             };
             let mode_y = match col {
                 Boundary::Lower  => bh_lower(roi.o_y + y, lower_y, upper_y),
                 Boundary::Center => BoundaryModei16::Index(roi.o_y + y),
                 Boundary::Upper  => bh_upper(roi.o_y + y, lower_y, upper_y),
-                _                => map_boundary_mode(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
+                _                => map_boundary_modei16(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
             };
             (mode_x, mode_y)
         }
@@ -87,18 +87,18 @@ fn read_pixeli16(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) ->
         _ => undef()
     }
 }
-fn nobh_center_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 { idx }
-fn clamp_lower_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx < lower { lower } else { idx }
+fn nobh_center_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 { BoundaryModei16::Index(idx) }
+fn clamp_lower_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx < lower { lower } else { idx })
 }
-fn clamp_upper_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx >= upper { upper - 1 } else { idx }
+fn clamp_upper_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx >= upper { upper - 1 } else { idx })
 }
-fn mirror_lower_i16(idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx < lower { lower + (lower - idx-1) } else { idx }
+fn mirror_lower_i16(idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx < lower { lower + (lower - idx-1) } else { idx })
 }
-fn mirror_upper_i16(idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx >= upper { upper - (idx+1 - upper) } else { idx }
+fn mirror_upper_i16(idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx >= upper { upper - (idx+1 - upper) } else { idx })
 }
 
 // conditional swap using pointers
