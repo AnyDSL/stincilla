@@ -45,7 +45,7 @@ fn iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Ac
     let grid   = (out.width, out.height / unroll, 1);
     let block  = (128, 1, 1);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -71,7 +71,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
     let (block, _) = compute_config((mask.size_x / 2, mask.size_y / 2), unroll);
     let grid       = (out.width, out.height / unroll, 1);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -105,7 +105,7 @@ fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: 
     if big_kernel {
         let grid = (out.width, out.height / unroll, 1);
 
-        for benchmark_acc() {
+        for benchmark_acc(acc) {
             with acc.exec(grid, block) @{
                 let bid_x   = acc.bidx();
                 let bid_y   = acc.bidy();
@@ -174,7 +174,7 @@ fn iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: 
             let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
-            for benchmark_acc() {
+            for benchmark_acc(acc) {
                 with acc.exec(grid, block) @{
                     let gid_x = bounds_row(0)          + acc.tidx() + acc.bdimx() * acc.bidx();
                     let gid_y = bounds_col(0) * unroll + acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -209,7 +209,7 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
     let offset_y  = if (mask.size_y-1) % block(1) == 0 { 0 } else { 1 };
     let steps_y   = unroll + (mask.size_y-1) / block(1) + offset_y;
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let tid_x  = acc.tidx();
             let tid_y  = acc.tidy();
@@ -265,7 +265,7 @@ fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_c
     let (block_row, _) = compute_config((mask_row.size / 2, 1), unroll);
     let (block_col, _) = compute_config((1, mask_col.size / 2), unroll);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block_col) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -279,7 +279,7 @@ fn iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_c
             }
         }
     }
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block_row) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -322,7 +322,8 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
         let grid = (out.width, out.height / unroll, 1);
 
         // column component
-        for benchmark_acc() {
+        for benchmark_acc(acc) {
+            let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
             with acc.exec(grid, block_col) @{
                 let bid_y   = acc.bidy();
                 let bdim_y  = acc.bdimy();
@@ -330,7 +331,6 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
                 let gid_x   = acc.gidx();
                 let gid_y   = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
                 let is_row  = false;
-                let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
 
                 if bid_y < by @{                                // top
                     let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Center, Boundary::Lower), bh_lower, bh_upper);
@@ -352,7 +352,7 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
         }
 
         // row component
-        for benchmark_acc() {
+        for benchmark_acc(acc) {
             with acc.exec(grid, block_row) @{
                 let bid_x   = acc.bidx();
                 let bdim_y  = acc.bdimy();
@@ -389,7 +389,7 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
             let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
             let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
 
-            for benchmark_acc() {
+            for benchmark_acc(acc) {
                 with acc.exec(grid, block_col) @{
                     let gid_x = acc.gidx();
                     let gid_y = bounds(0) * unroll + acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -410,7 +410,7 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
             let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), region, bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
-            for benchmark_acc() {
+            for benchmark_acc(acc) {
                 with acc.exec(grid, block_row) @{
                     let gid_x = bounds(0) + acc.gidx();
                     let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -447,7 +447,7 @@ fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSe
     let steps_x   = 2;
     let steps_y   = unroll + (mask_col.size-1) / block(1) + offset_y;
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let tid_x  = acc.tidx();
             let tid_y  = acc.tidy();

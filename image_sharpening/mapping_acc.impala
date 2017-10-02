@@ -26,7 +26,7 @@ fn iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bound
     let arr_gpu = alloc_imgi16(arr, acc.alloc);
     copy_imgi16(arr, arr_gpu);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -55,7 +55,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
     let arr_gpu = alloc_imgi16(arr, acc.alloc);
     copy_imgi16(arr, arr_gpu);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -86,7 +86,7 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh
     copy_imgi16(img, img_gpu);
     copy_img   (map, map_gpu);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -119,7 +119,7 @@ fn iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     copy_imgi16(img, img_gpu);
     copy_imgi16(tmp, tmp_gpu);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid_x = acc.gidx();
             let gid_y = acc.tidy() + acc.bdimy() * acc.bidy() * unroll;
@@ -151,7 +151,7 @@ fn reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
 
     let grid  = (img_gpu.width, 1, 1);
     let block = (128, 1, 1);
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let tid = acc.tidx();
             let sm_sum = reserve_shared[i32](128);
@@ -194,7 +194,7 @@ fn histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
 
     let grid  = (img.width, 1, 1);
     let block = (256, 1, 1);
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec((256, 1, 1), (64, 1, 1)) @{
             hist(acc.gidx()) = 0;
         }
@@ -226,7 +226,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     let grid  = (size / 2, 1, 1);
     let block = (block_size, 1, 1);
 
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             let gid = acc.gidx();
             let tid = acc.tidx();
@@ -279,7 +279,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
         // perform scan on block scan results
         let grid1  = (num_blocks, 1, 1);
         let block1 = (num_blocks, 1, 1);
-        for benchmark_acc() {
+        for benchmark_acc(acc) {
             with acc.exec(grid1, block1) @{
                 let tid = acc.tidx();
                 let sm_size = num_blocks;
@@ -308,7 +308,7 @@ fn inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
         // add block scan results to array
         let grid2  = ((num_blocks-1) * block_size, 1, 1);
         let block2 = (block_size, 1, 1);
-        for benchmark_acc() {
+        for benchmark_acc(acc) {
             with acc.exec(grid2, block2) @{
                 let tid = acc.tidx();
                 let gid = acc.gidx() + block_size; // first block holds already the correct scan results
@@ -339,7 +339,7 @@ fn find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
 
     let grid  = (size, 1, 1);
     let block = (256, 1, 1);
-    for benchmark_acc() {
+    for benchmark_acc(acc) {
         with acc.exec(grid, block) @{
             if body(scan(acc.gidx())) != 0 @{
                 atomic_min_global(&mut pos(0), acc.gidx());
