@@ -22,8 +22,8 @@ fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
 
 
 fn main() -> i32 {
-    let width  = 256; //1024;
-    let height = 256; //1024;
+    let width  = 1024;
+    let height = 1024;
     let arr    = @create_img(width, height, alloc_cpu);
     let out    = @create_img(width, height, alloc_cpu);
     init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
