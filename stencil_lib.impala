@@ -144,7 +144,7 @@ fn wrap_const_fun(fun: fn(i32, i32, i32, f32) -> BoundaryMode, cval: f32) -> Bou
 fn map_boundary_mode(mode: BoundaryMode, bh_fun: fn(i32) -> BoundaryMode) -> BoundaryMode {
     match mode {
         BoundaryMode::Index(idx) => bh_fun(idx),
-        _ /* BoundaryMode::Const(val) */ => mode
+        BoundaryMode::Const(val) => mode
     }
 }
 
