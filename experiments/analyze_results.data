@@ -32,6 +32,11 @@ v8_1/comp_bin_17          	 1  51649   78115    37276  488  25    106.25    v8 -
 v8_2/comp_bin_17          	 1  53185   80355    38233  488  25    106.93    v8_1 -> v8_2 : line buffer = 5 image rows (similar to v7_2)
 v8_3/comp_bin_17          	 1  53987   80881    38765  491  25    104.68    v8_2 -> v8_3 : pix_new_next
 
+v9/comp_bin_17               1  40718   72636    37157  368  25     87.74    v9 -> Vivado style raw buffers
+v9_1/comp_bin_17             1  40556   72850    37696  367  25     94.32    v9 -> v9_1 : read indexes are moved to loop
+v9_2/comp_bin_17             1  40999   72631    37529  367  25     96.92    v9_1 -> v9_2 : col counter is masked 
+
+
 
 Use 
   accessor for read (v5_1 -> v5_2)
@@ -58,3 +63,16 @@ Best Results:
             v5_4   1  50396   76653   35603  377  25    101.45
 swin  CreateKern   1  52594   78546   37705  436  25    108.89
               v8   1  52658   78548   37594  438  25    111.11
+            v9_2   1  40999   72631   37529  367  25     96.92
+
+---------------------------FINAL CANDIDATES-----------------------------
+With restrict keyword:
+                 TEST       II ALUTs   Regs    Logic  RAM  DSP   Freq
+*** handwritten ***
+CreateKern_simple       	 1  41831   77919   40084  429  25    92.18 (altera style 1 row buffer)
+CreateKern_simple_v1    	 1  41028   83250   41299  396  25    93.29 (altera style  5 row buffers)
+CreateKern_vivado_v1    	 1  38995   71440   36879  349  25    83.67 (vivado style  5 row buffers)
+*** anydsl ***
+no_swin v5_4                 1  40912   76368   36335  385  25    96.18 (no swin)
+   swin v8                   1  52658   78548   37594  438  25   111.11 (altera style 1 row buffer)
+   swin v9_2                 1  40999   72631   37529  367  25    96.92 (vivado style  5 row buffers)
