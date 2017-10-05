@@ -9,23 +9,25 @@ fn get_pixel_ldg_fn(img: Img) -> fn(i32) -> f32 { if has_ldg() { |idx| get_ldg_f
 fn set_pixel_shared_fn(data: &mut[3][f32]) -> fn(i32, f32) -> () { |idx, val| data(idx) = val }
 fn get_pixel_shared_fn(data: &[3][f32]) -> fn(i32) -> f32 { |idx| data(idx) }
 
-struct Swin1D {
+
+//  -------------- Array of Registers --------------------
+struct RegArry1D {
     write: fn (int, f32) -> (),
     read: fn (int) -> f32,
     begin: int,
     end: int
 }
 
-struct Swin2D {
+struct RegArry2D {
     write: fn (int, int, f32) -> (),
     read: fn (int, int) -> f32,
     begin: (int, int),
     end: (int, int)
 }
 
-fn new_swin1D(begin: int, end: int) -> Swin1D {
+fn new_RegArry1D(begin: int, end: int) -> RegArry1D {
     if end == begin {
-        Swin1D {
+        RegArry1D {
             write: |_, _| (),
             read:  |_| undef[f32](),
             begin: begin,
@@ -33,7 +35,7 @@ fn new_swin1D(begin: int, end: int) -> Swin1D {
         }
     } else if begin + 1 == end {
         let mut value : f32;
-        Swin1D {
+        RegArry1D {
             write: |i, v| value = v,
             read:  |i| value,
             begin: begin,
@@ -41,9 +43,9 @@ fn new_swin1D(begin: int, end: int) -> Swin1D {
         }
     } else {
         let m = (end + begin) / 2;
-        let left  = new_swin1D(begin, m);
-        let right = new_swin1D(m, end);
-        Swin1D {
+        let left  = new_RegArry1D(begin, m);
+        let right = new_RegArry1D(m, end);
+        RegArry1D {
             write: |i, v| if i >= m { right.write(i, v) } else { left.write(i, v) },
             read:  |i|    if i >= m { right.read(i) } else { left.read(i) },
             begin: begin,
@@ -52,19 +54,19 @@ fn new_swin1D(begin: int, end: int) -> Swin1D {
     }
 }
 
-fn new_swin2D(begin: (int, int), end: (int, int)) -> Swin2D {
+fn new_RegArry2D(begin: (int, int), end: (int, int)) -> RegArry2D {
     let (begin_x, begin_y) = begin;
     let (end_x, end_y)     = end;
     if end_y == begin_y {
-        Swin2D {
+        RegArry2D {
             write: |_, _, _| (),
             read: |_, _| undef[f32](),
             begin: begin,
             end:   end
         }
     } else if begin_y + 1 == end_y {
-        let row = new_swin1D(begin_x, end_x);
-        Swin2D {
+        let row = new_RegArry1D(begin_x, end_x);
+        RegArry2D {
             write: |x, y, v| row.write(x, v),
             read:  |x, y|    row.read(x),
             begin: begin,
@@ -72,9 +74,9 @@ fn new_swin2D(begin: (int, int), end: (int, int)) -> Swin2D {
         }
     } else {
         let m = (end_y + begin_y) / 2;
-        let left  = new_swin2D((begin_x, begin_y), (end_x, m));
-        let right = new_swin2D((begin_x, m),       (end_x, end_y));
-        Swin2D {
+        let left  = new_RegArry2D((begin_x, begin_y), (end_x, m));
+        let right = new_RegArry2D((begin_x, m),       (end_x, end_y));
+        RegArry2D {
             write: |x, y, v| if y >= m { right.write(x, y, v) } else { left.write(x, y, v) },
             read:  |x, y|    if y >= m { right.read(x, y) } else { left.read(x, y) },
             begin: begin,
@@ -83,78 +85,8 @@ fn new_swin2D(begin: (int, int), end: (int, int)) -> Swin2D {
     }
 }
 
-fn shift_swin(lbuf : Acc, swin : Swin2D) -> () {
-    let (begin_x, begin_y) = swin.begin;
-    let (end_x, end_y) = swin.end;
 
-    // Shift sliding window
-    for j in @range(begin_y, end_y) {
-        for i in @range(begin_x, end_x - 1) {
-            @swin.write(i, j, @swin.read(i + 1, j));
-        }
-    }
-
-    // Read new col
-    for j in @range(begin_y, end_y - 1) {
-        @swin.write(end_x - 1, j, lbuf.read(0, j));
-    }
-}
-
-fn shift_swin_full(lbuf : Acc, swin : Swin2D) -> () {
-    let (begin_x, begin_y) = swin.begin;
-    let (end_x, end_y) = swin.end;
-
-    // Shift sliding window
-    for j in @range(begin_y, end_y) {
-        for i in @range(begin_x, end_x - 1) {
-            @swin.write(i, j, @swin.read(i + 1, j));
-        }
-    }
-
-    // Read new col
-    for j in @range(begin_y, end_y) {
-        @swin.write(end_x - 1, j, lbuf.read(0, j));
-    }
-}
-
-fn shift_swin_cols(swin : Swin2D) -> () {
-    let (begin_x, begin_y) = swin.begin;
-    let (end_x, end_y) = swin.end;
-
-    // Shift sliding window
-    for j in @range(begin_y, end_y) {
-        for i in @range(begin_x, end_x - 1) {
-            @swin.write(i, j, @swin.read(i + 1, j));
-        }
-    }
-}
-
-fn shift_swin_with_col(swin : Swin2D, col : Swin1D) -> () {
-    let (begin_x, begin_y) = swin.begin;
-    let (end_x, end_y) = swin.end;
-
-    // Shift sliding window
-    for j in @range(begin_y, end_y) {
-        for i in @range(begin_x, end_x - 1) {
-            @swin.write(i, j, @swin.read(i + 1, j));
-        }
-    }
-
-    // Read new col
-    for j in @range(begin_y, end_y) {
-        @swin.write(end_x - 1, j, col.read(j));
-    }
-}
-
-fn get_acc_sw(swin: Swin2D) -> Acc {
-    Acc {
-        read: |x, y|      swin.read(x, y),
-        write: |x, y, v|  swin.write(x, y, v)
-    }
-}
-
-
-// Line buffers
+//  -------------------  Line Buffers  ------------------------
 struct Lbuf2D {
     write: fn (int, int, f32) -> (),
     read: fn (int, int) -> f32,
@@ -194,86 +126,12 @@ fn new_lbuf2D(size_x: int, size_y: int) -> Lbuf2D {
     }
 }
 
-fn shift_lbuf2D(lbuf : Lbuf2D, pix_new : float, pix2swin : Swin1D, col_ridx : int) -> () {
-    // read from lbuf : (lbuf, pix_new) -> pix2swin
-    for j in @range(0, lbuf.size_y) {
-        @pix2swin.write(j, @lbuf.read(col_ridx & 0x3FF, j));
-    }
-    pix2swin.write(lbuf.size_y, pix_new);
 
-    // shift lbuf : pix2swin -> lbuf
-    for j in @range(0, lbuf.size_y) {
-	    @lbuf.write(col_ridx & 0x3FF, j, pix2swin.read(j+1)); 
-    }
-}
-
-
-// ------------- Vivado style multiple row buffers ---------------------------
-struct OnChipMem_viv{
-    write: fn (int, int, f32) -> (),
-    read:  fn (int, int) -> f32,
-    shift: fn (f32, int) -> (),
-}
-
-fn get_acc_OnChipMem_viv(mem: OnChipMem_viv) -> Acc {
-    Acc {
-        write: |x, y, v|  mem.write(x, y, v),
-        read:  |x, y|     mem.read(x, y)
-    }
-}
-
-fn new_OnChipMem_viv(image_x : int, mask_x: int, mask_y: int) -> OnChipMem_viv {
-    let lbuf = @new_lbuf2D(image_x, mask_y - 1);
-    let lb2swin = @new_swin1D(0, mask_y);
-    let swin = @new_swin2D((0, 0), (mask_x, mask_y));
-
-    fn shift_lbuf2D(pix_new : float, col_ridx : i32) -> () {
-        // read from lbuf : lbuf -> lb2swin
-        for j in @range(0, lbuf.size_y) {
-            @lb2swin.write(j, @lbuf.read(col_ridx & 0x3FF, j));
-        }
-        @lb2swin.write(lbuf.size_y, pix_new);
-    
-        // shift lbuf : (lb2swin, pix_new) -> lbuf
-        for j in @range(0, lbuf.size_y - 1) {
-    	    @lbuf.write(col_ridx & 0x3FF, j, lb2swin.read(j+1)); 
-        }
-    	@lbuf.write(col_ridx & 0x3FF, lbuf.size_y - 1, pix_new); 
-    }
-    fn shift_swin() -> () {
-        // Shift sliding window
-        for j in @range(0, mask_y) {
-            for i in @range(0, mask_x - 1) {
-                @swin.write(i, j, @swin.read(i + 1, j));
-            }
-        }
-    
-        // Read new col
-        for j in @range(0, mask_y) {
-            @swin.write(mask_x - 1, j, lb2swin.read(j));
-        }
-    }
-    fn shift( pix_new : f32, col_ridx : i32) -> (){
-        //shift line buffers
-        shift_lbuf2D(pix_new, col_ridx);
-    
-    	// shift sliding window
-        @shift_swin();	
-    }
-    
-    OnChipMem_viv {
-        write: |x, y, v| { swin.write(x, y, v) },
-        read:  |x, y|    { swin.read(x, y)     },
-        shift: shift,
-    }
-}
-
-
-// ------------- Altera style multiple row buffers ---------------------------
+//  -------------------  On Chip Memory  ------------------------
 struct OnChipMem{
     write: fn (int, int, f32) -> (),
     read:  fn (int, int) -> f32,
-    shift: fn (f32) -> (),
+    shift: fn (f32, int) -> (),
 }
 
 fn get_acc_OnChipMem(mem: OnChipMem) -> Acc {
@@ -283,10 +141,58 @@ fn get_acc_OnChipMem(mem: OnChipMem) -> Acc {
     }
 }
 
+// Vivado style Multiple
+fn new_OnChipMem_vivMult(image_x : int, mask_x: int, mask_y: int) -> OnChipMem {
+    let lbuf = @new_lbuf2D(image_x, mask_y - 1);
+    let lb2swin = @new_RegArry1D(0, mask_y);
+    let swin = @new_RegArry2D((0, 0), (mask_x, mask_y));
+
+    fn shift_lbuf2D(pix_new : float, col_ridx : i32) -> () {
+        // read from lbuf : lbuf -> lb2swin
+        for j in @range(0, lbuf.size_y) {
+            @lb2swin.write(j, @lbuf.read(col_ridx & 0x3FF, j));
+        }
+        @lb2swin.write(lbuf.size_y, pix_new);
+
+        // shift lbuf : (lb2swin, pix_new) -> lbuf
+        for j in @range(0, lbuf.size_y - 1) {
+            @lbuf.write(col_ridx & 0x3FF, j, lb2swin.read(j+1));
+        }
+        @lbuf.write(col_ridx & 0x3FF, lbuf.size_y - 1, pix_new);
+    }
+    fn shift_swin() -> () {
+        // Shift sliding window
+        for j in @range(0, mask_y) {
+            for i in @range(0, mask_x - 1) {
+                @swin.write(i, j, @swin.read(i + 1, j));
+            }
+        }
+
+        // Read new col
+        for j in @range(0, mask_y) {
+            @swin.write(mask_x - 1, j, lb2swin.read(j));
+        }
+    }
+    fn shift( pix_new : f32, col_ridx : i32) -> (){
+        //shift line buffers
+        shift_lbuf2D(pix_new, col_ridx);
+
+        // shift sliding window
+        @shift_swin();
+    }
+
+    OnChipMem {
+        write: |x, y, v| { swin.write(x, y, v) },
+        read:  |x, y|    { swin.read(x, y)     },
+        shift: shift,
+    }
+}
+
+// Altera style Multiple
 fn new_OnChipMem_alteraMult(image_x : int, mask_x: int, mask_y: int) -> OnChipMem {
     let lbuf = @new_lbuf2D(image_x, mask_y - 1);
-    let lb2swin = @new_swin1D(0, mask_y);
-    let swin = @new_swin2D((0, 0), (mask_x, mask_y));
+    let lb2swin = @new_RegArry1D(0, mask_y);
+    let swin = @new_RegArry2D((0, 0), (mask_x, mask_y));
 
     fn shift_lbuf2D(pix_new : float) -> () {
         // read from lbuf : lbuf -> lb2swin
@@ -294,13 +200,13 @@ fn new_OnChipMem_alteraMult(image_x : int, mask_x: int, mask_y: int) -> OnChipMe
             @lb2swin.write(j, @lbuf.read(0, j));
         }
         @lb2swin.write(lbuf.size_y, pix_new);
-    
+
         // shift lbuf : (lb2swin, pix_new) -> lbuf
         for j in @range(0, lbuf.size_y) {
             for i in $range(0, lbuf.size_x - 1) {
-    	        @lbuf.write(i, j, lbuf.read(i + 1, j)); 
+                @lbuf.write(i, j, lbuf.read(i + 1, j));
             }
-    	    @lbuf.write(lbuf.size_x - 1, j, lb2swin.read(j + 1)); 
+            @lbuf.write(lbuf.size_x - 1, j, lb2swin.read(j + 1));
         }
     }
     fn shift_swin() -> () {
@@ -310,7 +216,7 @@ fn new_OnChipMem_alteraMult(image_x : int, mask_x: int, mask_y: int) -> OnChipMe
                 @swin.write(i, j, @swin.read(i + 1, j));
             }
         }
-    
+
         // Read new col
         for j in @range(0, mask_y) {
             @swin.write(mask_x - 1, j, lb2swin.read(j));
@@ -319,26 +225,26 @@ fn new_OnChipMem_alteraMult(image_x : int, mask_x: int, mask_y: int) -> OnChipMe
     fn shift( pix_new : f32) -> (){
         //shift line buffers
         shift_lbuf2D(pix_new);
-    
-    	// shift sliding window
-        @shift_swin();	
+
+        // shift sliding window
+        @shift_swin()
     }
-    
+
     OnChipMem {
         write: |x, y, v| { swin.write(x, y, v) },
         read:  |x, y|    { swin.read(x, y)     },
-        shift: shift,
+        shift: |x, idx|  { shift(x)}
     }
 }
 
 
-// ------------- Altera style one row buffer ---------------------------
+// Altera style One
 fn new_OnChipMem_alteraOne(image_x : int, mask_x: int, mask_y: int) -> OnChipMem {
     let lbuf_size = image_x * (mask_y - 1);
     let lbuf = reserve_shared[f32](lbuf_size);
-    let lb2swin = @new_swin1D(0, mask_y);
-    let swin = @new_swin2D((0, 0), (mask_x, mask_y));
-    
+    let lb2swin = @new_RegArry1D(0, mask_y);
+    let swin = @new_RegArry2D((0, 0), (mask_x, mask_y));
+
     let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), image_x, mask_y - 1);
 
     fn shift_lbuf2D(pix_new : float) -> () {
@@ -347,12 +253,12 @@ fn new_OnChipMem_alteraOne(image_x : int, mask_x: int, mask_y: int) -> OnChipMem
             @lb2swin.write(j, lbuf_acc.read(0, j));
         }
         @lb2swin.write(mask_y - 1, pix_new);
-    
+
         // shift lbuf : (lb2swin, pix_new) -> lbuf
         for i in $range(0, lbuf_size - 1) {
-    	    lbuf(i) = lbuf(i + 1); 
+            lbuf(i) = lbuf(i + 1);
         }
-    	lbuf(lbuf_size - 1) = pix_new; 
+        lbuf(lbuf_size - 1) = pix_new;
     }
     fn shift_swin() -> () {
         // Shift sliding window
@@ -361,7 +267,7 @@ fn new_OnChipMem_alteraOne(image_x : int, mask_x: int, mask_y: int) -> OnChipMem
                 @swin.write(i, j, @swin.read(i + 1, j));
             }
         }
-    
+
         // Read new col
         for j in @range(0, mask_y) {
             @swin.write(mask_x - 1, j, lb2swin.read(j));
@@ -370,45 +276,45 @@ fn new_OnChipMem_alteraOne(image_x : int, mask_x: int, mask_y: int) -> OnChipMem
     fn shift( pix_new : f32) -> (){
         //shift line buffers
         shift_lbuf2D(pix_new);
-    
-    	// shift sliding window
-        @shift_swin();	
+
+        // shift sliding window
+        @shift_swin();
     }
-    
+
     OnChipMem {
         write: |x, y, v| { swin.write(x, y, v) },
         read:  |x, y|    { swin.read(x, y)     },
-        shift: shift,
+        shift: |x, idx|  { shift(x)}
     }
 }
 
 
-// ------------- Altera style one row buffer, no swin ---------------------------
+// Altera style One row buffer, no swin
 fn new_OnChipMem_alteraOne_noswin(image_x : int, mask_x: int, mask_y: int) -> OnChipMem {
     let lbuf_size = image_x * (mask_y - 1) + mask_x;
     let lbuf = reserve_shared[f32](lbuf_size);
-    let lb2swin = @new_swin1D(0, mask_y);
-    let swin = @new_swin2D((0, 0), (mask_x, mask_y));
-    
+    let lb2swin = @new_RegArry1D(0, mask_y);
+    let swin = @new_RegArry2D((0, 0), (mask_x, mask_y));
+
     let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), image_x, mask_y);
 
     fn shift(pix_new : float) -> () {
         // shift lbuf : (lb2swin, pix_new) -> lbuf
         for i in $range(0, lbuf_size - 1) {
-    	    lbuf(i) = lbuf(i + 1); 
+            lbuf(i) = lbuf(i + 1);
         }
-    	lbuf(lbuf_size - 1) = pix_new; 
+        lbuf(lbuf_size - 1) = pix_new;
     }
-    
+
     OnChipMem {
         write: |x, y, v| { lbuf_acc.write(x, y, v) },
         read:  |x, y|    { lbuf_acc.read(x, y)     },
-        shift: shift,
+        shift: |x, idx|  { shift(x)}
     }
 }
 
 
-// v_viv: vivado style multiple row buffers 
+// v_viv, v_noswin, v_altMult, v_altOne
 fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
@@ -422,8 +328,11 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         let initial_delay   = arr.width * half_range_y + half_range_x - 1;
         let life_time       = initial_delay + process_time;
 
-        let OnChipMem = new_OnChipMem_viv(arr.width, mask.size_x, mask.size_y);
-        let OnChipMem_acc = get_acc_OnChipMem_viv(OnChipMem);
+        let OnChipMem = new_OnChipMem_vivMult(arr.width, mask.size_x, mask.size_y);
+        // let OnChipMem = new_OnChipMem_alteraOne_noswin(arr.width, mask.size_x, mask.size_y);
+        // let OnChipMem = new_OnChipMem_alteraMult(arr.width, mask.size_x, mask.size_y);
+        // let OnChipMem = new_OnChipMem_alteraOne(arr.width, mask.size_x, mask.size_y);
+        let OnChipMem_acc = get_acc_OnChipMem(OnChipMem);
 
         let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
         let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
@@ -455,204 +364,9 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 
                 // Shift on chip mem
                 @OnChipMem.shift(pix_new, col_ridx);
-                
-    	        // update image indexes
-    	        col_ridx = ((col_ridx + 1) & 0x3FF);
-                if(col_ridx == 0){
-                    row_ridx++;
-                }
-            };
 
-            // write output
-            if clock_tick > initial_delay {
-                @body(math, half_range_x, half_range_y, out_acc, OnChipMem_acc, mask);
-            }
-        }
-    }
-    acc.sync();
-    copy_img(out_gpu, out);
-}
-
-// v_alteraMult: Altera style multiple raw buffers 
-fn iteration_vAltMut(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    let arr_gpu = alloc_img(arr, acc.alloc);
-    let out_gpu = alloc_img(out, acc.alloc);
-
-    copy_img(arr, arr_gpu);
-    with acc.exec((1,1,1), (1,1,1)) @{
-        let half_range_y    = mask.size_y / 2;
-        let half_range_x    = mask.size_x / 2;
-        let process_time    = arr.width * arr.height;
-        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
-        let life_time       = initial_delay + process_time;
-
-        let OnChipMem = new_OnChipMem_alteraMult(arr.width, mask.size_x, mask.size_y);
-        let OnChipMem_acc = get_acc_OnChipMem(OnChipMem);
-
-        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
-        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-
-        let mut col_ridx = 0; let mut row_ridx = 0;
-        let mut col_widx = 0; let mut row_widx = 0;
-        let mut pix_new;
-        for clock_tick in $range(0, life_time){
-            let in_acc = Acc {
-                read: |x, y|        {temp_in_acc.read(col_ridx, row_ridx)},
-                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
-            };
-            let out_acc = Acc {
-                read: |x, y|        {temp_out_acc.read(x, y)},
-                write: |x, y, v|    {
-                                        temp_out_acc.write(col_widx, row_widx, v);
-                                        col_widx++;
-                                        if col_widx == arr.width {
-                                            col_widx = 0; row_widx++;
-                                        }
-                                    }
-            };
-
-            {
-                // read new pix
-                if clock_tick < process_time {
-                    pix_new = in_acc.read(col_ridx, row_ridx);
-                }
-
-                // Shift on chip mem
-                @OnChipMem.shift(pix_new);
-                
-    	        // update image indexes
-    	        col_ridx = ((col_ridx + 1) & 0x3FF);
-                if(col_ridx == 0){
-                    row_ridx++;
-                }
-            };
-
-            // write output
-            if clock_tick > initial_delay {
-                @body(math, half_range_x, half_range_y, out_acc, OnChipMem_acc, mask);
-            }
-        }
-    }
-    acc.sync();
-    copy_img(out_gpu, out);
-}
-
-// v_alteraOne: Altera style one raw buffer
-fn iteration_altOne(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    let arr_gpu = alloc_img(arr, acc.alloc);
-    let out_gpu = alloc_img(out, acc.alloc);
-
-    copy_img(arr, arr_gpu);
-    with acc.exec((1,1,1), (1,1,1)) @{
-        let half_range_y    = mask.size_y / 2;
-        let half_range_x    = mask.size_x / 2;
-        let process_time    = arr.width * arr.height;
-        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
-        let life_time       = initial_delay + process_time;
-
-        let OnChipMem = new_OnChipMem_alteraOne(arr.width, mask.size_x, mask.size_y);
-        let OnChipMem_acc = get_acc_OnChipMem(OnChipMem);
-
-        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
-        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-
-        let mut col_ridx = 0; let mut row_ridx = 0;
-        let mut col_widx = 0; let mut row_widx = 0;
-        let mut pix_new;
-        for clock_tick in $range(0, life_time){
-            let in_acc = Acc {
-                read: |x, y|        {temp_in_acc.read(col_ridx, row_ridx)},
-                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
-            };
-            let out_acc = Acc {
-                read: |x, y|        {temp_out_acc.read(x, y)},
-                write: |x, y, v|    {
-                                        temp_out_acc.write(col_widx, row_widx, v);
-                                        col_widx++;
-                                        if col_widx == arr.width {
-                                            col_widx = 0; row_widx++;
-                                        }
-                                    }
-            };
-
-            {
-                // read new pix
-                if clock_tick < process_time {
-                    pix_new = in_acc.read(col_ridx, row_ridx);
-                }
-
-                // Shift on chip mem
-                @OnChipMem.shift(pix_new);
-                
-    	        // update image indexes
-    	        col_ridx = ((col_ridx + 1) & 0x3FF);
-                if(col_ridx == 0){
-                    row_ridx++;
-                }
-            };
-
-            // write output
-            if clock_tick > initial_delay {
-                @body(math, half_range_x, half_range_y, out_acc, OnChipMem_acc, mask);
-            }
-        }
-    }
-    acc.sync();
-    copy_img(out_gpu, out);
-}
-
-// v_noswin: Altera style one raw buffer, no swin
-fn iteration_noswin(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    let arr_gpu = alloc_img(arr, acc.alloc);
-    let out_gpu = alloc_img(out, acc.alloc);
-
-    copy_img(arr, arr_gpu);
-    with acc.exec((1,1,1), (1,1,1)) @{
-        let half_range_y    = mask.size_y / 2;
-        let half_range_x    = mask.size_x / 2;
-        let process_time    = arr.width * arr.height;
-        let initial_delay   = arr.width * half_range_y + half_range_x - 1;
-        let life_time       = initial_delay + process_time;
-
-        let OnChipMem = new_OnChipMem_alteraOne_noswin(arr.width, mask.size_x, mask.size_y);
-        let OnChipMem_acc = get_acc_OnChipMem(OnChipMem);
-
-        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
-        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-
-        let mut col_ridx = 0; let mut row_ridx = 0;
-        let mut col_widx = 0; let mut row_widx = 0;
-        let mut pix_new;
-        for clock_tick in $range(0, life_time){
-            let in_acc = Acc {
-                read: |x, y|        {temp_in_acc.read(col_ridx, row_ridx)},
-                write: |x, y, v|    {temp_in_acc.write(x, y, v)}
-            };
-            let out_acc = Acc {
-                read: |x, y|        {temp_out_acc.read(x, y)},
-                write: |x, y, v|    {
-                                        temp_out_acc.write(col_widx, row_widx, v);
-                                        col_widx++;
-                                        if col_widx == arr.width {
-                                            col_widx = 0; row_widx++;
-                                        }
-                                    }
-            };
-
-            {
-                // read new pix
-                if clock_tick < process_time {
-                    pix_new = in_acc.read(col_ridx, row_ridx);
-                }
-
-                // Shift on chip mem
-                @OnChipMem.shift(pix_new);
-                
-    	        // update image indexes
-    	        col_ridx = ((col_ridx + 1) & 0x3FF);
+                // update image indexes
+                col_ridx = ((col_ridx + 1) & 0x3FF);
                 if(col_ridx == 0){
                     row_ridx++;
                 }
