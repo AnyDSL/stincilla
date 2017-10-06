@@ -401,12 +401,10 @@ fn new_Vect(size : int) -> Vect {
     }
 }
 
-
 struct OnChipMem_vec{
     read:  fn (int, int) -> f32,
     shift: fn (Vect, int) -> (),
 }
-
 
 // Altera style One row buffer, no swin
 fn new_OnChipMem_alteraOne_noswin_vec(image_x : int, mask_x: int, mask_y: int, pFactor : int) -> OnChipMem_vec {
@@ -427,6 +425,79 @@ fn new_OnChipMem_alteraOne_noswin_vec(image_x : int, mask_x: int, mask_y: int, p
     OnChipMem_vec {
         read:  |x, y|    { lbuf_acc.read(x, y) },
         shift: |x, idx|  { shift(x) }
+    }
+}
+
+
+// Sliding Window
+struct SlidingWindow_vec {
+    read:  fn (int, int) -> f32,
+    shift: fn (RegArry2D) -> ()
+}
+
+fn new_SlidingWindow_vec(mask_x : int, mask_y : int, pFactor : int) -> SlidingWindow_vec {
+    let swin = @new_RegArry2D((0, 0), (mask_x, mask_y));
+
+    fn shift(lb2swin : RegArry2D) -> () {
+        // Shift sliding window
+        for j in @range(0, mask_y) {
+            for i in @range(0, mask_x - pFactor) {
+                @swin.write(i, j, @swin.read(i + pFactor, j));
+            }
+        }
+
+        // Read new col
+        for j in @range(0, mask_y) {
+            for v in @range(0, pFactor) {
+                @swin.write((mask_x - pFactor + v), j, lb2swin.read(j, v));
+            }
+        }
+    }
+    SlidingWindow_vec {
+        read:  |x, y|       swin.read(x, y),
+        shift: shift
+    }
+}
+
+
+// Vivado style Multiple
+fn new_OnChipMem_vivMult_vec(image_x : int, mask_x: int, mask_y: int, pFactor : int) -> OnChipMem_vec {
+    let lbuf = @new_LineBuffer(image_x, mask_y - 1);
+    let swin = @new_SlidingWindow_vec(mask_x, mask_y, pFactor);
+    let lb2swin = @new_RegArry2D ((0, 0), (pFactor, mask_y));
+
+    fn shift_lbuf2D(vec_pix_new : Vect, col_ridx : i32) -> () {
+        // read from lbuf : lbuf -> lb2swin
+        for j in @range(0, lbuf.size_y) {
+            for v in @range(0, pFactor) {
+                @lb2swin.write(v, j, @lbuf.read((col_ridx - pFactor + v) & 0x3FF, j));
+            }
+        }
+        for v in @range(0, pFactor) {
+            @lb2swin.write(v, lbuf.size_y, vec_pix_new.read(v));
+        }
+
+        // shift lbuf : (lb2swin, vec_pix_new) -> lbuf
+        for j in @range(0, lbuf.size_y - 1) {
+            for v in @range(0, pFactor) {
+                @lbuf.write((col_ridx - pFactor + v) & 0x3FF, j, lb2swin.read(v, j+1));
+            }
+        }
+        for v in @range(0, pFactor) {
+            @lbuf.write((col_ridx - pFactor + v) & 0x3FF, lbuf.size_y - 1, vec_pix_new.read(v));
+        }
+    }
+    fn shift(vec_pix_new : Vect, col_ridx : i32) -> (){
+        //shift line buffers
+        shift_lbuf2D(vec_pix_new, col_ridx);
+
+        // shift sliding window
+        @swin.shift(lb2swin);
+    }
+
+    OnChipMem_vec {
+        read:  |x, y|    { swin.read(x, y) },
+        shift: shift,
     }
 }
 
