@@ -408,7 +408,11 @@ struct OnChipMem_vec{
 
 // Altera style One row buffer, no swin
 fn new_OnChipMem_alteraOne_noswin_vec(image_x : int, mask_x: int, mask_y: int, pFactor : int) -> OnChipMem_vec {
-    let lbuf_size = image_x * (mask_y - 1) + (mask_x - 1 + pFactor);
+    let half_range_x    = mask_x >> 1;
+    let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
+    let swin_width      = half_range_x + (1 + kVecRightRadius) * pFactor;
+
+    let lbuf_size = image_x * (mask_y - 1) + swin_width;
     let lbuf = reserve_shared[f32](lbuf_size);
     let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), image_x, mask_y);
 
@@ -436,12 +440,16 @@ struct SlidingWindow_vec {
 }
 
 fn new_SlidingWindow_vec(mask_x : int, mask_y : int, pFactor : int) -> SlidingWindow_vec {
-    let swin = @new_RegArry2D((0, 0), (mask_x, mask_y));
+    let half_range_x    = mask_x >> 1;
+    let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
+    let swin_width      = half_range_x + (1 + kVecRightRadius) * pFactor;
+
+    let swin = @new_RegArry2D((0, 0), (swin_width, mask_y));
 
     fn shift(lb2swin : RegArry2D) -> () {
         // Shift sliding window
         for j in @range(0, mask_y) {
-            for i in @range(0, mask_x - pFactor) {
+            for i in @range(0, swin_width - pFactor) {
                 @swin.write(i, j, @swin.read(i + pFactor, j));
             }
         }
@@ -449,7 +457,7 @@ fn new_SlidingWindow_vec(mask_x : int, mask_y : int, pFactor : int) -> SlidingWi
         // Read new col
         for j in @range(0, mask_y) {
             for v in @range(0, pFactor) {
-                @swin.write((mask_x - pFactor + v), j, lb2swin.read(j, v));
+                @swin.write((swin_width - pFactor + v), j, lb2swin.read(v, j));
             }
         }
     }
@@ -508,9 +516,9 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 
     copy_img(arr, arr_gpu);
     with acc.exec((1,1,1), (1,1,1)) @{
-        let half_range_y    = mask.size_y / 2;
-        let half_range_x    = mask.size_x / 2;
-        let pFactor = 2;
+        let half_range_y    = mask.size_y >> 1;
+        let half_range_x    = mask.size_x >> 1;
+        let pFactor = 4;
         let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
         let kVecImageWidth  = arr.width / pFactor;
 
@@ -519,6 +527,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         let life_time       = initial_delay + process_time;
 
         let OnChipMem_vec = new_OnChipMem_alteraOne_noswin_vec(arr.width, mask.size_x, mask.size_y, pFactor);
+        //let OnChipMem_vec = new_OnChipMem_vivMult_vec(arr.width, mask.size_x, mask.size_y, pFactor);
 
         let mut col_ridx = 0; let mut row_ridx = 0;
         let mut col_widx = 0; let mut row_widx = 0;
