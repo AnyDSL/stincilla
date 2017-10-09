@@ -59,7 +59,7 @@ fn matmul_hand_tiled(C: Mat, A: Mat, B: Mat) -> () {
 }
 
 
-fn matmul_auto_tiled(@C: Mat, @A: Mat, @B: Mat) -> () {
+fn matmul_auto_tiled(C: Mat, A: Mat, B: Mat) -> () {
     fn tiled_matmul() -> () {
         fn @get_step(lvl: i32) -> i32 { // size -> 256 -> 64 -> 1
             if lvl == 0 { 256 } else if lvl == 1 { 64 } else { 1 }
