@@ -24,12 +24,12 @@ fn main() -> i32 {
     }
     print_total_timing();
 
-    fn @@reference() -> i32 {
+    fn reference() -> i32 {
         let mut passed = 0;
         let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), 10, lower, upper);
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
-        for y in range(0, $out.height) {
-            for x in range(0, $out.width) {
+        for y in range(0, out.height) {
+            for x in range(0, out.width) {
                 let ref = apply_stencil(x, y, arr_acc, stencil);
                 let mut diff = ref - out_acc.read(x, y);
                 if diff < 0.0f  { diff = -diff; }
