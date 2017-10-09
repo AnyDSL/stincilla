@@ -413,7 +413,7 @@ struct SlidingWindow_vec {
 
 struct coarsening_type{
     shift: fn (Vect, int) -> (),
-    process: fn (int, int) -> (),
+    process: fn () -> Vect,
 }
 
 
@@ -506,7 +506,7 @@ fn new_OnChipMem_alteraOne_noswin_vec(image_x : int, swin_x: int, swin_y: int, p
 }
 
 
-fn FetchAndCalculate(math: Intrinsics, out : Acc, image_x : int, mask: Mask, pFactor : int, body: StencilFn) -> coarsening_type{
+fn FetchAndCalc(math: Intrinsics, image_x : int, mask: Mask, pFactor : int, body: StencilFn) -> coarsening_type{
     let half_range_y      = mask.size_y >> 1;
     let half_range_x      = mask.size_x >> 1;
     let right_half_radius = ((half_range_x - 1) / pFactor) + 1;
@@ -517,7 +517,7 @@ fn FetchAndCalculate(math: Intrinsics, out : Acc, image_x : int, mask: Mask, pFa
     let OnChipMem = new_OnChipMem_vivMult_vec(image_x, swin_x, swin_y, pFactor);
     //let OnChipMem = new_OnChipMem_alteraOne_noswin_vec(image_x, swin_x, swin_y, pFactor);
 
-    fn process(col_widx : int, row_widx : int) -> (){
+    fn process() -> Vect{
         let vec_pix_out = @new_Vect(pFactor);
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
@@ -531,11 +531,54 @@ fn FetchAndCalculate(math: Intrinsics, out : Acc, image_x : int, mask: Mask, pFa
             @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
             //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, half_range_y));
         }
+        vec_pix_out
+    }
 
-        // write to output
-        for v in @range(0, pFactor) {
-            out.write(col_widx + v, row_widx, vec_pix_out.read(v));
+    coarsening_type {
+        shift:    |vec_new, col_ridx|  { OnChipMem.shift(vec_new, col_ridx) },
+        process:  process
+    }
+}
+
+fn CalcAndPack(math: Intrinsics, image_x : int, mask: Mask, pFactor : int, body: StencilFn) -> coarsening_type{
+    let half_range_y      = mask.size_y >> 1;
+    let half_range_x      = mask.size_x >> 1;
+    let swin_x            = mask.size_x - 1 + pFactor;
+    let swin_y            = mask.size_y;
+
+    // On Chip Memory Architecture
+    let OnChipMem = new_OnChipMem_vivMult_vec(image_x, swin_x, swin_y, pFactor);
+    //let OnChipMem = new_OnChipMem_alteraOne_noswin_vec(image_x, swin_x, swin_y, pFactor);
+
+    // Constants for Pack
+    let delayed_pixels_size = ((pFactor + ((pFactor - half_range_x) % pFactor)) % pFactor);
+    let pack_offset         = pFactor - delayed_pixels_size;
+
+    let vec_delayed = @new_Vect(delayed_pixels_size);
+    fn process() -> Vect {
+        let vec_pix_out = @new_Vect(pFactor);
+        for v in @range(0, pFactor) @{
+            let OnChipMem_acc = Acc {
+                    read:  |x, y|     OnChipMem.read(x + v, y),
+                    write: |x, y, v|  {}
+            };
+            let vec_pix_out_acc = Acc{
+                read: |x, y|        0.0f,
+                write: |x, y, data| {
+                    if( v < pack_offset) {
+                        let pack_idx =  v + delayed_pixels_size;
+                        @vec_pix_out.write(pack_idx, data)
+                    }else{
+                        let pack_idx =  v - pack_offset;
+                        @vec_pix_out.write(pack_idx, @vec_delayed.read(pack_idx));
+                        @vec_delayed.write(pack_idx, data);
+                    }
+                }
+            };
+            @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
+            //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, half_range_y));
         }
+        vec_pix_out
     }
 
     coarsening_type {
@@ -553,7 +596,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
     with acc.exec((1,1,1), (1,1,1)) @{
         let half_range_y    = mask.size_y >> 1;
         let half_range_x    = mask.size_x >> 1;
-        let pFactor = 2;
+        let pFactor = 4;
         let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
         let kVecImageWidth  = arr.width / pFactor;
 
@@ -562,9 +605,9 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         let life_time       = initial_delay + process_time;
 
         let in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
-        let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-        let OnChipMem_vec = FetchAndCalculate(math, temp_out_acc, arr.width, mask, pFactor, body);
-        //let OnChipMem_vec = new_OnChipMem_vivMult_vec(arr.width, mask.size_x, mask.size_y, pFactor);
+        let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        //let coarsening = FetchAndCalc(math, arr.width, mask, pFactor, body);
+        let coarsening = CalcAndPack(math, arr.width, mask, pFactor, body);
 
         let mut col_ridx = 0; let mut row_ridx = 0;
         let mut col_widx = 0; let mut row_widx = 0;
@@ -580,15 +623,19 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             }
 
             // Shift on chip mem
-            @OnChipMem_vec.shift(vec_pix_new, col_ridx);
-
-            }
-
+            @coarsening.shift(vec_pix_new, col_ridx);
+            };
+            {
+            let vec_pix_out = @coarsening.process();
             // write output
             if clock_tick > initial_delay {
-                @OnChipMem_vec.process(col_widx, row_widx);
+                for v in @range(0, pFactor) {
+                    out_acc.write(col_widx + v, row_widx, vec_pix_out.read(v));
+                }
                 col_widx = col_widx + pFactor;
             }
+            };
+
             // update image indexes
             col_ridx = ((col_ridx + pFactor) & 0x3FF);
             if (col_ridx == 0) { row_ridx++;}
