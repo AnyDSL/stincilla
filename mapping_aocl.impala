@@ -45,7 +45,7 @@ fn new_RegArry1D(begin: int, end: int) -> RegArry1D {
         }
     } else if begin + 1 == end {
         //pe_info("found", begin);
-        let mut value : f32;
+        let mut value = 0.0f; // : f32;
         RegArry1D {
             write: |i, v| value = v,
             read:  |i| value,
@@ -452,7 +452,7 @@ fn new_OnChipMem_vivMult_vec(image_x : int, swin_x : int, swin_y : int, pFactor 
         // read from lbuf : lbuf -> lb2swin
         for j in @range(0, lbuf.size_y) {
             for v in @range(0, pFactor) {
-                @lb2swin.write(v, j, @lbuf.read((col_ridx - pFactor + v) & 0x3FF, j));
+                @lb2swin.write(v, j, @lbuf.read((col_ridx - pFactor + v), j));
             }
         }
         for v in @range(0, pFactor) {
@@ -462,11 +462,11 @@ fn new_OnChipMem_vivMult_vec(image_x : int, swin_x : int, swin_y : int, pFactor 
         // shift lbuf : (lb2swin, vec_pix_new) -> lbuf
         for j in @range(0, lbuf.size_y - 1) {
             for v in @range(0, pFactor) {
-                @lbuf.write((col_ridx - pFactor + v) & 0x3FF, j, lb2swin.read(v, j+1));
+                @lbuf.write((col_ridx - pFactor + v), j, lb2swin.read(v, j+1));
             }
         }
         for v in @range(0, pFactor) {
-            @lbuf.write((col_ridx - pFactor + v) & 0x3FF, lbuf.size_y - 1, vec_pix_new.read(v));
+            @lbuf.write((col_ridx - pFactor + v), lbuf.size_y - 1, vec_pix_new.read(v));
         }
     }
     fn shift(vec_pix_new : Vect, col_ridx : i32) -> (){
@@ -587,7 +587,7 @@ fn CalcAndPack(math: Intrinsics, image_x : int, mask: Mask, pFactor : int, body:
     }
 }
 
-fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+fn iteration_crsn(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
     let out_gpu = alloc_img(out, acc.alloc);
@@ -596,7 +596,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
     with acc.exec((1,1,1), (1,1,1)) @{
         let half_range_y    = mask.size_y >> 1;
         let half_range_x    = mask.size_x >> 1;
-        let pFactor = 4;
+        let pFactor = 1;
         let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
         let kVecImageWidth  = arr.width / pFactor;
 
@@ -604,10 +604,10 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         let initial_delay   = kVecImageWidth * half_range_y + kVecRightRadius - 1;
         let life_time       = initial_delay + process_time;
 
-        let in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let in_acc  = get_acc(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu));
         let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-        //let coarsening = FetchAndCalc(math, arr.width, mask, pFactor, body);
-        let coarsening = CalcAndPack(math, arr.width, mask, pFactor, body);
+        let coarsening = FetchAndCalc(math, arr.width, mask, pFactor, body);
+        //let coarsening = CalcAndPack(math, arr.width, mask, pFactor, body);
 
         let mut col_ridx = 0; let mut row_ridx = 0;
         let mut col_widx = 0; let mut row_widx = 0;
@@ -637,9 +637,79 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             };
 
             // update image indexes
-            col_ridx = ((col_ridx + pFactor) & 0x3FF);
-            if (col_ridx == 0) { row_ridx++;}
+            col_ridx = ((col_ridx + pFactor));
+            if (col_ridx == arr.width) { col_ridx = 0; row_ridx++;}
             if (col_widx == arr.width) { col_widx = 0; row_widx++; }
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+
+// -------------------- Border Handling ------------------------------
+// padding
+fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    with acc.exec((1,1,1), (1,1,1)) @{
+        let pFactor = 1;
+        let image_width   = arr.width;
+        let half_range_y  = mask.size_y >> 1;
+        let half_range_x  = mask.size_x >> 1;
+
+        let padded_width    = arr.width  + (mask.size_x - 1);
+        let padded_height   = arr.height + (mask.size_y - 1);
+        let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
+        let kVecImageWidth  = padded_width / pFactor;
+        let process_time    = kVecImageWidth * padded_height;
+        let initial_delay   = kVecImageWidth * (mask.size_y - 1) + (2 * kVecRightRadius) - 1;
+        let life_time       = initial_delay + process_time;
+
+        let coarsening = FetchAndCalc(math, padded_width, mask, pFactor, body);
+        //let coarsening = CalcAndPack(math, padded_width, mask, pFactor, body);
+
+        let in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+        let mut col_ridx = -half_range_x;
+        let mut row_ridx = -half_range_y;
+        let mut col_widx = 0;
+        let mut row_widx = 0;
+        let vec_pix_new = @new_Vect(pFactor);
+        for clock_tick in $range(0, life_time){
+        {
+            // read new pix
+            if clock_tick < process_time {
+                for v in @range(0, pFactor) @{
+                    @vec_pix_new.write(v, in_acc.read(col_ridx + v, row_ridx));
+                }
+            }
+
+            // Shift on chip mem
+            @coarsening.shift(vec_pix_new, col_ridx);
+        };
+        {
+            let vec_pix_out = @coarsening.process();
+            // write output
+            if (clock_tick > initial_delay) && (col_ridx > half_range_x - 1) {
+                for v in @range(0, pFactor) {
+                    out_acc.write(col_widx + v, row_widx, vec_pix_out.read(v));
+                }
+                col_widx = col_widx + pFactor;
+            }
+        };
+
+            // update image indexes
+            col_ridx = (col_ridx + pFactor);
+            if (col_ridx == image_width + half_range_x) {
+                col_ridx = -half_range_x;
+                row_ridx++;}
+            if (col_widx == image_width){
+                col_widx = 0;
+                row_widx++;}
         }
     }
     acc.sync();
