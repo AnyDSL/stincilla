@@ -13,8 +13,15 @@ if(NOT BACKEND)
 endif()
 string(TOLOWER "${BACKEND}" BACKEND)
 message(STATUS "Selected backend: ${BACKEND}")
+set(PIXEL_TYPE ${PIXEL_TYPE} CACHE STRING "select the pixel type from the following: f32, i32")
+if(NOT PIXEL_TYPE)
+    set(PIXEL_TYPE f32 CACHE STRING "select the pixel type from the following: f32, i32" FORCE)
+endif()
+string(TOLOWER "${PIXEL_TYPE}" PIXEL_TYPE)
+message(STATUS "Selected pixel type: ${PIXEL_TYPE}")
 
 set(BACKEND_FILE intrinsics_${BACKEND}.impala)
+set(PIXEL_TYPE_FILES pixel_${PIXEL_TYPE}.impala)
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
@@ -49,7 +56,7 @@ add_test("matmul" matmul)
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
 target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)

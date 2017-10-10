@@ -18,18 +18,18 @@ struct RoI {
 }
 
 struct Acc {
-    read  : fn(i32, i32) -> f32,
-    write : fn(i32, i32, f32) -> (),
+    read  : fn(i32, i32) -> pixel_t,
+    write : fn(i32, i32, pixel_t) -> (),
 }
 
 struct Mask {
-    data : fn(i32, i32) -> f32,
+    data : fn(i32, i32) -> pixel_t,
     size_x : i32,
     size_y : i32,
 }
 
 struct MaskSep {
-    data : fn(i32) -> f32,
+    data : fn(i32) -> pixel_t,
     size : i32,
 }
 
@@ -39,18 +39,18 @@ enum Boundary {
 
 enum BoundaryMode {
     Index(i32),
-    Const(f32)
+    Const(pixel_t)
 }
 
-fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
-    let mut sum = 0.0f;
+fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> pixel_t {
+    let mut sum = 0 as pixel_t;
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
 
     for j in range(-half_range_y, half_range_y+1) {
         for i in range(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y, i + half_range_x);
-            if stencil_val != 0.0f {
+            if stencil_val != 0 as pixel_t {
                 sum += acc.read(x + i, y + j) * stencil_val;
             } else {
                 // additional logic for empty stencil value
@@ -61,13 +61,13 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
     sum
 }
 
-fn apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32 {
-    let mut sum = 0.0f;
+fn apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> pixel_t {
+    let mut sum = 0 as pixel_t;
     let half_range = mask.size / 2;
 
     for i in range(-half_range, half_range+1) {
         let stencil_val = mask.data(i + half_range);
-        if stencil_val != 0.0f {
+        if stencil_val != 0 as pixel_t {
             if row {
                 sum += acc.read(x + i, y) * stencil_val;
             } else {
@@ -131,13 +131,13 @@ fn repeat_lower(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
 fn repeat_upper(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
     BoundaryMode::Index(if idx >= upper { idx - (lower + upper) } else { idx })
 }
-fn const_lower (idx: i32, lower: i32, upper: i32, cval: f32) -> BoundaryMode {
+fn const_lower (idx: i32, lower: i32, upper: i32, cval: pixel_t) -> BoundaryMode {
     if idx < lower { BoundaryMode::Const(cval) } else { BoundaryMode::Index(idx) }
 }
-fn const_upper (idx: i32, lower: i32, upper: i32, cval: f32) -> BoundaryMode {
+fn const_upper (idx: i32, lower: i32, upper: i32, cval: pixel_t) -> BoundaryMode {
     if idx >= upper { BoundaryMode::Const(cval) } else { BoundaryMode::Index(idx) }
 }
-fn wrap_const_fun(fun: fn(i32, i32, i32, f32) -> BoundaryMode, cval: f32) -> BoundaryFn {
+fn wrap_const_fun(fun: fn(i32, i32, i32, pixel_t) -> BoundaryMode, cval: pixel_t) -> BoundaryFn {
     |idx, lower, upper| fun(idx, lower, upper, cval)
 }
 
@@ -148,7 +148,7 @@ fn map_boundary_mode(mode: BoundaryMode, bh_fun: fn(i32) -> BoundaryMode) -> Bou
     }
 }
 
-fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> f32, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> f32 {
+fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> pixel_t, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> pixel_t {
     let lower_x = roi.o_x;
     let lower_y = roi.o_y;
     let upper_x = roi.o_x + roi.width;
@@ -180,42 +180,42 @@ fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> f3
     }
 }
 
-// &   [f32] on CPU/AVX
-// &[1][f32] on CUDA/NVVM & OpenCL
-fn get_acc_bh(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+// &   [pixel_t] on CPU/AVX
+// &[1][pixel_t] on CUDA/NVVM & OpenCL
+fn get_acc_bh(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acc_bh_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+fn get_acc_bh_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     Acc {
         read  : |x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
         write : |x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
     }
 }
-fn get_acc(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32) -> Acc {
+fn get_acc(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
     get_acc_offset(img, set_pixel, get_pixel, 0, 0)
 }
-fn get_acc_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32) -> Acc {
+fn get_acc_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, rox: i32, roy: i32) -> Acc {
     Acc {
         read  : |x, y|    get_pixel((y + roy) * img.stride + x + rox),
         write : |x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
     }
 }
 
-// &   [f32] on CPU/AVX
-// &[3][f32] on CUDA/NVVM & OpenCL
-fn get_acc_bh_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+// &   [pixel_t] on CPU/AVX
+// &[3][pixel_t] on CUDA/NVVM & OpenCL
+fn get_acc_bh_memory(set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, width: i32, height: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset_memory(set_pixel, get_pixel, width, height, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acc_bh_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+fn get_acc_bh_offset_memory(set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, width: i32, height: i32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     Acc {
         read  : |x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : width, height : height }, |x, y| { get_pixel(y * width + x) }, bh_lower, bh_upper),
         write : |x, y, v| set_pixel((y + roy) * width + x + rox, v)
     }
 }
-fn get_acc_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32) -> Acc {
+fn get_acc_memory(set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, width: i32, height: i32) -> Acc {
     get_acc_offset_memory(set_pixel, get_pixel, width, height, 0, 0)
 }
-fn get_acc_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32) -> Acc {
+fn get_acc_offset_memory(set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, width: i32, height: i32, rox: i32, roy: i32) -> Acc {
     Acc {
         read  : |x, y|    get_pixel((y + roy) * width + x + rox),
         write : |x, y, v| set_pixel((y + roy) * width + x + rox, v)
@@ -227,39 +227,39 @@ fn new_img(width: i32, height: i32, stride: i32, buf: Buffer) -> Img {
 }
 
 fn alloc_img(img: Img, alloc: fn(i32) -> Buffer) -> Img {
-    new_img(img.width, img.height, img.stride, alloc(img.stride * img.height * sizeof[f32]()))
+    new_img(img.width, img.height, img.stride, alloc(img.stride * img.height * sizeof[pixel_t]()))
 }
 
 fn create_img(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Img {
-    let stride = round_up(width * sizeof[f32](), 64) / sizeof[f32]();
-    new_img(width, height, stride, alloc(stride * height * sizeof[f32]()))
+    let stride = round_up(width * sizeof[pixel_t](), 64) / sizeof[pixel_t]();
+    new_img(width, height, stride, alloc(stride * height * sizeof[pixel_t]()))
 }
 
 fn copy_img(src: Img, dst: Img) -> () {
-    copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[f32]())
+    copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[pixel_t]())
 }
 
-fn get_mask3(data : [[f32 * 3] * 3]) -> Mask {
+fn get_mask3(data : [[pixel_t * 3] * 3]) -> Mask {
     Mask {
-        data : |x, y| -> f32 { data(y)(x) },
+        data : |x, y| -> pixel_t { data(y)(x) },
         size_x : 3, size_y : 3
     }
 }
-fn get_mask5(data : [[f32 * 5] * 5]) -> Mask {
+fn get_mask5(data : [[pixel_t * 5] * 5]) -> Mask {
     Mask {
-        data : |x, y| -> f32 { data(y)(x) },
+        data : |x, y| -> pixel_t { data(y)(x) },
         size_x : 5, size_y : 5
     }
 }
-fn get_mask_sep3(data : [f32 * 3]) -> MaskSep {
+fn get_mask_sep3(data : [pixel_t * 3]) -> MaskSep {
     MaskSep {
-        data : |x| -> f32 { data(x) },
+        data : |x| -> pixel_t { data(x) },
         size : 3
     }
 }
-fn get_mask_sep5(data : [f32 * 5]) -> MaskSep {
+fn get_mask_sep5(data : [pixel_t * 5]) -> MaskSep {
     MaskSep {
-        data : |x| -> f32 { data(x) },
+        data : |x| -> pixel_t { data(x) },
         size : 5
     }
 }

@@ -30,12 +30,12 @@ fn release_device_copy(img: Img) -> () {
     release(img.buf)
 }
 
-fn get_ldg_fn() -> fn(&[1]f32) -> f32 { if is_nvvm() { nvvm_ldg_f32 } else { cuda_ldg_f32 } }
-fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[1][f32]](img.buf.data)(idx) = val }
-fn get_pixel_fn(img: Img) -> fn(i32) -> f32 { |idx| bitcast[&[1][f32]](img.buf.data)(idx) }
-fn get_pixel_ldg_fn(img: Img) -> fn(i32) -> f32 { if has_ldg() { |idx| get_ldg_fn()(&bitcast[&[1][f32]](img.buf.data)(idx)) } else { get_pixel_fn(img) } }
-fn set_pixel_shared_fn(data: &mut[3][f32]) -> fn(i32, f32) -> () { |idx, val| data(idx) = val }
-fn get_pixel_shared_fn(data: &[3][f32]) -> fn(i32) -> f32 { |idx| data(idx) }
+fn get_ldg_fn() -> fn(&[1]pixel_t) -> pixel_t { if is_nvvm() { nvvm_ldg } else { cuda_ldg } }
+fn set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
+fn get_pixel_fn(img: Img) -> fn(i32) -> pixel_t { |idx| bitcast[&[1][pixel_t]](img.buf.data)(idx) }
+fn get_pixel_ldg_fn(img: Img) -> fn(i32) -> pixel_t { if has_ldg() { |idx| get_ldg_fn()(&bitcast[&[1][pixel_t]](img.buf.data)(idx)) } else { get_pixel_fn(img) } }
+fn set_pixel_shared_fn(data: &mut[3][pixel_t]) -> fn(i32, pixel_t) -> () { |idx, val| data(idx) = val }
+fn get_pixel_shared_fn(data: &[3][pixel_t]) -> fn(i32) -> pixel_t { |idx| data(idx) }
 
 fn iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
     let acc = accelerator(device_id);
@@ -220,7 +220,7 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
 
             let spm_stride =          block(0) + 2 * range_row;
             let spm_height = unroll * block(1) + 2 * range_col;
-            let spm        = reserve_shared[f32](spm_stride * spm_height);
+            let spm        = reserve_shared[pixel_t](spm_stride * spm_height);
 
             for y in range(0, steps_y) {
                 let lid_y = tid_y             + y*bdim_y;
@@ -459,8 +459,8 @@ fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSe
             let spm_stride     =          block(0) + 2 * range_row;
             let spm_height_col = unroll * block(1) + 2 * range_col;
             let spm_height_row = unroll * block(1);
-            let spm_col = reserve_shared[f32](spm_stride * spm_height_col);
-            let spm_row = reserve_shared[f32](spm_stride * spm_height_row);
+            let spm_col = reserve_shared[pixel_t](spm_stride * spm_height_col);
+            let spm_row = reserve_shared[pixel_t](spm_stride * spm_height_row);
 
             for y in range(0, steps_y) {
                 let lid_y = tid_y             + y*bdim_y;
