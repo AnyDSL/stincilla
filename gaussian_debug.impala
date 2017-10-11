@@ -71,7 +71,7 @@ fn main() -> i32 {
         let mut passed = 0;
         let mut err_x = 0; 
         let mut err_y = 0;
-        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), 10, lower, upper);
+        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[f32]](ref.buf.data)(idx) = val }, |idx| bitcast[&[f32]](ref.buf.data)(idx));
 

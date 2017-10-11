@@ -330,7 +330,7 @@ fn iteration_s(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bound
         //let OnChipMem = new_OnChipMem_alteraOne_noswin(arr.width, mask.size_x, mask.size_y);
         let OnChipMem_acc = get_acc_OnChipMem(OnChipMem);
 
-        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let temp_in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
         let temp_out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
         let mut col_ridx = 0; let mut row_ridx = 0;
@@ -672,7 +672,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         let coarsening = FetchAndCalc(math, padded_width, mask, pFactor, body);
         //let coarsening = CalcAndPack(math, padded_width, mask, pFactor, body);
 
-        let in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+        let in_acc  = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
         let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
         let mut col_ridx = -half_range_x;
         let mut row_ridx = -half_range_y;
