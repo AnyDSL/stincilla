@@ -5,7 +5,7 @@ fn iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bound
                  body: fn(i32, i32, Acc, Acci16) -> ()
                 ) -> () {
     let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
-    let arr_acc = get_acci16_bh(arr, set_pixeli16_fn(arr), get_pixeli16_fn(arr), 10, bh_lower, bh_upper);
+    let arr_acc = get_acci16_bh(arr, set_pixeli16_fn(arr), get_pixeli16_fn(arr), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -19,7 +19,7 @@ fn iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
                body: fn(i32, i32, Acci16, Acci16) -> ()
               ) -> () {
     let out_acc = get_acci16(out, set_pixeli16_fn(out), get_pixeli16_fn(out));
-    let arr_acc = get_acci16_bh(arr, set_pixeli16_fn(arr), get_pixeli16_fn(arr), 10, bh_lower, bh_upper);
+    let arr_acc = get_acci16_bh(arr, set_pixeli16_fn(arr), get_pixeli16_fn(arr), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
     for benchmark_cpu() {
         for y in $outer_loop(0, out.height) {
@@ -33,7 +33,7 @@ fn iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh
                  body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
                 ) -> () {
     let out_acc = get_acci16(out, set_pixeli16_fn(out), get_pixeli16_fn(out));
-    let img_acc = get_acci16_bh(img, set_pixeli16_fn(img), get_pixeli16_fn(img), 10, bh_lower, bh_upper);
+    let img_acc = get_acci16_bh(img, set_pixeli16_fn(img), get_pixeli16_fn(img), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
     let map_acc = get_acc(map, set_pixel_fn(map), get_pixel_fn(map));
 
     for benchmark_cpu() {
