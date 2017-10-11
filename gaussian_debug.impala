@@ -1,4 +1,4 @@
-fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
+fn display_image(arr: Acc, roi_x: i32, roi_y: i32) -> () {
     let height = 10;
     let width  = 10;
     let upper_x = roi_x + width;
