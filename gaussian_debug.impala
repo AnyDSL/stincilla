@@ -1,4 +1,4 @@
-fn display_image(arr: Acc, roi_x: i32, roi_y: i32) -> () {
+fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
     let height = 10;
     let width  = 10;
     let upper_x = roi_x + width;
@@ -39,12 +39,14 @@ fn main() -> i32 {
                                [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
                                [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]]);
 
+    //let lower = nobh_center;
+    //let upper = nobh_center;
     //let lower = @wrap_const_fun(const_lower, 0.0f);
     //let upper = @wrap_const_fun(const_upper, 0.0f);
     let lower = clamp_lower;
     let upper = clamp_upper;
-    //let lower = nobh_center;
-    //let upper = nobh_center;
+    //let lower = mirror_lower;
+    //let upper = mirror_upper;
 
     let sep = false;
 
@@ -75,8 +77,8 @@ fn main() -> i32 {
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[f32]](ref.buf.data)(idx) = val }, |idx| bitcast[&[f32]](ref.buf.data)(idx));
 
-        let offset_x = 2;
-        let offset_y = 2;
+        let offset_x = 0;
+        let offset_y = 0;
         for y in $range(0, out.height) {
             for x in range(0, out.width) @{
                 let ref_data = apply_stencil(x, y, arr_acc, mask);

@@ -1,0 +1,5 @@
+TEST                                    II ALUTs Regs  Logic RAM DSP   Freq
+clamp_padding_fac_vec1/comp_bin_17  	 1 40448 72986 37438 378 25 90.8999999365
+const_padding_fac_vec1/comp_bin_17  	 1 40640 72775 37419 379 25 94.1999996702
+mirror_padding_fac_vec1/comp_bin_17 	 1 40585 73089 37611 377 25 93.7699998418
+ref_fac_vec1/comp_bin_17            	 1 40842 72617 37392 366 25 92.8499996662
