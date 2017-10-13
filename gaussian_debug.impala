@@ -43,10 +43,10 @@ fn main() -> i32 {
     //let upper = nobh_center;
     //let lower = @wrap_const_fun(const_lower, 0.0f);
     //let upper = @wrap_const_fun(const_upper, 0.0f);
-    let lower = clamp_lower;
-    let upper = clamp_upper;
-    //let lower = mirror_lower;
-    //let upper = mirror_upper;
+    //let lower = clamp_lower;
+    //let upper = clamp_upper;
+    let lower = mirror_lower;
+    let upper = mirror_upper;
 
     let sep = false;
 
@@ -77,13 +77,13 @@ fn main() -> i32 {
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[f32]](ref.buf.data)(idx) = val }, |idx| bitcast[&[f32]](ref.buf.data)(idx));
 
-        let offset_x = 0;
-        let offset_y = 0;
+        let offset_x = 2;
+        let offset_y = 2;
         for y in $range(0, out.height) {
             for x in range(0, out.width) @{
                 let ref_data = apply_stencil(x, y, arr_acc, mask);
                 let mut diff = ref_data - out_acc.read(x, y);
-                if y > offset_y && y < out.height - offset_y && x > offset_x && x < out.width - offset_x {
+                if y > offset_y - 1 && y < out.height - offset_y && x > offset_x -1 && x < out.width - offset_x {
                     if diff < 0.0f  { diff = -diff; }
                     if diff > 0.01f { 
                         if passed == 0 { err_x = x; err_y = y;};
