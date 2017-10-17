@@ -102,7 +102,6 @@ fn new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
 struct data_beat {
     read  : fn(int) -> f32,
     write : fn(int, f32) -> (),
-    load  : fn(data_beat) -> (),
     size  : int
 }
 
@@ -110,28 +109,41 @@ fn new_data_beat(size: int) -> data_beat {
     let value = @new_regs1d(0, size);
     let size  = size;
 
-    fn load(inVec: data_beat) -> () {
-        for i in @range(0, size) {
-            @value.write(i, inVec.read(i));
-        }
-    }
     data_beat {
         read  : |idx|      value.read(idx),
         write : |idx, val| value.write(idx, val),
-        load  : load,
         size  : size
     }
 }
-// fn set_shared_fn_vec2(smem : &mut[1][f32], idx : int, val : Vect) -> (){
-// 	let smem_cast = smem as &mut[1][simd[f32 * 2]];
-//   	smem_cast(idx) = simd[val.read(0), val.read(1)];
-// }
 
-// Accessors for vectorized reads/writes
-// fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[1][f32]](img.buf.data)(idx) = val }
-// fn get_pixel_ldg_fn(img: Img) -> fn(i32) -> f32 { if has_ldg() { |idx| get_ldg_fn()(&bitcast[&[1][f32]](img.buf.data)(idx)) } else { get_pixel_fn(img) } }
+struct data_beat1d {
+    get: fn(int) -> data_beat,
+    size_y : int
+}
 
+fn new_data_beat1d(size_x: int, size_y: int) -> data_beat1d {
+    if size_y == 0 {
+        data_beat1d {
+            get :   |_| undef[data_beat](),
+            size_y  : size_y
+        }
+    } else {
+        let dbeat = new_data_beat(size_x);
+        let sub_dbeat = new_data_beat1d(size_x, size_y - 1);
+        data_beat1d {
+            get : |y| {
+                if y == size_y - 1 {
+                    dbeat
+                } else {
+                    sub_dbeat.get(y)
+                }
+            },
+            size_y : size_y
+        }
+    }
+}
 
+// read from Image
 fn get_pixel_vec4(img: Img, idx : int, dbeat : data_beat) -> (){
  	let img_cast = img.buf.data as &mut[1][simd[f32 * 4]];
     let pixels = img_cast(idx);
@@ -159,7 +171,7 @@ fn get_image_fn(img: Img, pFactor : int) -> fn(int, data_beat) -> (){
  		}
 }
 
-
+// write to image
 fn set_pixel_vec4(img: Img, idx : int, dbeat : data_beat) -> (){
  	let img_cast = img.buf.data as &mut[1][simd[f32 * 4]];
     img_cast(idx) = simd[dbeat.read(0), dbeat.read(1), dbeat.read(2), dbeat.read(3)];
@@ -181,18 +193,55 @@ fn set_image_fn(img: Img, pFactor : int) -> fn(int, data_beat) -> (){
  		}
 }
 
+// read from shared mem
+fn get_shared_vec1(smem : &mut[3][f32], idx : int, dbeat : data_beat) -> (){
+    dbeat.write(0, smem(idx));
+}
+fn get_shared_vec2(smem : &mut[3][f32], idx : int, dbeat : data_beat) -> (){
+    let smem_cast = smem as &mut[3][simd[f32 * 2]];
+    let pixels = smem_cast(idx);
+    dbeat.write(0, pixels(0));
+    dbeat.write(1, pixels(1));
+}
+fn get_shared_fn(smem : shared1d,  pFactor : int) -> fn(int, int, data_beat) -> (){
+    |x, y, dbeat|
+        match pFactor {
+            1 => get_shared_vec1(@smem.get_row(y), x, dbeat),
+            2 => get_shared_vec2(@smem.get_row(y), x, dbeat),
+            _=> ()
+        }
+}
+
+// write to shared mem
+fn set_shared_vec1(smem : &mut[3][f32], idx : int, dbeat : data_beat) -> (){
+    smem(idx) = dbeat.read(0);
+}
+fn set_shared_vec2(smem : &mut[3][f32], idx : int, dbeat : data_beat) -> (){
+    let smem_cast = smem as &mut[3][simd[f32 * 2]];
+    smem_cast(idx) = simd[dbeat.read(0), dbeat.read(1)];
+}
+fn set_shared_fn(smem : shared1d, pFactor : int) -> fn(int, int, data_beat) -> (){
+    |x, y, dbeat|
+    match pFactor {
+        1 => set_shared_vec1(@smem.get_row(y), x, dbeat),
+        2 => set_shared_vec2(@smem.get_row(y), x, dbeat),
+         _=> ()
+    }
+}
+
+
 //  --------- Line Buffers and Sliding Window  --------------------
 // Line Buffer
-struct LineBuffer {
+struct smem1d {
     write  : fn(int, int, f32) -> (),
     read   : fn(int, int) -> f32,
     size_x : int,
     size_y : int
 }
 
-fn new_LineBuffer(size_x: int, size_y: int) -> LineBuffer {
+fn new_smem1d(size_x: int, size_y: int) -> smem1d {
     if size_y == 0 {
-        LineBuffer {
+        smem1d {
             write  : |_, _, _| (),
             read   : |_, _| undef[f32](),
             size_x : size_x,
@@ -200,8 +249,8 @@ fn new_LineBuffer(size_x: int, size_y: int) -> LineBuffer {
         }
     } else {
         let lbuf = reserve_shared[f32](size_x);
-        let sub_lbuf = new_LineBuffer(size_x, size_y - 1);
-        LineBuffer {
+        let sub_lbuf = new_smem1d(size_x, size_y - 1);
+        smem1d {
             write  : |x, y, v| {
                 if y == size_y - 1 {
                     lbuf(x) = v
@@ -222,16 +271,105 @@ fn new_LineBuffer(size_x: int, size_y: int) -> LineBuffer {
     }
 }
 
+// Line Buffer
+struct shared1d {
+    get_row: fn(int) -> &mut[3][f32],
+    size_x : int,
+    size_y : int
+}
+fn new_shared1d(size_x: int, size_y: int) -> shared1d {
+    if size_y == 0 {
+        shared1d {
+            get_row : |_| undef[&mut[3][f32]](),
+            size_x  : size_x,
+            size_y  : size_y
+        }
+    } else {
+        let lbuf = reserve_shared[f32](size_x);
+        let sub_lbuf = new_shared1d(size_x, size_y - 1);
+        shared1d {
+            get_row : |y| {
+                if y == size_y - 1 {
+                    lbuf
+                } else {
+                    sub_lbuf.get_row(y)
+                }
+            },
+            size_x : size_x,
+            size_y : size_y
+        }
+    }
+}
+
+struct line_buffer {
+    shift   : fn(data_beat, int, data_beat1d) -> (),
+    stride  : int,
+    height  : int,
+    pFactor : int
+}
+
+
+fn new_line_buffer(stride : int, height : int, pFactor : int) -> line_buffer{
+    let lbuf    = @new_shared1d(stride, height - 1);
+
+    let set_to_lbuf   = set_shared_fn(lbuf, pFactor);
+    let get_from_lbuf = get_shared_fn(lbuf, pFactor);
+
+    fn shift(din : data_beat, col : int, dout : data_beat1d) -> (){
+        // read from lbuf : lbuf -> dout
+        for j in @range(0, height - 1) {
+            @get_from_lbuf(col, j, dout.get(j));
+        }
+        @get_from_lbuf(col, height - 1, din);
+
+        // shift lbuf : (dout, din) -> lbuf
+        for j in @range(0, height - 1) {
+            @set_to_lbuf(col, j, dout.get(j + 1));
+        }
+        for v in @range(0, pFactor) {
+            @dout.get(height - 1).write(v, din.read(v));
+        }
+    }
+
+    line_buffer {
+        shift : shift,
+        stride: stride,
+        height: height,
+        pFactor: pFactor
+    }
+}
+
+fn new_onchipmem(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+    let stride = (image_x / pFactor) * pFactor;
+    let swin = @new_sliding_win(swin_x, swin_y, pFactor);
+    let lbuf = @new_line_buffer(stride, swin_y, pFactor);
+    let lb2swin = @new_data_beat1d(pFactor, swin_y);
+
+    fn shift(vec_pix_new: data_beat, col_ridx: i32) -> () {
+        //shift line buffers
+        @lbuf.shift(vec_pix_new, col_ridx, lb2swin);
+
+        // shift sliding window
+        @swin.shift(lb2swin);
+    }
+
+    onchipmem {
+        read  : |x, y| swin.read(x, y),
+        shift : shift,
+    }
+}
+
+
 // Sliding window
 struct sliding_win {
     read  : fn(int, int) -> f32,
-    shift : fn(regs2d) -> ()
+    shift : fn(data_beat1d) -> ()
 }
 
 fn new_sliding_win(swin_x: int, swin_y: int, pFactor: int) -> sliding_win {
     let swin = @new_regs2d((0, 0), (swin_x, swin_y));
 
-    fn shift(lb2swin: regs2d) -> () {
+    fn shift(lb2swin: data_beat1d) -> () {
         // Shift sliding window
         for j in @range(0, swin_y) {
             for i in @range(0, swin_x - pFactor) {
@@ -242,7 +380,7 @@ fn new_sliding_win(swin_x: int, swin_y: int, pFactor: int) -> sliding_win {
         // Read new col
         for j in @range(0, swin_y) {
             for v in @range(0, pFactor) {
-                @swin.write((swin_x - pFactor + v), j, lb2swin.read(v, j));
+                @swin.write((swin_x - pFactor + v), j, lb2swin.get(j).read(v));
             }
         }
     }
@@ -258,48 +396,6 @@ struct onchipmem {
     read  : fn(int, int) -> f32,
     shift : fn(data_beat, int) -> (),
 }
-
-// Vivado style Multiple
-fn new_onchipmem(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
-    let swin = @new_sliding_win(swin_x, swin_y, pFactor);
-    let lbuf = @new_LineBuffer(image_x, swin_y - 1);
-    let lb2swin = @new_regs2d ((0, 0), (pFactor, swin_y));
-
-    fn shift_lbuf2D(vec_pix_new: data_beat, col_ridx: i32) -> () {
-        // read from lbuf : lbuf -> lb2swin
-        for j in @range(0, lbuf.size_y) {
-            for v in @range(0, pFactor) {
-                @lb2swin.write(v, j, @lbuf.read((col_ridx + v), j));
-            }
-        }
-        for v in @range(0, pFactor) {
-            @lb2swin.write(v, lbuf.size_y, vec_pix_new.read(v));
-        }
-
-        // shift lbuf : (lb2swin, vec_pix_new) -> lbuf
-        for j in @range(0, lbuf.size_y - 1) {
-            for v in @range(0, pFactor) {
-                @lbuf.write((col_ridx + v), j, lb2swin.read(v, j + 1));
-            }
-        }
-        for v in @range(0, pFactor) {
-            @lbuf.write((col_ridx + v), lbuf.size_y - 1, vec_pix_new.read(v));
-        }
-    }
-    fn shift(vec_pix_new: data_beat, col_ridx: i32) -> () {
-        //shift line buffers
-        shift_lbuf2D(vec_pix_new, col_ridx);
-
-        // shift sliding window
-        @swin.shift(lb2swin);
-    }
-
-    onchipmem {
-        read  : |x, y| swin.read(x, y),
-        shift : shift,
-    }
-}
-
 
 //  -------------------  Loop Coarsening  ----------------------
 struct coarsening_type {
@@ -480,7 +576,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 //  // Vivado style Multiple
 //  fn new_onchipmem(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
 //      let swin = @new_sliding_win(swin_x, swin_y, pFactor);
-//      let lbuf = @new_LineBuffer(image_x, swin_y - 1);
+//      let lbuf = @new_smem1d(image_x, swin_y - 1);
 //      let lb2swin = @new_regs2d ((0, 0), (pFactor, swin_y));
 //  
 //      fn shift_lbuf2D(vec_pix_new: data_beat, col_ridx: i32) -> () {
@@ -517,3 +613,44 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 //          shift : shift,
 //      }
 //  }
+
+// // Vivado style Multiple
+// fn new_onchipmem(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+//     let swin = @new_sliding_win(swin_x, swin_y, pFactor);
+//     let lbuf = @new_smem1d(image_x, swin_y - 1);
+//     let lb2swin = @new_regs2d ((0, 0), (pFactor, swin_y));
+//
+//     fn shift_lbuf2D(vec_pix_new: data_beat, col_ridx: i32) -> () {
+//         // read from lbuf : lbuf -> lb2swin
+//         for j in @range(0, lbuf.size_y) {
+//             for v in @range(0, pFactor) {
+//                 @lb2swin.write(v, j, @lbuf.read((col_ridx + v), j));
+//             }
+//         }
+//         for v in @range(0, pFactor) {
+//             @lb2swin.write(v, lbuf.size_y, vec_pix_new.read(v));
+//         }
+//
+//         // shift lbuf : (lb2swin, vec_pix_new) -> lbuf
+//         for j in @range(0, lbuf.size_y - 1) {
+//             for v in @range(0, pFactor) {
+//                 @lbuf.write((col_ridx + v), j, lb2swin.read(v, j + 1));
+//             }
+//         }
+//         for v in @range(0, pFactor) {
+//             @lbuf.write((col_ridx + v), lbuf.size_y - 1, vec_pix_new.read(v));
+//         }
+//     }
+//     fn shift(vec_pix_new: data_beat, col_ridx: i32) -> () {
+//         //shift line buffers
+//         shift_lbuf2D(vec_pix_new, col_ridx);
+//
+//         // shift sliding window
+//         @swin.shift(lb2swin);
+//     }
+//
+//     onchipmem {
+//         read  : |x, y| swin.read(x, y),
+//         shift : shift,
+//     }
+// }
