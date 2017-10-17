@@ -84,7 +84,7 @@ fn read_pixeli16(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) ->
         (BoundaryModei16::Index(x), BoundaryModei16::Index(y)) => @read(x, y),
         (BoundaryModei16::Const(c), _) => c,
         (_, BoundaryModei16::Const(c)) => c,
-        _ => undef()
+        _ => undef[i16]()
     }
 }
 fn nobh_center_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 { BoundaryModei16::Index(idx) }
