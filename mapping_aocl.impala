@@ -21,23 +21,23 @@ fn get_pixel_shared_fn(data: &[3][f32]) -> fn(i32) -> f32 { |idx| data(idx) }
 
 
 //  -------------- Array of Registers --------------------
-struct RegArry1D {
+struct regs1d {
     write : fn(int, f32) -> (),
     read  : fn(int) -> f32,
     begin : int,
     end   : int
 }
 
-struct RegArry2D {
+struct regs2d {
     write : fn(int, int, f32) -> (),
     read  : fn(int, int) -> f32,
     begin : (int, int),
     end   : (int, int)
 }
 
-fn new_RegArry1D(begin: int, end: int) -> RegArry1D {
+fn new_regs1d(begin: int, end: int) -> regs1d {
     if end == begin {
-        RegArry1D {
+        regs1d {
             write : |_, _| (),
             read  : |_| undef[f32](),
             begin : begin,
@@ -46,7 +46,7 @@ fn new_RegArry1D(begin: int, end: int) -> RegArry1D {
     } else if begin + 1 == end {
         //pe_info("found", begin);
         let mut value = 0.0f; // : f32;
-        RegArry1D {
+        regs1d {
             write : |i, v| value = v,
             read  : |i| value,
             begin : begin,
@@ -56,9 +56,9 @@ fn new_RegArry1D(begin: int, end: int) -> RegArry1D {
         //pe_info("begin", begin);
         //pe_info("end", end);
         let m = (end + begin) / 2;
-        let left  = new_RegArry1D(begin, m);
-        let right = new_RegArry1D(m, end);
-        RegArry1D {
+        let left  = new_regs1d(begin, m);
+        let right = new_regs1d(m, end);
+        regs1d {
             write : |i, v| if i >= m { right.write(i, v) } else { left.write(i, v) },
             read  : |i|    if i >= m { right.read(i) } else { left.read(i) },
             begin : begin,
@@ -67,19 +67,19 @@ fn new_RegArry1D(begin: int, end: int) -> RegArry1D {
     }
 }
 
-fn new_RegArry2D(begin: (int, int), end: (int, int)) -> RegArry2D {
+fn new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
     let (begin_x, begin_y) = begin;
     let (end_x, end_y)     = end;
     if end_y == begin_y {
-        RegArry2D {
+        regs2d {
             write : |_, _, _| (),
             read  : |_, _| undef[f32](),
             begin : begin,
             end   : end
         }
     } else if begin_y + 1 == end_y {
-        let row = new_RegArry1D(begin_x, end_x);
-        RegArry2D {
+        let row = new_regs1d(begin_x, end_x);
+        regs2d {
             write : |x, y, v| row.write(x, v),
             read  : |x, y|    row.read(x),
             begin : begin,
@@ -87,9 +87,9 @@ fn new_RegArry2D(begin: (int, int), end: (int, int)) -> RegArry2D {
         }
     } else {
         let m = (end_y + begin_y) / 2;
-        let left  = new_RegArry2D((begin_x, begin_y), (end_x, m));
-        let right = new_RegArry2D((begin_x, m),       (end_x, end_y));
-        RegArry2D {
+        let left  = new_regs2d((begin_x, begin_y), (end_x, m));
+        let right = new_regs2d((begin_x, m),       (end_x, end_y));
+        regs2d {
             write : |x, y, v| if y >= m { right.write(x, y, v) } else { left.write(x, y, v) },
             read  : |x, y|    if y >= m { right.read(x, y) } else { left.read(x, y) },
             begin : begin,
@@ -99,24 +99,27 @@ fn new_RegArry2D(begin: (int, int), end: (int, int)) -> RegArry2D {
 }
 
 //  -------------------  Data Types for Loop Coarsening  ----------------------
-struct Vect {
+struct data_beat {
     read  : fn(int) -> f32,
     write : fn(int, f32) -> (),
-    load  : fn(Vect) -> ()
+    load  : fn(data_beat) -> (),
+    size  : int
 }
 
-fn new_Vect(size: int) -> Vect {
-    let value = @new_RegArry1D(0, size);
+fn new_data_beat(size: int) -> data_beat {
+    let value = @new_regs1d(0, size);
+    let size  = size;
 
-    fn load(inVec: Vect) -> () {
+    fn load(inVec: data_beat) -> () {
         for i in @range(0, size) {
             @value.write(i, inVec.read(i));
         }
     }
-    Vect {
+    data_beat {
         read  : |idx|      value.read(idx),
         write : |idx, val| value.write(idx, val),
-        load  : load
+        load  : load,
+        size  : size
     }
 }
 
@@ -161,16 +164,16 @@ fn new_LineBuffer(size_x: int, size_y: int) -> LineBuffer {
     }
 }
 
-struct SlidingWindow_vec {
+// Sliding window
+struct sliding_win {
     read  : fn(int, int) -> f32,
-    shift : fn(RegArry2D) -> ()
+    shift : fn(regs2d) -> ()
 }
 
-// Sliding window
-fn new_SlidingWindow_vec(swin_x: int, swin_y: int, pFactor: int) -> SlidingWindow_vec {
-    let swin = @new_RegArry2D((0, 0), (swin_x, swin_y));
+fn new_sliding_win(swin_x: int, swin_y: int, pFactor: int) -> sliding_win {
+    let swin = @new_regs2d((0, 0), (swin_x, swin_y));
 
-    fn shift(lb2swin: RegArry2D) -> () {
+    fn shift(lb2swin: regs2d) -> () {
         // Shift sliding window
         for j in @range(0, swin_y) {
             for i in @range(0, swin_x - pFactor) {
@@ -185,33 +188,26 @@ fn new_SlidingWindow_vec(swin_x: int, swin_y: int, pFactor: int) -> SlidingWindo
             }
         }
     }
-    SlidingWindow_vec {
+    sliding_win {
         read  : |x, y| swin.read(x, y),
         shift : shift
     }
 }
 
 
-struct OnChipMem_vec {
+// On Chip Memory
+struct onchipmem {
     read  : fn(int, int) -> f32,
-    shift : fn(Vect, int) -> (),
+    shift : fn(data_beat, int) -> (),
 }
 
-
-
-struct coarsening_type {
-    shift   : fn(Vect, int) -> (),
-    process : fn() -> Vect,
-}
-
-//  -------------------  Loop Coarsening  ----------------------
 // Vivado style Multiple
-fn new_OnChipMem_vivMult_vec(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> OnChipMem_vec {
-    let swin = @new_SlidingWindow_vec(swin_x, swin_y, pFactor);
+fn new_onchipmem(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+    let swin = @new_sliding_win(swin_x, swin_y, pFactor);
     let lbuf = @new_LineBuffer(image_x, swin_y - 1);
-    let lb2swin = @new_RegArry2D ((0, 0), (pFactor, swin_y));
+    let lb2swin = @new_regs2d ((0, 0), (pFactor, swin_y));
 
-    fn shift_lbuf2D(vec_pix_new: Vect, col_ridx: i32) -> () {
+    fn shift_lbuf2D(vec_pix_new: data_beat, col_ridx: i32) -> () {
         // read from lbuf : lbuf -> lb2swin
         for j in @range(0, lbuf.size_y) {
             for v in @range(0, pFactor) {
@@ -232,7 +228,7 @@ fn new_OnChipMem_vivMult_vec(image_x: int, swin_x: int, swin_y: int, pFactor: in
             @lbuf.write((col_ridx + v), lbuf.size_y - 1, vec_pix_new.read(v));
         }
     }
-    fn shift(vec_pix_new: Vect, col_ridx: i32) -> () {
+    fn shift(vec_pix_new: data_beat, col_ridx: i32) -> () {
         //shift line buffers
         shift_lbuf2D(vec_pix_new, col_ridx);
 
@@ -240,34 +236,18 @@ fn new_OnChipMem_vivMult_vec(image_x: int, swin_x: int, swin_y: int, pFactor: in
         @swin.shift(lb2swin);
     }
 
-    OnChipMem_vec {
+    onchipmem {
         read  : |x, y| swin.read(x, y),
         shift : shift,
     }
 }
 
-// Altera style One row buffer, no Sliding window
-fn new_OnChipMem_alteraOne_noswin_vec(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> OnChipMem_vec {
-    let lbuf_size = image_x * (swin_y - 1) + swin_x;
-    let lbuf = reserve_shared[f32](lbuf_size);
-    let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), image_x, swin_y);
 
-    fn shift(vec_pix_new: Vect) -> () {
-        // shift lbuf : (lb2swin, pix_new) -> lbuf
-        for i in $range(0, lbuf_size - pFactor) {
-            lbuf(i) = lbuf(i + pFactor);
-        }
-        for v in @range(0, pFactor) {
-            lbuf(lbuf_size - pFactor + v) = vec_pix_new.read(v);
-        }
-    }
-
-    OnChipMem_vec {
-        read  : |x, y|   lbuf_acc.read(x, y),
-        shift : |x, idx| shift(x)
-    }
+//  -------------------  Loop Coarsening  ----------------------
+struct coarsening_type {
+    shift   : fn(data_beat, int) -> (),
+    process : fn() -> data_beat,
 }
-
 
 fn FetchAndCalc(math: Intrinsics, image_x: int, mask: Mask, pFactor: int, body: StencilFn) -> coarsening_type {
     let half_range_y      = mask.size_y >> 1;
@@ -277,11 +257,11 @@ fn FetchAndCalc(math: Intrinsics, image_x: int, mask: Mask, pFactor: int, body: 
     let swin_y            = mask.size_y;
 
     // On Chip Memory Architecture
-    let OnChipMem = new_OnChipMem_vivMult_vec(image_x, swin_x, swin_y, pFactor);
+    let OnChipMem = new_onchipmem(image_x, swin_x, swin_y, pFactor);
     //let OnChipMem = new_OnChipMem_alteraOne_noswin_vec(image_x, swin_x, swin_y, pFactor);
 
-    fn process() -> Vect {
-        let vec_pix_out = @new_Vect(pFactor);
+    fn process() -> data_beat {
+        let vec_pix_out = @new_data_beat(pFactor);
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
                     read  : |x, y|    OnChipMem.read(x + v, y),
@@ -310,16 +290,16 @@ fn CalcAndPack(math: Intrinsics, image_x: int, mask: Mask, pFactor: int, body: S
     let swin_y       = mask.size_y;
 
     // On Chip Memory Architecture
-    let OnChipMem = new_OnChipMem_vivMult_vec(image_x, swin_x, swin_y, pFactor);
+    let OnChipMem = new_onchipmem(image_x, swin_x, swin_y, pFactor);
     //let OnChipMem = new_OnChipMem_alteraOne_noswin_vec(image_x, swin_x, swin_y, pFactor);
 
     // Constants for Pack
     let delayed_pixels_size = ((pFactor + ((pFactor - half_range_x) % pFactor)) % pFactor);
     let pack_offset         = pFactor - delayed_pixels_size;
 
-    let vec_delayed = @new_Vect(delayed_pixels_size);
-    fn process() -> Vect {
-        let vec_pix_out = @new_Vect(pFactor);
+    let vec_delayed = @new_data_beat(delayed_pixels_size);
+    fn process() -> data_beat {
+        let vec_pix_out = @new_data_beat(pFactor);
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
                     read  : |x, y|    OnChipMem.read(x + v, y),
@@ -378,7 +358,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 
             let mut col_ridx = 0; let mut row_ridx = 0;
             let mut col_widx = 0; let mut row_widx = 0;
-            let vec_pix_new = @new_Vect(pFactor);
+            let vec_pix_new = @new_data_beat(pFactor);
 
             for clock_tick in $range(0, life_time) {
                 {
@@ -413,3 +393,30 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
     }
     copy_img(out_gpu, out);
 }
+
+
+
+
+
+// ------------- Comparison reasons -----------------------------------------
+//  // Altera style One row buffer, no Sliding window
+//  fn new_OnChipMem_alteraOne_noswin_vec(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+//      let lbuf_size = image_x * (swin_y - 1) + swin_x;
+//      let lbuf = reserve_shared[f32](lbuf_size);
+//      let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), image_x, swin_y);
+//
+//      fn shift(vec_pix_new: data_beat) -> () {
+//          // shift lbuf : (lb2swin, pix_new) -> lbuf
+//          for i in $range(0, lbuf_size - pFactor) {
+//              lbuf(i) = lbuf(i + pFactor);
+//          }
+//          for v in @range(0, pFactor) {
+//              lbuf(lbuf_size - pFactor + v) = vec_pix_new.read(v);
+//          }
+//      }
+//
+//      onchipmem {
+//          read  : |x, y|   lbuf_acc.read(x, y),
+//          shift : |x, idx| shift(x)
+//      }
+//  }
