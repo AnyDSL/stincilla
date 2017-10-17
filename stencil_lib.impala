@@ -176,7 +176,7 @@ fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> f3
         (BoundaryMode::Index(x), BoundaryMode::Index(y)) => @read(x, y),
         (BoundaryMode::Const(c), _) => c,
         (_, BoundaryMode::Const(c)) => c,
-        _ => undef[f32]()
+        _ => undef()
     }
 }
 
