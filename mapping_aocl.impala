@@ -122,6 +122,64 @@ fn new_data_beat(size: int) -> data_beat {
         size  : size
     }
 }
+// fn set_shared_fn_vec2(smem : &mut[1][f32], idx : int, val : Vect) -> (){
+// 	let smem_cast = smem as &mut[1][simd[f32 * 2]];
+//   	smem_cast(idx) = simd[val.read(0), val.read(1)];
+// }
+
+// Accessors for vectorized reads/writes
+// fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[1][f32]](img.buf.data)(idx) = val }
+// fn get_pixel_ldg_fn(img: Img) -> fn(i32) -> f32 { if has_ldg() { |idx| get_ldg_fn()(&bitcast[&[1][f32]](img.buf.data)(idx)) } else { get_pixel_fn(img) } }
+
+
+fn get_pixel_vec4(img: Img, idx : int, dbeat : data_beat) -> (){
+ 	let img_cast = img.buf.data as &mut[1][simd[f32 * 4]];
+    let pixels = img_cast(idx);
+    dbeat.write(0, pixels(0));
+    dbeat.write(1, pixels(1));
+    dbeat.write(2, pixels(2));
+    dbeat.write(3, pixels(3));
+}
+fn get_pixel_vec2(img: Img, idx : int, dbeat : data_beat) -> (){
+ 	let img_cast = img.buf.data as &mut[1][simd[f32 * 2]];
+    let pixels = img_cast(idx);
+    dbeat.write(0, pixels(0));
+    dbeat.write(1, pixels(1));
+}
+fn get_pixel_vec1(img: Img, idx : int, dbeat : data_beat) -> () {
+    dbeat.write(0, bitcast[&[1][f32]](img.buf.data)(idx));
+}
+fn get_image_fn(img: Img, pFactor : int) -> fn(int, data_beat) -> (){
+    |idx, dbeat|
+ 		match pFactor {
+ 			1 => get_pixel_vec1(img, idx, dbeat),
+ 			2 => get_pixel_vec2(img, idx, dbeat),
+ 			4 => get_pixel_vec4(img, idx, dbeat),
+ 			 _=> ()
+ 		}
+}
+
+
+fn set_pixel_vec4(img: Img, idx : int, dbeat : data_beat) -> (){
+ 	let img_cast = img.buf.data as &mut[1][simd[f32 * 4]];
+    img_cast(idx) = simd[dbeat.read(0), dbeat.read(1), dbeat.read(2), dbeat.read(3)];
+}
+fn set_pixel_vec2(img: Img, idx : int, dbeat : data_beat) -> (){
+ 	let img_cast = img.buf.data as &mut[1][simd[f32 * 2]];
+    img_cast(idx) = simd[dbeat.read(0), dbeat.read(1)];
+}
+fn set_pixel_vec1(img: Img, idx : int, dbeat : data_beat) -> () {
+    bitcast[&mut[1][f32]](img.buf.data)(idx) = dbeat.read(0);
+}
+fn set_image_fn(img: Img, pFactor : int) -> fn(int, data_beat) -> (){
+    |idx, dbeat|
+ 		match pFactor {
+ 			1 => set_pixel_vec1(img, idx, dbeat),
+ 			2 => set_pixel_vec2(img, idx, dbeat),
+ 			4 => set_pixel_vec4(img, idx, dbeat),
+ 			 _=> ()
+ 		}
+}
 
 //  --------- Line Buffers and Sliding Window  --------------------
 // Line Buffer
@@ -358,35 +416,34 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 
             let mut col_ridx = 0; let mut row_ridx = 0;
             let mut col_widx = 0; let mut row_widx = 0;
+
             let vec_pix_new = @new_data_beat(pFactor);
+            let get_data_beat = get_image_fn(arr_gpu, pFactor);
+            let set_data_beat = set_image_fn(out_gpu, pFactor);
 
             for clock_tick in $range(0, life_time) {
                 {
                 // read new pix
                 if clock_tick < process_time {
-                    for v in @range(0, pFactor) @{
-                        @vec_pix_new.write(v, in_acc.read(col_ridx + v, row_ridx));
-                    }
+                    @get_data_beat((row_ridx * kVecImageWidth + col_ridx), vec_pix_new);
                 }
 
                 // Shift on chip mem
-                @coarsening.shift(vec_pix_new, col_ridx);
+                @coarsening.shift(vec_pix_new, col_ridx * pFactor);
                 };
                 {
                 let vec_pix_out = @coarsening.process();
                 // write output
                 if clock_tick > initial_delay {
-                    for v in @range(0, pFactor) {
-                        out_acc.write(col_widx + v, row_widx, vec_pix_out.read(v));
-                    }
-                    col_widx = col_widx + pFactor;
+                    @set_data_beat((row_widx * kVecImageWidth + col_widx), vec_pix_out);
+                    col_widx++;
                 }
                 };
 
                 // update image indexes
-                col_ridx = col_ridx + pFactor;
-                if col_ridx == arr.width { col_ridx = 0; row_ridx++; }
-                if col_widx == arr.width { col_widx = 0; row_widx++; }
+                col_ridx++;
+                if col_ridx == kVecImageWidth { col_ridx = 0; row_ridx++; }
+                if col_widx == kVecImageWidth { col_widx = 0; row_widx++; }
             }
         }
         //acc.sync();
@@ -418,5 +475,45 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 //      onchipmem {
 //          read  : |x, y|   lbuf_acc.read(x, y),
 //          shift : |x, idx| shift(x)
+//      }
+//  }
+//  // Vivado style Multiple
+//  fn new_onchipmem(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+//      let swin = @new_sliding_win(swin_x, swin_y, pFactor);
+//      let lbuf = @new_LineBuffer(image_x, swin_y - 1);
+//      let lb2swin = @new_regs2d ((0, 0), (pFactor, swin_y));
+//  
+//      fn shift_lbuf2D(vec_pix_new: data_beat, col_ridx: i32) -> () {
+//          // read from lbuf : lbuf -> lb2swin
+//          for j in @range(0, lbuf.size_y) {
+//              for v in @range(0, pFactor) {
+//                  @lb2swin.write(v, j, @lbuf.read((col_ridx + v), j));
+//              }
+//          }
+//          for v in @range(0, pFactor) {
+//              @lb2swin.write(v, lbuf.size_y, vec_pix_new.read(v));
+//          }
+//  
+//          // shift lbuf : (lb2swin, vec_pix_new) -> lbuf
+//          for j in @range(0, lbuf.size_y - 1) {
+//              for v in @range(0, pFactor) {
+//                  @lbuf.write((col_ridx + v), j, lb2swin.read(v, j + 1));
+//              }
+//          }
+//          for v in @range(0, pFactor) {
+//              @lbuf.write((col_ridx + v), lbuf.size_y - 1, vec_pix_new.read(v));
+//          }
+//      }
+//      fn shift(vec_pix_new: data_beat, col_ridx: i32) -> () {
+//          //shift line buffers
+//          shift_lbuf2D(vec_pix_new, col_ridx);
+//  
+//          // shift sliding window
+//          @swin.shift(lb2swin);
+//      }
+//  
+//      onchipmem {
+//          read  : |x, y| swin.read(x, y),
+//          shift : shift,
 //      }
 //  }
