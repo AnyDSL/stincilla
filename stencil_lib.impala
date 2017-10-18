@@ -157,16 +157,16 @@ fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> f3
     let (mode_x, mode_y) = match region {
         (row, col) => {
             let mode_x = match row {
-                Boundary::Lower  => bh_lower(roi.o_x + x, lower_x, upper_x),
-                Boundary::Center => BoundaryMode::Index(roi.o_x + x),
-                Boundary::Upper  => bh_upper(roi.o_x + x, lower_x, upper_x),
-                _                => map_boundary_mode(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
+                Boundary::Lower   => bh_lower(roi.o_x + x, lower_x, upper_x),
+                Boundary::Center  => BoundaryMode::Index(roi.o_x + x),
+                Boundary::Upper   => bh_upper(roi.o_x + x, lower_x, upper_x),
+                Boundary::Unknown => map_boundary_mode(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
             };
             let mode_y = match col {
-                Boundary::Lower  => bh_lower(roi.o_y + y, lower_y, upper_y),
-                Boundary::Center => BoundaryMode::Index(roi.o_y + y),
-                Boundary::Upper  => bh_upper(roi.o_y + y, lower_y, upper_y),
-                _                => map_boundary_mode(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
+                Boundary::Lower   => bh_lower(roi.o_y + y, lower_y, upper_y),
+                Boundary::Center  => BoundaryMode::Index(roi.o_y + y),
+                Boundary::Upper   => bh_upper(roi.o_y + y, lower_y, upper_y),
+                Boundary::Unknown => map_boundary_mode(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
             };
             (mode_x, mode_y)
         }
