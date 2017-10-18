@@ -194,11 +194,11 @@ fn set_image_fn(img: Img, pFactor : int) -> fn(int, data_beat) -> (){
 }
 
 // read from shared mem
-fn get_shared_vec1(smem : &mut[3][f32], idx : int, dbeat : data_beat) -> (){
+fn get_shared_vec1(smem : &[3][f32], idx : int, dbeat : data_beat) -> (){
     dbeat.write(0, smem(idx));
 }
-fn get_shared_vec2(smem : &mut[3][f32], idx : int, dbeat : data_beat) -> (){
-    let smem_cast = smem as &mut[3][simd[f32 * 2]];
+fn get_shared_vec2(smem : &[3][f32], idx : int, dbeat : data_beat) -> (){
+    let smem_cast = bitcast[&[3][simd[f32 * 2]]] (smem);
     let pixels = smem_cast(idx);
     dbeat.write(0, pixels(0));
     dbeat.write(1, pixels(1));
@@ -320,14 +320,13 @@ fn new_line_buffer(stride : int, height : int, pFactor : int) -> line_buffer{
         for j in @range(0, height - 1) {
             @get_from_lbuf(col, j, dout.get(j));
         }
-        @get_from_lbuf(col, height - 1, din);
+        for v in @range(0, pFactor) {
+            @dout.get(height - 1).write(v, din.read(v));
+        }
 
         // shift lbuf : (dout, din) -> lbuf
         for j in @range(0, height - 1) {
             @set_to_lbuf(col, j, dout.get(j + 1));
-        }
-        for v in @range(0, pFactor) {
-            @dout.get(height - 1).write(v, din.read(v));
         }
     }
 
@@ -525,7 +524,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
                 }
 
                 // Shift on chip mem
-                @coarsening.shift(vec_pix_new, col_ridx * pFactor);
+                @coarsening.shift(vec_pix_new, col_ridx);
                 };
                 {
                 let vec_pix_out = @coarsening.process();
