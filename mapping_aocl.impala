@@ -23,31 +23,31 @@ fn get_pixel_shared_fn(data: &[3][f32]) -> fn(i32) -> f32 { |idx| data(idx) }
 struct stream_in{
     update: fn(int) -> (),
     read  : fn(int) -> f32,
-    size  : int
+    pFactor  : int
 }
 struct stream_out{
     update: fn(int) -> (),
     write : fn(int, f32) -> (),
-    size  : int
+    pFactor  : int
 }
 
 fn get_global_stream_vec1(data: &[i8]) -> stream_in {
     let mut value = undef[f32]();
     fn update(idx : int) -> () { value = bitcast[&[1][f32]](data)(idx); }
     fn read(idx: int) -> f32 { value };
-    stream_in{update: update, read : read, size : 1}
+    stream_in{update: update, read : read, pFactor : 1}
 }
 fn get_global_stream_vec2(data: &[i8]) -> stream_in {
     let mut value = undef[[f32 * 2]]();
     fn update(idx : int) -> () { value = bitcast[&[1][[f32 *  2]]](data)(idx); }
     fn read(idx: int) -> f32 { value(idx) };
-    stream_in{update: update, read : read, size : 2}
+    stream_in{update: update, read : read, pFactor : 2}
 }
 fn get_global_stream_vec4(data: &[i8]) -> stream_in {
     let mut value = undef[[f32 * 4]]();
     fn update(idx : int) -> () { value = bitcast[&[1][[f32 *  4]]](data)(idx); }
     fn read(idx: int) -> f32 { value(idx) };
-    stream_in{update: update, read : read, size : 4}
+    stream_in{update: update, read : read, pFactor : 4}
 }
 fn get_global_stream_from_img(img: Img,  pFactor: int) -> stream_in{
         match pFactor {
@@ -62,19 +62,19 @@ fn set_global_stream_vec1(data: &[i8]) -> stream_out {
     let mut value = undef[f32]();
     fn update(idx : int) -> () { bitcast[&mut[1][f32]](data)(idx) = value; }
     fn write(idx: int, din: f32) -> () { value = din; };
-    stream_out{update: update, write : write, size : 1}
+    stream_out{update: update, write : write, pFactor : 1}
 }
 fn set_global_stream_vec2(data: &[i8]) -> stream_out {
     let mut value = undef[[f32 * 2]]();
     fn update(idx : int) -> () { bitcast[&mut[1][[f32 *  2]]](data)(idx) = value; }
     fn write(idx: int, din: f32) -> () { value(idx) = din; };
-    stream_out{update: update, write : write, size : 2}
+    stream_out{update: update, write : write, pFactor : 2}
 }
 fn set_global_stream_vec4(data: &[i8]) -> stream_out {
     let mut value = undef[[f32 * 4]]();
     fn update(idx : int) -> () { bitcast[&mut[1][[f32 *  4]]](data)(idx) = value; }
     fn write(idx: int, din: f32) -> () { value(idx) = din; };
-    stream_out{update: update, write : write, size : 4}
+    stream_out{update: update, write : write, pFactor : 4}
 }
 fn set_global_stream_from_img(img: Img,  pFactor: int) -> stream_out{
         match pFactor {
