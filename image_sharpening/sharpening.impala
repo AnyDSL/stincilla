@@ -1,4 +1,4 @@
-type BoundaryFni16 = fn(i32, i32, i32, fn(i16) -> !) -> i32;
+type BoundaryFni16 = fn(i32, i32, i32) -> BoundaryModei16;
 
 struct Imgi16 {
     buf : Buffer,
@@ -6,17 +6,23 @@ struct Imgi16 {
     height : i32,
     stride : i32,
 }
+
 struct Acci16 {
     read  : fn(i32, i32) -> i16,
     write : fn(i32, i32, i16) -> (),
 }
 
+enum BoundaryModei16 {
+    Index(i32),
+    Const(i16)
+}
+
 // &   [i16] on CPU/AVX
 // &[1][i16] on CUDA/NVVM & OpenCL
-fn get_acci16_bh(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, region: i32, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
+fn get_acci16_bh(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, region: Region, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
     get_acci16_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 }
-fn get_acci16_bh_offset(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
+fn get_acci16_bh_offset(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
     Acci16 {
         read  : |x, y|    read_pixeli16(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
         write : |x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
@@ -44,63 +50,55 @@ fn create_imgi16(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Imgi16 {
 fn copy_imgi16(src: Imgi16, dst: Imgi16) -> () {
     copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[i16]());
 }
-fn read_pixeli16(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> i16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> i16 {
-    let mut idx_x = roi.o_x + x;
-    let mut idx_y = roi.o_y + y;
-
+fn map_boundary_modei16(mode: BoundaryModei16, bh_fun: fn(i32) -> BoundaryModei16) -> BoundaryModei16 {
+    match mode {
+        BoundaryModei16::Index(idx) => bh_fun(idx),
+        _ /* BoundaryModei16::Const(val) */ => mode
+    }
+}
+fn read_pixeli16(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> i16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> i16 {
     let lower_x = roi.o_x;
     let lower_y = roi.o_y;
     let upper_x = roi.o_x + roi.width;
     let upper_y = roi.o_y + roi.height;
 
-    // region encoding
-    // 0 --- 1 --- 2
-    // 3 --- 4 --- 5
-    // 6 --- 7 --- 8
-    // region encoding
+    let (mode_x, mode_y) = match region {
+        (row, col) => {
+            let mode_x = match row {
+                Boundary::Lower  => bh_lower(roi.o_x + x, lower_x, upper_x),
+                Boundary::Center => BoundaryModei16::Index(roi.o_x + x),
+                Boundary::Upper  => bh_upper(roi.o_x + x, lower_x, upper_x),
+                _                => map_boundary_modei16(bh_lower(roi.o_x + x, lower_x, upper_x), |idx| bh_upper(idx, lower_x, upper_x))
+            };
+            let mode_y = match col {
+                Boundary::Lower  => bh_lower(roi.o_y + y, lower_y, upper_y),
+                Boundary::Center => BoundaryModei16::Index(roi.o_y + y),
+                Boundary::Upper  => bh_upper(roi.o_y + y, lower_y, upper_y),
+                _                => map_boundary_modei16(bh_lower(roi.o_y + y, lower_y, upper_y), |idx| bh_upper(idx, lower_y, upper_y))
+            };
+            (mode_x, mode_y)
+        }
+    };
 
-    // left
-    if region == 0 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
-    if region == 3 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
-    if region == 6 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
-
-    // right
-    if region == 2 { idx_x = @bh_upper(idx_x, lower_x, upper_x, return); }
-    if region == 5 { idx_x = @bh_upper(idx_x, lower_x, upper_x, return); }
-    if region == 8 { idx_x = @bh_upper(idx_x, lower_x, upper_x, return); }
-
-    // top
-    if region == 0 { idx_y = @bh_lower(idx_y, lower_y, upper_y, return); }
-    if region == 1 { idx_y = @bh_lower(idx_y, lower_y, upper_y, return); }
-    if region == 2 { idx_y = @bh_lower(idx_y, lower_y, upper_y, return); }
-
-    // bottom
-    if region == 6 { idx_y = @bh_upper(idx_y, lower_y, upper_y, return); }
-    if region == 7 { idx_y = @bh_upper(idx_y, lower_y, upper_y, return); }
-    if region == 8 { idx_y = @bh_upper(idx_y, lower_y, upper_y, return); }
-
-    // all in
-    if region == 10 {
-        idx_x = @bh_lower(idx_x, lower_x, upper_x, return);
-        idx_x = @bh_upper(idx_x, lower_x, upper_x, return);
-        idx_y = @bh_lower(idx_y, lower_y, upper_y, return);
-        idx_y = @bh_upper(idx_y, lower_y, upper_y, return);
+    match (mode_x, mode_y) {
+        (BoundaryModei16::Index(x), BoundaryModei16::Index(y)) => @read(x, y),
+        (BoundaryModei16::Const(c), _) => c,
+        (_, BoundaryModei16::Const(c)) => c,
+        _ => undef()
     }
-
-    @read(idx_x, idx_y)
 }
-fn nobh_center_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 { idx }
-fn clamp_lower_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx < lower { lower } else { idx }
+fn nobh_center_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 { BoundaryModei16::Index(idx) }
+fn clamp_lower_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx < lower { lower } else { idx })
 }
-fn clamp_upper_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx >= upper { upper - 1 } else { idx }
+fn clamp_upper_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx >= upper { upper - 1 } else { idx })
 }
-fn mirror_lower_i16(idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx < lower { lower + (lower - idx-1) } else { idx }
+fn mirror_lower_i16(idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx < lower { lower + (lower - idx-1) } else { idx })
 }
-fn mirror_upper_i16(idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx >= upper { upper - (idx+1 - upper) } else { idx }
+fn mirror_upper_i16(idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx >= upper { upper - (idx+1 - upper) } else { idx })
 }
 
 // conditional swap using pointers
