@@ -22,7 +22,7 @@ static NSUBSAMPLES = 2;
 static NAO_SAMPLES = 8;
 static PI          = 3.14159265358979323846;
 
-struct vec {
+struct Vec {
     x: f64,
     y: f64,
     z: f64,
@@ -30,48 +30,48 @@ struct vec {
 
 struct Isect {
     t: f64,
-    p: vec,
-    n: vec,
+    p: Vec,
+    n: Vec,
     hit: i32,
 }
 
 struct Sphere {
-    center: vec,
+    center: Vec,
     radius: f64,
 }
 
 struct Plane {
-    p: vec,
-    n: vec,
+    p: Vec,
+    n: Vec,
 }
 
 struct Ray {
-    org: vec,
-    dir: vec,
+    org: Vec,
+    dir: Vec,
 }
 
-fn vdot(v0: vec, v1: vec) -> f64 {
+fn vdot(v0: Vec, v1: Vec) -> f64 {
     v0.x * v1.x + v0.y * v1.y + v0.z * v1.z
 }
 
-fn vcross(v0: vec, v1: vec) -> vec {
-    vec { x : v0.y * v1.z - v0.z * v1.y,
+fn vcross(v0: Vec, v1: Vec) -> Vec {
+    Vec { x : v0.y * v1.z - v0.z * v1.y,
           y : v0.z * v1.x - v0.x * v1.z,
           z : v0.x * v1.y - v0.y * v1.x }
 }
 
-fn vnormalize(math: Intrinsics, c: vec) -> vec {
+fn vnormalize(math: Intrinsics, c: Vec) -> Vec {
     let length = math.sqrt(vdot(c, c));
 
     if math.fabs(length) > 1.0e-17 {
-        return(vec { x : c.x / length, y : c.y / length, z : c.z / length })
+        return(Vec { x : c.x / length, y : c.y / length, z : c.z / length })
     }
 
     c
 }
 
 fn ray_sphere_intersect(math: Intrinsics, isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
-    let rs = vec {
+    let rs = Vec {
         x : ray.org.x - sphere.center.x,
         y : ray.org.y - sphere.center.y,
         z : ray.org.z - sphere.center.z
@@ -85,10 +85,10 @@ fn ray_sphere_intersect(math: Intrinsics, isect: Isect, ray: Ray, sphere: Sphere
         let t = -B - math.sqrt(D);
 
         if t > 0.0 && t < isect.t {
-            let p = vec { x : ray.org.x + ray.dir.x * t,
+            let p = Vec { x : ray.org.x + ray.dir.x * t,
                           y : ray.org.y + ray.dir.y * t,
                           z : ray.org.z + ray.dir.z * t };
-            let n = vec { x : p.x - sphere.center.x,
+            let n = Vec { x : p.x - sphere.center.x,
                           y : p.y - sphere.center.y,
                           z : p.z - sphere.center.z };
             let isect = Isect { t : t, p : p, n: vnormalize(math, n), hit : 1 };
@@ -107,7 +107,7 @@ fn ray_plane_intersect(math: Intrinsics, isect: Isect, ray: Ray, plane: Plane) -
         let t = -(vdot(ray.org, plane.n) + d) / v;
 
         if t > 0.0 && t < isect.t {
-            let p = vec { x : ray.org.x + ray.dir.x * t,
+            let p = Vec { x : ray.org.x + ray.dir.x * t,
                           y : ray.org.y + ray.dir.y * t,
                           z : ray.org.z + ray.dir.z * t };
             let isect = Isect { t : t, p : p, n: plane.n, hit : 1 };
@@ -118,8 +118,8 @@ fn ray_plane_intersect(math: Intrinsics, isect: Isect, ray: Ray, plane: Plane) -
     isect
 }
 
-fn ortho_basis(math: Intrinsics, n: vec) -> [vec * 3] {
-    let mut basis: [vec * 3];
+fn ortho_basis(math: Intrinsics, n: Vec) -> [Vec * 3] {
+    let mut basis: [Vec * 3];
     let mut x = 0.0; let mut y = 0.0; let mut z = 0.0;
 
     if n.x < 0.6 && n.x > -0.6 {
@@ -145,7 +145,7 @@ fn ambient_occlusion(math: Intrinsics, isect: Isect, spheres: [Sphere * 3], plan
     let nphi   = NAO_SAMPLES;
     let eps    = 0.0001;
 
-    let p = vec {
+    let p = Vec {
         x : isect.p.x + eps * isect.n.x,
         y : isect.p.y + eps * isect.n.y,
         z : isect.p.z + eps * isect.n.z
@@ -171,7 +171,7 @@ fn ambient_occlusion(math: Intrinsics, isect: Isect, spheres: [Sphere * 3], plan
 
             let ray = Ray {
                 org : p,
-                dir : vec { x : rx, y : ry, z : rz }
+                dir : Vec { x : rx, y : ry, z : rz }
             };
 
             let mut occ_isect: Isect;
@@ -212,8 +212,8 @@ fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], 
                 let py = -(y as f64 + v as f64 / nsubsamples as f64 - h as f64 / 2.0) / (h as f64 / 2.0);
 
                 let ray = Ray {
-                    org :                  vec { x : 0.0, y : 0.0, z :  0.0 },
-                    dir : vnormalize(math, vec { x : px,  y : py,  z : -1.0 })
+                    org :                  Vec { x : 0.0, y : 0.0, z :  0.0 },
+                    dir : vnormalize(math, Vec { x : px,  y : py,  z : -1.0 })
                 };
 
                 let mut isect: Isect;
@@ -244,12 +244,12 @@ fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], 
 }
 
 fn init_scene() -> ([Sphere * 3], Plane) {
-    let spheres = [ Sphere { center : vec { x : -2.0, y : 0.0, z : -3.5 }, radius : 0.5 },
-                    Sphere { center : vec { x : -0.5, y : 0.0, z : -3.0 }, radius : 0.5 },
-                    Sphere { center : vec { x :  1.0, y : 0.0, z : -2.2 }, radius : 0.5 } ];
+    let spheres = [ Sphere { center : Vec { x : -2.0, y : 0.0, z : -3.5 }, radius : 0.5 },
+                    Sphere { center : Vec { x : -0.5, y : 0.0, z : -3.0 }, radius : 0.5 },
+                    Sphere { center : Vec { x :  1.0, y : 0.0, z : -2.2 }, radius : 0.5 } ];
 
-    let plane = Plane { p : vec { x : 0.0, y : -0.5, z : 0.0 },
-                        n : vec { x : 0.0, y :  1.0, z : 0.0 } };
+    let plane = Plane { p : Vec { x : 0.0, y : -0.5, z : 0.0 },
+                        n : Vec { x : 0.0, y :  1.0, z : 0.0 } };
 
     (spheres, plane)
 }
