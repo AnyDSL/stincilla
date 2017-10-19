@@ -2,7 +2,6 @@ type pixel_t = i32;
 static nvvm_ldg = nvvm_ldg_i32;
 static cuda_ldg = cuda_ldg_i32;
 fn is_same_pixel(a: i32, b: i32) -> bool { a == b }
-// TODO: normalize stencil
 static gaussian_mask_sep5 = [ 1, 4, 6, 4, 1];
 static gaussian_mask5 = [[ 1,  4,  6,  4, 1 ],
                          [ 4, 16, 24, 16, 4 ],

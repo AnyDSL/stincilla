@@ -24,12 +24,14 @@ struct Acc {
 
 struct Mask {
     data : fn(i32, i32) -> pixel_t,
+    sum  : pixel_t,
     size_x : i32,
     size_y : i32,
 }
 
 struct MaskSep {
     data : fn(i32) -> pixel_t,
+    sum  : pixel_t,
     size : i32,
 }
 
@@ -58,6 +60,10 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> pixel_t {
         }
     }
 
+    if mask.sum != 1 as pixel_t {
+        sum /= mask.sum;
+    }
+
     sum
 }
 
@@ -76,6 +82,10 @@ fn apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> pixe
         } else {
             // additional logic for empty stencil value
         }
+    }
+
+    if mask.sum != 1 as pixel_t {
+        sum /= mask.sum;
     }
 
     sum
@@ -239,27 +249,42 @@ fn copy_img(src: Img, dst: Img) -> () {
     copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[pixel_t]())
 }
 
+fn sum_mask(size: int, data : fn(int) -> pixel_t) -> pixel_t {
+    fn sum_helper(i: int, s: pixel_t) -> pixel_t {
+        if i == size { s } else { sum_helper(i + 1, s + data(i)) }
+    }
+    sum_helper(0, 0 as pixel_t)
+}
+
 fn get_mask3(data : [[pixel_t * 3] * 3]) -> Mask {
+    let data_sum = |x| -> pixel_t { data(x % 3)(x / 3) };
     Mask {
         data : |x, y| -> pixel_t { data(y)(x) },
+        sum  : sum_mask(9, data_sum),
         size_x : 3, size_y : 3
     }
 }
 fn get_mask5(data : [[pixel_t * 5] * 5]) -> Mask {
+    let data_sum = |x| -> pixel_t { data(x % 5)(x / 5) };
     Mask {
         data : |x, y| -> pixel_t { data(y)(x) },
+        sum  : sum_mask(25, data_sum),
         size_x : 5, size_y : 5
     }
 }
 fn get_mask_sep3(data : [pixel_t * 3]) -> MaskSep {
+    let data = |x| -> pixel_t { data(x) };
     MaskSep {
-        data : |x| -> pixel_t { data(x) },
+        data : data,
+        sum  : sum_mask(3, data),
         size : 3
     }
 }
 fn get_mask_sep5(data : [pixel_t * 5]) -> MaskSep {
+    let data = |x| -> pixel_t { data(x) };
     MaskSep {
-        data : |x| -> pixel_t { data(x) },
+        data : data,
+        sum  : sum_mask(5, data),
         size : 5
     }
 }
