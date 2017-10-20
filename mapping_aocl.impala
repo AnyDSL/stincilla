@@ -105,10 +105,28 @@ fn new_shared_line_vec2(in_s: stream_in, width: int) -> stream_in {
         pFactor : 2
     }
 }
+fn new_shared_line_vec4(in_s: stream_in, width: int) -> stream_in {
+    let mut value = undef[[f32 * 4]]();
+    let lbuf = reserve_shared[[f32 * 4]](width);
+
+    fn shift(col: int) -> () {
+        value     = lbuf(col);
+        let din_ptr = @in_s.get_dout_ptr();
+        lbuf(col) = *bitcast[&[f32 * 4]](&din_ptr);
+    }
+
+    stream_in {
+        read   : |v| value(v),
+        update : shift,
+        get_dout_ptr : || bitcast[&[f32]](value),
+        pFactor : 4
+    }
+}
 fn new_shared_line(in_s: stream_in, width: int) -> stream_in {
         match in_s.pFactor {
             1 => new_shared_line_vec1(in_s, width),
             2 => new_shared_line_vec2(in_s, width),
+            4 => new_shared_line_vec4(in_s, width),
             _ => undef[stream_in]()
         }
 }
@@ -268,7 +286,8 @@ fn new_sliding_win(lbufs: onchipmem, swin_x: int, swin_y: int, pFactor: int) -> 
 
 // (mask_y - 1) line buffers -> swin
 fn new_onchipmem(in_s: stream_in, image_x: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
-    let lbufs = @new_LineBuffer(in_s, image_x/pFactor, swin_y - 1);
+    let stride = image_x/pFactor;
+    let lbufs = @new_LineBuffer(in_s, stride, swin_y - 1);
 
     let lbufs_acc = onchipmem {
         read    : |x, y|  {
@@ -311,8 +330,8 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, image_x: i
                 read  : |x, y|       0.0f,
                 write : |x, y, data| out_s.write(v, data)
             };
-            @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
-            //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, half_range_y));
+            //@body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
+            vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, half_range_y));
         }
     }
 
@@ -334,7 +353,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         with acc.exec((1,1,1), (1,1,1)) @{
             let half_range_y    = mask.size_y >> 1;
             let half_range_x    = mask.size_x >> 1;
-            let pFactor = 1;
+            let pFactor = 2;
             let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
             let kVecImageWidth  = arr.width / pFactor;
 
