@@ -29,15 +29,15 @@ fn range_times_two(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     }
 }
 
-fn init_zero(arr: &mut[f32], width: i32, height: i32) -> () {
+fn init_zero(arr: &mut[pixel_t], width: i32, height: i32) -> () {
     for i in $range(0, width*height) {
-        arr(i) = 0.0f;
+        arr(i) = 0 as pixel_t;
     }
 }
-fn init_rand(arr: &mut[f32], width: i32, height: i32) -> () {
+fn init_rand(arr: &mut[pixel_t], width: i32, height: i32) -> () {
     for y in $range(0, height) {
         for x in range(0, width) {
-            arr(y*width + x) = random_val_f32() * 1024f;
+            arr(y*width + x) = (random_val_f32() * 1024f) as pixel_t;
         }
     }
 }

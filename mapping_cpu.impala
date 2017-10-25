@@ -1,10 +1,10 @@
 fn get_device_copy(img: Img) -> Img { img }
 fn release_device_copy(img: Img) -> () { }
 
-fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[f32]](img.buf.data)(idx) = val }
-fn get_pixel_fn(img: Img) -> fn(i32) -> f32 { |idx| bitcast[&[f32]](img.buf.data)(idx) }
-fn set_pixel_memory_fn(buf: Buffer) -> fn(i32, f32) -> () { |idx, val| bitcast[&mut[f32]](buf.data)(idx) = val }
-fn get_pixel_memory_fn(buf: Buffer) -> fn(i32) -> f32 { |idx| bitcast[&[f32]](buf.data)(idx) }
+fn set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[pixel_t]](img.buf.data)(idx) = val }
+fn get_pixel_fn(img: Img) -> fn(i32) -> pixel_t { |idx| bitcast[&[pixel_t]](img.buf.data)(idx) }
+fn set_pixel_memory_fn(buf: Buffer) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[pixel_t]](buf.data)(idx) = val }
+fn get_pixel_memory_fn(buf: Buffer) -> fn(i32) -> pixel_t { |idx| bitcast[&[pixel_t]](buf.data)(idx) }
 
 fn iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
     let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
@@ -192,7 +192,7 @@ fn iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSe
             let (outer_col, inner_col) = match boundary_col { Boundary::Center => (outer_loop_step, inner_loop), _ => (range_step, range) };
             for y in $outer_col(bounds_col(0), bounds_col(1), unroll) @{
                 // allocate temporary array per thread
-                let tmp = alloc_cpu(out.width * unroll * sizeof[f32]());
+                let tmp = alloc_cpu(out.width * unroll * sizeof[pixel_t]());
 
                 for x in $inner_col(0, out.width) @{
                     let is_row = false;
