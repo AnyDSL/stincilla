@@ -1,38 +1,38 @@
 // Stream types for data movements
 struct stream_in{
     update: fn(int) -> (),
-    read  : fn(int) -> f32,
+    read  : fn(int) -> pixel_t,
     pFactor  : int
 }
 struct stream_out{
     update: fn(int) -> (),
-    write : fn(int, f32) -> (),
+    write : fn(int, pixel_t) -> (),
     pFactor  : int
 }
 
 // Global memory read/write functions
 fn get_global_stream_vec1(data: &[i8]) -> stream_in {
-    let mut value = undef[f32]();
-    fn update(idx : int) -> () { value = bitcast[&[1][f32]](data)(idx); }
-    fn read(idx: int) -> f32 { value };
+    let mut value = undef[pixel_t]();
+    fn update(idx : int) -> () { value = bitcast[&[1][pixel_t]](data)(idx); }
+    fn read(idx: int) -> pixel_t { value };
     stream_in{update: update, read: read, pFactor: 1}
 }
 fn get_global_stream_vec2(data: &[i8]) -> stream_in {
-    let mut value = undef[[f32 * 2]]();
-    fn update(idx : int) -> () { value = bitcast[&[1][[f32 *  2]]](data)(idx); }
-    fn read(idx: int) -> f32 { value(idx) };
+    let mut value = undef[[pixel_t * 2]]();
+    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  2]]](data)(idx); }
+    fn read(idx: int) -> pixel_t { value(idx) };
     stream_in{update: update, read: read, pFactor: 2}
 }
 fn get_global_stream_vec4(data: &[i8]) -> stream_in {
-    let mut value = undef[[f32 * 4]]();
-    fn update(idx : int) -> () { value = bitcast[&[1][[f32 *  4]]](data)(idx); }
-    fn read(idx: int) -> f32 { value(idx) };
+    let mut value = undef[[pixel_t * 4]]();
+    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  4]]](data)(idx); }
+    fn read(idx: int) -> pixel_t { value(idx) };
     stream_in{update: update, read: read, pFactor: 4}
 }
 fn get_global_stream_vec8(data: &[i8]) -> stream_in {
-    let mut value = undef[[f32 * 8]]();
-    fn update(idx : int) -> () { value = bitcast[&[1][[f32 *  8]]](data)(idx); }
-    fn read(idx: int) -> f32 { value(idx) };
+    let mut value = undef[[pixel_t * 8]]();
+    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  8]]](data)(idx); }
+    fn read(idx: int) -> pixel_t { value(idx) };
     stream_in{update: update, read: read, pFactor: 8}
 }
 fn get_global_stream_from_img(img: Img,  pFactor: int) -> stream_in{
@@ -46,27 +46,27 @@ fn get_global_stream_from_img(img: Img,  pFactor: int) -> stream_in{
 }
 
 fn set_global_stream_vec1(data: &[i8]) -> stream_out {
-    let mut value = undef[f32]();
-    fn update(idx : int) -> () { bitcast[&mut[1][f32]](data)(idx) = value; }
-    fn write(idx: int, din: f32) -> () { value = din; };
+    let mut value = undef[pixel_t]();
+    fn update(idx : int) -> () { bitcast[&mut[1][pixel_t]](data)(idx) = value; }
+    fn write(idx: int, din: pixel_t) -> () { value = din; };
     stream_out{update: update, write : write, pFactor : 1}
 }
 fn set_global_stream_vec2(data: &[i8]) -> stream_out {
-    let mut value = undef[[f32 * 2]]();
-    fn update(idx : int) -> () { bitcast[&mut[1][[f32 *  2]]](data)(idx) = value; }
-    fn write(idx: int, din: f32) -> () { value(idx) = din; };
+    let mut value = undef[[pixel_t * 2]]();
+    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  2]]](data)(idx) = value; }
+    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
     stream_out{update: update, write : write, pFactor : 2}
 }
 fn set_global_stream_vec4(data: &[i8]) -> stream_out {
-    let mut value = undef[[f32 * 4]]();
-    fn update(idx : int) -> () { bitcast[&mut[1][[f32 *  4]]](data)(idx) = value; }
-    fn write(idx: int, din: f32) -> () { value(idx) = din; };
+    let mut value = undef[[pixel_t * 4]]();
+    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  4]]](data)(idx) = value; }
+    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
     stream_out{update: update, write : write, pFactor : 4}
 }
 fn set_global_stream_vec8(data: &[i8]) -> stream_out {
-    let mut value = undef[[f32 * 8]]();
-    fn update(idx : int) -> () { bitcast[&mut[1][[f32 *  8]]](data)(idx) = value; }
-    fn write(idx: int, din: f32) -> () { value(idx) = din; };
+    let mut value = undef[[pixel_t * 8]]();
+    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  8]]](data)(idx) = value; }
+    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
     stream_out{update: update, write : write, pFactor : 8}
 }
 fn set_global_stream_from_img(img: Img,  pFactor: int) -> stream_out{
@@ -82,8 +82,8 @@ fn set_global_stream_from_img(img: Img,  pFactor: int) -> stream_out{
 
 // Shared memory read/write functions
 fn new_shared_line_vec1(in_s: stream_in, width: int) -> stream_in {
-    let mut value = undef[f32]();
-    let lbuf = reserve_shared[f32](width);
+    let mut value = undef[pixel_t]();
+    let lbuf = reserve_shared[pixel_t](width);
 
     fn shift(col: int) -> () {
         value     = lbuf(col);
@@ -97,8 +97,8 @@ fn new_shared_line_vec1(in_s: stream_in, width: int) -> stream_in {
     }
 }
 fn new_shared_line_vec2(in_s: stream_in, width: int) -> stream_in {
-    let mut value = undef[[f32 * 2]]();
-    let lbuf = reserve_shared[[f32 * 2]](width);
+    let mut value = undef[[pixel_t * 2]]();
+    let lbuf = reserve_shared[[pixel_t * 2]](width);
 
     fn shift(col: int) -> () {
         value     = lbuf(col);
@@ -113,8 +113,8 @@ fn new_shared_line_vec2(in_s: stream_in, width: int) -> stream_in {
     }
 }
 fn new_shared_line_vec4(in_s: stream_in, width: int) -> stream_in {
-    let mut value = undef[[f32 * 4]]();
-    let lbuf = reserve_shared[[f32 * 4]](width);
+    let mut value = undef[[pixel_t * 4]]();
+    let lbuf = reserve_shared[[pixel_t * 4]](width);
 
     fn shift(col: int) -> () {
         value     = lbuf(col);
@@ -129,8 +129,8 @@ fn new_shared_line_vec4(in_s: stream_in, width: int) -> stream_in {
     }
 }
 fn new_shared_line_vec8(in_s: stream_in, width: int) -> stream_in {
-    let mut value = undef[[f32 * 8]]();
-    let lbuf = reserve_shared[[f32 * 8]](width);
+    let mut value = undef[[pixel_t * 8]]();
+    let lbuf = reserve_shared[[pixel_t * 8]](width);
 
     fn shift(col: int) -> () {
         value     = lbuf(col);
@@ -158,15 +158,15 @@ fn new_shared_line(in_s: stream_in, width: int) -> stream_in {
 
 //  -------------- Array of Registers --------------------
 struct regs1d {
-    write : fn(int, f32) -> (),
-    read  : fn(int) -> f32,
+    write : fn(int, pixel_t) -> (),
+    read  : fn(int) -> pixel_t,
     begin : int,
     end   : int
 }
 
 struct regs2d {
-    write : fn(int, int, f32) -> (),
-    read  : fn(int, int) -> f32,
+    write : fn(int, int, pixel_t) -> (),
+    read  : fn(int, int) -> pixel_t,
     begin : (int, int),
     end   : (int, int)
 }
@@ -175,13 +175,13 @@ fn new_regs1d(begin: int, end: int) -> regs1d {
     if end == begin {
         regs1d {
             write : |_, _| (),
-            read  : |_| undef[f32](),
+            read  : |_| undef[pixel_t](),
             begin : begin,
             end   : end
         }
     } else if begin + 1 == end {
         //pe_info("found", begin);
-        let mut value = 0.0f; // : f32;
+        let mut value = 0 as pixel_t; 
         regs1d {
             write : |i, v| value = v,
             read  : |i| value,
@@ -209,7 +209,7 @@ fn new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
     if end_y == begin_y {
         regs2d {
             write : |_, _, _| (),
-            read  : |_, _| undef[f32](),
+            read  : |_, _| undef[pixel_t](),
             begin : begin,
             end   : end
         }
@@ -238,7 +238,7 @@ fn new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
 //  ---- Instances of On Chip Memory: Line Buffers and Sliding Window  --------
 // On Chip Memory
 struct onchipmem {
-    read  : fn(int, int) -> f32,
+    read  : fn(int, int) -> pixel_t,
     shift : fn(int) -> (),
     size_x : int,
     size_y : int
@@ -249,7 +249,7 @@ struct onchipmem {
 fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> onchipmem {
     if size_y == 0 {
         onchipmem {
-            read   : |_, _| undef[f32](),
+            read   : |_, _| undef[pixel_t](),
             shift  : |_| (),
             size_x : size_x,
             size_y : size_y
@@ -351,7 +351,7 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, image_x: i
                     write : |x, y, v| {}
             };
             let vec_pix_out_acc = Acc {
-                read  : |x, y|       0.0f,
+                read  : |x, y|       0 as pixel_t,
                 write : |x, y, data| out_s.write(v, data)
             };
             @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
@@ -377,7 +377,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         with acc.exec((1,1,1), (1,1,1)) @{
             let half_range_y    = mask.size_y >> 1;
             let half_range_x    = mask.size_x >> 1;
-            let pFactor = 4;
+            let pFactor = 1;
             let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
             let kVecImageWidth  = arr.width / pFactor;
 
@@ -426,7 +426,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 //  // Altera style One row buffer, no Sliding window
 //  fn new_OnChipMem_alteraOne_noswin_vec(image_x: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
 //      let lbuf_size = image_x * (swin_y - 1) + swin_x;
-//      let lbuf = reserve_shared[f32](lbuf_size);
+//      let lbuf = reserve_shared[pixel_t](lbuf_size);
 //      let lbuf_acc = get_acc_memory(set_pixel_shared_fn(lbuf), get_pixel_shared_fn(lbuf), image_x, swin_y);
 //
 //      fn shift(vec_pix_new: data_beat) -> () {

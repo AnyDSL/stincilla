@@ -13,7 +13,7 @@ fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
     for y in range(0, upper_y) {
         for x in range(0, upper_x) {
             let pixel = arr.read(x, y);
-            print_f32(pixel);
+            print_i32(pixel);
             print_string("\t\t");
         }
         print_string("\n");
@@ -26,18 +26,14 @@ fn main() -> i32 {
     let height = 1024;
     let arr    = @create_img(width, height, alloc_cpu);
     let out    = @create_img(width, height, alloc_cpu);
-    init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
-    init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
+    init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
     //Ref
     let ref    = @create_img(width, height, alloc_cpu);
 
-    let mask_sep = @get_mask_sep5([ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ]);
-    let mask     = @get_mask5([[ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
-                               [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
-                               [ 0.026151f, 0.090339f, 0.136565f, 0.090339f, 0.026151f ],
-                               [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
-                               [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]]);
+    let mask_sep = @get_mask_sep5(gaussian_mask_sep5);
+    let mask     = @get_mask5(gaussian_mask5);
 
     //let lower = nobh_center;
     //let upper = nobh_center;
@@ -73,23 +69,22 @@ fn main() -> i32 {
         let mut passed = 0;
         let mut err_x = 0; 
         let mut err_y = 0;
-        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
-        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
-        let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[f32]](ref.buf.data)(idx) = val }, |idx| bitcast[&[f32]](ref.buf.data)(idx));
+        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
+        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+        let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
 
         let offset_x = 2;
         let offset_y = 2;
         for y in $range(0, out.height) {
             for x in range(0, out.width) @{
-                let ref_data = apply_stencil(x, y, arr_acc, mask);
-                let mut diff = ref_data - out_acc.read(x, y);
+                let ref = apply_stencil(x, y, arr_acc, mask);
                 if y > offset_y - 1 && y < out.height - offset_y && x > offset_x -1 && x < out.width - offset_x {
-                    if diff < 0.0f  { diff = -diff; }
-                    if diff > 0.01f { 
-                        if passed == 0 { err_x = x; err_y = y;};
-                        passed = 42; }
+                    if !is_same_pixel(ref, out_acc.read(x, y)) {
+                        err_x = x; err_y = y;
+                        passed = 42;
+                    }
                 }
-                ref_acc.write(x, y, ref_data);
+                ref_acc.write(x, y, ref);
             }
         }
 

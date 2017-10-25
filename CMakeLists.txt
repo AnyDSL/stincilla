@@ -70,7 +70,7 @@ add_test("gaussian" gaussian)
 anydsl_runtime_wrap(GAUSSIAN_DEBUG_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian_debug.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian_debug.impala)
 add_executable(gaussian_debug ${GAUSSIAN_DEBUG_PROGRAM})
 target_link_libraries(gaussian_debug ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian_debug" gaussian_debug)
