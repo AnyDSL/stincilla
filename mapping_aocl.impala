@@ -329,22 +329,21 @@ fn new_onchipmem(in_s: stream_in, image_x: int, swin_x: int, swin_y: int, pFacto
 
 //  -------------------  Loop Coarsening  ----------------------
 struct coarsening_type {
-    shift   : fn(int) -> (),
-    process : fn() -> (),
+    process : fn(int) -> (),
 }
 
 fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, image_x: int, mask: Mask, pFactor: int, body: StencilFn) -> coarsening_type {
-    let half_range_y      = mask.size_y >> 1;
-    let half_range_x      = mask.size_x >> 1;
-    let right_half_radius = ((half_range_x - 1) / pFactor) + 1;
-    let swin_x            = half_range_x + (1 + right_half_radius) * pFactor;
-    let swin_y            = mask.size_y;
+    let half_range_y    = mask.size_y >> 1;
+    let half_range_x    = mask.size_x >> 1;
+    let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
+    let swin_x          = half_range_x + (1 + kVecRightRadius) * pFactor;
+    let swin_y          = mask.size_y;
 
     // On Chip Memory Architecture
     let OnChipMem = new_onchipmem(in_s, image_x, swin_x, swin_y, pFactor);
-    //let OnChipMem = new_OnChipMem_alteraOne_noswin_vec(image_x, swin_x, swin_y, pFactor);
 
-    fn process() -> () {
+    fn process(col_ridx: int) -> () {
+        @OnChipMem.shift(col_ridx);
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
                     read  : |x, y|    OnChipMem.read(x + v, y),
@@ -360,7 +359,50 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, image_x: i
     }
 
     coarsening_type {
-        shift   : OnChipMem.shift,
+        process : process
+    }
+}
+
+fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, image_x: int, mask: Mask, pFactor: int, body: StencilFn) -> coarsening_type {
+    let half_range_y = mask.size_y >> 1;
+    let half_range_x = mask.size_x >> 1;
+    let swin_x       = mask.size_x - 1 + pFactor;
+    let swin_y       = mask.size_y;
+
+    // On Chip Memory Architecture
+    let OnChipMem = new_onchipmem(in_s, image_x, swin_x, swin_y, pFactor);
+
+    // Constants for Packing
+    let delayed_pixels_size = ((pFactor + ((pFactor - half_range_x) % pFactor)) % pFactor);
+    let pack_offset         = pFactor - delayed_pixels_size;
+
+    let mut vec_delayed = undef[[pixel_t * 4]]();
+    fn process(col_ridx: int) -> () {
+        @OnChipMem.shift(col_ridx);
+        for v in @range(0, pFactor) @{
+            let OnChipMem_acc = Acc {
+                    read  : |x, y|    OnChipMem.read(x + v, y),
+                    write : |x, y, v| {}
+            };
+            let vec_pix_out_acc = Acc {
+                read  : |x, y|       0 as pixel_t,
+                write : |x, y, data| {
+                    if  v < pack_offset {
+                        let pack_idx =  v + delayed_pixels_size;
+                        @out_s.write(pack_idx, data)
+                    } else {
+                        let pack_idx =  v - pack_offset;
+                        @out_s.write(pack_idx, @vec_delayed(pack_idx));
+                        vec_delayed(pack_idx) = data;
+                    }
+                }
+            };
+            @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
+            //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, half_range_y));
+        }
+    }
+
+    coarsening_type {
         process : process
     }
 }
@@ -389,7 +431,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
             let coarsening = FetchAndCalc(math, in_s, out_s, arr.width, mask, pFactor, body);
-            //let coarsening = CalcAndPack(math, arr.width, mask, pFactor, body);
+            //let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, body);
 
             let mut col_ridx = 0; let mut row_ridx = 0;
             let mut col_widx = 0; let mut row_widx = 0;
@@ -400,8 +442,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
                 }
 
                 // Shift on chip mem
-                @coarsening.shift(col_ridx);
-                @coarsening.process();
+                @coarsening.process(col_ridx);
                 //for v in @range(0, pFactor) {@out_s.write(v, in_s.read(v));
 
                 // write output
@@ -523,87 +564,5 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 //     onchipmem {
 //         read  : |x, y| swin.read(x, y),
 //         shift : shift,
-//     }
-// }
-
-// Coarsening types
-// fn FetchAndCalc(math: Intrinsics, image_x: int, mask: Mask, pFactor: int, body: StencilFn) -> coarsening_type {
-//     let half_range_y      = mask.size_y >> 1;
-//     let half_range_x      = mask.size_x >> 1;
-//     let right_half_radius = ((half_range_x - 1) / pFactor) + 1;
-//     let swin_x            = half_range_x + (1 + right_half_radius) * pFactor;
-//     let swin_y            = mask.size_y;
-//
-//     // On Chip Memory Architecture
-//     let OnChipMem = new_onchipmem(image_x, swin_x, swin_y, pFactor);
-//     //let OnChipMem = new_OnChipMem_alteraOne_noswin_vec(image_x, swin_x, swin_y, pFactor);
-//
-//     fn process() -> data_beat {
-//         let vec_pix_out = @new_data_beat(pFactor);
-//         for v in @range(0, pFactor) @{
-//             let OnChipMem_acc = Acc {
-//                     read  : |x, y|    OnChipMem.read(x + v, y),
-//                     write : |x, y, v| {}
-//             };
-//             let vec_pix_out_acc = Acc {
-//                 read  : |x, y|       0.0f,
-//                 write : |x, y, data| vec_pix_out.write(v, data)
-//             };
-//             @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
-//             //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, half_range_y));
-//         }
-//         vec_pix_out
-//     }
-//
-//     coarsening_type {
-//         shift   : |vec_new, col_ridx| OnChipMem.shift(vec_new, col_ridx),
-//         process : process
-//     }
-// }
-//
-// fn CalcAndPack(math: Intrinsics, image_x: int, mask: Mask, pFactor: int, body: StencilFn) -> coarsening_type {
-//     let half_range_y = mask.size_y >> 1;
-//     let half_range_x = mask.size_x >> 1;
-//     let swin_x       = mask.size_x - 1 + pFactor;
-//     let swin_y       = mask.size_y;
-//
-//     // On Chip Memory Architecture
-//     let OnChipMem = new_onchipmem(image_x, swin_x, swin_y, pFactor);
-//     //let OnChipMem = new_OnChipMem_alteraOne_noswin_vec(image_x, swin_x, swin_y, pFactor);
-//
-//     // Constants for Pack
-//     let delayed_pixels_size = ((pFactor + ((pFactor - half_range_x) % pFactor)) % pFactor);
-//     let pack_offset         = pFactor - delayed_pixels_size;
-//
-//     let vec_delayed = @new_data_beat(delayed_pixels_size);
-//     fn process() -> data_beat {
-//         let vec_pix_out = @new_data_beat(pFactor);
-//         for v in @range(0, pFactor) @{
-//             let OnChipMem_acc = Acc {
-//                     read  : |x, y|    OnChipMem.read(x + v, y),
-//                     write : |x, y, v| {}
-//             };
-//             let vec_pix_out_acc = Acc {
-//                 read  : |x, y| 0.0f,
-//                 write : |x, y, data| {
-//                     if  v < pack_offset {
-//                         let pack_idx =  v + delayed_pixels_size;
-//                         @vec_pix_out.write(pack_idx, data)
-//                     } else {
-//                         let pack_idx =  v - pack_offset;
-//                         @vec_pix_out.write(pack_idx, @vec_delayed.read(pack_idx));
-//                         @vec_delayed.write(pack_idx, data);
-//                     }
-//                 }
-//             };
-//             @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
-//             //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, half_range_y));
-//         }
-//         vec_pix_out
-//     }
-//
-//     coarsening_type {
-//         shift   : |vec_new, col_ridx| OnChipMem.shift(vec_new, col_ridx),
-//         process : process
 //     }
 // }
