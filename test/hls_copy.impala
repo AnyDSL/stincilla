@@ -1,0 +1,52 @@
+fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+    if lower < upper {
+        body(lower);
+        range(lower+1, upper, body)
+    }
+}
+
+fn iteration(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
+    with hls() {
+        for x in range(0, width) {
+            for y in range(0, height) @{
+                body(x, y);
+            }
+        }
+    }
+}
+
+fn read(buf: Buffer, i: i32) -> f32 { bitcast[&[1][f32]](buf.data)(i) }
+fn write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&mut[1][f32]](buf.data)(i) = v }
+
+fn main() -> i32 {
+    let width   = 2048;
+    let height  = 2048;
+    let arr     = alloc_cpu(width * height * sizeof[f32]());
+    let out     = alloc_cpu(width * height * sizeof[f32]());
+    for i in range(0, width*height) {
+        let arr_ptr = bitcast[&mut[f32]](arr.data);
+        let out_ptr = bitcast[&mut[f32]](out.data);
+        arr_ptr(i) = i as f32;
+        out_ptr(i) = 0.0f;
+    }
+
+    for x, y in @iteration(width, height) {
+        let idx = y*width + x;
+        write(out, idx, read(arr, idx));
+    }
+
+    let mut passed = 0;
+    for i in range(0, width*height) {
+        if bitcast[&[f32]](out.data)(i) != bitcast[&[f32]](arr.data)(i) { passed++; }
+    }
+    if passed == 0 {
+        print_string("Test PASSED!\n");
+    } else {
+        print_string("Test FAILED!\n");
+    }
+
+    release(arr);
+    release(out);
+
+    if passed >= 256 { 255 } else { passed }
+}

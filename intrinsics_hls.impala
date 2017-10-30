@@ -1,5 +1,3 @@
-fn accelerator(dev: i32) -> Accelerator { hls_accelerator(dev) }
-static device_id = 0;
 static math = hls_intrinsics;
 fn is_nvvm() -> bool { false }
 fn is_cuda() -> bool { false }
