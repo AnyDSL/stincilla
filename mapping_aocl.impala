@@ -275,18 +275,24 @@ fn new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
 
 //  ---- Instances of On Chip Memory: Line Buffers and Sliding Window  --------
 // On Chip Memory
-struct onchipmem {
+struct lbuftype {
     read  : fn(int, int) -> pixel_t,
     shift : fn(int) -> (),
+    size_x : int,
+    size_y : int
+}
+struct onchipmem {
+    read  : fn(int, int) -> pixel_t,
+    shift : fn(int, int) -> (),
     size_x : int,
     size_y : int
 }
 
 
 // Line Buffer
-fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> onchipmem {
+fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype{
     if size_y == 0 {
-        onchipmem {
+        lbuftype {
             read   : |_, _| undef[pixel_t](),
             shift  : |_| (),
             size_x : size_x,
@@ -295,7 +301,7 @@ fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> onchipmem {
     } else {
         let shared_s = @new_shared_line(in_s, size_x);
         let sub_lbuf = @new_LineBuffer(shared_s, size_x, size_y - 1);
-        onchipmem {
+        lbuftype {
             read   : |x, y| {
                 if y == size_y - 1 {
                     @shared_s.read(x)
@@ -315,7 +321,7 @@ fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> onchipmem {
 
 
 // Sliding window
-fn new_sliding_win(lbufs: onchipmem, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+fn new_sliding_win(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
     let swin = @new_regs2d((0, 0), (swin_x, swin_y));
 
     fn shift() -> () {
@@ -337,7 +343,7 @@ fn new_sliding_win(lbufs: onchipmem, swin_x: int, swin_y: int, pFactor: int) -> 
         read  : |x, y| {
             swin.read(x, y)
         },
-        shift : |col_ridx| {
+        shift : |col_ridx, row_ridx| {
             @lbufs.shift(col_ridx);
             shift();
         },
@@ -350,7 +356,7 @@ fn new_sliding_win(lbufs: onchipmem, swin_x: int, swin_y: int, pFactor: int) -> 
 fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
     let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
 
-    let lbufs_acc = onchipmem {
+    let lbufs_acc = lbuftype {
         read    : |x, y|  {
             if y == swin_y - 1 { in_s.read(x)     }
             else               { lbufs.read(x, y) }
@@ -366,7 +372,7 @@ fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFa
 
 //  -------------------  Loop Coarsening  ----------------------
 struct coarsening_type {
-    process : fn(int) -> ()
+    process : fn(int, int) -> ()
 }
 
 fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, body: StencilFn) -> coarsening_type {
@@ -379,8 +385,8 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
     // On Chip Memory Architecture
     let OnChipMem = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor);
 
-    fn process(col_ridx: int) -> () {
-        @OnChipMem.shift(col_ridx);
+    fn process(col_ridx: int, row_ridx: int) -> () {
+        @OnChipMem.shift(col_ridx, row_ridx);
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
                     read  : |x, y|    OnChipMem.read(x + v, y),
@@ -414,8 +420,8 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
     let pack_offset         = pFactor - delayed_pixels_size;
 
     let vec_delayed = new_databeat(pFactor); 
-    fn process(col_ridx: int) -> () {
-        @OnChipMem.shift(col_ridx);
+    fn process(col_ridx: int, row_ridx: int) -> () {
+        @OnChipMem.shift(col_ridx, row_ridx);
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
                     read  : |x, y|    OnChipMem.read(x + v, y),
@@ -482,7 +488,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
                 }
 
                 // shift on chip mem
-                @coarsening.process(col_ridx);
+                @coarsening.process(col_ridx, row_ridx);
                 //for v in @range(0, pFactor) {@out_s.write(v, in_s.read(v));
 
                 // write output
