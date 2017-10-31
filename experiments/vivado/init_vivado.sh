@@ -1,0 +1,9 @@
+export VIVADO_VERSION="2017.2"
+
+export XILINX_VIVADO="/usr/local/eda/xilinx/vivado/${VIVADO_VERSION}"
+export XILINX_VIVADO_HLS="/usr/local/eda/xilinx/vivado_hls/${VIVADO_VERSION}"
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${ALTERAOCLSDKROOT}/host/linux64/lib:${AOCL_BOARD_PACKAGE_ROOT}/linux64/lib
+export PATH=$PATH:${XILINX_VIVADO}/bin:${XILINX_VIVADO_HLS}/bin
+
+export LM_LICENSE_FILE=1800@131.188.52.152:$LM_LICENSE_FILE
