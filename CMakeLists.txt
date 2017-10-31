@@ -7,9 +7,9 @@ find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
 
-set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU, OPENCL_INTEL_FPGA")
+set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU, OPENCL_INTEL_FPGA, HLS")
 if(NOT BACKEND)
-    set(BACKEND cpu CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU, OPENCL_INTEL_FPGA" FORCE)
+    set(BACKEND cpu CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU, OPENCL_INTEL_FPGA, HLS" FORCE)
 endif()
 string(TOLOWER "${BACKEND}" BACKEND)
 message(STATUS "Selected backend: ${BACKEND}")
@@ -32,6 +32,11 @@ endif()
 if(BACKEND STREQUAL "opencl_intel_fpga")
     set(DEVICE "aocl")
     set(BACKEND_FILE intrinsics_opencl.impala)
+endif()
+
+if(BACKEND STREQUAL "hls")
+    set(DEVICE "aocl")
+    set(BACKEND_FILE intrinsics_hls.impala)
 endif()
 
 

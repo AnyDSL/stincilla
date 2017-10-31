@@ -6,6 +6,16 @@ add_executable(stencil_dsl ${STENCIL_INT_PROGRAM})
 target_link_libraries(stencil_dsl ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("stencil_dsl" stencil_dsl)
 
+if(BACKEND STREQUAL "hls")
+    anydsl_runtime_wrap(HLS_COPY_PROGRAM
+        CLANG_FLAGS ${CLANG_FLAGS}
+        IMPALA_FLAGS ${IMPALA_FLAGS}
+        FILES ../${BACKEND_FILE} hls_copy.impala)
+    add_executable(hls_copy ${HLS_COPY_PROGRAM})
+    target_link_libraries(hls_copy ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test("hls_copy" hls_copy)
+endif()
+
 if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     anydsl_runtime_wrap(MULTI_GPU_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
