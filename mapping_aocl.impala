@@ -12,7 +12,7 @@ struct stream_out{
 
 // Global memory read/write functions
 fn get_global_stream_vec1(data: &[i8]) -> stream_in {
-    let mut value = undef[pixel_t]();
+    let mut value = 0; //undef[pixel_t]();
     fn update(idx : int) -> () { value = bitcast[&[1][pixel_t]](data)(idx); }
     fn read(idx: int) -> pixel_t { value };
     stream_in{update: update, read: read, pFactor: 1}
@@ -319,7 +319,6 @@ fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype{
     }
 }
 
-
 // Sliding window
 fn new_sliding_win(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
     let swin = @new_regs2d((0, 0), (swin_x, swin_y));
@@ -352,6 +351,106 @@ fn new_sliding_win(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> o
     }
 }
 
+fn aclamp_lower (idx: i32, lower: i32, upper: i32) -> int {
+    if idx < lower { lower } else { idx }
+}
+fn aclamp_upper (idx: i32, lower: i32, upper: i32) -> int {
+    if idx >= upper { upper - 1 } else { idx }
+}
+fn amirror_lower(idx: i32, lower: i32, upper: i32) -> int{
+    if idx < lower { lower + (lower - idx-1) } else { idx }
+}
+fn amirror_upper(idx: i32, lower: i32, upper: i32) -> int {
+    if idx >= upper { upper - (idx+1 - upper) } else { idx }
+}
+
+
+fn col_select(get: fn(int) -> pixel_t, set: fn(int, pixel_t) -> (), idx: int, radius: int, size: int, pFactor: int, roi_lower: int, roi_upper: int) -> () {
+    for j in @range(0, size) {
+        @set(j, @get(j));
+    }
+
+    // Clamp
+    //ex: radius = 2
+    //if y == 2  { @set(0, @get(2)); @set(1, @get(2)) };
+    //if y == 3  { @set(0, @get(1)) };
+    //if y == 22 { @set(3, @get(2)); @set(4, @get(2)) };
+    //if y == 23 { @set(4, @get(3));
+    //
+    //ex: radius = 3
+    //if y == 2 {@set(0, @get(3)); @set(1, @get(3)); @set(2, @get(3))};
+    //if y == 3 {@set(0, @get(2)); @set(1, @get(2))};
+    //if y == 4 {@set(0, @get(1))};
+
+    for i in @range_step(0, radius, pFactor) @{
+        if idx == roi_lower + i / pFactor @{
+            let rmid_left  = radius - i;
+            for idx_wnd in @range (0, rmid_left) {
+                //let idx_wnd_bh = aclamp_lower(idx_wnd, rmid_left, 0);
+                let idx_wnd_bh = amirror_lower(idx_wnd, rmid_left, 0);
+                @set(idx_wnd, @get(idx_wnd_bh));
+            }
+        }
+        if idx == roi_upper - i / pFactor @{
+            let rmid_right = radius + pFactor + i;
+            for idx_wnd in @range (rmid_right, size) {
+                //let idx_wnd_bh = aclamp_upper(idx_wnd, 0, rmid_right);
+                let idx_wnd_bh = amirror_upper(idx_wnd, 0, rmid_right);
+                @set(idx_wnd, @get(idx_wnd_bh));
+            }
+        }
+    }
+}
+
+
+// Sliding window: Type-0 Separated Border Handling
+fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+    let swin = @new_regs2d((0, 0), (swin_x, swin_y));
+    let out  = @new_regs2d((0, 0), (swin_x, swin_y));
+    let out_width = 4 + pFactor;
+    let radius = 2;
+    let rxr    = (radius - 1)/ pFactor + 1;
+
+    fn shift(col_ridx: int, row_ridx: int) -> () {
+        // Shift sliding window
+        for j in @range(0, swin_y) {
+            for i in @range(0, swin_x - pFactor) {
+                @swin.write(i, j, @swin.read(i + pFactor, j));
+            }
+        }
+
+        // Read new col: row selection
+        for v in @range(0, pFactor) {
+            let get_fn =       |j| {lbufs.read(v, j)};
+            let set_fn = |j, data| {swin.write(v + swin_x - pFactor, j, data)};
+
+            @col_select(get_fn, set_fn, row_ridx, 2, swin_y, 1, 2, 1025);
+        }
+
+        // assign output window: column selection
+        for j in @range(0, swin_y) {
+            for i in @range(0, out_width) {
+                let get_fn =       |i| {swin.read(i, j)};
+                let set_fn = |i, data| {out.write(i, j, data)};
+
+                @col_select(get_fn, set_fn, col_ridx, 2, out_width, pFactor, rxr, rxr - 1);
+                //@set_fn(i, get_fn(i));
+            }
+        }
+    };
+    onchipmem {
+        read  : |x, y| {
+            out.read(x, y)
+        },
+        shift : |col_ridx, row_ridx| {
+            @lbufs.shift(col_ridx);
+            shift(col_ridx, row_ridx);
+        },
+        size_x : out_width,
+        size_y : swin_y
+    }
+}
+
 // (mask_y - 1) line buffers -> swin
 fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
     let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
@@ -366,7 +465,8 @@ fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFa
         size_y  : swin_y
     };
 
-    @new_sliding_win(lbufs_acc, swin_x, swin_y, pFactor)
+    //@new_sliding_win(lbufs_acc, swin_x, swin_y, pFactor)
+    @new_sliding_win_bh(lbufs_acc, swin_x, swin_y, pFactor)
 }
 
 
@@ -397,7 +497,7 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
                 write : |x, y, data| out_s.write(v, data)
             };
             @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
-            //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, half_range_y));
+            //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(2 * half_range_x, half_range_y));
         }
     }
 
@@ -441,7 +541,7 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
                 }
             };
             @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
-            //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, half_range_y));
+            //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, 2 * half_range_y));
         }
     }
 
@@ -464,7 +564,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         with acc.exec((1,1,1), (1,1,1)) @{
             let half_range_y    = mask.size_y >> 1;
             let half_range_x    = mask.size_x >> 1;
-            let pFactor = 16;
+            let pFactor = 4;
             let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
             let kVecImageWidth  = (arr.width - 1) / pFactor + 1;
             let kVecImageStride = (arr.stride -1) / pFactor + 1;
@@ -472,8 +572,8 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
             let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
-            //let coarsening = FetchAndCalc(math, in_s, out_s, kVecImageWidth, mask, pFactor, body);
-            let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, body);
+            let coarsening = FetchAndCalc(math, in_s, out_s, kVecImageWidth, mask, pFactor, body);
+            //let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, body);
 
             let process_time    = kVecImageWidth * arr.height + 1;
             let initial_delay   = kVecImageWidth * half_range_y + kVecRightRadius - 1;

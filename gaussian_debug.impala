@@ -73,8 +73,8 @@ fn main() -> i32 {
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
 
-        let offset_x = 2;
-        let offset_y = 2;
+        let offset_x = 0;
+        let offset_y = 0;
         for y in $range(0, out.height) {
             for x in range(0, out.width) @{
                 let ref = apply_stencil(x, y, arr_acc, mask);
@@ -89,8 +89,8 @@ fn main() -> i32 {
             }
         }
 
-        let roi_x = arr.width - 10;
-        let roi_y = 0;
+        let roi_x = 0; //arr.width - 10;
+        let roi_y = 0; //arr.height - 10;
         print_string("input image:\n");
         display_image(arr_acc, roi_x, roi_y);
         print_string("output image:\n");
