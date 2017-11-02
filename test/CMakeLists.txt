@@ -16,7 +16,8 @@ if(BACKEND STREQUAL "hls")
     add_test("hls_copy" hls_copy)
 endif()
 
-if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
+if(BACKEND STREQUAL "cuda" OR BACKEND STREQUAL "opencl" OR
+   BACKEND STREQUAL "nvvm" OR BACKEND STREQUAL "amdgpu")
     anydsl_runtime_wrap(MULTI_GPU_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
