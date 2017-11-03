@@ -17,6 +17,7 @@ fn @range_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () { m
 fn @range_rev(upper: i32, lower: i32, body: fn(i32) -> ()) -> () { may_unroll_step_rev($upper, $lower, 1, body) }
 
 fn @unroll(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { may_unroll_step(lower, upper, 1, body) }
+fn @unroll_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () { may_unroll_step(lower, upper, step, body) }
 
 fn @(?lower & ?upper) range_times_two(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
