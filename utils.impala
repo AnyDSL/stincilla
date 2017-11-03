@@ -1,21 +1,22 @@
-fn @(?lower & ?upper) range_step(lower: i32, upper: i32, @step: i32, body: fn(i32) -> ()) -> () {
+fn @(?lower & ?upper) may_unroll_step(lower: i32, upper: i32, @step: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
         body(lower);
-        range_step(lower+step, upper, step, body)
+        may_unroll_step(lower+step, upper, step, body, return)
     }
 }
 
-fn @(?upper & ?lower) range_step_rev(upper: i32, lower: i32, @step: i32, body: fn(i32) -> ()) -> () {
+fn @(?upper & ?lower) may_unroll_step_rev(upper: i32, lower: i32, @step: i32, body: fn(i32) -> ()) -> () {
     if upper > lower {
         body(upper);
-        range_step_rev(upper-step, lower, step, body)
+        may_unroll_step_rev(upper-step, lower, step, body, return)
     }
 }
 
-fn @range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range_step($lower, $upper, 1, body) }
-fn @range_rev(upper: i32, lower: i32, body: fn(i32) -> ()) -> () { range_step_rev($upper, $lower, 1, body) }
+fn @range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { may_unroll_step($lower, $upper, 1, body) }
+fn @range_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () { may_unroll_step($lower, $upper, step, body) }
+fn @range_rev(upper: i32, lower: i32, body: fn(i32) -> ()) -> () { may_unroll_step_rev($upper, $lower, 1, body) }
 
-fn @unroll(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range_step(lower, upper, 1, body) }
+fn @unroll(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { may_unroll_step(lower, upper, 1, body) }
 
 fn @(?lower & ?upper) range_times_two(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
