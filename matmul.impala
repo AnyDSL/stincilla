@@ -65,7 +65,7 @@ fn matmul_auto_tiled(C: Mat, A: Mat, B: Mat) -> () {
             if lvl == 0 { 256 } else if lvl == 1 { 64 } else { 1 }
         }
 
-        fn @(?cur_lvl & ?il & ?iu & ?kl & ?ku & ?jl & ?ju) tile(cur_lvl: i32, il: i32, iu: i32, kl: i32, ku: i32, jl: i32, ju: i32) -> () {
+        fn @(?cur_lvl) tile(cur_lvl: i32, il: i32, iu: i32, kl: i32, ku: i32, jl: i32, ju: i32) -> () {
             let step = get_step(cur_lvl);
             pe_info("step size", step);
 
