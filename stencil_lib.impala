@@ -42,13 +42,13 @@ enum BoundaryMode {
     Const(f32)
 }
 
-fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
+fn @apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
     let mut sum = 0.0f;
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
 
-    for j in range(-half_range_y, half_range_y+1) {
-        for i in range(-half_range_x, half_range_x+1) {
+    for j in unroll(-half_range_y, half_range_y+1) {
+        for i in unroll(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y, i + half_range_x);
             if stencil_val != 0.0f {
                 sum += acc.read(x + i, y + j) * stencil_val;
@@ -61,11 +61,11 @@ fn apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
     sum
 }
 
-fn apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32 {
+fn @apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32 {
     let mut sum = 0.0f;
     let half_range = mask.size / 2;
 
-    for i in range(-half_range, half_range+1) {
+    for i in unroll(-half_range, half_range+1) {
         let stencil_val = mask.data(i + half_range);
         if stencil_val != 0.0f {
             if row {
