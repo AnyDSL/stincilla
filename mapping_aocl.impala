@@ -439,9 +439,7 @@ fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -
 }
 
 struct borderhandling {
-    read_lower : fn(int, int) -> pixel_t,
-    read_upper : fn(int, int) -> pixel_t,
-    read       : fn(int, int) -> pixel_t,
+    read       : fn(int, int, int) -> pixel_t,
     update     : fn(int) -> ()
 }
 
@@ -559,16 +557,20 @@ fn new_type0(swin: onchipmem, pFactor: int, roi_lower: int, roi_upper: int, lowe
     let lower = new_type0_lower(swin, pFactor, roi_lower, lower_offset);
     let upper = new_type0_upper(swin, pFactor, roi_upper, upper_offset);
 
-    borderhandling {
-        read_lower  : lower.read,
-        read_upper  : upper.read,
-        read        : |x, y| {
-            if (x > lower.low - 1 && x < lower.high) @{
-                lower.read(x, y)
-            } else if x > upper.low - 1 && x < upper.high @{
-                upper.read(x, y)
-            } else @{
-                @swin.read(x, y)
+    fn set_read(v: int) -> (halfborderhandling, halfborderhandling) {
+        if pFactor == upper_offset  { (lower, upper) }
+        else if   v < upper_offset  { (upper, upper) }
+        else                        { (lower, lower) }
+    }
+
+    borderhandling { 
+        read        : |x, y, v| {
+            let (lower_sel, upper_sel) = set_read(v);
+            let idx = x + v;
+            if idx > upper.low - 1 && idx < upper.high {
+                @upper_sel.read(idx, y)
+            } else { 
+                @lower_sel.read(idx, y)
             }
         },
         update : |col_ridx| {
@@ -625,9 +627,7 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
-                    read  : |x, y|    {
-                        ColSelection.read(x + v, y)
-                    },
+                    read  : |x, y| { ColSelection.read(x, y, v) },
                     write : |x, y, v| {}
             };
             let vec_pix_out_acc = Acc {
@@ -643,6 +643,7 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
         process : process
     }
 }
+
 fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, body: StencilFn) -> coarsening_type {
     let half_range_y = mask.size_y >> 1;
     let half_range_x = mask.size_x >> 1;
@@ -674,14 +675,7 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
 
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
-                read  : |x, y|{
-                    if pack_offset == pFactor @{
-                        ColSelection.read(x + v, y)
-                    } else @{
-                      if  v < 2 @{ ColSelection.read_upper(x + v, y) }
-                      else      @{ ColSelection.read_lower(x + v, y) }
-                    }
-                },
+                read  : |x, y| { ColSelection.read(x, y, v) },
                 write : |x, y, v| {}
             };
             let vec_pix_out_acc = Acc {
@@ -722,7 +716,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         with acc.exec((1,1,1), (1,1,1)) @{
             let half_range_y    = mask.size_y >> 1;
             let half_range_x    = mask.size_x >> 1;
-            let pFactor = 4;
+            let pFactor = 2;
             let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
             let kVecImageWidth  = (arr.width - 1) / pFactor + 1;
             let kVecImageStride = (arr.stride -1) / pFactor + 1;
