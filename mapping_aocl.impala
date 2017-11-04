@@ -206,7 +206,7 @@ struct regs2d {
 }
 
 fn new_databeat(width: int) -> regs1d {
-    new_regs1d(0, width - 1)
+    new_regs1d(0, width)
 }
 
 fn new_regs1d(begin: int, end: int) -> regs1d {
@@ -439,7 +439,7 @@ fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -
 }
 
 struct borderhandling {
-    read       : fn(int, int, int) -> pixel_t,
+    get_read_fn: fn(int) -> fn(int, int) -> pixel_t,
     update     : fn(int) -> ()
 }
 
@@ -553,30 +553,40 @@ fn new_type0_upper(swin: onchipmem, pFactor: int, roi_upper: int, upper_offset: 
         high: upper_high
     }
 }
-fn new_type0(swin: onchipmem, pFactor: int, roi_lower: int, roi_upper: int, lower_offset: int, upper_offset: int) -> borderhandling{
-    let lower = new_type0_lower(swin, pFactor, roi_lower, lower_offset);
-    let upper = new_type0_upper(swin, pFactor, roi_upper, upper_offset);
+fn new_type0(swin: onchipmem, pFactor: int, half_range_x: int, pack_offset: int) -> borderhandling{
+    let (bh_lower_start, bh_upper_start) = { 
+        let fac_latency = round_up(half_range_x, pFactor) / pFactor;
+        let cap_latency = half_range_x / pFactor;
+        if(pack_offset == pFactor) { (fac_latency, fac_latency - 1)}
+                               else{ (cap_latency, cap_latency)    }
+    };
+    let lower_offset = pack_offset % pFactor;
+    let upper_offset = pack_offset;
 
-    fn set_read(v: int) -> (halfborderhandling, halfborderhandling) {
-        if pFactor == upper_offset  { (lower, upper) }
-        else if   v < upper_offset  { (upper, upper) }
-        else                        { (lower, lower) }
+    let lower = new_type0_lower(swin, pFactor, bh_lower_start, lower_offset);
+    let upper = new_type0_upper(swin, pFactor, bh_upper_start, upper_offset);
+    fn get_read_fn(v: int) -> fn(int, int) -> pixel_t {
+        let (lower_read_fn, upper_read_fn) = {
+            if pFactor == pack_offset  { (lower.read, upper.read) }
+            else if   v < pack_offset  { (swin.read,  upper.read) }
+            else                       { (lower.read,  swin.read) }
+        };
+
+        |x, y| { 
+            let idx = x + v;
+            if idx > upper.low - 1 && idx < upper.high @{
+                @upper_read_fn(idx, y)
+            } else if idx > lower.low - 1 && idx < lower.high @{
+                @lower_read_fn(idx, y)
+            } else @{ 
+                @swin.read(idx, y)
+            }
+        }
     }
 
     borderhandling { 
-        read        : |x, y, v| {
-            let (lower_sel, upper_sel) = set_read(v);
-            let idx = x + v;
-            if idx > upper.low - 1 && idx < upper.high {
-                @upper_sel.read(idx, y)
-            } else { 
-                @lower_sel.read(idx, y)
-            }
-        },
-        update : |col_ridx| {
-            @lower.update(col_ridx);
-            @upper.update(col_ridx);
-        },
+        get_read_fn : get_read_fn,
+        update      : |col_ridx| { @lower.update(col_ridx); @upper.update(col_ridx); }
     }
 }
 
@@ -616,7 +626,7 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 
     // On Chip Memory Architecture
     let OnChipMem    = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor);
-    let ColSelection = new_type0(OnChipMem, pFactor, rxr, rxr - 1, 0, pFactor);
+    let ColSelection = new_type0(OnChipMem, pFactor, half_range_x, pFactor);
 
     fn process(col_ridx: int, row_ridx: int) -> () {
         @OnChipMem.shift(col_ridx, row_ridx);
@@ -627,7 +637,7 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
-                    read  : |x, y| { ColSelection.read(x, y, v) },
+                    read  : ColSelection.get_read_fn(v),
                     write : |x, y, v| {}
             };
             let vec_pix_out_acc = Acc {
@@ -649,6 +659,7 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
     let half_range_x = mask.size_x >> 1;
     let swin_x       = mask.size_x - 1 + pFactor;
     let swin_y       = mask.size_y;
+    let rxr = ((half_range_x - 1) / pFactor) + 1;
 
     // On Chip Memory Architecture
     let OnChipMem    = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor);
@@ -656,26 +667,16 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
     // Constants for Packing
     let delayed_pixels_size = (pFactor + ((pFactor - half_range_x) % pFactor)) % pFactor;
     let pack_offset         = pFactor - delayed_pixels_size;
+    let ColSelection = new_type0(OnChipMem, pFactor, half_range_x, pack_offset);
 
-    fn get_type0_parameters(pack_offset: int, pFactor: int) -> (int, int, int){
-        let rxr = ((half_range_x - 1) / pFactor) + 1;
-        if(pack_offset == pFactor){
-            (rxr, rxr - 1, 0)
-        } else{
-            (half_range_x / pFactor, half_range_x / pFactor, pack_offset % pFactor)
-        }
-    }
-    let (roi_lower, roi_higher, offset_lower) = get_type0_parameters(pack_offset, pFactor);
-    let ColSelection = new_type0(OnChipMem, pFactor, roi_lower, roi_higher, offset_lower, pack_offset);
-
-    let vec_delayed = new_databeat(pFactor); 
+    let vec_delayed = new_databeat(delayed_pixels_size); 
     fn process(col_ridx: int, row_ridx: int) -> () {
         @OnChipMem.shift(col_ridx, row_ridx);
         @ColSelection.update(col_ridx);
 
         for v in @range(0, pFactor) @{
             let OnChipMem_acc = Acc {
-                read  : |x, y| { ColSelection.read(x, y, v) },
+                read  : ColSelection.get_read_fn(v),
                 write : |x, y, v| {}
             };
             let vec_pix_out_acc = Acc {
@@ -724,8 +725,8 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
             let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
-            let coarsening = FetchAndCalc(math, in_s, out_s, kVecImageWidth, mask, pFactor, body);
-            //let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, body);
+            //let coarsening = FetchAndCalc(math, in_s, out_s, kVecImageWidth, mask, pFactor, body);
+            let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, body);
 
             let process_time    = kVecImageWidth * arr.height + 1;
             let initial_delay   = kVecImageWidth * half_range_y + kVecRightRadius - 1;
