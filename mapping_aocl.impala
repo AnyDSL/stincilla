@@ -443,21 +443,29 @@ struct borderhandling {
     update     : fn(int) -> ()
 }
 struct halfborderhandling{
-    read       : fn(int, int) -> pixel_t,
-    update     : fn(int) -> (),
-    low: int,
+    read  : fn(int, int) -> pixel_t,
+    update: fn(int) -> (),
+    low : int,
     high: int
 }
 
-fn col_select_lower_new(radius: int, pFactor: int, lower_high: int, roi_lower: int, bh_lower: BoundaryFn) -> fn(fn(int) -> pixel_t, int, int) -> pixel_t {
+// fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> pixel_t, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> pixel_t {
+fn get_type0_read(boundary: Boundary, radius: int, pFactor: int, lower_high: int, upper_low: int, roi_lower: int, roi_upper: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> fn(fn(int) -> pixel_t, int, int) -> pixel_t {
     |get, x, xw| {
-        let mut rmid_left = 0;
-        for i in @range_step(0, radius, pFactor) @{
-            if x == roi_lower + i / pFactor @{
-                rmid_left  = lower_high - i;
-            }
-        }
-        let mode_x = bh_lower(xw, rmid_left, 0);
+        let mode_x = match boundary {
+            Boundary::Lower => {
+                let mut rmid_left = 0;
+                for i in @range_step(0, radius, pFactor) @{if x == roi_lower + i / pFactor @{ rmid_left  = lower_high - i;}}
+                bh_lower(xw, rmid_left, 0)
+            },
+            Boundary::Center  => BoundaryMode::Index(x),
+            Boundary::Upper => {
+                let mut rmid_right = upper_low + radius;
+                for i in @range_step(0, radius, pFactor) @{if x == roi_upper - i / pFactor @{ rmid_right = upper_low + i;}}
+                bh_upper(xw, 0, rmid_right)
+            },
+            Boundary::Unknown => undef()
+        };
 
         match mode_x {
             BoundaryMode::Index(idx) => @get(idx),
@@ -466,67 +474,25 @@ fn col_select_lower_new(radius: int, pFactor: int, lower_high: int, roi_lower: i
         }
     }
 }
-
-fn col_select_upper_new(radius: int, pFactor: int, upper_low: int, roi_upper: int, bh_upper: BoundaryFn) -> fn(fn(int) -> pixel_t, int, int) -> pixel_t {
-    |get, x, xw| {
-        let mut rmid_right = upper_low + radius;
-        for i in @range_step(0, radius, pFactor) @{
-            if x == roi_upper - i / pFactor @{
-                rmid_right = upper_low + i;
-            }
-        }
-        let mode_x = bh_upper(xw, 0, rmid_right);
-
-        match mode_x {
-            BoundaryMode::Index(idx) => @get(idx),
-            BoundaryMode::Const(c)  => c,
-            _ => undef()
-        }
-    }
-}
-fn new_type0_lower(swin: onchipmem, pFactor: int, roi_lower: int, lower_offset: int) -> halfborderhandling {
+fn new_type0_col(boundary: Boundary, swin: onchipmem, pFactor: int, roi_lower: int, roi_upper: int, lower_offset: int, upper_offset: int) -> halfborderhandling {
     let radius     = 2;
     let lower_low  = lower_offset;
     let lower_high = lower_low + radius;
-    let out_lower  = @new_regs2d((lower_low, 0), (lower_high, swin.size_y));
-
-    let read_bh    = @col_select_lower_new(radius, pFactor, lower_high, roi_lower, mirror_lower);
-
-    fn update(col_ridx: int) -> (){
-        // assign output window: column selection
-        for j in @range(0, swin.size_y) {
-            let get_fn  =       |i| {swin.read(i, j)};
-            let set_fn  = |i, data| {out_lower.write(i, j, data)};
-
-            for idx_wnd in @range (lower_low, lower_high) {
-                let value = read_bh(get_fn, col_ridx, idx_wnd);
-                @set_fn(idx_wnd, value);
-            }
-        }
-    }
-
-    halfborderhandling{
-        read  : out_lower.read,
-        update: update,
-        low : lower_low,
-        high: lower_high
-    }
-}
-fn new_type0_upper(swin: onchipmem, pFactor: int, roi_upper: int, upper_offset: int) -> halfborderhandling {
-    let radius     = 2;
     let upper_low  = radius + upper_offset;
     let upper_high = radius + upper_low;
-    let out_upper  = @new_regs2d((upper_low, 0), (upper_high, swin.size_y));
+    let read_bh = @get_type0_read(boundary, radius, pFactor, lower_high, upper_low, roi_lower, roi_upper, mirror_lower, mirror_upper);
 
-    let read_bh    = @col_select_upper_new(radius, pFactor, upper_low, roi_upper, mirror_upper);
+    let low  = {match boundary { Boundary::Lower => lower_low,  Boundary::Upper => upper_low,  _=> undef()}};
+    let high = {match boundary { Boundary::Lower => lower_high, Boundary::Upper => upper_high, _ => undef()}};
+    let out  = @new_regs2d((low, 0), (high, swin.size_y));
 
     fn update(col_ridx: int) -> (){
         // assign output window: column selection
         for j in @range(0, swin.size_y) {
             let get_fn  =       |i| {swin.read(i, j)};
-            let set_fn  = |i, data| {out_upper.write(i, j, data)};
+            let set_fn  = |i, data| {out.write(i, j, data)};
 
-            for idx_wnd in @range (upper_low, upper_high) {
+            for idx_wnd in @range (low, high) {
                 let value = read_bh(get_fn, col_ridx, idx_wnd);
                 @set_fn(idx_wnd, value);
             }
@@ -534,10 +500,10 @@ fn new_type0_upper(swin: onchipmem, pFactor: int, roi_upper: int, upper_offset: 
     }
 
     halfborderhandling{
-        read: out_upper.read,
+        read  : out.read,
         update: update,
-        low : upper_low,
-        high: upper_high
+        low : low,
+        high: high,
     }
 }
 fn new_type0(swin: onchipmem, pFactor: int, half_range_x: int, pack_offset: int) -> borderhandling {
@@ -550,8 +516,8 @@ fn new_type0(swin: onchipmem, pFactor: int, half_range_x: int, pack_offset: int)
     let lower_offset = pack_offset % pFactor;
     let upper_offset = pack_offset;
 
-    let lower = new_type0_lower(swin, pFactor, bh_lower_start, lower_offset);
-    let upper = new_type0_upper(swin, pFactor, bh_upper_start, upper_offset);
+    let lower = new_type0_col(Boundary::Lower, swin, pFactor, bh_lower_start, bh_upper_start, lower_offset, upper_offset);
+    let upper = new_type0_col(Boundary::Upper, swin, pFactor, bh_lower_start, bh_upper_start, lower_offset, upper_offset);
     fn get_read_fn(v: int) -> fn(int, int) -> pixel_t {
         let (lower_read_fn, upper_read_fn) = {
             if pFactor == pack_offset  { (lower.read, upper.read) }
