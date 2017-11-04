@@ -442,21 +442,51 @@ struct borderhandling {
     get_read_fn: fn(int) -> fn(int, int) -> pixel_t,
     update     : fn(int) -> ()
 }
+struct halfborderhandling{
+    read       : fn(int, int) -> pixel_t,
+    update     : fn(int) -> (),
+    low: int,
+    high: int
+}
 
 
-fn col_select_lower(get: fn(int) -> pixel_t, set: fn(int, pixel_t) -> (), idx: int, radius: int, pFactor: int, lower_start: int, lower_end: int, roi_lower: int, bh_lower: BndFn) -> () {
-    for j in @range(lower_start, lower_end) {
-        @set(j, @get(j));
-    }
-
-    for i in @range_step(0, radius, pFactor) @{
-        if idx == roi_lower + i / pFactor @{
-            let rmid_left  = lower_end - i;
-            for idx_wnd in @range (lower_start, rmid_left) {
-                let idx_wnd_bh = bh_lower(idx_wnd, rmid_left, 0);
-                @set(idx_wnd, @get(idx_wnd_bh));
+fn col_select_lower(radius: int, pFactor: int, lower_high: int, roi_lower: int, bh_lower: BndFn) -> fn(int, int) -> int {
+    |idx, idx_wnd| {
+        let mut rmid_left = 0;
+        for i in @range_step(0, radius, pFactor) @{
+            if idx == roi_lower + i / pFactor @{
+                rmid_left  = lower_high - i;
             }
         }
+        bh_lower(idx_wnd, rmid_left, 0)
+    }
+}
+fn new_type0_lower(swin: onchipmem, pFactor: int, roi_lower: int, lower_offset: int) -> halfborderhandling {
+    let radius     = 2;
+    let lower_low  = lower_offset;
+    let lower_high = lower_low + radius;
+    let out_lower  = @new_regs2d((lower_low, 0), (lower_high, swin.size_y));
+
+    let colsel_fn = @col_select_lower(radius, pFactor, lower_high, roi_lower, amirror_lower);
+
+    fn update(col_ridx: int) -> (){
+        // assign output window: column selection
+        for j in @range(0, swin.size_y) {
+            let get_fn  =       |i| {swin.read(i, j)};
+            let set_fn  = |i, data| {out_lower.write(i, j, data)};
+
+            for idx_wnd in @range (lower_low, lower_high) {
+                let idx_wnd_bh = @colsel_fn(col_ridx, idx_wnd);
+                @set_fn(idx_wnd, @get_fn(idx_wnd_bh));
+            }
+        }
+    }
+
+    halfborderhandling{
+        read  : out_lower.read,
+        update: update,
+        low : lower_low,
+        high: lower_high
     }
 }
 fn col_select_upper(get: fn(int) -> pixel_t, set: fn(int, pixel_t) -> (), idx: int, radius: int, pFactor: int, upper_start: int, upper_end: int, roi_upper: int, bh_upper: BndFn) -> () {
@@ -472,50 +502,6 @@ fn col_select_upper(get: fn(int) -> pixel_t, set: fn(int, pixel_t) -> (), idx: i
                 @set(idx_wnd, @get(idx_wnd_bh));
             }
         }
-    }
-}
-
-
-struct halfborderhandling{
-    read       : fn(int, int) -> pixel_t,
-    update     : fn(int) -> (),
-    low: int,
-    high: int
-}
-
-fn new_type0_lower(swin: onchipmem, pFactor: int, roi_lower: int, lower_offset: int) -> halfborderhandling {
-    let radius     = 2;
-    let lower_low  = lower_offset;
-    let lower_high = lower_low + radius;
-    let out_lower  = @new_regs2d((lower_low, 0), (lower_high, swin.size_y));
-
-    fn col_type0_lower(get: fn(int) -> pixel_t, set: fn(int, pixel_t) -> (), col_ridx: int) -> () {
-        @col_select_lower(get, set, col_ridx, radius, pFactor, lower_low, lower_high, roi_lower, amirror_lower);
-    }
-
-    fn update(col_ridx: int) -> (){
-        // assign output window: column selection
-        for j in @range(0, swin.size_y) {
-            let get_fn       =       |i| {swin.read(i, j)};
-            let set_fn_lower = |i, data| {out_lower.write(i, j, data)};
-
-            col_type0_lower(get_fn, set_fn_lower, col_ridx);
-        }
-    }
-
-    halfborderhandling{
-        read: |x, y| {
-            if (x > lower_low - 1 && x < lower_high) @{
-                @out_lower.read(x, y)
-            } else @{
-                @swin.read(x, y)
-            }
-        },
-        update : |col_ridx| {
-            @update(col_ridx);
-        },
-        low : lower_low,
-        high: lower_high
     }
 }
 fn new_type0_upper(swin: onchipmem, pFactor: int, roi_upper: int, upper_offset: int) -> halfborderhandling {
@@ -539,21 +525,13 @@ fn new_type0_upper(swin: onchipmem, pFactor: int, roi_upper: int, upper_offset: 
     }
 
     halfborderhandling{
-        read: |x, y| {
-            if x > upper_low - 1 && x < upper_high @{
-                @out_upper.read(x, y)
-            } else @{
-                @swin.read(x, y)
-            }
-        },
-        update : |col_ridx| {
-            @update(col_ridx);
-        },
+        read: out_upper.read,
+        update: update,
         low : upper_low,
         high: upper_high
     }
 }
-fn new_type0(swin: onchipmem, pFactor: int, half_range_x: int, pack_offset: int) -> borderhandling{
+fn new_type0(swin: onchipmem, pFactor: int, half_range_x: int, pack_offset: int) -> borderhandling {
     let (bh_lower_start, bh_upper_start) = { 
         let fac_latency = round_up(half_range_x, pFactor) / pFactor;
         let cap_latency = half_range_x / pFactor;
@@ -717,7 +695,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         with acc.exec((1,1,1), (1,1,1)) @{
             let half_range_y    = mask.size_y >> 1;
             let half_range_x    = mask.size_x >> 1;
-            let pFactor = 2;
+            let pFactor = 1;
             let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
             let kVecImageWidth  = (arr.width - 1) / pFactor + 1;
             let kVecImageStride = (arr.stride -1) / pFactor + 1;
