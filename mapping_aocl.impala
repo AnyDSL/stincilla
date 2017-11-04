@@ -449,16 +449,39 @@ struct halfborderhandling{
     high: int
 }
 
-
-fn col_select_lower(radius: int, pFactor: int, lower_high: int, roi_lower: int, bh_lower: BndFn) -> fn(int, int) -> int {
-    |idx, idx_wnd| {
+fn col_select_lower_new(radius: int, pFactor: int, lower_high: int, roi_lower: int, bh_lower: BoundaryFn) -> fn(fn(int) -> pixel_t, int, int) -> pixel_t {
+    |get, x, xw| {
         let mut rmid_left = 0;
         for i in @range_step(0, radius, pFactor) @{
-            if idx == roi_lower + i / pFactor @{
+            if x == roi_lower + i / pFactor @{
                 rmid_left  = lower_high - i;
             }
         }
-        bh_lower(idx_wnd, rmid_left, 0)
+        let mode_x = bh_lower(xw, rmid_left, 0);
+
+        match mode_x {
+            BoundaryMode::Index(idx) => @get(idx),
+            BoundaryMode::Const(c)  => c,
+            _ => undef()
+        }
+    }
+}
+
+fn col_select_upper_new(radius: int, pFactor: int, upper_low: int, roi_upper: int, bh_upper: BoundaryFn) -> fn(fn(int) -> pixel_t, int, int) -> pixel_t {
+    |get, x, xw| {
+        let mut rmid_right = upper_low + radius;
+        for i in @range_step(0, radius, pFactor) @{
+            if x == roi_upper - i / pFactor @{
+                rmid_right = upper_low + i;
+            }
+        }
+        let mode_x = bh_upper(xw, 0, rmid_right);
+
+        match mode_x {
+            BoundaryMode::Index(idx) => @get(idx),
+            BoundaryMode::Const(c)  => c,
+            _ => undef()
+        }
     }
 }
 fn new_type0_lower(swin: onchipmem, pFactor: int, roi_lower: int, lower_offset: int) -> halfborderhandling {
@@ -467,7 +490,7 @@ fn new_type0_lower(swin: onchipmem, pFactor: int, roi_lower: int, lower_offset: 
     let lower_high = lower_low + radius;
     let out_lower  = @new_regs2d((lower_low, 0), (lower_high, swin.size_y));
 
-    let colsel_fn = @col_select_lower(radius, pFactor, lower_high, roi_lower, amirror_lower);
+    let read_bh    = @col_select_lower_new(radius, pFactor, lower_high, roi_lower, mirror_lower);
 
     fn update(col_ridx: int) -> (){
         // assign output window: column selection
@@ -476,8 +499,8 @@ fn new_type0_lower(swin: onchipmem, pFactor: int, roi_lower: int, lower_offset: 
             let set_fn  = |i, data| {out_lower.write(i, j, data)};
 
             for idx_wnd in @range (lower_low, lower_high) {
-                let idx_wnd_bh = @colsel_fn(col_ridx, idx_wnd);
-                @set_fn(idx_wnd, @get_fn(idx_wnd_bh));
+                let value = read_bh(get_fn, col_ridx, idx_wnd);
+                @set_fn(idx_wnd, value);
             }
         }
     }
@@ -489,38 +512,24 @@ fn new_type0_lower(swin: onchipmem, pFactor: int, roi_lower: int, lower_offset: 
         high: lower_high
     }
 }
-fn col_select_upper(get: fn(int) -> pixel_t, set: fn(int, pixel_t) -> (), idx: int, radius: int, pFactor: int, upper_start: int, upper_end: int, roi_upper: int, bh_upper: BndFn) -> () {
-    for j in @range(upper_start, upper_end) {
-        @set(j, @get(j));
-    }
-
-    for i in @range_step(0, radius, pFactor) @{
-        if idx == roi_upper - i / pFactor @{
-            let rmid_right = upper_start + i;
-            for idx_wnd in @range (rmid_right, upper_end) {
-                let idx_wnd_bh = bh_upper(idx_wnd, 0, rmid_right);
-                @set(idx_wnd, @get(idx_wnd_bh));
-            }
-        }
-    }
-}
 fn new_type0_upper(swin: onchipmem, pFactor: int, roi_upper: int, upper_offset: int) -> halfborderhandling {
     let radius     = 2;
     let upper_low  = radius + upper_offset;
     let upper_high = radius + upper_low;
     let out_upper  = @new_regs2d((upper_low, 0), (upper_high, swin.size_y));
 
-    fn col_type0_upper(get: fn(int) -> pixel_t, set: fn(int, pixel_t) -> (), col_ridx: int) -> () {
-        @col_select_upper(get, set, col_ridx, radius, pFactor, upper_low, upper_high, roi_upper, amirror_upper);
-    }
+    let read_bh    = @col_select_upper_new(radius, pFactor, upper_low, roi_upper, mirror_upper);
 
     fn update(col_ridx: int) -> (){
         // assign output window: column selection
         for j in @range(0, swin.size_y) {
-            let get_fn       =       |i| {swin.read(i, j)};
-            let set_fn_upper = |i, data| {out_upper.write(i, j, data)};
+            let get_fn  =       |i| {swin.read(i, j)};
+            let set_fn  = |i, data| {out_upper.write(i, j, data)};
 
-            col_type0_upper(get_fn, set_fn_upper, col_ridx);
+            for idx_wnd in @range (upper_low, upper_high) {
+                let value = read_bh(get_fn, col_ridx, idx_wnd);
+                @set_fn(idx_wnd, value);
+            }
         }
     }
 
@@ -695,7 +704,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         with acc.exec((1,1,1), (1,1,1)) @{
             let half_range_y    = mask.size_y >> 1;
             let half_range_x    = mask.size_x >> 1;
-            let pFactor = 1;
+            let pFactor = 2;
             let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
             let kVecImageWidth  = (arr.width - 1) / pFactor + 1;
             let kVecImageStride = (arr.stride -1) / pFactor + 1;
@@ -703,8 +712,8 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
             let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
-            //let coarsening = FetchAndCalc(math, in_s, out_s, kVecImageWidth, mask, pFactor, body);
-            let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, body);
+            let coarsening = FetchAndCalc(math, in_s, out_s, kVecImageWidth, mask, pFactor, body);
+            //let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, body);
 
             let process_time    = kVecImageWidth * arr.height + 1;
             let initial_delay   = kVecImageWidth * half_range_y + kVecRightRadius - 1;
