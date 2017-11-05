@@ -20,7 +20,7 @@ endif()
 string(TOLOWER "${PIXEL_TYPE}" PIXEL_TYPE)
 message(STATUS "Selected pixel type: ${PIXEL_TYPE}")
 
-set(BACKEND_FILE intrinsics_${BACKEND}.impala)
+set(BACKEND_FILE backend_${BACKEND}.impala)
 set(PIXEL_TYPE_FILES pixel_${PIXEL_TYPE}.impala)
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
