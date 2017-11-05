@@ -14,7 +14,7 @@ endif()
 string(TOLOWER "${BACKEND}" BACKEND)
 message(STATUS "Selected backend: ${BACKEND}")
 
-set(BACKEND_FILE intrinsics_${BACKEND}.impala)
+set(BACKEND_FILE backend_${BACKEND}.impala)
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
