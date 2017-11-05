@@ -18,9 +18,12 @@ fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
     copy(seed_buf, seed_gpu, width * height * sizeof[u64]());
 
     for benchmark_acc(acc) {
-        with acc.exec(grid, block) @{
-            let seed = bitcast[&[1][u64]](seed_gpu.data);
-            let mut state = seed(acc.gidy()*width + acc.gidx());
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+            let (gidx,  gidy,  _) = gid;
+            let gid_x = gidx();
+            let gid_y = gidy();
+            let seed  = bitcast[&[1][u64]](seed_gpu.data);
+            let mut state = seed(gid_y * width + gid_x);
             fn rand() -> f64 {
                 let (r, s) = rnd_f64(state);
                 state = s;
@@ -28,11 +31,11 @@ fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
             }
             fn out_fun(r: u8, g: u8, b: u8) -> () {
                 let out = bitcast[&mut[1][u8]](out_gpu.data);
-                out(3 * (acc.gidy() * width + acc.gidx()) + 0) = r;
-                out(3 * (acc.gidy() * width + acc.gidx()) + 1) = g;
-                out(3 * (acc.gidy() * width + acc.gidx()) + 2) = b;
+                out(3 * (gid_y * width + gid_x) + 0) = r;
+                out(3 * (gid_y * width + gid_x) + 1) = g;
+                out(3 * (gid_y * width + gid_x) + 2) = b;
             }
-            body(math, acc.gidx(), acc.gidy(), out_fun, rand);
+            body(math, gid_x, gid_y, out_fun, rand);
         }
     }
 
