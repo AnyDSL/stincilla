@@ -351,8 +351,60 @@ fn new_sliding_win(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> o
     }
 }
 
-
 // --------------------- This Region will be simplified -----------------------
+// Sliding window: Type-0 Separated Border Handling
+fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+    let swin = @new_regs2d((0, 0), (swin_x, swin_y));
+    let out_width = 4 + pFactor;
+
+    fn shift(col_ridx: int, row_ridx: int) -> () {
+        // Shift sliding window
+        for j in @range(0, swin_y) {
+            for i in @range(0, swin_x - pFactor) {
+                @swin.write(i, j, @swin.read(i + pFactor, j));
+            }
+        }
+
+        // Read new col: row selection
+        for v in @range(0, pFactor) {
+            let get_fn =       |j| {lbufs.read(v, j)};
+            let set_fn = |j, data| {swin.write(v + swin_x - pFactor, j, data)};
+
+            @col_select(get_fn, set_fn, row_ridx, 2, swin_y, 1, 2, 1025, amirror_upper, amirror_lower);
+        }
+    };
+    onchipmem {
+        read  : |x, y| {
+            swin.read(x, y)
+        },
+        shift : |col_ridx, row_ridx| {
+            @lbufs.shift(col_ridx);
+            shift(col_ridx, row_ridx);
+        },
+        size_x : out_width,
+        size_y : swin_y
+    }
+}
+
+// (mask_y - 1) line buffers -> swin
+fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+    let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
+
+    let lbufs_acc = lbuftype {
+        read    : |x, y|  {
+            if y == swin_y - 1 { in_s.read(x)     }
+            else               { lbufs.read(x, y) }
+        },
+        shift   : lbufs.shift,
+        size_x  : pFactor,
+        size_y  : swin_y
+    };
+
+    //@new_sliding_win(lbufs_acc, swin_x, swin_y, pFactor)
+    @new_sliding_win_bh(lbufs_acc, swin_x, swin_y, pFactor)
+}
+
+
 type BndFn   = fn(i32, i32, i32) -> int;
 fn aclamp_lower (idx: i32, lower: i32, upper: i32) -> int {
     if idx < lower { lower } else { idx }
@@ -403,39 +455,11 @@ fn col_select(get: fn(int) -> pixel_t, set: fn(int, pixel_t) -> (), idx: int, ra
     }
 }
 
+type get_bounds_fun_type = fn(Boundary) -> (i32, i32);
 
-// Sliding window: Type-0 Separated Border Handling
-fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
-    let swin = @new_regs2d((0, 0), (swin_x, swin_y));
-    let out_width = 4 + pFactor;
-
-    fn shift(col_ridx: int, row_ridx: int) -> () {
-        // Shift sliding window
-        for j in @range(0, swin_y) {
-            for i in @range(0, swin_x - pFactor) {
-                @swin.write(i, j, @swin.read(i + pFactor, j));
-            }
-        }
-
-        // Read new col: row selection
-        for v in @range(0, pFactor) {
-            let get_fn =       |j| {lbufs.read(v, j)};
-            let set_fn = |j, data| {swin.write(v + swin_x - pFactor, j, data)};
-
-            @col_select(get_fn, set_fn, row_ridx, 2, swin_y, 1, 2, 1025, amirror_upper, amirror_lower);
-        }
-    };
-    onchipmem {
-        read  : |x, y| {
-            swin.read(x, y)
-        },
-        shift : |col_ridx, row_ridx| {
-            @lbufs.shift(col_ridx);
-            shift(col_ridx, row_ridx);
-        },
-        size_x : out_width,
-        size_y : swin_y
-    }
+struct RoIcol {
+    o_x : i32,
+    width : i32,
 }
 
 struct borderhandling {
@@ -443,20 +467,38 @@ struct borderhandling {
     update     : fn(int) -> ()
 }
 
-// fn read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> pixel_t, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> pixel_t {
-fn get_type0_read(boundary: Boundary, radius: int, pFactor: int, lower_high: int, upper_low: int, bh_lower_start: int, bh_upper_start: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> fn(fn(int) -> pixel_t, int, int) -> pixel_t {
-    |get, x, xw| {
+fn new_bounds(lower: i32, lower_bh_pixels: i32, upper_bh_pixels: i32, upper: i32) -> get_bounds_fun_type {
+    |boundary| {
+        match boundary {
+            Boundary::Lower  => (lower, lower_bh_pixels),
+            Boundary::Center => (lower_bh_pixels, upper_bh_pixels),
+            _ /* Boundary::Upper */ => (upper_bh_pixels, upper)
+        }
+    }
+}
+
+fn iterate_borders_1dregion(body: fn(Boundary) -> ()) -> () {
+    body(Boundary::Lower);
+    body(Boundary::Upper);
+}
+// --------------------- This Region will be simplified -----------------------
+
+fn get_type0_read(radius: int, pFactor: int, bh_lower_start: int, bh_upper_start: int, roi: RoIcol, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> fn(Boundary, fn(int) -> pixel_t, int, int) -> pixel_t {
+    let lower_high = roi.o_x;
+    let upper_low  = roi.o_x + roi.width;
+
+    |boundary, get, x, xw| {
         let mode_x = match boundary {
             Boundary::Lower => {
-                let mut rmid_left = 0;
-                for i in @range_step(0, radius, pFactor) @{if x == bh_lower_start + i / pFactor @{ rmid_left = lower_high - i;}}
-                bh_lower(xw, rmid_left, 0)
+                let mut lower_x = 0;
+                for i in @range_step(0, radius, pFactor) @{if x == bh_lower_start + i / pFactor @{ lower_x = lower_high - i;}}
+                bh_lower(xw, lower_x, 0)
             },
             Boundary::Center  => BoundaryMode::Index(x),
             Boundary::Upper => {
-                let mut rmid_right = upper_low + radius;
-                for i in @range_step(0, radius, pFactor) @{if x == bh_upper_start - i / pFactor @{ rmid_right = upper_low + i;}}
-                bh_upper(xw, 0, rmid_right)
+                let mut upper_x = upper_low + radius;
+                for i in @range_step(0, radius, pFactor) @{if x == bh_upper_start - i / pFactor @{ upper_x = upper_low + i;}}
+                bh_upper(xw, 0, upper_x)
             },
             Boundary::Unknown => undef()
         };
@@ -469,89 +511,42 @@ fn get_type0_read(boundary: Boundary, radius: int, pFactor: int, lower_high: int
     }
 }
 
-fn new_type0(swin: onchipmem, pFactor: int, half_range_x: int, pack_offset: int) -> borderhandling {
-    let (bh_lower_start, bh_upper_start) = { 
-        let fac_latency = round_up(half_range_x, pFactor) / pFactor;
-        let cap_latency = half_range_x / pFactor;
-        if(pack_offset == pFactor) { (fac_latency, fac_latency - 1)}
-                               else{ (cap_latency, cap_latency)    }
+fn new_type0(swin: onchipmem, pFactor: int, radius: int, get_bounds_fun: get_bounds_fun_type, bh_lower_start: int, bh_upper_start: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> borderhandling {
+    let (lower_low, lower_high) = get_bounds_fun(Boundary::Lower);
+    let (upper_low, upper_high) = get_bounds_fun(Boundary::Upper);
+    let lower_regs = @new_regs2d((lower_low, 0), (lower_high, swin.size_y));
+    let upper_regs = @new_regs2d((upper_low, 0), (upper_high, swin.size_y));
+    let acc = Acc {
+        read  : |x, y|    { if x > upper_low - 1 && x < upper_high { upper_regs.read(x, y) }
+                       else if x > lower_low - 1 && x < lower_high { lower_regs.read(x, y) }
+                       else { swin.read(x, y) }},
+        write : |x, y, d| { if x > upper_low - 1 && x < upper_high { upper_regs.write(x, y, d) }
+                       else if x > lower_low - 1 && x < lower_high { lower_regs.write(x, y, d) }
+                       else {}}
     };
-    let lower_offset = pack_offset % pFactor;
-    let upper_offset = pack_offset;
+    let roi = RoIcol {o_x: lower_high, width: upper_low - lower_high};
+    let read_fun = @get_type0_read(radius, pFactor, bh_lower_start, bh_upper_start, roi, bh_lower, bh_upper);
 
-    let radius     = 2;
-    let lower_low  = lower_offset;
-    let lower_high = lower_low + radius;
-    let upper_low  = radius + upper_offset;
-    let upper_high = radius + upper_low;
-
-    let lower_out = @new_regs2d((lower_low, 0), (lower_high, swin.size_y));
-    let upper_out = @new_regs2d((upper_low, 0), (upper_high, swin.size_y));
-    fn get_read_fn(v: int) -> fn(int, int) -> pixel_t {
-        let (lower_read_fn, upper_read_fn) = {
-            if pFactor == pack_offset  { (lower_out.read, upper_out.read) }
-            else if   v < pack_offset  { (swin.read,      upper_out.read) }
-            else                       { (lower_out.read, swin.read)      }
-        };
-
-        |x, y| { 
-            let idx = x + v;
-            if idx > upper_low - 1 && idx < upper_high @{
-                @upper_read_fn(idx, y)
-            } else if idx > lower_low - 1 && idx < lower_high @{
-                @lower_read_fn(idx, y)
-            } else @{ 
-                @swin.read(idx, y)
-            }
-        }
-    }
-
-    let lower_read_bh = @get_type0_read(Boundary::Lower, radius, pFactor, lower_high, upper_low, bh_lower_start, bh_upper_start, mirror_lower, mirror_upper);
-    let upper_read_bh = @get_type0_read(Boundary::Upper, radius, pFactor, lower_high, upper_low, bh_lower_start, bh_upper_start, mirror_lower, mirror_upper);
     fn update(col_ridx: int) -> () {
-        // assign output window: column selection
         for j in @range(0, swin.size_y) {
             let get_fn  =       |i| {swin.read(i, j)};
-            let lower_set_fn  = |i, data| {lower_out.write(i, j, data)};
-            let upper_set_fn  = |i, data| {upper_out.write(i, j, data)};
+            let set_fun = |i, d| {acc.write(i, j, d)};
 
-            for idx_wnd in @range (lower_low, lower_high) {
-                let value = lower_read_bh(get_fn, col_ridx, idx_wnd);
-                @lower_set_fn(idx_wnd, value);
-            }
-            for idx_wnd in @range (upper_low, upper_high) {
-                let value = upper_read_bh(get_fn, col_ridx, idx_wnd);
-                @upper_set_fn(idx_wnd, value);
+            for boundary_col in @iterate_borders_1dregion() {
+                let bounds = get_bounds_fun(boundary_col);
+                for xw in @range (bounds(0), bounds(1)) {
+                    let value = @read_fun(boundary_col, get_fn, col_ridx, xw);
+                    @set_fun(xw, value);
+                }
             }
         }
     }
 
     borderhandling { 
-        get_read_fn : get_read_fn,
+        get_read_fn : |v| { |x, y| acc.read(x + v, y) },
         update      : update
     }
 }
-
-// --------------------- This Region will be simplified -----------------------
-
-// (mask_y - 1) line buffers -> swin
-fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
-    let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
-
-    let lbufs_acc = lbuftype {
-        read    : |x, y|  {
-            if y == swin_y - 1 { in_s.read(x)     }
-            else               { lbufs.read(x, y) }
-        },
-        shift   : lbufs.shift,
-        size_x  : pFactor,
-        size_y  : swin_y
-    };
-
-    //@new_sliding_win(lbufs_acc, swin_x, swin_y, pFactor)
-    @new_sliding_win_bh(lbufs_acc, swin_x, swin_y, pFactor)
-}
-
 
 
 //  -------------------  Loop Coarsening  ----------------------
@@ -559,16 +554,18 @@ struct coarsening_type {
     process : fn(int, int) -> ()
 }
 
-fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, body: StencilFn) -> coarsening_type {
+fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
     let half_range_y    = mask.size_y >> 1;
     let half_range_x    = mask.size_x >> 1;
-    let rxr             = ((half_range_x - 1) / pFactor) + 1;
+    let radius          = half_range_x;
+    let rxr             = round_up(radius, pFactor) / pFactor;
     let swin_x          = half_range_x + (1 + rxr) * pFactor;
     let swin_y          = mask.size_y;
 
     // On Chip Memory Architecture
-    let OnChipMem    = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor);
-    let ColSelection = new_type0(OnChipMem, pFactor, half_range_x, pFactor);
+    let OnChipMem = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor);
+    let bounds_fun = new_bounds(0, radius, radius + pFactor, pFactor + 2 * radius);
+    let ColSelection = new_type0(OnChipMem, pFactor, half_range_x, bounds_fun, rxr, rxr - 1, bh_lower, bh_upper);
 
     fn process(col_ridx: int, row_ridx: int) -> () {
         @OnChipMem.shift(col_ridx, row_ridx);
@@ -596,46 +593,62 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
     }
 }
 
-fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, body: StencilFn) -> coarsening_type {
+fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
     let half_range_y = mask.size_y >> 1;
     let half_range_x = mask.size_x >> 1;
-    let swin_x       = mask.size_x - 1 + pFactor;
-    let swin_y       = mask.size_y;
-    let rxr = ((half_range_x - 1) / pFactor) + 1;
+    let radius = half_range_x;
+    let swin_x = pFactor + 2 * radius;
+    let swin_y = mask.size_y;
 
     // On Chip Memory Architecture
-    let OnChipMem    = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor);
+    let OnChipMem = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor);
 
     // Constants for Packing
     let delayed_pixels_size = (pFactor + ((pFactor - half_range_x) % pFactor)) % pFactor;
     let pack_offset         = pFactor - delayed_pixels_size;
-    let ColSelection = new_type0(OnChipMem, pFactor, half_range_x, pack_offset);
+
+    let col_sel_type0 = {
+        if(pack_offset == pFactor){
+            let bounds_fun = new_bounds(0, radius, radius + pFactor, swin_x);
+            let latency = round_up(radius, pFactor) / pFactor;
+            new_type0(OnChipMem, pFactor, radius, bounds_fun, latency, latency - 1, bh_lower, bh_upper)
+        } else {
+            let latency = radius / pFactor;
+            let upper_low  = pack_offset + radius;
+            let upper_bounds_fun = new_bounds(0, 0, upper_low, upper_low + radius);
+            let lower_bounds_fun = new_bounds(upper_low - radius, upper_low, swin_x, swin_x);
+            let upper = new_type0(OnChipMem, pFactor, radius, upper_bounds_fun, latency, latency, bh_lower, bh_upper);
+            let lower = new_type0(OnChipMem, pFactor, radius, lower_bounds_fun, latency, latency, bh_lower, bh_upper);
+            borderhandling {
+                get_read_fn: |v|   { if v < pack_offset { @upper.get_read_fn(v) } else { @lower.get_read_fn(v) } },
+                update     : |idx| { @upper.update(idx); @lower.update(idx); }
+            }
+        }
+    };
 
     let vec_delayed = new_databeat(delayed_pixels_size); 
+    fn pack(v: int) -> fn(int, int, pixel_t) -> () {
+        |x, y, data| {
+            if  v < pack_offset {
+                let pack_idx =  v + delayed_pixels_size;
+                @out_s.write(pack_idx, data);
+            } else {
+                let pack_idx =  v - pack_offset;
+                @out_s.write(pack_idx, @vec_delayed.read(pack_idx));
+                vec_delayed.write(pack_idx, data);
+            }
+        }
+    }
+
     fn process(col_ridx: int, row_ridx: int) -> () {
         @OnChipMem.shift(col_ridx, row_ridx);
-        @ColSelection.update(col_ridx);
+        @col_sel_type0.update(col_ridx);
 
         for v in @range(0, pFactor) @{
-            let OnChipMem_acc = Acc {
-                read  : ColSelection.get_read_fn(v),
-                write : |x, y, v| {}
-            };
-            let vec_pix_out_acc = Acc {
-                read  : |x, y|       0 as pixel_t,
-                write : |x, y, data| {
-                    if  v < pack_offset {
-                        let pack_idx =  v + delayed_pixels_size;
-                        @out_s.write(pack_idx, data)
-                    } else {
-                        let pack_idx =  v - pack_offset;
-                        @out_s.write(pack_idx, @vec_delayed.read(pack_idx));
-                        vec_delayed.write(pack_idx, data);
-                    }
-                }
-            };
-            @body(math, half_range_x, half_range_y, vec_pix_out_acc, OnChipMem_acc, mask);
-            //vec_pix_out_acc.write(0, 0, OnChipMem_acc.read(half_range_x, 2 * half_range_y));
+            let win_acc = Acc { read: col_sel_type0.get_read_fn(v), write: |x, y, v| {} };
+            let out_acc = Acc { read  : |x, y| 0 as pixel_t, write : pack(v) };
+            @body(math, half_range_x, half_range_y, out_acc, win_acc, mask);
+            //vec_pix_out_acc.write(0, 0, in_acc.read(half_range_x, 2 * half_range_y));
         }
     }
 
@@ -659,7 +672,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
         with acc.exec((1,1,1), (1,1,1)) @{
             let half_range_y    = mask.size_y >> 1;
             let half_range_x    = mask.size_x >> 1;
-            let pFactor = 2;
+            let pFactor = 8;
             let kVecRightRadius = ((half_range_x - 1) / pFactor) + 1;
             let kVecImageWidth  = (arr.width - 1) / pFactor + 1;
             let kVecImageStride = (arr.stride -1) / pFactor + 1;
@@ -667,8 +680,8 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
             let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
-            //let coarsening = FetchAndCalc(math, in_s, out_s, kVecImageWidth, mask, pFactor, body);
-            let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, body);
+            //let coarsening = FetchAndCalc(math, in_s, out_s, kVecImageWidth, mask, pFactor, bh_lower, bh_upper, body);
+            let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, bh_lower, bh_upper, body);
 
             let process_time    = kVecImageWidth * arr.height + 1;
             let initial_delay   = kVecImageWidth * half_range_y + kVecRightRadius - 1;
