@@ -6,18 +6,17 @@ add_executable(stencil_dsl ${STENCIL_INT_PROGRAM})
 target_link_libraries(stencil_dsl ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("stencil_dsl" stencil_dsl)
 
-if(BACKEND STREQUAL "hls")
-    anydsl_runtime_wrap(HLS_COPY_PROGRAM
+if(DEVICE STREQUAL "fpga")
+    anydsl_runtime_wrap(FPGA_COPY_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
-        FILES ../${BACKEND_FILE} hls_copy.impala)
-    add_executable(hls_copy ${HLS_COPY_PROGRAM})
-    target_link_libraries(hls_copy ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-    add_test("hls_copy" hls_copy)
+        FILES ../${BACKEND_FILE} fpga_copy.impala)
+    add_executable(fpga_copy ${FPGA_COPY_PROGRAM})
+    target_link_libraries(fpga_copy ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test("fpga_copy" fpga_copy)
 endif()
 
-if(BACKEND STREQUAL "cuda" OR BACKEND STREQUAL "opencl" OR
-   BACKEND STREQUAL "nvvm" OR BACKEND STREQUAL "amdgpu")
+if(DEVICE STREQUAL "acc")
     anydsl_runtime_wrap(MULTI_GPU_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
