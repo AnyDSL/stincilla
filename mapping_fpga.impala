@@ -356,6 +356,8 @@ fn new_sliding_win(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> o
 fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
     let swin = @new_regs2d((0, 0), (swin_x, swin_y));
     let out_width = 4 + pFactor;
+    let radius_y = 2;
+    let get_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
 
     fn shift(col_ridx: int, row_ridx: int) -> () {
         // Shift sliding window
@@ -371,7 +373,7 @@ fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -
             let set_fn = |j, data| {swin.write(v + swin_x - pFactor, j, data)};
 
             //@col_select(get_fn, set_fn, row_ridx, 2, swin_y, 1, 2, 1025, amirror_upper, amirror_lower);
-            @row_select(get_fn, set_fn, row_ridx, 2, swin_y, 1, 2, 1025, mirror_upper, mirror_lower);
+            @row_select(get_fn, set_fn, row_ridx, 2, 1, get_bounds_fun, 2, 1025, mirror_upper, mirror_lower);
         }
     };
     onchipmem {
@@ -405,7 +407,8 @@ fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFa
     @new_sliding_win_bh(lbufs_acc, swin_x, swin_y, pFactor)
 }
 
-type get_bounds_fun_type = fn(Boundary) -> (i32, i32);
+type Bounds = (int, int);
+type get_bounds_fun_type = fn(Boundary) -> Bounds;
 
 struct RoIcol {
     o_x : i32,
@@ -439,21 +442,22 @@ fn iterate_borders_1dregion(body: fn(Boundary) -> ()) -> () {
 }
 
 // --------------------- This Region will be simplified -----------------------
-fn get_type0_read(radius: int, pFactor: int, bh_lower_start: int, bh_upper_end: int, roi: RoIcol, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> fn(Boundary, fn(int) -> pixel_t, int, int) -> pixel_t {
-    let lower_high = roi.o_x;
-    let upper_low  = roi.o_x + roi.width;
+fn get_type0_read(pFactor: int, bh_lower_start: int, bh_upper_end: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> fn(Boundary, Bounds, fn(int) -> pixel_t, int, int) -> pixel_t {
+    |boundary, bounds, get, x, xw| {
+        let lower = bounds(0);
+        let upper = bounds(1);
+        let radius = upper - lower;
 
-    |boundary, get, x, xw| {
         let mode_x = match boundary {
             Boundary::Lower => {
                 let mut lower_x = 0;
-                for i in @range_step(0, radius, pFactor) @{if x == bh_lower_start + i / pFactor @{ lower_x = lower_high - i;}}
+                for i in @range_step(0, radius, pFactor) @{if x == bh_lower_start + i / pFactor @{ lower_x = upper - i;}}
                 bh_lower(xw, lower_x, 0)
             },
             Boundary::Center  => BoundaryMode::Index(xw),
             Boundary::Upper => {
-                let mut upper_x = upper_low + radius;
-                for i in @range_step(0, radius, pFactor) @{if x == bh_upper_end - i / pFactor @{ upper_x = upper_low + i;}}
+                let mut upper_x = lower + radius;
+                for i in @range_step(0, radius, pFactor) @{if x == bh_upper_end - i / pFactor @{ upper_x = lower + i;}}
                 bh_upper(xw, 0, upper_x)
             },
             Boundary::Unknown => BoundaryMode::Index(xw),
@@ -467,19 +471,15 @@ fn get_type0_read(radius: int, pFactor: int, bh_lower_start: int, bh_upper_end: 
     }
 }
 
-fn row_select(get_fun: fn(int) -> pixel_t, set_fun: fn(int, pixel_t) -> (), idx: int, radius: int, size: int, pFactor: int, 
+fn row_select(get_fun: fn(int) -> pixel_t, set_fun: fn(int, pixel_t) -> (), idx: int, radius: int, pFactor: int, get_bounds_fun: get_bounds_fun_type,
    bh_lower_start: int, bh_upper_end: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> () {
 
-    let get_bounds_fun = new_bounds(0, radius, radius + pFactor, pFactor + 2 * radius);
-    let (lower_low, lower_high) = get_bounds_fun(Boundary::Lower);
-    let (upper_low, upper_high) = get_bounds_fun(Boundary::Upper);
-    let roi = RoIcol {o_x: lower_high, width: upper_low - lower_high};
-    let read_fun = @get_type0_read(radius, pFactor, bh_lower_start, bh_upper_end, roi, mirror_lower, mirror_upper);
+    let read_fun = @get_type0_read(pFactor, bh_lower_start, bh_upper_end, mirror_lower, mirror_upper);
 
     for boundary in @iterate_1dborder() {
         let bounds = get_bounds_fun(boundary);
         for xw in @range (bounds(0), bounds(1)) {
-            let value = @read_fun(boundary, get_fun, idx, xw);
+            let value = @read_fun(boundary, bounds, get_fun, idx, xw);
             @set_fun(xw, value);
         }
     }
@@ -499,8 +499,7 @@ fn new_type0(swin: onchipmem, pFactor: int, radius: int, get_bounds_fun: get_bou
                        else if x > lower_low - 1 && x < lower_high { lower_regs.write(x, y, d) }
                        else {}}
     };
-    let roi = RoIcol {o_x: lower_high, width: upper_low - lower_high};
-    let read_fun = @get_type0_read(radius, pFactor, bh_lower_start, bh_upper_end, roi, bh_lower, bh_upper);
+    let read_fun = @get_type0_read(pFactor, bh_lower_start, bh_upper_end, bh_lower, bh_upper);
 
     fn update(col_ridx: int) -> () {
         for j in @range(0, swin.size_y) {
@@ -510,7 +509,7 @@ fn new_type0(swin: onchipmem, pFactor: int, radius: int, get_bounds_fun: get_bou
             for boundary_col in @iterate_borders_1dregion() {
                 let bounds = get_bounds_fun(boundary_col);
                 for xw in @range (bounds(0), bounds(1)) {
-                    let value = @read_fun(boundary_col, get_fn, col_ridx, xw);
+                    let value = @read_fun(boundary_col, bounds, get_fn, col_ridx, xw);
                     @set_fun(xw, value);
                 }
             }
