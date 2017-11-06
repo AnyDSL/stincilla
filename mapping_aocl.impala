@@ -53,7 +53,7 @@ fn get_global_stream_from_img(img: Img,  pFactor: int) -> stream_in{
 }
 
 fn set_global_stream_vec1(data: &[i8]) -> stream_out {
-    let mut value = undef[pixel_t]();
+    let mut value = 0 as pixel_t; //undef[pixel_t]();
     fn update(idx : int) -> () { bitcast[&mut[1][pixel_t]](data)(idx) = value; }
     fn write(idx: int, din: pixel_t) -> () { value = din; };
     stream_out{update: update, write : write, pFactor : 1}
@@ -96,7 +96,7 @@ fn set_global_stream_from_img(img: Img,  pFactor: int) -> stream_out{
 
 // Shared memory read/write functions
 fn new_shared_line_vec1(in_s: stream_in, width: int) -> stream_in {
-    let mut value = undef[pixel_t]();
+    let mut value = 0 as pixel_t; //undef[pixel_t]();
     let lbuf = reserve_shared[pixel_t](width);
 
     fn shift(col: int) -> () {
@@ -293,7 +293,7 @@ struct onchipmem {
 fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype{
     if size_y == 0 {
         lbuftype {
-            read   : |_, _| undef[pixel_t](),
+            read   : |_, _| 0 as pixel_t, //undef[pixel_t](),
             shift  : |_| (),
             size_x : size_x,
             size_y : size_y
@@ -370,7 +370,8 @@ fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -
             let get_fn =       |j| {lbufs.read(v, j)};
             let set_fn = |j, data| {swin.write(v + swin_x - pFactor, j, data)};
 
-            @col_select(get_fn, set_fn, row_ridx, 2, swin_y, 1, 2, 1025, amirror_upper, amirror_lower);
+            //@col_select(get_fn, set_fn, row_ridx, 2, swin_y, 1, 2, 1025, amirror_upper, amirror_lower);
+            @row_select(get_fn, set_fn, row_ridx, 2, swin_y, 1, 2, 1025, mirror_upper, mirror_lower);
         }
     };
     onchipmem {
@@ -404,57 +405,6 @@ fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFa
     @new_sliding_win_bh(lbufs_acc, swin_x, swin_y, pFactor)
 }
 
-
-type BndFn   = fn(i32, i32, i32) -> int;
-fn aclamp_lower (idx: i32, lower: i32, upper: i32) -> int {
-    if idx < lower { lower } else { idx }
-}
-fn aclamp_upper (idx: i32, lower: i32, upper: i32) -> int {
-    if idx >= upper { upper - 1 } else { idx }
-}
-fn amirror_lower(idx: i32, lower: i32, upper: i32) -> int{
-    if idx < lower { lower + (lower - idx-1) } else { idx }
-}
-fn amirror_upper(idx: i32, lower: i32, upper: i32) -> int {
-    if idx >= upper { upper - (idx+1 - upper) } else { idx }
-}
-
-
-
-// Clamp
-//  ex: radius = 2
-//  if y == 2  { @set(0, @get(2)); @set(1, @get(2)) };
-//  if y == 3  { @set(0, @get(1)) };
-//  if y == 22 { @set(3, @get(2)); @set(4, @get(2)) };
-//  if y == 23 { @set(4, @get(3));
-//
-//  ex: radius = 3
-//  if y == 2 {@set(0, @get(3)); @set(1, @get(3)); @set(2, @get(3))};
-//  if y == 3 {@set(0, @get(2)); @set(1, @get(2))};
-//  if y == 4 {@set(0, @get(1))};
-fn col_select(get: fn(int) -> pixel_t, set: fn(int, pixel_t) -> (), idx: int, radius: int, size: int, pFactor: int, roi_lower: int, roi_upper: int, bh_upper: BndFn, bh_lower: BndFn) -> () {
-    for j in @range(0, size) {
-        @set(j, @get(j));
-    }
-
-    for i in @range_step(0, radius, pFactor) @{
-        if idx == roi_lower + i / pFactor @{
-            let rmid_left  = radius - i;
-            for idx_wnd in @range (0, rmid_left) {
-                let idx_wnd_bh = bh_lower(idx_wnd, rmid_left, 0);
-                @set(idx_wnd, @get(idx_wnd_bh));
-            }
-        }
-        if idx == roi_upper - i / pFactor @{
-            let rmid_right = radius + pFactor + i;
-            for idx_wnd in @range (rmid_right, size) {
-                let idx_wnd_bh = bh_upper(idx_wnd, 0, rmid_right);
-                @set(idx_wnd, @get(idx_wnd_bh));
-            }
-        }
-    }
-}
-
 type get_bounds_fun_type = fn(Boundary) -> (i32, i32);
 
 struct RoIcol {
@@ -477,12 +427,18 @@ fn new_bounds(lower: i32, lower_bh_pixels: i32, upper_bh_pixels: i32, upper: i32
     }
 }
 
+fn iterate_1dborder(body: fn(Boundary) -> ()) -> () {
+    for row in @range(0, 3) {
+        let boundary = get_boundary(row);
+        body(boundary);
+    }
+}
 fn iterate_borders_1dregion(body: fn(Boundary) -> ()) -> () {
     body(Boundary::Lower);
     body(Boundary::Upper);
 }
-// --------------------- This Region will be simplified -----------------------
 
+// --------------------- This Region will be simplified -----------------------
 fn get_type0_read(radius: int, pFactor: int, bh_lower_start: int, bh_upper_end: int, roi: RoIcol, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> fn(Boundary, fn(int) -> pixel_t, int, int) -> pixel_t {
     let lower_high = roi.o_x;
     let upper_low  = roi.o_x + roi.width;
@@ -494,24 +450,43 @@ fn get_type0_read(radius: int, pFactor: int, bh_lower_start: int, bh_upper_end: 
                 for i in @range_step(0, radius, pFactor) @{if x == bh_lower_start + i / pFactor @{ lower_x = lower_high - i;}}
                 bh_lower(xw, lower_x, 0)
             },
-            Boundary::Center  => BoundaryMode::Index(x),
+            Boundary::Center  => BoundaryMode::Index(xw),
             Boundary::Upper => {
                 let mut upper_x = upper_low + radius;
                 for i in @range_step(0, radius, pFactor) @{if x == bh_upper_end - i / pFactor @{ upper_x = upper_low + i;}}
                 bh_upper(xw, 0, upper_x)
             },
-            Boundary::Unknown => undef()
+            Boundary::Unknown => BoundaryMode::Index(xw),
         };
 
         match mode_x {
             BoundaryMode::Index(idx) => @get(idx),
             BoundaryMode::Const(c)  => c,
-            _ => undef()
+            _ => 0 as pixel_t//undef()
         }
     }
 }
 
-fn new_type0(swin: onchipmem, pFactor: int, radius: int, get_bounds_fun: get_bounds_fun_type, bh_lower_start: int, bh_upper_end: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> borderhandling {
+fn row_select(get_fun: fn(int) -> pixel_t, set_fun: fn(int, pixel_t) -> (), idx: int, radius: int, size: int, pFactor: int, 
+   bh_lower_start: int, bh_upper_end: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> () {
+
+    let get_bounds_fun = new_bounds(0, radius, radius + pFactor, pFactor + 2 * radius);
+    let (lower_low, lower_high) = get_bounds_fun(Boundary::Lower);
+    let (upper_low, upper_high) = get_bounds_fun(Boundary::Upper);
+    let roi = RoIcol {o_x: lower_high, width: upper_low - lower_high};
+    let read_fun = @get_type0_read(radius, pFactor, bh_lower_start, bh_upper_end, roi, mirror_lower, mirror_upper);
+
+    for boundary in @iterate_1dborder() {
+        let bounds = get_bounds_fun(boundary);
+        for xw in @range (bounds(0), bounds(1)) {
+            let value = @read_fun(boundary, get_fun, idx, xw);
+            @set_fun(xw, value);
+        }
+    }
+}
+
+fn new_type0(swin: onchipmem, pFactor: int, radius: int, get_bounds_fun: get_bounds_fun_type,
+             bh_lower_start: int, bh_upper_end: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> borderhandling {
     let (lower_low, lower_high) = get_bounds_fun(Boundary::Lower);
     let (upper_low, upper_high) = get_bounds_fun(Boundary::Upper);
     let lower_regs = @new_regs2d((lower_low, 0), (lower_high, swin.size_y));
@@ -548,7 +523,6 @@ fn new_type0(swin: onchipmem, pFactor: int, radius: int, get_bounds_fun: get_bou
     }
 }
 
-
 //  -------------------  Loop Coarsening  ----------------------
 struct coarsening_type {
     process : fn(int, int) -> ()
@@ -557,10 +531,10 @@ struct coarsening_type {
 fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
     let radius_y = mask.size_y >> 1;
     let radius_x = mask.size_x >> 1;
-    let swin_y = mask.size_y;
-    let swin_x_opt = pFactor + 2 * radius_x;
     let win_lat = round_up(radius_x, pFactor) / pFactor;
+    let swin_y = mask.size_y;
     let swin_x = radius_x + (1 + win_lat) * pFactor;
+    let swin_x_opt = pFactor + 2 * radius_x;
 
     // On Chip Memory Architecture
     let on_chip_mem = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor);
@@ -660,7 +634,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
     copy_img(arr, arr_gpu);
     for benchmark_aocl(acc) {
         with acc.exec((1,1,1), (1,1,1)) @{
-            let pFactor = 8;
+            let pFactor = 1;
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
             let win_lat = round_up(radius_x, pFactor) / pFactor;
