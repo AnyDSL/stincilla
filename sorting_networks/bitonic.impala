@@ -3,11 +3,15 @@ fn @bitonic_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) -
     let ascending = true; // sorting direction
 
     fn @(?n) greatest_power_of_two_less_than(n: i32) -> i32 {
-        let mut k = 1;
-        while k < n {
-            k <<= 1;
+        fn @(?k) loop(k: i32) -> i32 {
+            if k < n {
+                loop(k << 1)
+            } else {
+                k
+            }
         }
-        k >> 1
+
+        loop(1) >> 1
     }
 
     fn @compare_and_swap(i: i32, j: i32, dir: bool) -> () {
@@ -45,11 +49,16 @@ fn @bitonic_sort_i16(length: i32, read: fn(i32) -> i16, write: fn(i32, i16) -> (
     let ascending = true; // sorting direction
 
     fn @(?n) greatest_power_of_two_less_than(n: i32) -> i32 {
-        let mut k = 1;
-        while k < n {
-            k <<= 1;
+        fn @(?k) loop(k: i32) -> i32 {
+            pe_info("k", k);
+            if k < n {
+                loop(k << 1)
+            } else {
+                k
+            }
         }
-        k >> 1
+
+        loop(1) >> 1
     }
 
     fn @compare_and_swap(i: i32, j: i32, dir: bool) -> () {
