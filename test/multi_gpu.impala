@@ -15,8 +15,11 @@ fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(i
             let out_gpu = acc.alloc(size_gpu);
             copy_offset(arr, offset, arr_gpu, 0, size_gpu);
 
-            with acc.exec(grid, block) {
-                body(acc.gidx(), acc.gidy(), bitcast[&mut[1][f32]](out_gpu.data), bitcast[&[1][f32]](arr_gpu.data));
+            for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+                let (gidx,  gidy,  _) = gid;
+                let gid_x = gidx();
+                let gid_y = gidy();
+                body(gid_x, gid_y, bitcast[&mut[1][f32]](out_gpu.data), bitcast[&[1][f32]](arr_gpu.data));
             }
             acc.sync();
 
