@@ -1,29 +1,29 @@
-fn img_read_fn(img: Buffer, width: i32) -> fn(i32, i32) -> f32 { |x: i32, y: i32| bitcast[&[f32]](img.data)(y * width + x) }
-fn img_write_fn(img: Buffer, width: i32) -> fn(i32, i32, f32) -> () { |x: i32, y: i32, v: f32| bitcast[&mut[f32]](img.data)(y * width + x) = v }
-fn grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32) -> f32 {
-    |x, y, z, c| bitcast[&[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c)
+fn @img_read_fn(img: Buffer, width: i32) -> fn(i32, i32) -> f32 { |x: i32, y: i32| bitcast[&[f32]](img.data)(y * width + x) }
+fn @img_write_fn(img: Buffer, width: i32) -> fn(i32, i32, f32) -> () { |x: i32, y: i32, v: f32| bitcast[&mut[f32]](img.data)(y * width + x) = v }
+fn @grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32) -> f32 {
+    @|x, y, z, c| bitcast[&[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c)
 }
-fn grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32, f32) -> () {
-    |x, y, z, c, v| { bitcast[&mut[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c) = v }
+fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32, f32) -> () {
+    @|x, y, z, c, v| { bitcast[&mut[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c) = v }
 }
-fn get_device_copy(host: &[f32], size: i32) -> Buffer { Buffer { device : 0, data : bitcast[&[i8]](host) } }
-fn copy_to_host(host: &[f32], img_gpu: Buffer, size: i32) -> () { }
-fn release_device_copy(img: Buffer) -> () { }
+fn @get_device_copy(host: &[f32], size: i32) -> Buffer { Buffer { device : 0, data : bitcast[&[i8]](host) } }
+fn @copy_to_host(host: &[f32], img_gpu: Buffer, size: i32) -> () { }
+fn @release_device_copy(img: Buffer) -> () { }
 
-fn alloc_grid(size: i32) -> Buffer { alloc_cpu(size) }
-fn iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
+fn @alloc_grid(size: i32) -> Buffer { alloc_cpu(size) }
+fn @iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
     for benchmark_cpu() {
-        for y in $outer_loop(0, bgrid.height()) {
-            for x in inner_loop(0, bgrid.width()) @{
+        for y in outer_loop(0, bgrid.height()) {
+            for x in inner_loop(0, bgrid.width()) {
                 body(x, y);
             }
         }
     }
 }
-fn iteration_space(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
+fn @iteration_space(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     for benchmark_cpu() {
-        for y in $outer_loop(0, height) {
-            for x in inner_loop(0, width) @{
+        for y in outer_loop(0, height) {
+            for x in inner_loop(0, width) {
                 body(x, y);
             }
         }

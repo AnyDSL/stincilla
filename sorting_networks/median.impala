@@ -2,19 +2,19 @@ fn main() -> i32 {
     let length = 4;
     let width  = 4096;
     let height = 4096;
-    let arr    = @create_img(width, height, alloc_cpu);
-    let out    = @create_img(width, height, alloc_cpu);
+    let arr    = create_img(width, height, alloc_cpu);
+    let out    = create_img(width, height, alloc_cpu);
     init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
 
-    for x, y, out, arr in @iteration_median(out, arr, clamp_lower, clamp_upper) {
-        fn median() -> f32 {
+    for x, y, out, arr in iteration_median(out, arr, clamp_lower, clamp_upper) @{
+        fn @median() -> f32 {
             let mut tmp: [f32 * 4];
-            for i in range(-length/2, +length/2) {
+            for i in unroll(-length/2, +length/2) {
                 tmp(i + length / 2) = arr.read(x + i, y);
             }
 
-            oddeven_merge_sort(length, |idx| tmp(idx), |idx, val| tmp(idx) = val);
+            oddeven_merge_sort(length, @|idx| tmp(idx), @|idx, val| tmp(idx) = val);
 
             tmp((length - 1) / 2)
         }
@@ -26,11 +26,11 @@ fn main() -> i32 {
         let mut passed = 0;
         let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Center), clamp_lower, clamp_upper);
         let out_acc = get_acc(out, |idx, val| bitcast[&mut[f32]](out.buf.data)(idx) = val, |idx| bitcast[&[f32]](out.buf.data)(idx));
-        for y in $range(0, out.height) {
-            for x in range(0, out.width) @{
-                fn median() -> f32 {
+        for y in range(0, out.height) {
+            for x in range(0, out.width) {
+                fn @median() -> f32 {
                     let mut tmp: [f32 * 4];
-                    for i in range(-length/2, +length/2) {
+                    for i in unroll(-length/2, +length/2) {
                         tmp(i + length / 2) = arr_acc.read(x + i, y);
                     }
                     sort_f32(length, &mut tmp);
@@ -47,7 +47,7 @@ fn main() -> i32 {
         passed
     }
 
-    let result = @reference();
+    let result = reference();
 
     release(arr.buf);
     release(out.buf);

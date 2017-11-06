@@ -1,17 +1,17 @@
-fn closeness(math: Intrinsics, c_d: f32, xf: i32, yf: i32) -> f32 {
+fn @closeness(math: Intrinsics, c_d: f32, xf: i32, yf: i32) -> f32 {
     math.expf(-c_d * (xf*xf) as f32) * math.expf(-c_d * (yf*yf) as f32)
 }
-fn similarity(math: Intrinsics, c_r: f32, xi: f32, x: f32) -> f32 {
+fn @similarity(math: Intrinsics, c_r: f32, xi: f32, x: f32) -> f32 {
     let diff = xi - x;
     math.expf(-c_r * diff * diff)
 }
 
-fn bilateral_filter(math: Intrinsics, x: i32, y: i32, acc: Acc, mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
+fn @bilateral_filter(math: Intrinsics, x: i32, y: i32, acc: Acc, mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
     let mut k = 0.0f;
     let mut p = 0.0f;
 
-    for yf in range(-2*sigma_d, 2*sigma_d+1) {
-        for xf in range(-2*sigma_d, 2*sigma_d+1) {
+    for yf in unroll(-2*sigma_d, 2*sigma_d+1) {
+        for xf in unroll(-2*sigma_d, 2*sigma_d+1) {
             let diff = acc.read(x + xf, y + yf) - acc.read(x, y);
 
             let c = closeness(math, c_d, xf, yf);
@@ -25,12 +25,12 @@ fn bilateral_filter(math: Intrinsics, x: i32, y: i32, acc: Acc, mask: Mask, sigm
     p / k
 }
 
-fn bilateral_filter_mask(math: Intrinsics, x: i32, y: i32, acc: Acc, mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
+fn @bilateral_filter_mask(math: Intrinsics, x: i32, y: i32, acc: Acc, mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
     let mut k = 0.0f;
     let mut p = 0.0f;
 
-    for yf in range(-2*sigma_d, 2*sigma_d+1) {
-        for xf in range(-2*sigma_d, 2*sigma_d+1) {
+    for yf in unroll(-2*sigma_d, 2*sigma_d+1) {
+        for xf in unroll(-2*sigma_d, 2*sigma_d+1) {
             let diff = acc.read(x + xf, y + yf) - acc.read(x, y);
 
             let c = mask.data(xf + 2*sigma_d, yf + 2*sigma_d);
@@ -95,7 +95,7 @@ fn main() -> i32 {
     //let bilateral_fun = bilateral_filter;
     let bilateral_fun = bilateral_filter_mask;
 
-    for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out, arr, mask, lower, upper) {
+    for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out, arr, mask, lower, upper) @{
         out_acc.write(x, y, bilateral_fun(math, x, y, arr_acc, mask, sigma_d, c_d, c_r));
     }
     print_total_timing();
