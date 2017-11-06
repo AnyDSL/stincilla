@@ -15,10 +15,17 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
     let block = (64, step, 1);
 
     for benchmark_acc(acc) {
-        with acc.exec(grid, block) @{
-            let tid_x = acc.tidx();
-            let tid_y = acc.tidy();
-            let gid_y = acc.gidy();
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+            let (tidx,  tidy,  _) = tid;
+            let (bidx,  bidy,  _) = bid;
+            let (bdimx, bdimy, _) = bdim;
+            let tid_x  = tidx();
+            let tid_y  = tidy();
+            let bid_x  = bidx();
+            let bid_y  = bidy();
+            let bdim_x = bdimx();
+            let bdim_y = bdimy();
+            let gid_y  = tid_y + bdim_y * bid_y;
 
             let spm_stride = block(0);
             let spm_height = block(1);
@@ -26,8 +33,8 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
 
             // residual: index space == block
             let tmp_acc  = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
-            let rhsf_acc = get_acc_offset(rhsf_gpu, set_pixel_fn(rhsf_gpu), get_pixel_fn(rhsf_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy());
-            let sol_acc  = get_acc_bh_offset(sol_gpu, set_pixel_fn(sol_gpu), get_pixel_ldg_fn(sol_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy(), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
+            let rhsf_acc = get_acc_offset(rhsf_gpu, set_pixel_fn(rhsf_gpu), get_pixel_fn(rhsf_gpu), bdim_x * bid_x, bdim_y * bid_y);
+            let sol_acc  = get_acc_bh_offset(sol_gpu, set_pixel_fn(sol_gpu), get_pixel_ldg_fn(sol_gpu), bdim_x * bid_x, bdim_y * bid_y, (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
             residual(math, tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
 
             acc.barrier();
@@ -35,7 +42,7 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
             // restrict: index space == block
             if tid_x < block(0) / step && gid_y % step == 0 @{
                 let tmp_acc = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
-                let rhs_acc = get_acc_offset(rhsc_gpu, set_pixel_fn(rhsc_gpu), get_pixel_fn(rhsc_gpu), acc.bdimx() * acc.bidx()/step, acc.bdimy() * acc.bidy()/step);
+                let rhs_acc = get_acc_offset(rhsc_gpu, set_pixel_fn(rhsc_gpu), get_pixel_fn(rhsc_gpu), bdim_x * bid_x / step, bdim_y * bid_y / step);
                 restrict(math, tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
             }
         }

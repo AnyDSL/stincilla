@@ -633,7 +633,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
 
     copy_img(arr, arr_gpu);
     for benchmark_aocl(acc) {
-        with acc.exec((1,1,1), (1,1,1)) @{
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) @{
             let pFactor = 1;
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
