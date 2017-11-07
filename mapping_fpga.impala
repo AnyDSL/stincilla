@@ -455,14 +455,6 @@ fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int, r
     }
 }
 
-// (mask_y - 1) line buffers -> swin
-fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFactor: int, row_sel_fun: row_sel_fun_type) -> onchipmem {
-    let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
-
-    //@new_sliding_win(lbufs, swin_x, swin_y, pFactor)
-    @new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun)
-}
-
 fn get_pixel_read(pFactor: int, roi: RoI1d, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> pixel_read_type {
     let lower_arr   = roi.o_x;
     let upper_arr   = roi.o_x + roi.width;
@@ -552,14 +544,15 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
     let row_sel_fun = bh_type0_1d(1, RoI1d{o_x: 2, width: 1024}, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let on_chip_mem = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor, row_sel_fun);
+    let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
+    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
 
     // border handling col selection
     let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
-    let col_sel_type0 = new_type0(on_chip_mem, pFactor, RoI1d{o_x: win_lat, width: 0}, get_bounds_fun, bh_lower, bh_upper);
+    let col_sel_type0 = new_type0(swin, pFactor, RoI1d{o_x: win_lat, width: 0}, get_bounds_fun, bh_lower, bh_upper);
 
     fn process(col_ridx: int, row_ridx: int) -> () {
-        @on_chip_mem.shift(col_ridx, row_ridx);
+        @swin.shift(col_ridx, row_ridx);
         @col_sel_type0.update(col_ridx);
 
         for v in @range(0, pFactor) @{
@@ -586,7 +579,8 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
     let row_sel_fun = bh_type0_1d(1, RoI1d{o_x: 2, width: 1024}, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let on_chip_mem = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor, row_sel_fun);
+    let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
+    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
 
     // Constants for Packing
     let delay_width = (pFactor + ((pFactor - radius_x) % pFactor)) % pFactor;
@@ -597,15 +591,15 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
         if(pack_offset == pFactor){
             let win_lat = round_up(radius_x, pFactor) / pFactor;
             let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x);
-            new_type0(on_chip_mem, pFactor, RoI1d{o_x: win_lat, width: 0}, get_bounds_fun, bh_lower, bh_upper)
+            new_type0(swin, pFactor, RoI1d{o_x: win_lat, width: 0}, get_bounds_fun, bh_lower, bh_upper)
         } else {
             let win_lat = radius_x / pFactor;
             let roi = RoI1d{o_x: win_lat, width: 1};
             let upper_low  = pack_offset + radius_x;
             let upper_get_bounds_fun = new_bounds(0, 0, upper_low, upper_low + radius_x);
             let lower_get_bounds_fun = new_bounds(upper_low - radius_x, upper_low, swin_x, swin_x);
-            let upper = new_type0(on_chip_mem, pFactor, roi, upper_get_bounds_fun, bh_lower, bh_upper);
-            let lower = new_type0(on_chip_mem, pFactor, roi, lower_get_bounds_fun, bh_lower, bh_upper);
+            let upper = new_type0(swin, pFactor, roi, upper_get_bounds_fun, bh_lower, bh_upper);
+            let lower = new_type0(swin, pFactor, roi, lower_get_bounds_fun, bh_lower, bh_upper);
             borderhandling {
                 get_read_fn: |v|   { if v < pack_offset { @upper.get_read_fn(v) } else { @lower.get_read_fn(v) } },
                 update     : |idx| { @upper.update(idx); @lower.update(idx); }
@@ -627,7 +621,7 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
     }
 
     fn process(col_ridx: int, row_ridx: int) -> () {
-        @on_chip_mem.shift(col_ridx, row_ridx);
+        @swin.shift(col_ridx, row_ridx);
         @col_sel_type0.update(col_ridx);
 
         for v in @range(0, pFactor) @{
