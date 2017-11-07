@@ -1,6 +1,6 @@
-fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
-             body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
-            ) -> () {
+fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
+              body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
+             ) -> () {
     let acc   = accelerator(device_id);
     let grid  = (width, height, 1);
     let block = (32, 4, 1);
@@ -9,7 +9,7 @@ fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
     random_seed(get_micro_time() as u32);
     let seed_buf = alloc_cpu(width * height * sizeof[u64]());
     let seed = bitcast[&mut[u64]](seed_buf.data);
-    for i in $range(0, width * height) {
+    for i in range(0, width * height) {
         seed(i) = random_val_u64();
     }
 
@@ -24,12 +24,12 @@ fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
             let gid_y = gidy();
             let seed  = bitcast[&[1][u64]](seed_gpu.data);
             let mut state = seed(gid_y * width + gid_x);
-            fn rand() -> f64 {
+            fn @rand() -> f64 {
                 let (r, s) = rnd_f64(state);
                 state = s;
                 r
             }
-            fn out_fun(r: u8, g: u8, b: u8) -> () {
+            fn @out_fun(r: u8, g: u8, b: u8) -> () {
                 let out = bitcast[&mut[1][u8]](out_gpu.data);
                 out(3 * (gid_y * width + gid_x) + 0) = r;
                 out(3 * (gid_y * width + gid_x) + 1) = g;
