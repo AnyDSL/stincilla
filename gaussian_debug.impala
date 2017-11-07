@@ -77,8 +77,9 @@ fn main() -> i32 {
         let offset_y = 0;
         for y in $range(0, out.height) {
             for x in range(0, out.width) @{
-                let ref = apply_stencil(x, y, arr_acc, mask);
+                let mut ref = 0 as pixel_t;
                 if y > offset_y - 1 && y < out.height - offset_y && x > offset_x -1 && x < out.width - offset_x {
+                    let ref = apply_stencil(x, y, arr_acc, mask);
                     let res = out_acc.read(x, y);
                     if !is_same_pixel(ref, res) && passed != 42 {
                         err_x = x; err_y = y;
@@ -108,7 +109,6 @@ fn main() -> i32 {
         }
         passed
     }
-
     let result = @reference();
 
     release(arr.buf);
