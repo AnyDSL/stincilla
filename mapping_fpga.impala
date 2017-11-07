@@ -292,7 +292,7 @@ struct onchipmem {
 fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype{
     if size_y == 0 {
         lbuftype {
-            read   : |_, _| 0 as pixel_t, //undef[pixel_t](),
+            read   : |x, y| in_s.read(x),
             shift  : |_| (),
             size_x : size_x,
             size_y : size_y
@@ -302,8 +302,8 @@ fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype{
         let sub_lbuf = @new_LineBuffer(shared_s, size_x, size_y - 1);
         lbuftype {
             read   : |x, y| {
-                if y == size_y - 1 {
-                    @shared_s.read(x)
+                if y == size_y {
+                    @in_s.read(x)
                 } else {
                     sub_lbuf.read(x, y)
                 }
@@ -459,18 +459,8 @@ fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int, r
 fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFactor: int, row_sel_fun: row_sel_fun_type) -> onchipmem {
     let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
 
-    let lbufs_acc = lbuftype {
-        read    : |x, y|  {
-            if y == swin_y - 1 { in_s.read(x)     }
-            else               { lbufs.read(x, y) }
-        },
-        shift   : lbufs.shift,
-        size_x  : pFactor,
-        size_y  : swin_y
-    };
-
-    //@new_sliding_win(lbufs_acc, swin_x, swin_y, pFactor)
-    @new_sliding_win_bh(lbufs_acc, swin_x, swin_y, pFactor, row_sel_fun)
+    //@new_sliding_win(lbufs, swin_x, swin_y, pFactor)
+    @new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun)
 }
 
 fn get_pixel_read(pFactor: int, roi: RoI1d, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> pixel_read_type {
