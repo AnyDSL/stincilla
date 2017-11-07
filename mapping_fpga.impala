@@ -418,6 +418,10 @@ struct borderhandling {
     get_read_fn: fn(int) -> fn(int, int) -> pixel_t,
     update     : fn(int) -> ()
 }
+type pixel_read_type = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pixel_t;
+struct coarsening_type {
+    process : fn(int, int) -> ()
+}
 
 fn new_bounds(lower: i32, lower_bh_pixels: i32, upper_bh_pixels: i32, upper: i32) -> get_bounds_fun_type {
     |boundary| {
@@ -441,9 +445,6 @@ fn iterate_borders_1dregion(body: fn(Boundary) -> ()) -> () {
 }
 
 // --------------------- This Region will be simplified -----------------------
-
-type pixel_read_type = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pixel_t;
-
 fn get_pixel_read(pFactor: int, roi: RoI1d, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> pixel_read_type {
     let lower_arr   = roi.o_x;
     let upper_arr   = roi.o_x + roi.width;
@@ -476,10 +477,7 @@ fn get_pixel_read(pFactor: int, roi: RoI1d, bh_lower: BoundaryFn, bh_upper: Boun
     }
 }
 
-fn bh_type0_1d(get_fun: fn(int) -> pixel_t, set_fun: fn(int, pixel_t) -> (),
-               pFactor: int, idx: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type,
-               bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> () {
-
+fn bh_type0_1d(get_fun: fn(int) -> pixel_t, set_fun: fn(int, pixel_t) -> (), pFactor: int, idx: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> () {
     let read_fun = @get_pixel_read(pFactor, roi, bh_lower, bh_upper);
     for boundary in @iterate_1dborder() {
         let bounds = get_bounds_fun(boundary);
@@ -489,8 +487,7 @@ fn bh_type0_1d(get_fun: fn(int) -> pixel_t, set_fun: fn(int, pixel_t) -> (),
     }
 }
 
-fn new_type0(swin: onchipmem, pFactor: int, radius: int, get_bounds_fun: get_bounds_fun_type,
-             roi: RoI1d, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> borderhandling {
+fn new_type0(swin: onchipmem, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> borderhandling {
     let (lower_low, lower_high) = get_bounds_fun(Boundary::Lower);
     let (upper_low, upper_high) = get_bounds_fun(Boundary::Upper);
     let lower_regs = @new_regs2d((lower_low, 0), (lower_high, swin.size_y));
@@ -520,10 +517,6 @@ fn new_type0(swin: onchipmem, pFactor: int, radius: int, get_bounds_fun: get_bou
 }
 
 //  -------------------  Loop Coarsening  ----------------------
-struct coarsening_type {
-    process : fn(int, int) -> ()
-}
-
 fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
     let radius_y = mask.size_y >> 1;
     let radius_x = mask.size_x >> 1;
@@ -534,8 +527,8 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 
     // On Chip Memory Architecture
     let on_chip_mem = new_onchipmem(in_s, img_stride, swin_x, swin_y, pFactor);
-    let bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
-    let col_sel_type0 = new_type0(on_chip_mem, pFactor, radius_x, bounds_fun, RoI1d{o_x: win_lat, width: 0}, bh_lower, bh_upper);
+    let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
+    let col_sel_type0 = new_type0(on_chip_mem, pFactor, RoI1d{o_x: win_lat, width: 0}, get_bounds_fun, bh_lower, bh_upper);
 
     fn process(col_ridx: int, row_ridx: int) -> () {
         @on_chip_mem.shift(col_ridx, row_ridx);
@@ -570,17 +563,17 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
 
     let col_sel_type0 = {
         if(pack_offset == pFactor){
-            let bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x);
             let win_lat = round_up(radius_x, pFactor) / pFactor;
-            new_type0(on_chip_mem, pFactor, radius_x, bounds_fun, RoI1d{o_x: win_lat, width: 0}, bh_lower, bh_upper)
+            let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x);
+            new_type0(on_chip_mem, pFactor, RoI1d{o_x: win_lat, width: 0}, get_bounds_fun, bh_lower, bh_upper)
         } else {
             let win_lat = radius_x / pFactor;
-            let upper_low  = pack_offset + radius_x;
-            let upper_bounds_fun = new_bounds(0, 0, upper_low, upper_low + radius_x);
-            let lower_bounds_fun = new_bounds(upper_low - radius_x, upper_low, swin_x, swin_x);
             let roi = RoI1d{o_x: win_lat, width: 1};
-            let upper = new_type0(on_chip_mem, pFactor, radius_x, upper_bounds_fun, roi, bh_lower, bh_upper);
-            let lower = new_type0(on_chip_mem, pFactor, radius_x, lower_bounds_fun, roi, bh_lower, bh_upper);
+            let upper_low  = pack_offset + radius_x;
+            let upper_get_bounds_fun = new_bounds(0, 0, upper_low, upper_low + radius_x);
+            let lower_get_bounds_fun = new_bounds(upper_low - radius_x, upper_low, swin_x, swin_x);
+            let upper = new_type0(on_chip_mem, pFactor, roi, upper_get_bounds_fun, bh_lower, bh_upper);
+            let lower = new_type0(on_chip_mem, pFactor, roi, lower_get_bounds_fun, bh_lower, bh_upper);
             borderhandling {
                 get_read_fn: |v|   { if v < pack_offset { @upper.get_read_fn(v) } else { @lower.get_read_fn(v) } },
                 update     : |idx| { @upper.update(idx); @lower.update(idx); }
@@ -631,7 +624,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
     copy_img(arr, arr_gpu);
     for benchmark_aocl(acc) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) @{
-            let pFactor = 4;
+            let pFactor = 2;
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
             let win_lat = round_up(radius_x, pFactor) / pFactor;
