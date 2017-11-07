@@ -288,7 +288,6 @@ struct onchipmem {
     size_y : int
 }
 
-
 // Line Buffer
 fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype{
     if size_y == 0 {
@@ -351,13 +350,75 @@ fn new_sliding_win(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> o
     }
 }
 
-// --------------------- This Region will be simplified -----------------------
-// Sliding window: Type-0 Separated Border Handling
+// Sliding window
+fn new_sliding_win_simple(get_fun: fn(int, int) -> pixel_t, width: int, height: int, pFactor: int) -> onchipmem {
+    let swin = @new_regs2d((0, 0), (width, height));
 
-//fn bh_type0_1d(pFactor: int, idx: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> fn(get_fun: fn(int) -> pixel_t, set_fun: fn(int, pixel_t) -> ()) () {
+    fn shift() -> () {
+        // Shift sliding window
+        for j in @range(0, height) {
+            for i in @range(0, width - pFactor) {
+                @swin.write(i, j, @swin.read(i + pFactor, j));
+            }
+        }
 
+        // Read new col
+        for j in @range(0, height) {
+            for v in @range(0, pFactor) {
+                @swin.write((v + width - pFactor), j, get_fun(v, j));
+            }
+        }
+    };
+    onchipmem {
+        read  : swin.read,
+        shift : |col_ridx, row_ridx| shift(),
+        size_x : width,
+        size_y : height
+    }
+}
+
+//  -------------------  Border Handling  ----------------------
+type Bounds = (int, int);
+type get_bounds_fun_type = fn(Boundary) -> Bounds;
+type pixel_read_type = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pixel_t;
 type row_sel_fun_type = fn(fn(int) -> pixel_t, fn(int, pixel_t) -> (), int) -> ();
 
+struct RoI1d {
+    o_x : i32,
+    width : i32,
+}
+
+struct borderhandling {
+    get_read_fn: fn(int) -> fn(int, int) -> pixel_t,
+    update     : fn(int) -> ()
+}
+
+struct coarsening_type {
+    process : fn(int, int) -> ()
+}
+
+fn new_bounds(lower: i32, lower_bh_pixels: i32, upper_bh_pixels: i32, upper: i32) -> get_bounds_fun_type {
+    |boundary| {
+        match boundary {
+            Boundary::Lower  => (lower, lower_bh_pixels),
+            Boundary::Center => (lower_bh_pixels, upper_bh_pixels),
+            _ /* Boundary::Upper */ => (upper_bh_pixels, upper)
+        }
+    }
+}
+
+fn iterate_1dborder(body: fn(Boundary) -> ()) -> () {
+    for row in @range(0, 3) {
+        let boundary = get_boundary(row);
+        body(boundary);
+    }
+}
+fn iterate_borders_1dregion(body: fn(Boundary) -> ()) -> () {
+    body(Boundary::Lower);
+    body(Boundary::Upper);
+}
+
+// sliding window with row selection
 fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int, row_sel_fun: row_sel_fun_type) -> onchipmem {
     let swin = @new_regs2d((0, 0), (swin_x, swin_y));
     let out_width = 4 + pFactor;
@@ -412,45 +473,6 @@ fn new_onchipmem(in_s: stream_in, img_stride: int, swin_x: int, swin_y: int, pFa
     @new_sliding_win_bh(lbufs_acc, swin_x, swin_y, pFactor, row_sel_fun)
 }
 
-type Bounds = (int, int);
-type get_bounds_fun_type = fn(Boundary) -> Bounds;
-
-struct RoI1d {
-    o_x : i32,
-    width : i32,
-}
-
-struct borderhandling {
-    get_read_fn: fn(int) -> fn(int, int) -> pixel_t,
-    update     : fn(int) -> ()
-}
-type pixel_read_type = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pixel_t;
-struct coarsening_type {
-    process : fn(int, int) -> ()
-}
-
-fn new_bounds(lower: i32, lower_bh_pixels: i32, upper_bh_pixels: i32, upper: i32) -> get_bounds_fun_type {
-    |boundary| {
-        match boundary {
-            Boundary::Lower  => (lower, lower_bh_pixels),
-            Boundary::Center => (lower_bh_pixels, upper_bh_pixels),
-            _ /* Boundary::Upper */ => (upper_bh_pixels, upper)
-        }
-    }
-}
-
-fn iterate_1dborder(body: fn(Boundary) -> ()) -> () {
-    for row in @range(0, 3) {
-        let boundary = get_boundary(row);
-        body(boundary);
-    }
-}
-fn iterate_borders_1dregion(body: fn(Boundary) -> ()) -> () {
-    body(Boundary::Lower);
-    body(Boundary::Upper);
-}
-
-// --------------------- This Region will be simplified -----------------------
 fn get_pixel_read(pFactor: int, roi: RoI1d, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> pixel_read_type {
     let lower_arr   = roi.o_x;
     let upper_arr   = roi.o_x + roi.width;
