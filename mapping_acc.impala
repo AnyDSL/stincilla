@@ -369,9 +369,6 @@ fn iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep,
     let (block_row, (bx, _)) = compute_config((mask_row.size / 2, 1), unroll);
     let (block_col, (_, by)) = compute_config((1, mask_col.size / 2), unroll);
 
-    let Region2DCol = [ 1, 4, 7 ];
-    let Region2DRow = [ 3, 4, 5 ];
-
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
 
