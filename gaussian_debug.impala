@@ -13,7 +13,7 @@ fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
     for y in $range(roi_y, upper_y) {
         for x in $range(roi_x, upper_x) {
             let pixel = arr.read(x, y);
-            print_i32(pixel);
+            print_pixel(pixel);
             print_string("\t\t");
         }
         print_string("\n");
@@ -103,8 +103,8 @@ fn main() -> i32 {
             display_image(ref_acc, roi_x, roi_y);
             print_string("Test FAILED @ (");
             print_i32(err_x); print_string(", "); print_i32(err_y); print_string(")!\n");
-            print_i32(ref_acc.read(err_x, err_y)); print_string( " (ref) vs ");
-            print_i32(out_acc.read(err_x, err_y)); print_string( " (res)\n"); 
+            print_pixel(ref_acc.read(err_x, err_y)); print_string( " (ref) vs ");
+            print_pixel(out_acc.read(err_x, err_y)); print_string( " (res)\n"); 
         }
         passed
     }

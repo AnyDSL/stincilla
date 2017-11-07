@@ -14,10 +14,10 @@ fn main() -> i32 {
     let lower = clamp_lower;
     let upper = clamp_upper;
 
-    let sep = true;
+    let sep = false;
 
     if sep {
-        let iteration_sep_fun = iteration_sep;          // SEP + SS
+        let iteration_sep_fun = iteration;          // SEP + SS
         //let iteration_sep_fun = iteration_sep_bounds;   // SEP + SS + BH
         //let iteration_sep_fun = iteration_sep_advanced; // SEP + SS + SM
 

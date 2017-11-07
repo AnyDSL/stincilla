@@ -12,7 +12,7 @@ struct stream_out{
 
 // Global memory read/write functions
 fn get_global_stream_vec1(data: &[i8]) -> stream_in {
-    let mut value = 0; //undef[pixel_t]();
+    let mut value = 0 as pixel_t; //undef[pixel_t]();
     fn update(idx : int) -> () { value = bitcast[&[1][pixel_t]](data)(idx); }
     fn read(idx: int) -> pixel_t { value };
     stream_in{update: update, read: read, pFactor: 1}
