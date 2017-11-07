@@ -21,9 +21,9 @@ fn main() -> i32 {
         //let iteration_sep_fun = iteration_sep_bounds;   // SEP + SS + BH
         //let iteration_sep_fun = iteration_sep_advanced; // SEP + SS + SM
 
-        for math, x, y, out_acc, arr_acc, mask, is_row in @iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) {
-            out_acc.write(x, y, apply_stencil_sep(x, y, arr_acc, mask, is_row));
-        }
+        // for math, x, y, out_acc, arr_acc, mask, is_row in @iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) {
+        //     out_acc.write(x, y, apply_stencil_sep(x, y, arr_acc, mask, is_row));
+        // }
     } else {
         let iteration_fun = iteration;                  // SS
         //let iteration_fun = iteration_bounds;           // SS + BH

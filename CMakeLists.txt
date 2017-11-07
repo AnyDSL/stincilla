@@ -78,7 +78,7 @@ add_test("gaussian_debug" gaussian_debug)
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
 add_executable(bilateral ${BILATERAL_PROGRAM})
 target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
@@ -86,7 +86,7 @@ add_test("bilateral" bilateral)
 anydsl_runtime_wrap(JACOBI_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
 add_executable(jacobi ${JACOBI_PROGRAM})
 target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("jacobi" jacobi)
