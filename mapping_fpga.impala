@@ -19,25 +19,25 @@ fn get_global_stream_vec1(data: &[i8]) -> stream_in {
 }
 fn get_global_stream_vec2(data: &[i8]) -> stream_in {
     let mut value = undef[[pixel_t * 2]]();
-    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  2]]](data)(idx); }
+    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](data))(idx); }
     fn read(idx: int) -> pixel_t { value(idx) };
     stream_in{update: update, read: read, pFactor: 2}
 }
 fn get_global_stream_vec4(data: &[i8]) -> stream_in {
     let mut value = undef[[pixel_t * 4]]();
-    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  4]]](data)(idx); }
+    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](data))(idx); }
     fn read(idx: int) -> pixel_t { value(idx) };
     stream_in{update: update, read: read, pFactor: 4}
 }
 fn get_global_stream_vec8(data: &[i8]) -> stream_in {
     let mut value = undef[[pixel_t * 8]]();
-    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  8]]](data)(idx); }
+    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](data))(idx); }
     fn read(idx: int) -> pixel_t { value(idx) };
     stream_in{update: update, read: read, pFactor: 8}
 }
 fn get_global_stream_vec16(data: &[i8]) -> stream_in {
     let mut value = undef[[pixel_t * 16]]();
-    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  16]]](data)(idx); }
+    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](data))(idx); }
     fn read(idx: int) -> pixel_t { value(idx) };
     stream_in{update: update, read: read, pFactor: 16}
 }
@@ -60,25 +60,25 @@ fn set_global_stream_vec1(data: &[i8]) -> stream_out {
 }
 fn set_global_stream_vec2(data: &[i8]) -> stream_out {
     let mut value = undef[[pixel_t * 2]]();
-    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  2]]](data)(idx) = value; }
+    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
     fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
     stream_out{update: update, write : write, pFactor : 2}
 }
 fn set_global_stream_vec4(data: &[i8]) -> stream_out {
     let mut value = undef[[pixel_t * 4]]();
-    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  4]]](data)(idx) = value; }
+    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
     fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
     stream_out{update: update, write : write, pFactor : 4}
 }
 fn set_global_stream_vec8(data: &[i8]) -> stream_out {
     let mut value = undef[[pixel_t * 8]]();
-    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  8]]](data)(idx) = value; }
+    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
     fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
     stream_out{update: update, write : write, pFactor : 8}
 }
 fn set_global_stream_vec16(data: &[i8]) -> stream_out {
     let mut value = undef[[pixel_t * 16]]();
-    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  16]]](data)(idx) = value; }
+    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
     fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
     stream_out{update: update, write : write, pFactor : 16}
 }
