@@ -1,10 +1,10 @@
 // Stream types for data movements
-struct stream_in{
+struct stream_in {
     update: fn(int) -> (),
     read  : fn(int) -> pixel_t,
     pFactor  : int
 }
-struct stream_out{
+struct stream_out {
     update: fn(int) -> (),
     write : fn(int, pixel_t) -> (),
     pFactor  : int
@@ -14,34 +14,34 @@ struct stream_out{
 fn get_global_stream_vec1(data: &[i8]) -> stream_in {
     let mut value = 0 as pixel_t; //undef[pixel_t]();
     fn update(idx : int) -> () { value = bitcast[&[1][pixel_t]](data)(idx); }
-    fn read(idx: int) -> pixel_t { value };
-    stream_in{update: update, read: read, pFactor: 1}
+    fn read(idx: int) -> pixel_t { value }
+    stream_in { update: update, read: read, pFactor: 1 }
 }
 fn get_global_stream_vec2(data: &[i8]) -> stream_in {
     let mut value = undef[[pixel_t * 2]]();
     fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn read(idx: int) -> pixel_t { value(idx) };
-    stream_in{update: update, read: read, pFactor: 2}
+    fn read(idx: int) -> pixel_t { value(idx) }
+    stream_in { update: update, read: read, pFactor: 2 }
 }
 fn get_global_stream_vec4(data: &[i8]) -> stream_in {
     let mut value = undef[[pixel_t * 4]]();
     fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn read(idx: int) -> pixel_t { value(idx) };
-    stream_in{update: update, read: read, pFactor: 4}
+    fn read(idx: int) -> pixel_t { value(idx) }
+    stream_in { update: update, read: read, pFactor: 4 }
 }
 fn get_global_stream_vec8(data: &[i8]) -> stream_in {
     let mut value = undef[[pixel_t * 8]]();
     fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn read(idx: int) -> pixel_t { value(idx) };
-    stream_in{update: update, read: read, pFactor: 8}
+    fn read(idx: int) -> pixel_t { value(idx) }
+    stream_in { update: update, read: read, pFactor: 8 }
 }
 fn get_global_stream_vec16(data: &[i8]) -> stream_in {
     let mut value = undef[[pixel_t * 16]]();
     fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn read(idx: int) -> pixel_t { value(idx) };
-    stream_in{update: update, read: read, pFactor: 16}
+    fn read(idx: int) -> pixel_t { value(idx) }
+    stream_in { update: update, read: read, pFactor: 16 }
 }
-fn get_global_stream_from_img(img: Img,  pFactor: int) -> stream_in{
+fn get_global_stream_from_img(img: Img,  pFactor: int) -> stream_in {
         match pFactor {
              1 => get_global_stream_vec1(img.buf.data),
              2 => get_global_stream_vec2(img.buf.data),
@@ -55,34 +55,34 @@ fn get_global_stream_from_img(img: Img,  pFactor: int) -> stream_in{
 fn set_global_stream_vec1(data: &[i8]) -> stream_out {
     let mut value = 0 as pixel_t; //undef[pixel_t]();
     fn update(idx : int) -> () { bitcast[&mut[1][pixel_t]](data)(idx) = value; }
-    fn write(idx: int, din: pixel_t) -> () { value = din; };
-    stream_out{update: update, write : write, pFactor : 1}
+    fn write(idx: int, din: pixel_t) -> () { value = din; }
+    stream_out { update: update, write : write, pFactor : 1 }
 }
 fn set_global_stream_vec2(data: &[i8]) -> stream_out {
     let mut value = undef[[pixel_t * 2]]();
     fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
-    stream_out{update: update, write : write, pFactor : 2}
+    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    stream_out { update: update, write : write, pFactor : 2 }
 }
 fn set_global_stream_vec4(data: &[i8]) -> stream_out {
     let mut value = undef[[pixel_t * 4]]();
     fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
-    stream_out{update: update, write : write, pFactor : 4}
+    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    stream_out { update: update, write : write, pFactor : 4 }
 }
 fn set_global_stream_vec8(data: &[i8]) -> stream_out {
     let mut value = undef[[pixel_t * 8]]();
     fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
-    stream_out{update: update, write : write, pFactor : 8}
+    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    stream_out { update: update, write : write, pFactor : 8 }
 }
 fn set_global_stream_vec16(data: &[i8]) -> stream_out {
     let mut value = undef[[pixel_t * 16]]();
     fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; };
-    stream_out{update: update, write : write, pFactor : 16}
+    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    stream_out { update: update, write : write, pFactor : 16 }
 }
-fn set_global_stream_from_img(img: Img,  pFactor: int) -> stream_out{
+fn set_global_stream_from_img(img: Img,  pFactor: int) -> stream_out {
         match pFactor {
              1 => set_global_stream_vec1(img.buf.data),
              2 => set_global_stream_vec2(img.buf.data),
@@ -289,7 +289,7 @@ struct onchipmem {
 }
 
 // Line Buffer
-fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype{
+fn new_LineBuffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype {
     if size_y == 0 {
         lbuftype {
             read   : |x, y| in_s.read(x),
@@ -435,11 +435,11 @@ fn new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int, r
 
         // Read new col: row selection
         for v in @range(0, pFactor) {
-            let get_fun =       |j| {lbufs.read(v, j)};
-            let set_fun = |j, data| {swin.write(v + swin_x - pFactor, j, data)};
+            let get_fun =       |j| { lbufs.read(v, j) };
+            let set_fun = |j, data| { swin.write(v + swin_x - pFactor, j, data) };
 
             @row_sel_fun(get_fun, set_fun, row_ridx);
-            //@bh_type0_1d(get_fun, set_fun, 1, row_ridx, RoI1d{o_x: 2, width: 1024}, get_bounds_fun, mirror_lower, mirror_upper);
+            //@bh_type0_1d(get_fun, set_fun, 1, row_ridx, RoI1d { o_x: 2, width: 1024 }, get_bounds_fun, mirror_lower, mirror_upper);
         }
     };
     onchipmem {
@@ -467,13 +467,13 @@ fn get_pixel_read(pFactor: int, roi: RoI1d, bh_lower: BoundaryFn, bh_upper: Boun
         let mode_x = match boundary {
             Boundary::Lower => {
                 let mut lower_high = lower_w;
-                for i in @range_step(0, radius, pFactor) @{if x == lower_arr + i / pFactor @{ lower_high = upper_w - i;}}
+                for i in @range_step(0, radius, pFactor) @{ if x == lower_arr + i / pFactor @{ lower_high = upper_w - i; } }
                 bh_lower(xw, lower_high, 0)
             },
             Boundary::Center  => BoundaryMode::Index(xw),
             Boundary::Upper => {
                 let mut upper_low = upper_w;
-                for i in @range_step(0, radius, pFactor) @{if x == upper_arr - 1 - i / pFactor @{ upper_low = lower_w + i;}}
+                for i in @range_step(0, radius, pFactor) @{ if x == upper_arr - 1 - i / pFactor @{ upper_low = lower_w + i; } }
                 bh_upper(xw, 0, upper_low)
             },
             Boundary::Unknown => undef()
@@ -517,8 +517,8 @@ fn new_type0(swin: onchipmem, pFactor: int, roi: RoI1d, get_bounds_fun: get_boun
 
     fn update(col_ridx: int) -> () {
         for j in @range(0, swin.size_y) {
-            let get_fun  =       |i| {swin.read(i, j)};
-            let set_fun = |i, d| {acc.write(i, j, d)};
+            let get_fun = |i|    { swin.read(i, j) };
+            let set_fun = |i, d| { acc.write(i, j, d) };
 
             @bh_fun(get_fun, set_fun, col_ridx);
         }
@@ -541,7 +541,7 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 
     // border handling row selection
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    let row_sel_fun = bh_type0_1d(1, RoI1d{o_x: 2, width: 1024}, row_bounds_fun, bh_lower, bh_upper);
+    let row_sel_fun = bh_type0_1d(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
     let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
@@ -549,7 +549,7 @@ fn FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 
     // border handling col selection
     let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
-    let col_sel_type0 = new_type0(swin, pFactor, RoI1d{o_x: win_lat, width: 0}, get_bounds_fun, bh_lower, bh_upper);
+    let col_sel_type0 = new_type0(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
 
     fn process(col_ridx: int, row_ridx: int) -> () {
         @swin.shift(col_ridx, row_ridx);
@@ -576,7 +576,7 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
 
     // Border_handling
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    let row_sel_fun = bh_type0_1d(1, RoI1d{o_x: 2, width: 1024}, row_bounds_fun, bh_lower, bh_upper);
+    let row_sel_fun = bh_type0_1d(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
     let lbufs = @new_LineBuffer(in_s, img_stride, swin_y - 1);
@@ -588,13 +588,13 @@ fn CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride:
     let vec_delayed = new_databeat(delay_width); 
 
     let col_sel_type0 = {
-        if(pack_offset == pFactor){
+        if pack_offset == pFactor {
             let win_lat = round_up(radius_x, pFactor) / pFactor;
             let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x);
-            new_type0(swin, pFactor, RoI1d{o_x: win_lat, width: 0}, get_bounds_fun, bh_lower, bh_upper)
+            new_type0(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper)
         } else {
             let win_lat = radius_x / pFactor;
-            let roi = RoI1d{o_x: win_lat, width: 1};
+            let roi = RoI1d { o_x: win_lat, width: 1 };
             let upper_low  = pack_offset + radius_x;
             let upper_get_bounds_fun = new_bounds(0, 0, upper_low, upper_low + radius_x);
             let lower_get_bounds_fun = new_bounds(upper_low - radius_x, upper_low, swin_x, swin_x);
@@ -650,7 +650,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
     copy_img(arr, arr_gpu);
     for benchmark_aocl(acc) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) @{
-            let pFactor = 1;
+            let pFactor = 2;
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
             let win_lat = round_up(radius_x, pFactor) / pFactor;
