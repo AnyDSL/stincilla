@@ -98,9 +98,7 @@ fn main(img: Img, w: i32, h: i32) -> i32 {
         blur_y(x, y)
     }, 1, 1);
 
-    //let res = schedule(tile(4, 8, w, h, combine_xy2(range)), w, h, blur);
     let res = schedule(combine_xy(par(4), vec(8)), w, h, blur);
-    //let e = schedule(combine_xy2(range), w, h, d);
-    //e(0, 0)
+    //let res = schedule(combine_xy(range, range), w, h, blur);
     0
 }
