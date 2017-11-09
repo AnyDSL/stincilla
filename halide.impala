@@ -4,6 +4,8 @@ extern "C" {
 
 extern "thorin" {
     fn pe_info[T](&[u8], T) -> ();
+    fn parallel(num_threads: i32, lower: i32, upper: i32, body: fn(i32) -> ()) -> ();
+    fn vectorize(vector_length: i32, alignment: i32, lower: i32, upper: i32, body: fn(i32) -> ()) -> ();
 }
 
 type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
@@ -49,6 +51,14 @@ fn @tile(x_step: i32, y_step: i32, w: i32, h: i32, loop_xy: Loop_xy) -> Loop_xy 
                     |xxx, yyy| body(xxx, yyy))))
 }
 
+fn vec(vector_length: i32) -> Loop {
+    |lower, upper, body| vectorize(vector_length, 0, lower, upper, body)
+}
+
+fn par(num_threads: i32) -> Loop {
+    |lower, upper, body| parallel(num_threads, lower, upper, body)
+}
+
 // schedule
 
 fn @schedule(loop: Loop_xy, w: i32, h: i32, op: Op) -> fn(i32, i32) -> i32 {
@@ -88,7 +98,8 @@ fn main(img: Img, w: i32, h: i32) -> i32 {
         blur_y(x, y)
     }, 1, 1);
 
-    let res = schedule(tile(4, 8, w, h, combine_xy2(range)), w, h, blur);
+    //let res = schedule(tile(4, 8, w, h, combine_xy2(range)), w, h, blur);
+    let res = schedule(combine_xy(par(4), vec(8)), w, h, blur);
     //let e = schedule(combine_xy2(range), w, h, d);
     //e(0, 0)
     0
