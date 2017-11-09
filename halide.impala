@@ -11,7 +11,14 @@ extern "thorin" {
 type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
 type Loop_xy = fn(i32, i32, i32, i32, fn(i32, i32) -> ()) -> ();
 type Op = (fn((i32, i32), i32, i32) -> i32, i32, i32);
-type Img = &[i32];
+
+struct Img {
+    width: i32,
+    height: i32,
+    data: &[i32]
+};
+
+fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y*img.height + x) }
 
 // range + unroll
 
@@ -78,6 +85,12 @@ fn @schedule(loop: Loop_xy, w: i32, h: i32, op: Op) -> fn(i32, i32) -> i32 {
     |x, y| out(y*h + x)
 }
 
+// border handling
+
+fn @min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
+fn @max(a: i32, b: i32) -> i32 { if a > b { a } else { b } }
+fn @clip(v: i32, a: i32, b: i32) -> i32 { min(max(v, a), b) }
+
 fn @is_within(region: (i32, i32), x: i32, y: i32, w: i32, h: i32) -> bool {
     let (rx, ry) = region;
     pe_info("region", region);
@@ -89,9 +102,38 @@ fn @is_within(region: (i32, i32), x: i32, y: i32, w: i32, h: i32) -> bool {
     check(rx, x, w) && check(ry, y, h)
 }
 
-fn main(img: Img, w: i32, h: i32) -> i32 {
+
+fn @border_img(region: (i32, i32), img: Img, x: i32, y: i32, border: fn() -> i32) -> fn(i32, i32) -> i32 {
+    @|x, y| if is_within(region, x, y, img.width, img.height) {
+        access(img, x, y)
+    } else {
+        border()
+    }
+}
+
+fn @border_const(region: (i32, i32), img: Img, x: i32, y: i32, v: i32) -> fn(i32, i32) -> i32 {
+    border_img(region, img, x, y, @|| v)
+}
+
+fn @border_clamp(region: (i32, i32), img: Img, x: i32, y: i32) -> fn(i32, i32) -> i32 {
+    border_img(region, img, x, y, @|| access(img, clip(x, 0, img.width), clip(y, 0, img.height)))
+}
+
+fn @border_mirror(region: (i32, i32), img: Img, x: i32, y: i32) -> fn(i32, i32) -> i32 {
+    let mirror = @|x, w| if x < 0 { -x } else { if x >= w { w + w - x - 1 } else { x } };
+    border_img(region, img, x, y, @|| access(img, mirror(x, img.width), mirror(y, img.height)))
+}
+
+// main
+
+fn main(img: Img) -> i32 {
+    let w = img.width;
+    let h = img.height;
+    let data = img.data;
+
     let blur = (@|region, x, y| {
-        let read = @|x, y| { if is_within(region, x, y, w, h) { img(y*w + x) } else { 0 } };
+        //let read = border_const(region, img, x, y, 0);
+        let read = border_mirror(region, img, x, y);
         let center = read(x, y);
         let blur_x = @|x, y| (  read(x-1, y) + center +   read(x+1, y))/3;
         let blur_y = @|x, y| (blur_x(x, y-1) + center + blur_x(x, y+1))/3;
