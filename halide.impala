@@ -111,8 +111,8 @@ fn @border_img(region: (i32, i32), img: Img, x: i32, y: i32, border: fn() -> i32
     }
 }
 
-fn @border_const(region: (i32, i32), img: Img, x: i32, y: i32, v: i32) -> fn(i32, i32) -> i32 {
-    border_img(region, img, x, y, @|| v)
+fn @border_const(v: i32) -> fn((i32, i32), Img, i32, i32) -> fn(i32, i32) -> i32 {
+    @|region, img, x, y| border_img(region, img, x, y, @|| v)
 }
 
 fn @border_clamp(region: (i32, i32), img: Img, x: i32, y: i32) -> fn(i32, i32) -> i32 {
@@ -132,11 +132,10 @@ fn main(img: Img) -> i32 {
     let data = img.data;
 
     let blur = (@|region, x, y| {
-        //let read = border_const(region, img, x, y, 0);
-        let read = border_mirror(region, img, x, y);
-        let center = read(x, y);
-        let blur_x = @|x, y| (  read(x-1, y) + center +   read(x+1, y))/3;
-        let blur_y = @|x, y| (blur_x(x, y-1) + center + blur_x(x, y+1))/3;
+        //let read = border_mirror(region, img, x, y);
+        let read = border_const(0)(region, img, x, y);
+        let blur_x = @|x, y| (  read(x-1, y) +   read(x, y) +   read(x+1, y))/3;
+        let blur_y = @|x, y| (blur_x(x, y-1) + blur_x(x, y) + blur_x(x, y+1))/3;
         blur_y(x, y)
     }, 1, 1);
 
