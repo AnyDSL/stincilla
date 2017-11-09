@@ -102,8 +102,10 @@ fn @is_within(region: (i32, i32), x: i32, y: i32, w: i32, h: i32) -> bool {
     check(rx, x, w) && check(ry, y, h)
 }
 
+type Region = (i32, i32);
+type Border = fn(Region, Img, i32, i32) -> i32;
 
-fn @border_img(region: (i32, i32), img: Img, x: i32, y: i32, border: fn() -> i32) -> fn(i32, i32) -> i32 {
+fn @border_img(region: Region, img: Img, x: i32, y: i32, border: fn() -> i32) -> fn(i32, i32) -> i32 {
     @|x, y| if is_within(region, x, y, img.width, img.height) {
         access(img, x, y)
     } else {
@@ -115,11 +117,11 @@ fn @border_const(v: i32) -> fn((i32, i32), Img, i32, i32) -> fn(i32, i32) -> i32
     @|region, img, x, y| border_img(region, img, x, y, @|| v)
 }
 
-fn @border_clamp(region: (i32, i32), img: Img, x: i32, y: i32) -> fn(i32, i32) -> i32 {
+fn @border_clamp(region: Region, img: Img, x: i32, y: i32) -> fn(i32, i32) -> i32 {
     border_img(region, img, x, y, @|| access(img, clip(x, 0, img.width), clip(y, 0, img.height)))
 }
 
-fn @border_mirror(region: (i32, i32), img: Img, x: i32, y: i32) -> fn(i32, i32) -> i32 {
+fn @border_mirror(region: Region, img: Img, x: i32, y: i32) -> fn(i32, i32) -> i32 {
     let mirror = @|x, w| if x < 0 { -x } else { if x >= w { w + w - x - 1 } else { x } };
     border_img(region, img, x, y, @|| access(img, mirror(x, img.width), mirror(y, img.height)))
 }
