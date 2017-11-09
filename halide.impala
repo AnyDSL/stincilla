@@ -8,7 +8,7 @@ extern "thorin" {
 
 type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
 type Loop_xy = fn(i32, i32, i32, i32, fn(i32, i32) -> ()) -> ();
-type Op = (fn(bool, i32, i32) -> i32, i32, i32);
+type Op = (fn((i32, i32), i32, i32) -> i32, i32, i32);
 type Img = &[i32];
 
 // range + unroll
@@ -56,27 +56,32 @@ fn @schedule(loop: Loop_xy, w: i32, h: i32, op: Op) -> fn(i32, i32) -> i32 {
     let (f, x_extend, y_extend) = op;
 
     let x_region = [[0, x_extend], [x_extend, w-x_extend], [w-x_extend, w]];
-    let y_region = [[0, y_extend], [y_extend, w-y_extend], [w-y_extend, w]];
+    let y_region = [[0, y_extend], [y_extend, h-y_extend], [h-y_extend, h]];
 
     for ry in unroll(0, 3) @{
-        pe_info("ry", ry);
         for rx in unroll(0, 3) @{
-            pe_info("rx", rx);
             for x, y in loop(x_region(rx)(0), y_region(ry)(0), x_region(rx)(1), y_region(ry)(1)) {
-                out(y*h + x) = f(rx == 1 && ry == 1, x, y);
+                out(y*h + x) = f((rx, ry), x, y);
             }
         }
     }
     |x, y| out(y*h + x)
 }
 
-fn @is_within(within: bool, x: i32, y: i32, w: i32, h: i32) -> bool {
-    within || 0 <= x && x < w && 0 <= y && y < h
+fn @is_within(region: (i32, i32), x: i32, y: i32, w: i32, h: i32) -> bool {
+    let (rx, ry) = region;
+    pe_info("region", region);
+    let check = @|r, x, w| match r {
+        0 => 0 <= x,
+        2 => x < w,
+        _ => true
+    };
+    check(rx, x, w) && check(ry, y, h)
 }
 
 fn main(img: Img, w: i32, h: i32) -> i32 {
-    let blur = (@|within, x, y| {
-        let read = @|x, y| { pe_info("within", within); if is_within(within, x, y, w, h) { img(y*w + x) } else { 0 } };
+    let blur = (@|region, x, y| {
+        let read = @|x, y| { if is_within(region, x, y, w, h) { img(y*w + x) } else { 0 } };
         let center = read(x, y);
         let blur_x = @|x, y| (  read(x-1, y) + center +   read(x+1, y))/3;
         let blur_y = @|x, y| (blur_x(x, y-1) + center + blur_x(x, y+1))/3;
