@@ -43,7 +43,7 @@ fn @combine_xy(loop_x: Loop, loop_y: Loop) -> Loop_xy {
 
 fn @combine_xy2(loop: Loop) -> Loop_xy { combine_xy(loop, loop) }
 
-fn @tile(x_step: i32, y_step: i32, w: i32, h: i32, loop_xy: Loop_xy) -> Loop_xy {
+fn @tile(x_step: i32, y_step: i32, loop_xy: Loop_xy) -> Loop_xy {
     |x, y, w, h, body: fn(i32, i32)->()|
         range_step(0, h, y_step,
             |yy| range_step(0, w, x_step,
@@ -98,7 +98,9 @@ fn main(img: Img, w: i32, h: i32) -> i32 {
         blur_y(x, y)
     }, 1, 1);
 
-    let res = schedule(combine_xy(par(4), vec(8)), w, h, blur);
+    //let res = schedule(combine_xy(par(4), vec(8)), w, h, blur);
     //let res = schedule(combine_xy(range, range), w, h, blur);
+    //let res = schedule(tile(4, 8, combine_xy2(range)), w, h, blur);
+    let res = schedule(tile(4, 8, combine_xy(par(4), vec(8))), w, h, blur);
     0
 }
