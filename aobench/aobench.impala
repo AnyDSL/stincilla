@@ -4,13 +4,13 @@ extern "C" {
 
 // MWC64X Random Number Generator
 // http://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
-fn rnd_u32(state: u64) -> (u32, u64) {
+fn @rnd_u32(state: u64) -> (u32, u64) {
     let hi = state >> 32u64;
     let lo = state & 0xFFFFFFFFu64;
     (lo as u32 ^ hi as u32, lo * 4294883355u64 + hi)
 }
 
-fn rnd_f64(state: u64) -> (f64, u64) {
+fn @rnd_f64(state: u64) -> (f64, u64) {
     let (r, state) = rnd_u32(state);
     let k = 1.0 / 0xFFFFFFFFu64 as f64;
     (r as f64 * k, state)
@@ -50,17 +50,17 @@ struct Ray {
     dir: Vec,
 }
 
-fn vdot(v0: Vec, v1: Vec) -> f64 {
+fn @vdot(v0: Vec, v1: Vec) -> f64 {
     v0.x * v1.x + v0.y * v1.y + v0.z * v1.z
 }
 
-fn vcross(v0: Vec, v1: Vec) -> Vec {
+fn @vcross(v0: Vec, v1: Vec) -> Vec {
     Vec { x : v0.y * v1.z - v0.z * v1.y,
           y : v0.z * v1.x - v0.x * v1.z,
           z : v0.x * v1.y - v0.y * v1.x }
 }
 
-fn vnormalize(math: Intrinsics, c: Vec) -> Vec {
+fn @vnormalize(math: Intrinsics, c: Vec) -> Vec {
     let length = math.sqrt(vdot(c, c));
 
     if math.fabs(length) > 1.0e-17 {
@@ -70,7 +70,7 @@ fn vnormalize(math: Intrinsics, c: Vec) -> Vec {
     c
 }
 
-fn ray_sphere_intersect(math: Intrinsics, isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
+fn @ray_sphere_intersect(math: Intrinsics, isect: Isect, ray: Ray, sphere: Sphere) -> Isect {
     let rs = Vec {
         x : ray.org.x - sphere.center.x,
         y : ray.org.y - sphere.center.y,
@@ -99,11 +99,11 @@ fn ray_sphere_intersect(math: Intrinsics, isect: Isect, ray: Ray, sphere: Sphere
     isect
 }
 
-fn ray_plane_intersect(math: Intrinsics, isect: Isect, ray: Ray, plane: Plane) -> Isect {
+fn @ray_plane_intersect(math: Intrinsics, isect: Isect, ray: Ray, plane: Plane) -> Isect {
     let d = -vdot(plane.p, plane.n);
     let v =  vdot(ray.dir, plane.n);
 
-    if math.fabs(v) >= 1.0e-17 @{
+    if math.fabs(v) >= 1.0e-17 {
         let t = -(vdot(ray.org, plane.n) + d) / v;
 
         if t > 0.0 && t < isect.t {
@@ -118,7 +118,7 @@ fn ray_plane_intersect(math: Intrinsics, isect: Isect, ray: Ray, plane: Plane) -
     isect
 }
 
-fn ortho_basis(math: Intrinsics, n: Vec) -> [Vec * 3] {
+fn @ortho_basis(math: Intrinsics, n: Vec) -> [Vec * 3] {
     let mut basis: [Vec * 3];
     let mut x = 0.0; let mut y = 0.0; let mut z = 0.0;
 
@@ -140,7 +140,7 @@ fn ortho_basis(math: Intrinsics, n: Vec) -> [Vec * 3] {
     basis
 }
 
-fn ambient_occlusion(math: Intrinsics, isect: Isect, spheres: [Sphere * 3], plane: Plane, rand: fn() -> f64) -> f64 {
+fn @ambient_occlusion(math: Intrinsics, isect: Isect, spheres: [Sphere * 3], plane: Plane, rand: fn() -> f64) -> f64 {
     let ntheta = NAO_SAMPLES;
     let nphi   = NAO_SAMPLES;
     let eps    = 0.0001;
@@ -155,7 +155,7 @@ fn ambient_occlusion(math: Intrinsics, isect: Isect, spheres: [Sphere * 3], plan
 
     let mut occlusion = 0.0;
 
-    for j in $range(0, ntheta) @{
+    for j in range(0, ntheta) {
         for i in range(0, nphi) {
             let theta = math.sqrt(rand());
             let phi   = 2.0 * PI * rand();
@@ -192,7 +192,7 @@ fn ambient_occlusion(math: Intrinsics, isect: Isect, spheres: [Sphere * 3], plan
     occlusion
 }
 
-fn clamp(f: f64) -> u8 {
+fn @clamp(f: f64) -> u8 {
     let mut i = (f*255.5) as i32;
 
     if i < 0   { i = 0; }
@@ -202,12 +202,12 @@ fn clamp(f: f64) -> u8 {
 }
 
 fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], plane: Plane) -> () {
-    for math, x, y, out, rand in @iteration(math, img, w, h) {
+    for math, x, y, out, rand in iteration(math, img, w, h) {
         let mut r = 0.0;
         let mut g = 0.0;
         let mut b = 0.0;
-        for v in $range(0, nsubsamples) {
-            for u in range(0, nsubsamples) @{
+        for v in range(0, nsubsamples) {
+            for u in range(0, nsubsamples) {
                 let px =  (x as f64 + u as f64 / nsubsamples as f64 - w as f64 / 2.0) / (w as f64 / 2.0);
                 let py = -(y as f64 + v as f64 / nsubsamples as f64 - h as f64 / 2.0) / (h as f64 / 2.0);
 
@@ -225,7 +225,7 @@ fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], 
                 isect = ray_sphere_intersect(math, isect, ray, spheres(2));
                 isect = ray_plane_intersect (math, isect, ray, plane);
 
-                if isect.hit == 1 @{
+                if isect.hit == 1 {
                     let col = ambient_occlusion(math, isect, spheres, plane, rand);
 
                     r += col;

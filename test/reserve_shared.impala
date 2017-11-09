@@ -50,7 +50,7 @@ fn main() -> i32 {
         out_ptr(i) = 0.0f;
     }
 
-    for x, y, read, write in @iteration(out, arr, width, height) {
+    for x, y, read, write in iteration(out, arr, width, height) {
         let val = read(x, y);
         write(x, y, val);
     }

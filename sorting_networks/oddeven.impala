@@ -1,6 +1,6 @@
 // odd-even merge sort works only for power of two
-fn oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) -> () {
-    fn compare_and_swap(i: i32, j: i32) -> () {
+fn @oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) -> () {
+    fn @compare_and_swap(i: i32, j: i32) -> () {
         //print_int(i); print_string(", ");
         //print_int(j); print_string("\n");
         if read(i) > read(j) {
@@ -10,7 +10,7 @@ fn oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> 
         }
     }
 
-    fn oddeven_merge(lo: i32, n: i32, r: i32) -> () {
+    fn @(?lo & ?n & ?r) oddeven_merge(lo: i32, n: i32, r: i32) -> () {
         let m = r * 2;
         if m < n {
             oddeven_merge(lo, n, m);        // even subsequence
@@ -19,11 +19,11 @@ fn oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> 
                 compare_and_swap(i, i + r);
             }
         } else {
-            $compare_and_swap(lo, lo + r);
+            compare_and_swap(lo, lo + r);
         }
     }
 
-    fn oddeven_merge_sort_range(lo: i32, n: i32) -> () {
+    fn @(?lo & ?n) oddeven_merge_sort_range(lo: i32, n: i32) -> () {
         if n > 1 {
             let m = n / 2;
             oddeven_merge_sort_range(lo, m);
@@ -36,20 +36,21 @@ fn oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> 
 }
 
 extern
-fn test_main(input: &[f32]) -> f32 {
+fn test(input: &[f32]) -> f32 {
     let length = 4;
 
-    fn median() -> f32 {
+    fn @median() -> f32 {
         let mut arr: [f32 * 4];
         for i in range(0, length) {
             arr(i) = input(i);
         }
 
-        oddeven_merge_sort(length, |idx| arr(idx), |idx, val| arr(idx) = val);
+        oddeven_merge_sort(length, @|idx| arr(idx), @|idx, val| arr(idx) = val);
         print_total_timing();
 
         // return median
         arr((length - 1) / 2)
     }
-    @median()
+
+    median()
 }

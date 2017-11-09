@@ -1,17 +1,17 @@
 fn main() -> i32 {
     let width  = 4096;
     let height = 4096;
-    let arr    = @create_img(width, height, alloc_cpu);
-    let out    = @create_img(width, height, alloc_cpu);
+    let arr    = create_img(width, height, alloc_cpu);
+    let out    = create_img(width, height, alloc_cpu);
     init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
 
-    let mask_sep = @get_mask_sep5([ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ]);
-    let mask     = @get_mask5([[ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
-                               [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
-                               [ 0.026151f, 0.090339f, 0.136565f, 0.090339f, 0.026151f ],
-                               [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
-                               [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]]);
+    let mask_sep = get_mask_sep5([ 0.070766f, 0.244460f, 0.369546f, 0.244460f, 0.070766f ]);
+    let mask     = get_mask5([[ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
+                              [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
+                              [ 0.026151f, 0.090339f, 0.136565f, 0.090339f, 0.026151f ],
+                              [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
+                              [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]]);
 
     //let lower = @wrap_const_fun(const_lower, 0.0f);
     //let upper = @wrap_const_fun(const_upper, 0.0f);
@@ -25,7 +25,7 @@ fn main() -> i32 {
         //let iteration_sep_fun = iteration_sep_bounds;   // SEP + SS + BH
         //let iteration_sep_fun = iteration_sep_advanced; // SEP + SS + SM
 
-        for math, x, y, out_acc, arr_acc, mask, is_row in @iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) {
+        for math, x, y, out_acc, arr_acc, mask, is_row in iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) @{
             out_acc.write(x, y, apply_stencil_sep(x, y, arr_acc, mask, is_row));
         }
     } else {
@@ -33,7 +33,7 @@ fn main() -> i32 {
         //let iteration_fun = iteration_bounds;           // SS + BH
         //let iteration_fun = iteration_advanced;         // SS + SM
 
-        for math, x, y, out_acc, arr_acc, mask in @iteration_fun(math, out, arr, mask, lower, upper) {
+        for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out, arr, mask, lower, upper) {
             out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
         }
     }
@@ -43,8 +43,8 @@ fn main() -> i32 {
         let mut passed = 0;
         let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
-        for y in $range(0, out.height) {
-            for x in range(0, out.width) @{
+        for y in range(0, out.height) {
+            for x in range(0, out.width) {
                 let ref = apply_stencil(x, y, arr_acc, mask);
                 let mut diff = ref - out_acc.read(x, y);
                 if diff < 0.0f  { diff = -diff; }
@@ -59,7 +59,7 @@ fn main() -> i32 {
         passed
     }
 
-    let result = @reference();
+    let result = reference();
 
     release(arr.buf);
     release(out.buf);

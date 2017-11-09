@@ -37,7 +37,7 @@ fn main() -> i32 {
 
     copy(arr, arr_gpu, width * height * sizeof[f32]());
 
-    for x, y in @iteration(acc, width, height) {
+    for x, y in iteration(acc, width, height) {
         let idx = y*width + x;
         write(out_gpu, idx, read(arr_gpu, idx));
     }

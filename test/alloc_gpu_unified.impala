@@ -33,7 +33,7 @@ fn main() -> i32 {
         out_cpu(i) = 0.0f;
     }
 
-    for x, y in @iteration(acc, width, height) {
+    for x, y in iteration(acc, width, height) {
         let idx = y*width + x;
         write(out_buf, idx, read(arr_buf, idx));
     }
