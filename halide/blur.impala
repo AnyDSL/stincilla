@@ -40,24 +40,24 @@ fn par(num_threads: i32) -> Loop {
 
 fn @compute(out: Img, loop: Loop_xy, op: Op) -> fn(i32, i32) -> i32 {
     let (f, x_extent, y_extent) = op;
-    let w = out.width;
-    let h = out.height;
-    let data = bitcast[&mut[i32]](out.data);
+    let width  = out.width;
+    let height = out.height;
+    let data   = bitcast[&mut[i32]](out.data);
 
     let x_aligned = round_up(x_extent, 512);
     let y_aligned = round_up(y_extent, 32);
 
-    let x_region = [[0, x_aligned], [x_aligned, w-x_aligned], [w-x_aligned, w]];
-    let y_region = [[0, y_aligned], [y_aligned, h-y_aligned], [h-y_aligned, h]];
+    let x_region = [[0, x_aligned], [x_aligned, width  - x_aligned], [width  - x_aligned, width]];
+    let y_region = [[0, y_aligned], [y_aligned, height - y_aligned], [height - y_aligned, height]];
 
     for ry in unroll(0, 3) @{
         for rx in unroll(0, 3) @{
             for x, y in loop(x_region(rx)(0), y_region(ry)(0), x_region(rx)(1), y_region(ry)(1)) {
-                data(y*h + x) = f((rx, ry), x, y);
+                data(y * width + x) = f((rx, ry), x, y);
             }
         }
     }
-    |x, y| data(y*h + x)
+    |x, y| data(y * width + x)
 }
 
 // border handling
