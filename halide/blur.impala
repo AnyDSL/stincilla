@@ -1,13 +1,3 @@
-extern "C" {
-    fn print_string(&[u8]) -> ();
-}
-
-extern "thorin" {
-    fn pe_info[T](&[u8], T) -> ();
-    fn parallel(num_threads: i32, lower: i32, upper: i32, body: fn(i32) -> ()) -> ();
-    fn vectorize(vector_length: i32, alignment: i32, lower: i32, upper: i32, body: fn(i32) -> ()) -> ();
-}
-
 type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
 type Loop_xy = fn(i32, i32, i32, i32, fn(i32, i32) -> ()) -> ();
 type Op = (fn((i32, i32), i32, i32) -> i32, i32, i32);
@@ -20,75 +10,58 @@ struct Img {
 
 fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y*img.height + x) }
 
-// range + unroll
-
-fn @(?lower & ?upper & ?step) unroll_step(lower: i32, upper: i32, @step: i32, body: fn(i32) -> ()) -> () {
-    if lower < upper {
-        body(lower);
-        unroll_step(lower+step, upper, step, body)
-    }
-}
-
-fn @unroll(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
-    unroll_step(lower, upper, 1, body)
-}
-
-fn range_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () {
-    if lower < upper {
-        body(lower);
-        range_step(lower+step, upper, step, body)
-    }
-}
-
-fn @range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
-    range_step(lower, upper, 1, body)
-}
-
 fn @combine_xy(loop_x: Loop, loop_y: Loop) -> Loop_xy {
-    |x, y, w, h, body| loop_y(y, h, |yy| loop_x(x, w, |xx| body(xx, yy)))
+    |x, y, w, h, body|
+        loop_y(y, h, |yy|
+            loop_x(x, w, |xx|
+                body(xx, yy)))
 }
 
 fn @combine_xy2(loop: Loop) -> Loop_xy { combine_xy(loop, loop) }
 
-fn @tile(x_step: i32, y_step: i32, loop_xy: Loop_xy) -> Loop_xy {
-    |x, y, w, h, body: fn(i32, i32)->()|
-        range_step(0, h, y_step,
-            |yy| range_step(0, w, x_step,
-                |xx| loop_xy(xx, yy, xx+x_step, yy+y_step,
-                    |xxx, yyy| body(xxx, yyy))))
+fn @tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop) -> Loop_xy {
+    |x_lower, y_lower, x_upper, y_upper, body: fn(i32, i32)->()|
+        loop_y(0, (y_upper - y_lower) / y_step, |ly|
+            range(ly * y_step + y_lower, (ly + 1) * y_step + y_lower, |ry|
+                range(0, (x_upper - x_lower) / x_step, |rx|
+                    loop_x(rx * x_step + x_lower, (rx + 1) * x_step + x_lower, |lx|
+                        body(lx, ry)))))
 }
 
 fn vec(vector_length: i32) -> Loop {
-    |lower, upper, body| vectorize(vector_length, 0, lower, upper, body)
+    |lower, upper, body| vectorize(vector_length, 32, lower, upper, body)
 }
 
 fn par(num_threads: i32) -> Loop {
     |lower, upper, body| parallel(num_threads, lower, upper, body)
 }
 
-// schedule
+// compute
 
-fn @schedule(loop: Loop_xy, w: i32, h: i32, op: Op) -> fn(i32, i32) -> i32 {
-    let out = ~[w*h:i32];
-    let (f, x_extend, y_extend) = op;
+fn @compute(out: Img, loop: Loop_xy, op: Op) -> fn(i32, i32) -> i32 {
+    let (f, x_extent, y_extent) = op;
+    let w = out.width;
+    let h = out.height;
+    let data = bitcast[&mut[i32]](out.data);
 
-    let x_region = [[0, x_extend], [x_extend, w-x_extend], [w-x_extend, w]];
-    let y_region = [[0, y_extend], [y_extend, h-y_extend], [h-y_extend, h]];
+    let x_aligned = round_up(x_extent, 512);
+    let y_aligned = round_up(y_extent, 32);
+
+    let x_region = [[0, x_aligned], [x_aligned, w-x_aligned], [w-x_aligned, w]];
+    let y_region = [[0, y_aligned], [y_aligned, h-y_aligned], [h-y_aligned, h]];
 
     for ry in unroll(0, 3) @{
         for rx in unroll(0, 3) @{
             for x, y in loop(x_region(rx)(0), y_region(ry)(0), x_region(rx)(1), y_region(ry)(1)) {
-                out(y*h + x) = f((rx, ry), x, y);
+                data(y*h + x) = f((rx, ry), x, y);
             }
         }
     }
-    |x, y| out(y*h + x)
+    |x, y| data(y*h + x)
 }
 
 // border handling
 
-fn @min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
-fn @max(a: i32, b: i32) -> i32 { if a > b { a } else { b } }
 fn @clip(v: i32, a: i32, b: i32) -> i32 { min(max(v, a), b) }
 
 fn @is_within(region: (i32, i32), x: i32, y: i32, w: i32, h: i32) -> bool {
@@ -126,12 +99,11 @@ fn @border_mirror(region: Region, img: Img, x: i32, y: i32) -> fn(i32, i32) -> i
     border_img(region, img, x, y, @|| access(img, mirror(x, img.width), mirror(y, img.height)))
 }
 
-// main
 
-fn main(img: Img) -> i32 {
-    let w = img.width;
-    let h = img.height;
-    let data = img.data;
+extern
+fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
+    let img = Img { width : width, height : height, data : data };
+    let out = Img { width : width, height : height, data : ~[width*height:i32] };
 
     let blur = (@|region, x, y| {
         //let read = border_mirror(region, img, x, y);
@@ -141,8 +113,20 @@ fn main(img: Img) -> i32 {
         blur_y(x, y)
     }, 1, 1);
 
-    //let res = schedule(combine_xy(range, range), w, h, blur);
-    //let res = schedule(combine_xy(par(4), vec(8)), w, h, blur);
-    let res = schedule(tile(256, 32, combine_xy(par(4), vec(8))), w, h, blur);
-    0
+    //let schedule = combine_xy(range, range);
+    //let schedule = combine_xy(vec(8), par(16));
+    //let schedule = tile(256, 32, vec(8), par(4));
+
+    let schedule = tile(512, 32, range, range);
+
+    with benchmark_cpu() {
+        compute(out, schedule, blur);
+    }
+    print_total_timing();
+
+    for y in range(0, height) {
+        for x in range(0, width) {
+            data(y * width + x) = out.data(y * width + x);
+        }
+    }
 }
