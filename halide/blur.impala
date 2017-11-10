@@ -1,6 +1,7 @@
 type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
-type Loop_xy = fn(i32, i32, i32, i32, fn(i32, i32) -> ()) -> ();
-type Op = (fn((i32, i32), i32, i32) -> i32, i32, i32);
+type Loop_xy = fn(i32, i32, i32, i32, fn((i32, i32), i32, i32) -> ()) -> ();
+type BinOp = fn(i32, i32) -> i32;
+type RegOp = fn((i32, i32), i32, i32) -> i32;
 
 struct Img {
     width: i32,
@@ -10,22 +11,47 @@ struct Img {
 
 fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y*img.height + x) }
 
-fn @combine_xy(loop_x: Loop, loop_y: Loop) -> Loop_xy {
+fn @combine_xy(loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
+    // TODO: specialize for regions
     |x, y, w, h, body|
         loop_y(y, h, |yy|
             loop_x(x, w, |xx|
-                body(xx, yy)))
+                body((1, 1), xx, yy)))
 }
 
-fn @combine_xy2(loop: Loop) -> Loop_xy { combine_xy(loop, loop) }
+fn @tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
+    |x_lower, y_lower, x_upper, y_upper, body: fn((i32, i32), i32, i32)->()| {
+        let (x_extent, y_extent) = extent;
 
-fn @tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop) -> Loop_xy {
-    |x_lower, y_lower, x_upper, y_upper, body: fn(i32, i32)->()|
-        loop_y(0, (y_upper - y_lower) / y_step, |ly|
-            range(ly * y_step + y_lower, (ly + 1) * y_step + y_lower, |ry|
-                range(0, (x_upper - x_lower) / x_step, |rx|
-                    loop_x(rx * x_step + x_lower, (rx + 1) * x_step + x_lower, |lx|
-                        body(lx, ry)))))
+        let x_lower_aligned = round_up(x_lower + x_extent, x_step);
+        let y_lower_aligned = round_up(y_lower + y_extent, y_step);
+        let x_upper_aligned = round_down(x_upper - x_extent, x_step);
+        let y_upper_aligned = round_down(y_upper - y_extent, y_step);
+
+        let x_region = [[x_lower, x_lower_aligned], [x_lower_aligned, x_upper_aligned], [x_upper_aligned, x_upper]];
+        let y_region = [[y_lower, y_lower_aligned], [y_lower_aligned, y_upper_aligned], [y_upper_aligned, y_upper]];
+
+        for region_y in unroll(0, 3) @{
+            for region_x in unroll(0, 3) @{
+                let x_lower = x_region(region_x)(0);
+                let y_lower = y_region(region_y)(0);
+                let x_upper = x_region(region_x)(1);
+                let y_upper = y_region(region_y)(1);
+
+                if region_x == 1 && region_y == 1 {
+                    loop_y(0, (y_upper - y_lower) / y_step, |ly|
+                        range(ly * y_step + y_lower, (ly + 1) * y_step + y_lower, |ry|
+                            range(0, (x_upper - x_lower) / x_step, |rx|
+                                loop_x(rx * x_step + x_lower, (rx + 1) * x_step + x_lower, |lx|
+                                    body((region_x, region_y), lx, ry)))))
+                } else {
+                    loop_y(y_lower, y_upper, |y|
+                        loop_x(x_lower, x_upper, |x|
+                              body((region_x, region_y), x, y)))
+                }
+            }
+        }
+    }
 }
 
 fn vec(vector_length: i32) -> Loop {
@@ -38,24 +64,13 @@ fn par(num_threads: i32) -> Loop {
 
 // compute
 
-fn @compute(out: Img, loop: Loop_xy, op: Op) -> fn(i32, i32) -> i32 {
-    let (f, x_extent, y_extent) = op;
+fn @compute(out: Img, loop: Loop_xy, f: RegOp) -> BinOp {
     let width  = out.width;
     let height = out.height;
     let data   = bitcast[&mut[i32]](out.data);
 
-    let x_aligned = round_up(x_extent, 512);
-    let y_aligned = round_up(y_extent, 32);
-
-    let x_region = [[0, x_aligned], [x_aligned, width  - x_aligned], [width  - x_aligned, width]];
-    let y_region = [[0, y_aligned], [y_aligned, height - y_aligned], [height - y_aligned, height]];
-
-    for ry in unroll(0, 3) @{
-        for rx in unroll(0, 3) @{
-            for x, y in loop(x_region(rx)(0), y_region(ry)(0), x_region(rx)(1), y_region(ry)(1)) {
-                data(y * width + x) = f((rx, ry), x, y);
-            }
-        }
+    for region, x, y in loop(0, 0, width, height) @{
+        data(y * width + x) = f(region, x, y);
     }
     |x, y| data(y * width + x)
 }
@@ -105,19 +120,19 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
     let img = Img { width : width, height : height, data : data };
     let out = Img { width : width, height : height, data : ~[width*height:i32] };
 
-    let blur = (@|region, x, y| {
+    let blur = @|region, x, y| {
         //let read = border_mirror(region, img, x, y);
         let read = border_const(0)(region, img, x, y);
         let blur_x = @|x, y| (  read(x-1, y) +   read(x, y) +   read(x+1, y))/3;
         let blur_y = @|x, y| (blur_x(x, y-1) + blur_x(x, y) + blur_x(x, y+1))/3;
         blur_y(x, y)
-    }, 1, 1);
+    };
 
-    //let schedule = combine_xy(range, range);
+    //let schedule = combine_xy(range, range, (1, 1));
     //let schedule = combine_xy(vec(8), par(16));
     //let schedule = tile(256, 32, vec(8), par(4));
 
-    let schedule = tile(512, 32, range, range);
+    let schedule = tile(512, 32, vec(8), par(0), (1, 1));
 
     with benchmark_cpu() {
         compute(out, schedule, blur);

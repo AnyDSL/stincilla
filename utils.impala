@@ -44,6 +44,7 @@ fn @max(a: i32, b: i32) -> i32 { if a > b { a } else { b } }
 
 // nearest multiple of num
 fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
+fn @round_down(num: i32, multiple: i32) -> i32 { (num / multiple) * multiple }
 
 static mut total_kernel_timing = 0i64;
 static mut total_cpu_timing = 0i64;
