@@ -16,7 +16,7 @@ struct Img {
     data: &[i32]
 };
 
-fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y*img.height + x) }
+fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y * img.width + x) }
 
 fn @combine_xy(loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
     // TODO: specialize for regions
@@ -25,6 +25,59 @@ fn @combine_xy(loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
         loop_y(y, h, |yy|
             loop_x(x, w, |xx|
                 body(read, xx, yy)))
+    }
+}
+
+fn @tile_tmp_x(x_step: i32, y_step: i32, loop_y: Loop, inner_loop_x: Loop, body_x: ReadOp, extent: (i32, i32)) -> Loop_xy {
+    |border:Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
+        let (x_extent, y_extent) = extent;
+
+        let x_lower_aligned = round_up(x_lower + x_extent, x_step);
+        let y_lower_aligned = round_up(y_lower + y_extent, y_step);
+        let x_upper_aligned = round_down(x_upper - x_extent, x_step);
+        let y_upper_aligned = round_down(y_upper - y_extent, y_step);
+
+        let x_region = [[x_lower, x_lower_aligned], [x_lower_aligned, x_upper_aligned], [x_upper_aligned, x_upper]];
+        let y_region = [[y_lower, y_lower_aligned], [y_lower_aligned, y_upper_aligned], [y_upper_aligned, y_upper]];
+
+        for region_y in unroll(0, 3) @{
+            for region_x in unroll(0, 3) @{
+                let read = border((region_x, region_y));
+                let x_lower = x_region(region_x)(0);
+                let y_lower = y_region(region_y)(0);
+                let x_upper = x_region(region_x)(1);
+                let y_upper = y_region(region_y)(1);
+
+                let inner = @|outer_y| @|outer_x| {
+                    let tmp = Img { width : x_step, height : y_step, data : ~[x_step * (extent(1)*2 + y_step):i32] };
+                    let tmp_data = bitcast[&mut[i32]](tmp.data);
+
+                    let tile_border = @|region| @|ix, iy| read(x_lower + outer_x * x_step + ix, y_lower + outer_y * y_step + iy);
+                    let inner_xy = combine_xy(inner_loop_x, range, (0, 0));
+
+                    for read, x, y in inner_xy(tile_border, 0, -1, x_step, y_step + 1) @{
+                        tmp_data((y+1) * x_step + x) = body_x(read, x, y);
+                    }
+
+                    let tmp_border = @|region| @|x, y| tmp_data((y - y_lower - outer_y * y_step + 1) * x_step + x - x_lower - outer_x * x_step);
+                    for read, x, y in inner_xy(tmp_border, x_lower + outer_x * x_step,
+                                                           y_lower + outer_y * y_step,
+                                                           x_lower + (outer_x+1) * x_step,
+                                                           y_lower + (outer_y+1) * y_step) @{ body(read, x, y); }
+                    runtime_release(0, bitcast[&[i8]](tmp.data));
+                };
+
+                if region_x == 1 && region_y == 1 {
+                    loop_y(0, (y_upper - y_lower) / y_step, |outer_y|
+                        range(0, (x_upper - x_lower) / x_step, inner(outer_y)))
+                } else {
+                    // TODO: use body_x
+                    //loop_y(y_lower, y_upper, |y|
+                    //    range(x_lower, x_upper, |x|
+                    //        body(read, x, y)))
+                }
+            }
+        }
     }
 }
 
@@ -131,20 +184,19 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
 
     let blur_simple = @|read:Read, x:i32, y:i32| blur_y(@|x:i32, y:i32| blur_x(read, x, y), x, y);
 
-    // let schedule = combine_xy(range, range, (1, 1));
+    //let schedule = combine_xy(range, range, (1, 1));
+    //let schedule = combine_xy(vec(8), par(16), (1, 1));
+    //let schedule = tile(256, 32, vec(8), par(4), (1, 1));
 
-    // let schedule = combine_xy(vec(8), par(16));
-    // let schedule = tile(256, 32, vec(8), par(4));
+    let schedule = tile_tmp_x(256, 32, par(0), vec(8), blur_x, (1, 1));
 
-    let schedule = tile(512, 32, vec(8), par(0), (1, 1));
-
-
-    let border = border_const(0);
+    //let border = border_const(0);
     //let border = border_mirror();
-    //let border = border_clamp();
+    let border = border_clamp();
 
     with benchmark_cpu() {
-        compute(img, out, border, schedule, blur_simple);
+        //compute(img, out, border, schedule, blur_simple);
+        compute(img, out, border, schedule, blur_y);
     }
     print_total_timing();
 
