@@ -1,7 +1,14 @@
-type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
-type Loop_xy = fn(i32, i32, i32, i32, fn((i32, i32), i32, i32) -> ()) -> ();
+type Read = fn(i32, i32) -> i32;
 type BinOp = fn(i32, i32) -> i32;
-type RegOp = fn((i32, i32), i32, i32) -> i32;
+
+type ReadOp = fn(Read, i32, i32) -> i32;
+
+type Region = (i32, i32);
+type Border = fn(Region) -> Read;
+type ImgBorder = fn(Img) -> Border;
+
+type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
+type Loop_xy = fn(Border, i32, i32, i32, i32, fn(Read, i32, i32) -> ()) -> ();
 
 struct Img {
     width: i32,
@@ -13,14 +20,16 @@ fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y*img.height + x) }
 
 fn @combine_xy(loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
     // TODO: specialize for regions
-    |x, y, w, h, body|
+    @|border:Border, x, y, w, h, body: fn(Read, i32, i32)->()| {
+        let read = border((1, 1));
         loop_y(y, h, |yy|
             loop_x(x, w, |xx|
-                body((1, 1), xx, yy)))
+                body(read, xx, yy)))
+    }
 }
 
 fn @tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
-    |x_lower, y_lower, x_upper, y_upper, body: fn((i32, i32), i32, i32)->()| {
+    |border:Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
         let (x_extent, y_extent) = extent;
 
         let x_lower_aligned = round_up(x_lower + x_extent, x_step);
@@ -33,6 +42,7 @@ fn @tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop, extent: (i32, i32
 
         for region_y in unroll(0, 3) @{
             for region_x in unroll(0, 3) @{
+                let read = border((region_x, region_y));
                 let x_lower = x_region(region_x)(0);
                 let y_lower = y_region(region_y)(0);
                 let x_upper = x_region(region_x)(1);
@@ -43,11 +53,11 @@ fn @tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop, extent: (i32, i32
                         range(ly * y_step + y_lower, (ly + 1) * y_step + y_lower, |ry|
                             range(0, (x_upper - x_lower) / x_step, |rx|
                                 loop_x(rx * x_step + x_lower, (rx + 1) * x_step + x_lower, |lx|
-                                    body((region_x, region_y), lx, ry)))))
+                                    body(read, lx, ry)))))
                 } else {
                     loop_y(y_lower, y_upper, |y|
                         loop_x(x_lower, x_upper, |x|
-                              body((region_x, region_y), x, y)))
+                              body(read, x, y)))
                 }
             }
         }
@@ -64,13 +74,13 @@ fn par(num_threads: i32) -> Loop {
 
 // compute
 
-fn @compute(out: Img, loop: Loop_xy, f: RegOp) -> BinOp {
+fn @compute(input: Img, out: Img, border: ImgBorder, loop: Loop_xy, f: ReadOp) -> BinOp {
     let width  = out.width;
     let height = out.height;
     let data   = bitcast[&mut[i32]](out.data);
 
-    for region, x, y in loop(0, 0, width, height) @{
-        data(y * width + x) = f(region, x, y);
+    for read, x, y in loop(border(input), 0, 0, width, height) @{
+        data(y * width + x) = f(read, x, y);
     }
     |x, y| data(y * width + x)
 }
@@ -79,7 +89,7 @@ fn @compute(out: Img, loop: Loop_xy, f: RegOp) -> BinOp {
 
 fn @clip(v: i32, a: i32, b: i32) -> i32 { min(max(v, a), b) }
 
-fn @is_within(region: (i32, i32), x: i32, y: i32, w: i32, h: i32) -> bool {
+fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
     let (rx, ry) = region;
     pe_info("region", region);
     let check = @|region, idx, upper| match region {
@@ -90,50 +100,51 @@ fn @is_within(region: (i32, i32), x: i32, y: i32, w: i32, h: i32) -> bool {
     check(rx, x, w) && check(ry, y, h)
 }
 
-type Region = (i32, i32);
-type Border = fn(Region, Img, i32, i32) -> i32;
-
-fn @border_img(region: Region, img: Img, x: i32, y: i32, border: fn() -> i32) -> fn(i32, i32) -> i32 {
-    @|x, y| if is_within(region, x, y, img.width, img.height) {
+fn @border_img(border: fn(Img, i32, i32) -> i32) -> ImgBorder {
+    @|img| @|region| @|x, y| if is_within(region, x, y, img.width, img.height) {
         access(img, x, y)
     } else {
-        border()
+        @@border(img, x, y)
     }
 }
 
-fn @border_const(v: i32) -> fn((i32, i32), Img, i32, i32) -> fn(i32, i32) -> i32 {
-    @|region, img, x, y| border_img(region, img, x, y, @|| v)
+fn @border_const(v: i32) -> ImgBorder {
+    border_img(@|_, _, _| v)
 }
 
-fn @border_clamp(region: Region, img: Img, x: i32, y: i32) -> fn(i32, i32) -> i32 {
-    border_img(region, img, x, y, @|| access(img, clip(x, 0, img.width), clip(y, 0, img.height)))
+fn @border_clamp() -> ImgBorder {
+    border_img(@|img, x, y| access(img, clip(x, 0, img.width), clip(y, 0, img.height)))
 }
 
-fn @border_mirror(region: Region, img: Img, x: i32, y: i32) -> fn(i32, i32) -> i32 {
+fn @border_mirror() -> ImgBorder {
     let mirror = @|x, w| if x < 0 { -x } else { if x >= w { w + w - x - 1 } else { x } };
-    border_img(region, img, x, y, @|| access(img, mirror(x, img.width), mirror(y, img.height)))
+    border_img(@|img, x, y| access(img, mirror(x, img.width), mirror(y, img.height)))
 }
-
 
 extern
 fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
     let img = Img { width : width, height : height, data : data };
     let out = Img { width : width, height : height, data : ~[width*height:i32] };
 
-    //let read   = @|region, x, y| border_mirror(region, img, x, y)(x, y);
-    let read   = @|region, x, y| border_const(0)(region, img, x, y)(x, y);
-    let blur_x = @|region, x, y| (  read(region, x-1, y) +   read(region, x, y) +   read(region, x+1, y)) / 3;
-    let blur_y = @|region, x, y| (blur_x(region, x, y-1) + blur_x(region, x, y) + blur_x(region, x, y+1)) / 3;
-    let blur   = @|region, x, y|  blur_y(region, x, y);
+    let blur_x = @|read:Read, x:i32, y:i32| (read(x-1, y) + read(x, y) + read(x+1, y)) / 3;
+    let blur_y = @|read:Read, x:i32, y:i32| (read(x, y-1) + read(x, y) + read(x, y+1)) / 3;
 
-    //let schedule = combine_xy(range, range, (1, 1));
-    //let schedule = combine_xy(vec(8), par(16));
-    //let schedule = tile(256, 32, vec(8), par(4));
+    let blur_simple = @|read:Read, x:i32, y:i32| blur_y(@|x:i32, y:i32| blur_x(read, x, y), x, y);
+
+    // let schedule = combine_xy(range, range, (1, 1));
+
+    // let schedule = combine_xy(vec(8), par(16));
+    // let schedule = tile(256, 32, vec(8), par(4));
 
     let schedule = tile(512, 32, vec(8), par(0), (1, 1));
 
+
+    let border = border_const(0);
+    //let border = border_mirror();
+    //let border = border_clamp();
+
     with benchmark_cpu() {
-        compute(out, schedule, blur);
+        compute(img, out, border, schedule, blur_simple);
     }
     print_total_timing();
 
