@@ -166,7 +166,7 @@ fn @border_const(v: i32) -> ImgBorder {
 }
 
 fn @border_clamp() -> ImgBorder {
-    border_img(@|img, x, y| access(img, clip(x, 0, img.width), clip(y, 0, img.height)))
+    border_img(@|img, x, y| access(img, clip(x, 0, img.width-1), clip(y, 0, img.height-1)))
 }
 
 fn @border_mirror() -> ImgBorder {
