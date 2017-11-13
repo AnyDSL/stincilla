@@ -1,0 +1,83 @@
+type Read = fn(i32, i32) -> i32;
+type BinOp = fn(i32, i32) -> i32;
+
+type Region = (i32, i32);
+type Border = fn(Region) -> Read;
+type ImgBorder = fn(Img) -> Border;
+
+type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
+type Loop_xy = fn(i32, i32, i32, i32, fn(i32, i32) -> ()) -> ();
+
+struct Img {
+    width: i32,
+    height: i32,
+    data: &[i32]
+};
+
+fn @clip(i: i32, a: i32, b: i32) -> i32 { min(max(i, a), b) }
+fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(clip(y, 0, img.height-1)*img.width + clip(x, 0, img.width-1)) }
+
+fn @combine_xy(loop_x: Loop, loop_y: Loop) -> Loop_xy {
+    @|x, y, w, h, body: fn(i32, i32)->()| {
+        loop_y(y, h, |yy|
+            loop_x(x, w, |xx|
+                body(xx, yy)))
+    }
+}
+
+fn @tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop) -> Loop_xy {
+    |x_lower, y_lower, x_upper, y_upper, body|
+        loop_y(0, (y_upper - y_lower) / y_step, |ly|
+            range(ly * y_step + y_lower, (ly + 1) * y_step + y_lower, |ry|
+                range(0, (x_upper - x_lower) / x_step, |rx|
+                    loop_x(rx * x_step + x_lower, (rx + 1) * x_step + x_lower, |lx|
+                        body(lx, ry)))))
+}
+
+fn vec(vector_length: i32) -> Loop {
+    |lower, upper, body| vectorize(vector_length, 32, lower, upper, body)
+}
+
+fn par(num_threads: i32) -> Loop {
+    |lower, upper, body| parallel(num_threads, lower, upper, body)
+}
+
+// compute
+
+fn @compute(out: Img, loop: Loop_xy, f: BinOp) -> BinOp {
+    let width  = out.width;
+    let height = out.height;
+    let data   = bitcast[&mut[i32]](out.data);
+
+    for x, y in loop(0, 0, width, height) {
+        data(y * width + x) = f(x, y);
+    }
+    |x, y| data(y * width + x)
+}
+
+extern
+fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
+    let img = Img{width: width, height: height, data: data};
+    let out = Img{width: width, height: height, data: ~[width*height:i32]};
+
+    let input = @|x, y| access(img, x, y);
+    let blur_x = @|x, y| ( input(x-1, y) +  input(x, y) +  input(x+1, y)) / 3;
+    let blur_y = @|x, y| (blur_x(x, y-1) + blur_x(x, y) + blur_x(x, y+1)) / 3;
+
+    //let schedule = tile(512, 32, vec(8), par(0));
+    let schedule = tile(512, 32, range, par(0));
+    //let schedule = tile(512, 32, range, par(0));
+    //let schedule = combine_xy(range, range);
+    //let schedule = tile(512, 32, range, range);
+
+    with benchmark_cpu() {
+        compute(out, schedule, blur_y);
+    }
+    print_total_timing();
+
+    for y in range(0, height) {
+        for x in range(0, width) {
+            data(y * width + x) = out.data(y * width + x);
+        }
+    }
+}
