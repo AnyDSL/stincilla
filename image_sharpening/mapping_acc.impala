@@ -3,13 +3,13 @@ fn @get_pixeli16_fn(img: Imgi16) -> fn(i32) -> i16 { |idx| bitcast[&[1][i16]](im
 
 fn @(?a & ?b) for_shift_down(a: i32, b: i32, body: fn(i32) -> ()) -> () {
     if a > b {
-        body(a);
+        @@body(a);
         for_shift_down(a >> 1, b, body)
     }
 }
 fn @(?a & ?b) for_shift_up(a: i32, b: i32, body: fn(i32) -> ()) -> () {
     if a < b {
-        body(a);
+        @@body(a);
         for_shift_up(a << 1, b, body)
     }
 }
@@ -43,7 +43,7 @@ fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
             let arr_acc = get_acci16_bh(arr_gpu, set_pixeli16_fn(arr_gpu), get_pixeli16_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
             for i in unroll(0, coarsening_factor) {
-                body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc);
+                @@body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc);
             }
         }
     }
@@ -81,7 +81,7 @@ fn @iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bou
             let arr_acc = get_acci16_bh(arr_gpu, set_pixeli16_fn(arr_gpu), get_pixeli16_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
             for i in unroll(0, coarsening_factor) {
-                body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc);
+                @@body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc);
             }
         }
     }
@@ -122,7 +122,7 @@ fn @iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, b
             let map_acc = get_acc(map_gpu, set_pixel_fn(map_gpu), get_pixel_fn(map_gpu));
 
             for i in unroll(0, coarsening_factor) {
-                body(gid_x, gid_y + i * bdim_y, out_acc, img_acc, map_acc);
+                @@body(gid_x, gid_y + i * bdim_y, out_acc, img_acc, map_acc);
             }
         }
     }
@@ -164,7 +164,7 @@ fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
             let tmp_acc = get_acci16(tmp_gpu, set_pixeli16_fn(tmp_gpu), get_pixeli16_fn(tmp_gpu));
 
             for i in unroll(0, coarsening_factor) {
-                body(gid_x, gid_y + i * bdim_y, out_acc, img_acc, tmp_acc);
+                @@body(gid_x, gid_y + i * bdim_y, out_acc, img_acc, tmp_acc);
             }
         }
     }
@@ -200,7 +200,7 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
             let mut sum = 0;
             let img_acc = get_acci16(img_gpu, set_pixeli16_fn(img_gpu), get_pixeli16_fn(img_gpu));
             for y in range(0, img_gpu.height) {
-                sum += body(gid_x, y, img_acc);
+                sum += @@body(gid_x, y, img_acc);
             }
             sm_sum(tid_x) = sum;
 
@@ -253,7 +253,7 @@ fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
             let sm_hist = reserve_shared[i32](256);
             let img_acc = get_acc(img_gpu, set_pixel_fn(img_gpu), get_pixel_fn(img_gpu));
             for y in range(0, img.height) {
-                let bin = body(gid_x, y, img_acc);
+                let bin = @@body(gid_x, y, img_acc);
                 atomic_add_shared(&mut sm_hist(bin), 1);
             }
             atomic_add_global(&mut hist(tid_x), sm_hist(tid_x));
@@ -405,7 +405,7 @@ fn @find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 
         for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
             let (gidx, _, _) = gid;
             let gid_x = gidx();
-            if body(scan(gid_x)) != 0 {
+            if @@body(scan(gid_x)) != 0 {
                 atomic_min_global(&mut pos(0), gid_x);
             }
         }

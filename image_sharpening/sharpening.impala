@@ -199,18 +199,18 @@ fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
 
     fn @sharpening() -> () {
         // compute quartile coefficient of dispersion (QCOD)
-        for x, y, map, img in iteration1f1i(map, img, mirror_lower_i16, mirror_upper_i16) @{
+        for x, y, map, img in iteration1f1i(map, img, mirror_lower_i16, mirror_upper_i16) {
             qcod(x, y, map, img);
         }
 
         // edge detector - TODO: use Canny
-        for x, y, tmp, img in iteration2i(tmp, img, mirror_lower_i16, mirror_upper_i16) @{
+        for x, y, tmp, img in iteration2i(tmp, img, mirror_lower_i16, mirror_upper_i16) {
             sobel(x, y, tmp, img);
         }
 
         // counting number of non-edge pixels
         let bw_count =
-            for x, y, tmp in reduce(tmp) @{
+            for x, y, tmp in reduce(tmp) {
                 if tmp.read(x, y) == 0i16 { 0 } else { 1 }
             };
         print_string("# of non-edge pixels: ");
@@ -220,26 +220,26 @@ fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
 
         // calculate histogram
         let hist =
-            for x, y, map in histogram(map) @{
+            for x, y, map in histogram(map) {
                 (map.read(x, y) * 255.0f) as i32
             };
 
         // cumulative sum of the QCOD values (prefix sum)
         let sum_count = inclusive_scan(hist, 256);
         let bin =
-            for value in find_position(sum_count, 256) @{
+            for value in find_position(sum_count, 256) {
                 if value > bw_count { 1 } else { 0 }
             };
 
         // apply filter
         let threshold = bin as f32 / 256.0f;
-        for x, y, tmp, img, map in iteration2i1m(tmp, img, map, mirror_lower_i16, mirror_upper_i16) @{
+        for x, y, tmp, img, map in iteration2i1m(tmp, img, map, mirror_lower_i16, mirror_upper_i16) {
             let ksize = 5;
             filter(x, y, tmp, img, map, threshold, ksize);
         }
 
         // sharpen image
-        for x, y, out, img, tmp in iteration3i(out, img, tmp) @{
+        for x, y, out, img, tmp in iteration3i(out, img, tmp) {
             sharpen(x, y, out, img, tmp);
         }
 

@@ -95,7 +95,7 @@ fn main() -> i32 {
     //let bilateral_fun = bilateral_filter;
     let bilateral_fun = bilateral_filter_mask;
 
-    for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out, arr, mask, lower, upper) @{
+    for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out, arr, mask, lower, upper) {
         out_acc.write(x, y, bilateral_fun(math, x, y, arr_acc, mask, sigma_d, c_d, c_r));
     }
     print_total_timing();

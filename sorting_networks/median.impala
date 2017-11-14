@@ -7,7 +7,7 @@ fn main() -> i32 {
     init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
 
-    for x, y, out, arr in iteration_median(out, arr, clamp_lower, clamp_upper) @{
+    for x, y, out, arr in iteration_median(out, arr, clamp_lower, clamp_upper) {
         fn @median() -> f32 {
             let mut tmp: [f32 * 4];
             for i in unroll(-length/2, +length/2) {

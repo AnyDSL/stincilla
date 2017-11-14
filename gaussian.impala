@@ -13,8 +13,8 @@ fn main() -> i32 {
                               [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
                               [ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ]]);
 
-    //let lower = @wrap_const_fun(const_lower, 0.0f);
-    //let upper = @wrap_const_fun(const_upper, 0.0f);
+    //let lower = wrap_const_fun(const_lower, 0.0f);
+    //let upper = wrap_const_fun(const_upper, 0.0f);
     let lower = clamp_lower;
     let upper = clamp_upper;
 
@@ -25,7 +25,7 @@ fn main() -> i32 {
         //let iteration_sep_fun = iteration_sep_bounds;   // SEP + SS + BH
         //let iteration_sep_fun = iteration_sep_advanced; // SEP + SS + SM
 
-        for math, x, y, out_acc, arr_acc, mask, is_row in iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) @{
+        for math, x, y, out_acc, arr_acc, mask, is_row in iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) {
             out_acc.write(x, y, apply_stencil_sep(x, y, arr_acc, mask, is_row));
         }
     } else {

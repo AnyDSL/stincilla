@@ -7,7 +7,7 @@ fn @iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: Boundar
     for benchmark_cpu() {
         for y in outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) {
-                body(x, y, out_acc, arr_acc);
+                @@body(x, y, out_acc, arr_acc);
             }
         }
     }

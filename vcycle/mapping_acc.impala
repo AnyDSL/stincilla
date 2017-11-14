@@ -35,7 +35,7 @@ fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
             let tmp_acc  = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
             let rhsf_acc = get_acc_offset(rhsf_gpu, set_pixel_fn(rhsf_gpu), get_pixel_fn(rhsf_gpu), bdim_x * bid_x, bdim_y * bid_y);
             let sol_acc  = get_acc_bh_offset(sol_gpu, set_pixel_fn(sol_gpu), get_pixel_ldg_fn(sol_gpu), bdim_x * bid_x, bdim_y * bid_y, (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
-            residual(math, tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
+            @@residual(math, tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
 
             acc.barrier();
 
@@ -43,7 +43,7 @@ fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
             if tid_x < block(0) / step && gid_y % step == 0 {
                 let tmp_acc = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
                 let rhs_acc = get_acc_offset(rhsc_gpu, set_pixel_fn(rhsc_gpu), get_pixel_fn(rhsc_gpu), bdim_x * bid_x / step, bdim_y * bid_y / step);
-                restrict(math, tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
+                @@restrict(math, tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
             }
         }
     }

@@ -16,8 +16,8 @@ struct Grid {
     read    : fn(i32, i32, i32, i32) -> f32,
     write   : fn(i32, i32, i32, i32, f32) -> (),
 }
-fn clamp_f32(v: f32, l: f32, u: f32) -> f32 { if v < l { l } else { if v >= u { u     } else { v } } }
-fn clamp_i32(v: i32, l: i32, u: i32) -> i32 { if v < l { l } else { if v >= u { u - 1 } else { v } } }
+fn @clamp_f32(v: f32, l: f32, u: f32) -> f32 { if v < l { l } else { if v >= u { u     } else { v } } }
+fn @clamp_i32(v: i32, l: i32, u: i32) -> i32 { if v < l { l } else { if v >= u { u - 1 } else { v } } }
 
 
 fn create_grid(x: i32, y: i32, grid: Grid, image: fn(i32, i32) -> f32) -> () {

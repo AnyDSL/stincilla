@@ -1,10 +1,10 @@
 fn @get_device_copy(img: Img) -> Img { img }
 fn @release_device_copy(img: Img) -> () { }
 
-fn set_pixel_fn(img: Img) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut[f32]](img.buf.data)(idx) = val }
-fn get_pixel_fn(img: Img) -> fn(i32) -> f32 { @|idx| bitcast[&[f32]](img.buf.data)(idx) }
-fn set_pixel_memory_fn(buf: Buffer) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut[f32]](buf.data)(idx) = val }
-fn get_pixel_memory_fn(buf: Buffer) -> fn(i32) -> f32 { @|idx| bitcast[&[f32]](buf.data)(idx) }
+fn @set_pixel_fn(img: Img) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut[f32]](img.buf.data)(idx) = val }
+fn @get_pixel_fn(img: Img) -> fn(i32) -> f32 { @|idx| bitcast[&[f32]](img.buf.data)(idx) }
+fn @set_pixel_memory_fn(buf: Buffer) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut[f32]](buf.data)(idx) = val }
+fn @get_pixel_memory_fn(buf: Buffer) -> fn(i32) -> f32 { @|idx| bitcast[&[f32]](buf.data)(idx) }
 
 fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
     let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
@@ -12,7 +12,7 @@ fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, A
     for benchmark_cpu() {
         for y in outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) {
-                body(math, x, y, out_acc);
+                @@body(math, x, y, out_acc);
             }
         }
     }
@@ -25,7 +25,7 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
     for benchmark_cpu() {
         for y in outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) {
-                body(math, x, y, out_acc, arr_acc, mask);
+                @@body(math, x, y, out_acc, arr_acc, mask);
             }
         }
     }
@@ -48,7 +48,7 @@ fn @iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower:
 
             for y in range(bounds_col(0), bounds_col(1)) {
                 for x in inner_loop(bounds_row(0), bounds_row(1)) {
-                    body(math, x, y, out_acc, arr_acc, mask);
+                    @@body(math, x, y, out_acc, arr_acc, mask);
                 }
             }
         }
@@ -56,20 +56,20 @@ fn @iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower:
 }
 
 fn @tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> () {
-    fn get_step(lvl: i32) -> i32 { // size -> 2048 -> 1
+    fn @get_step(lvl: i32) -> i32 { // size -> 2048 -> 1
         if lvl == 0 { 2048 } else { 1 }
     }
     let x_upper = xu;
     let x_lower = xl;
 
-    fn tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
+    fn @(?cur_lvl) tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
         let step = get_step(cur_lvl);
         pe_info("step size", step);
 
         if step == 1 {
             for y in range(yl, yu) {
                 for x in range(xl, min(xu, x_upper)) {
-                    body(x, y);
+                    @@body(x, y);
                 }
             }
         } else {
@@ -83,7 +83,7 @@ fn @tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> 
     tile(0, xl, xu, yl, yu)
 }
 
-fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+fn @iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     // compute the number of vector strides for boundary handling
     let bhy = mask.size_y / 2;
     let bhx = round_up(mask.size_x / 2, get_vector_length());
@@ -103,7 +103,7 @@ fn iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower
                 _ =>
                     for y in range(bounds_col(0), bounds_col(1)) {
                         for x in inner_loop(bounds_row(0), bounds_row(1)) {
-                            body(math, x, y, out_acc, arr_acc, mask);
+                            @@body(math, x, y, out_acc, arr_acc, mask);
                         }
                     }
             }
@@ -123,14 +123,14 @@ fn @iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_
         for y in outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) {
                 let is_row = false;
-                body(math, x, y, tmp_acc_w, arr_acc, mask_col, is_row);
+                @@body(math, x, y, tmp_acc_w, arr_acc, mask_col, is_row);
             }
         }
 
         for y in outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) {
                 let is_row = true;
-                body(math, x, y, out_acc, tmp_acc_r, mask_row, is_row);
+                @@body(math, x, y, out_acc, tmp_acc_r, mask_row, is_row);
             }
         }
     }
@@ -156,7 +156,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
             for y in outer_loop_fun(bounds(0), bounds(1)) {
                 for x in inner_loop(0, out.width) {
                     let is_row = false;
-                    body(math, x, y, tmp_acc, arr_acc, mask_col, is_row);
+                    @@body(math, x, y, tmp_acc, arr_acc, mask_col, is_row);
                 }
             }
         }
@@ -170,7 +170,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
             for y in outer_loop_fun(0, out.height) {
                 for x in inner_loop(bounds(0), bounds(1)) {
                     let is_row = true;
-                    body(math, x, y, out_acc, tmp_acc, mask_row, is_row);
+                    @@body(math, x, y, out_acc, tmp_acc, mask_row, is_row);
                 }
             }
         }
@@ -201,7 +201,7 @@ fn @iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskS
                     let arr_acc = get_acc_bh_offset(arr, set_pixel_fn(arr), get_pixel_fn(arr), 0, y, region_col, bh_lower, bh_upper);
                     let tmp_acc = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), out.width, coarsening_factor);
                     for i in unroll(0, coarsening_factor) {
-                        body(math, x, i, tmp_acc, arr_acc, mask_col, is_row);
+                        @@body(math, x, i, tmp_acc, arr_acc, mask_col, is_row);
                     }
                 }
                 for boundary_row in iterate_1dregion() {
@@ -215,7 +215,7 @@ fn @iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskS
                         let tmp_acc = get_acc_bh_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), out.width, coarsening_factor, region_row, bh_lower, bh_upper);
                         let out_acc = get_acc_offset(out, set_pixel_fn(out), get_pixel_fn(out), 0, y);
                         for i in unroll(0, coarsening_factor) {
-                            body(math, x, i, out_acc, tmp_acc, mask_row, is_row);
+                            @@body(math, x, i, out_acc, tmp_acc, mask_row, is_row);
                         }
                     }
                 }

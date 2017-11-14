@@ -1,4 +1,4 @@
-fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(i32, i32, &mut[1][f32], &[1][f32]) -> ()) -> () {
+fn @iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(i32, i32, &mut[1][f32], &[1][f32]) -> ()) -> () {
     let num_dev  = 2;
     let ids_buf  = alloc_cpu(num_dev * sizeof[f32]());
     let ids      = bitcast[&mut[i32]](ids_buf.data);
@@ -19,7 +19,7 @@ fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(i
                 let (gidx,  gidy,  _) = gid;
                 let gid_x = gidx();
                 let gid_y = gidy();
-                body(gid_x, gid_y, bitcast[&mut[1][f32]](out_gpu.data), bitcast[&[1][f32]](arr_gpu.data));
+                @@body(gid_x, gid_y, bitcast[&mut[1][f32]](out_gpu.data), bitcast[&[1][f32]](arr_gpu.data));
             }
             acc.sync();
 

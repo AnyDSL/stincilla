@@ -5,7 +5,7 @@ fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     }
 }
 
-fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) -> () {
+fn @iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) -> () {
     let acc         = accelerator(device_id);
     let arr_buf_gpu = acc.alloc(width * height * sizeof[f32]());
     let out_buf_gpu = acc.alloc(width * height * sizeof[f32]());
@@ -23,13 +23,13 @@ fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i3
         let gid_y = gidy();
         let shared = reserve_shared[f32](block(0) * block(1));
         // arr -> shared
-        body(gid_x, gid_y,
-             |x, y|      { arr_gpu(y*width + x) },
-             |x, y, val| {  shared(tid_x) = val; });
+        @@body(gid_x, gid_y,
+               |x, y|      { arr_gpu(y*width + x) },
+               |x, y, val| {  shared(tid_x) = val; });
         // shared -> out
-        body(gid_x, gid_y,
-             |x, y|      {  shared(tid_x) },
-             |x, y, val| { out_gpu(y*width + x) = val; });
+        @@body(gid_x, gid_y,
+               |x, y|      {  shared(tid_x) },
+               |x, y, val| { out_gpu(y*width + x) = val; });
     }
     acc.sync();
 
