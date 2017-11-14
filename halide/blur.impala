@@ -45,7 +45,7 @@ fn @combine_xy(loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
     }
 }
 
-fn @tile_tmp_x(tile_x: i32, tile_y: i32, loop_y: Loop, inner_loop_x: Loop, body_x: ReadOp, extent: (i32, i32)) -> Loop_xy {
+fn @tile_tmp_x(tile_x: i32, tile_y: i32, inner_loop_x: Loop, loop_y: Loop, body_x: ReadOp, extent: (i32, i32)) -> Loop_xy {
     @|border: Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
         let (x_extent, y_extent) = extent;
 
@@ -206,8 +206,8 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
     // let schedule = combine_xy(range, range, (1, 1));
     // let schedule = combine_xy(vec(8), par(16), (1, 1));
 
-    // let schedule = tile_tmp_x(256, 32, par(0), vec(8), blur_x, (1, 1));
-    let schedule = tile_tmp_x(32, 16, par(0), vec(8), blur_x, (1, 1));
+    // let schedule = tile_tmp_x(256, 32, vec(8), par(0), blur_x, (1, 1));
+    let schedule = tile_tmp_x(32, 16, vec(8), par(0), blur_x, (1, 1));
 
     //let border = border_const(0);
     //let border = border_mirror();
