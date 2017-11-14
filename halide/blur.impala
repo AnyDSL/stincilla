@@ -11,9 +11,9 @@ type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
 type Loop_xy = fn(Border, i32, i32, i32, i32, fn(Read, i32, i32) -> ()) -> ();
 
 struct Img {
-    width: i32,
-    height: i32,
-    data: &[i32]
+    width  : i32,
+    height : i32,
+    data : &[i32]
 };
 
 fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y * img.width + x) }
@@ -39,7 +39,7 @@ fn @combine_xy(loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
                 let y_upper = y_region(region_y)(1);
                 loop_y(y_lower, y_upper, |yy|
                     loop_x(x_lower, x_upper, |xx|
-                            body(read, xx, yy)))
+                        body(read, xx, yy)))
             }
         }
     }
@@ -126,7 +126,7 @@ fn @tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop, extent: (i32, i32
                 } else {
                     loop_y(y_lower, y_upper, |y|
                         loop_x(x_lower, x_upper, |x|
-                              body(read, x, y)))
+                            body(read, x, y)))
                 }
             }
         }
@@ -141,6 +141,7 @@ fn par(num_threads: i32) -> Loop {
     |lower, upper, body| parallel(num_threads, lower, upper, body)
 }
 
+
 // compute
 
 fn @compute(input: Img, out: Img, border: ImgBorder, loop: Loop_xy, f: ReadOp) -> BinOp {
@@ -153,6 +154,7 @@ fn @compute(input: Img, out: Img, border: ImgBorder, loop: Loop_xy, f: ReadOp) -
     }
     |x, y| data(y * width + x)
 }
+
 
 // border handling
 
@@ -189,6 +191,7 @@ fn @border_mirror() -> ImgBorder {
     let mirror = @|x, w| if x < 0 { -x } else { if x >= w { w + w - x - 1 } else { x } };
     border_img(@|img, x, y| access(img, mirror(x, img.width), mirror(y, img.height)))
 }
+
 
 extern
 fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
