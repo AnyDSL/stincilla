@@ -1,13 +1,13 @@
 fn @(?lower & ?upper & ?step) may_unroll_step(lower: i32, upper: i32, @step: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
-        body(lower);
+        @@body(lower);
         may_unroll_step(lower+step, upper, step, body)
     }
 }
 
 fn @(?upper & ?lower & ?step) may_unroll_step_rev(upper: i32, lower: i32, @step: i32, body: fn(i32) -> ()) -> () {
     if upper > lower {
-        body(upper);
+        @@body(upper);
         may_unroll_step_rev(upper-step, lower, step, body)
     }
 }
