@@ -82,24 +82,26 @@ fn @apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32
 }
 
 // boundary handling functions
-fn @get_boundary(boundary: i32) -> Boundary {
-    match boundary {
-        0 => Boundary::Lower,
-        1 => Boundary::Center,
-        _ => Boundary::Upper
-    }
-}
 fn @get_bounds(lower: i32, upper: i32, bh_pixels: i32, boundary: Boundary) -> (i32, i32) {
     match boundary {
         Boundary::Lower  => (lower, bh_pixels),
         Boundary::Center => (bh_pixels, upper - bh_pixels),
-        _ /* Boundary::Upper */ => (upper - bh_pixels, upper)
+        Boundary::Upper  => (upper - bh_pixels, upper),
+        _                => undef()
+    }
+}
+fn @get_boundary(boundary: i32) -> Boundary {
+    match boundary {
+        0 => Boundary::Lower,
+        1 => Boundary::Center,
+        2 => Boundary::Upper,
+        _ => undef()
     }
 }
 fn @iterate_1dregion(body: fn(Boundary) -> ()) -> () {
     for row in unroll(0, 3) {
         let boundary = get_boundary(row);
-        body(boundary);
+        @@body(boundary);
     }
 }
 fn @iterate_2dregion(body: fn(Region) -> ()) -> () {
@@ -107,7 +109,7 @@ fn @iterate_2dregion(body: fn(Region) -> ()) -> () {
         let row_boundary = get_boundary(row);
         for col in unroll(0, 3) {
             let col_boundary = get_boundary(col);
-            body((row_boundary, col_boundary));
+            @@body((row_boundary, col_boundary));
         }
     }
 }
