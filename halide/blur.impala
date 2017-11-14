@@ -71,10 +71,9 @@ fn @tile_tmp_x(x_step: i32, y_step: i32, loop_y: Loop, inner_loop_x: Loop, body_
                     loop_y(0, (y_upper - y_lower) / y_step, |outer_y|
                         range(0, (x_upper - x_lower) / x_step, inner(outer_y)))
                 } else {
-                    // TODO: use body_x
-                    //loop_y(y_lower, y_upper, |y|
-                    //    range(x_lower, x_upper, |x|
-                    //        body(read, x, y)))
+                    loop_y(y_lower, y_upper, |y|
+                       range(x_lower, x_upper, |x|
+                          body(@|x, y| body_x(read, x, y), x, y)))
                 }
             }
         }
