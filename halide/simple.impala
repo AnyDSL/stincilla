@@ -13,21 +13,37 @@ struct Img {
 fn @clip(i: i32, a: i32, b: i32) -> i32 { min(max(i, a), b) }
 fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(clip(y, 0, img.height-1) * img.width + clip(x, 0, img.width-1)) }
 
+static gpu_dev = 0;
+fn @benchmark_gpu(body: fn() -> ()) -> () { total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(gpu_dev)) }
+
 fn combine_xy(loop_x: Loop, loop_y: Loop) -> Loop_xy {
-    |x, y, w, h, body: fn(i32, i32)->()| {
-        loop_y(y, h, |yy|
-            loop_x(x, w, |xx|
-                body(xx, yy)))
-    }
+    |x_lower, y_lower, x_upper, y_upper, body: fn(i32, i32)->()|
+        loop_y(y_lower, y_upper, |y|
+            loop_x(x_lower, x_upper, |x|
+                body(x, y)))
 }
 
-fn tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop) -> Loop_xy {
+fn tile(tile_x: i32, tile_y: i32, loop_x: Loop, loop_y: Loop) -> Loop_xy {
     |x_lower, y_lower, x_upper, y_upper, body|
-        loop_y(0, (y_upper - y_lower) / y_step, |ly|
-            range(ly * y_step + y_lower, (ly + 1) * y_step + y_lower, |ry|
-                range(0, (x_upper - x_lower) / x_step, |rx|
-                    loop_x(rx * x_step + x_lower, (rx + 1) * x_step + x_lower, |lx|
+        loop_y(0, (y_upper - y_lower) / tile_y, |ly|
+            range(ly * tile_y + y_lower, (ly + 1) * tile_y + y_lower, |ry|
+                range(0, (x_upper - x_lower) / tile_x, |rx|
+                    loop_x(rx * tile_x + x_lower, (rx + 1) * tile_x + x_lower, |lx|
                         body(lx, ry)))))
+}
+
+fn tile_gpu(tile_x: i32, tile_y: i32) -> Loop_xy {
+    |x_lower, y_lower, x_upper, y_upper, body: fn(i32, i32)->()| {
+        let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
+        let block = (tile_x, tile_y, 1);
+        let dev = 0;
+        cuda(dev, grid, block, || {
+            let x = cuda_threadIdx_x() + cuda_blockDim_x() * cuda_blockIdx_x();
+            let y = cuda_threadIdx_y() + cuda_blockDim_y() * cuda_blockIdx_y();
+            body(x, y)
+        });
+        synchronize_cuda(dev)
+    }
 }
 
 fn vec(vector_length: i32) -> Loop {
@@ -37,6 +53,7 @@ fn vec(vector_length: i32) -> Loop {
 fn par(num_threads: i32) -> Loop {
     |lower, upper, body| parallel(num_threads, lower, upper, body)
 }
+
 
 // compute
 
@@ -51,6 +68,7 @@ fn compute(out: Img, loop: Loop_xy, f: BinOp) -> BinOp {
     |x, y| data(y * width + x)
 }
 
+
 extern
 fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
     let img = Img{width: width, height: height, data: data};
@@ -60,13 +78,23 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
     let blur_x = |x, y| ( input(x-1, y) +  input(x, y) +  input(x+1, y)) / 3;
     let blur_y = |x, y| (blur_x(x, y-1) + blur_x(x, y) + blur_x(x, y+1)) / 3;
 
-    let schedule = tile(512, 32, vec(8), par(0));
-    //let schedule = tile(512, 32, range, par(0));
-    //let schedule = combine_xy(range, range);
-    //let schedule = tile(512, 32, range, range);
+    //let schedule_cpu = tile(512, 32, range, par(0));
+    //let schedule_cpu = combine_xy(range, range);
+    //let schedule_cpu = tile(512, 32, range, range);
 
-    with benchmark_cpu() {
-        compute(out, schedule, blur_y);
+    let schedule_cpu = tile(512, 32, vec(8), par(0));
+    let schedule_gpu = tile_gpu(32, 4);
+
+    let use_gpu = true;
+
+    if use_gpu {
+        with benchmark_gpu() {
+            compute(out, schedule_gpu, blur_y);
+        }
+    } else {
+        with benchmark_cpu() {
+            compute(out, schedule_cpu, blur_y);
+        }
     }
     print_total_timing();
 
