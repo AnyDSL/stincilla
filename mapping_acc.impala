@@ -46,7 +46,7 @@ fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, A
     let block  = (128, 1, 1);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -81,7 +81,7 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
     let grid       = (out.width, out.height / coarsening_factor, 1);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -124,7 +124,7 @@ fn @iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower:
         let grid = (out.width, out.height / coarsening_factor, 1);
 
         for benchmark_acc(acc) {
-            for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+            for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
                 let (tidx,  tidy,  _) = tid;
                 let (bidx,  bidy,  _) = bid;
                 let (bdimx, bdimy, _) = bdim;
@@ -200,7 +200,7 @@ fn @iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower:
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
             for benchmark_acc(acc) {
-                for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+                for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
                     let (tidx,  tidy,  _) = tid;
                     let (bidx,  bidy,  _) = bid;
                     let (bdimx, bdimy, _) = bdim;
@@ -244,7 +244,7 @@ fn @iteration_advanced(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lowe
     let steps_y   = coarsening_factor + (mask.size_y-1) / block(1) + offset_y;
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -305,7 +305,7 @@ fn @iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_
     let (block_col, _) = compute_config((1, mask_col.size / 2), coarsening_factor);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block_col) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block_col) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -328,7 +328,7 @@ fn @iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_
         }
     }
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block_row) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block_row) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -378,7 +378,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
         // column component
         for benchmark_acc(acc) {
             let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
-            for tid, bid, bdim, gdim, gid in acc.exec(grid, block_col) @{
+            for tid, bid, bdim, gdim, gid in acc.exec(grid, block_col) {
                 let (tidx,  tidy,  _) = tid;
                 let (bidx,  bidy,  _) = bid;
                 let (bdimx, bdimy, _) = bdim;
@@ -415,7 +415,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
 
         // row component
         for benchmark_acc(acc) {
-            for tid, bid, bdim, gdim, gid in acc.exec(grid, block_row) @{
+            for tid, bid, bdim, gdim, gid in acc.exec(grid, block_row) {
                 let (tidx,  tidy,  _) = tid;
                 let (bidx,  bidy,  _) = bid;
                 let (bdimx, bdimy, _) = bdim;
@@ -460,7 +460,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
             let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
 
             for benchmark_acc(acc) {
-                for tid, bid, bdim, gdim, gid in acc.exec(grid, block_col) @{
+                for tid, bid, bdim, gdim, gid in acc.exec(grid, block_col) {
                     let (tidx,  tidy,  _) = tid;
                     let (bidx,  bidy,  _) = bid;
                     let (bdimx, bdimy, _) = bdim;
@@ -490,7 +490,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
             for benchmark_acc(acc) {
-                for tid, bid, bdim, gdim, gid in acc.exec(grid, block_row) @{
+                for tid, bid, bdim, gdim, gid in acc.exec(grid, block_row) {
                     let (tidx,  tidy,  _) = tid;
                     let (bidx,  bidy,  _) = bid;
                     let (bdimx, bdimy, _) = bdim;
@@ -536,7 +536,7 @@ fn @iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskS
     let steps_y   = coarsening_factor + (mask_col.size-1) / block(1) + offset_y;
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;

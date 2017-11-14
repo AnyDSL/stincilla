@@ -18,7 +18,7 @@ fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
     copy(seed_buf, seed_gpu, width * height * sizeof[u64]());
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (gidx,  gidy,  _) = gid;
             let gid_x = gidx();
             let gid_y = gidy();

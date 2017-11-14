@@ -27,7 +27,7 @@ fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
     copy_imgi16(arr, arr_gpu);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -65,7 +65,7 @@ fn @iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bou
     copy_imgi16(arr, arr_gpu);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -105,7 +105,7 @@ fn @iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, b
     copy_img   (map, map_gpu);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -147,7 +147,7 @@ fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     copy_imgi16(tmp, tmp_gpu);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -188,7 +188,7 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     let grid  = (img_gpu.width, 1, 1);
     let block = (128, 1, 1);
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -237,12 +237,12 @@ fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     let grid  = (img.width, 1, 1);
     let block = (256, 1, 1);
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((256, 1, 1), (64, 1, 1)) @{
+        for tid, bid, bdim, gdim, gid in acc.exec((256, 1, 1), (64, 1, 1)) {
             let (gidx,  _,  _) = gid;
             let gid_x = gidx();
             hist(gid_x) = 0;
         }
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -278,7 +278,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     let block = (block_size, 1, 1);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -336,7 +336,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
         let grid1  = (num_blocks, 1, 1);
         let block1 = (num_blocks, 1, 1);
         for benchmark_acc(acc) {
-            for tid, bid, bdim, gdim, gid in acc.exec(grid1, block1) @{
+            for tid, bid, bdim, gdim, gid in acc.exec(grid1, block1) {
                 let (tidx, _,  _) = tid;
                 let tid_x = tidx();
                 let sm_size = num_blocks;
@@ -366,7 +366,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
         let grid2  = ((num_blocks-1) * block_size, 1, 1);
         let block2 = (block_size, 1, 1);
         for benchmark_acc(acc) {
-            for tid, bid, bdim, gdim, gid in acc.exec(grid2, block2) @{
+            for tid, bid, bdim, gdim, gid in acc.exec(grid2, block2) {
                 let (tidx,  tidy,  _) = tid;
                 let (bidx,  bidy,  _) = bid;
                 let (bdimx, bdimy, _) = bdim;
@@ -402,7 +402,7 @@ fn @find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 
     let grid  = (size, 1, 1);
     let block = (256, 1, 1);
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (gidx, _, _) = gid;
             let gid_x = gidx();
             if @@body(scan(gid_x)) != 0 {

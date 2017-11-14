@@ -15,7 +15,7 @@ fn @iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(
             let out_gpu = acc.alloc(size_gpu);
             copy_offset(arr, offset, arr_gpu, 0, size_gpu);
 
-            for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+            for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
                 let (gidx,  gidy,  _) = gid;
                 let gid_x = gidx();
                 let gid_y = gidy();

@@ -15,7 +15,7 @@ fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
     let block = (64, step, 1);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
