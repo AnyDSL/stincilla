@@ -19,12 +19,29 @@ struct Img {
 fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y * img.width + x) }
 
 fn @combine_xy(loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
-    // TODO: specialize for regions
-    @|border:Border, x, y, w, h, body: fn(Read, i32, i32)->()| {
-        let read = border((1, 1));
-        loop_y(y, h, |yy|
-            loop_x(x, w, |xx|
-                body(read, xx, yy)))
+    @|border: Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
+        let (x_extent, y_extent) = extent;
+
+        let x_lower_inner = x_lower + x_extent;
+        let y_lower_inner = y_lower + y_extent;
+        let x_upper_inner = x_upper - x_extent;
+        let y_upper_inner = y_upper - y_extent;
+
+        let x_region = [[x_lower, x_lower_inner], [x_lower_inner, x_upper_inner], [x_upper_inner, x_upper]];
+        let y_region = [[y_lower, y_lower_inner], [y_lower_inner, y_upper_inner], [y_upper_inner, y_upper]];
+
+        for region_y in unroll(0, 3) {
+            for region_x in unroll(0, 3) {
+                let read = border((region_x, region_y));
+                let x_lower = x_region(region_x)(0);
+                let y_lower = y_region(region_y)(0);
+                let x_upper = x_region(region_x)(1);
+                let y_upper = y_region(region_y)(1);
+                loop_y(y_lower, y_upper, |yy|
+                    loop_x(x_lower, x_upper, |xx|
+                            body(read, xx, yy)))
+            }
+        }
     }
 }
 
