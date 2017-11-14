@@ -134,9 +134,47 @@ fn @tile_gpu(tile_x: i32, tile_y: i32, extent: (i32, i32)) -> Loop_xy {
                     let y = y_lower + cuda_threadIdx_y() + cuda_blockDim_y() * cuda_blockIdx_y();
                     body(read, x, y)
                 });
-                synchronize_cuda(gpu_dev)
             }
         }
+        synchronize_cuda(gpu_dev)
+    }
+}
+
+fn @tile_gpu_tmp_x(tile_x: i32, tile_y: i32, body_pre: ReadOp, extent: (i32, i32)) -> Loop_xy {
+    @|border: Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
+        let (x_extent, y_extent) = extent;
+        for region_y in unroll(0, 3) {
+            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, y_extent, region_y);
+            for region_x in unroll(0, 3) {
+                let (x_lower, x_upper) = get_bounds(x_lower, x_upper, tile_x, x_extent, region_x);
+                let read  = border((region_x, region_y));
+                let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
+                let block = (tile_x, tile_y, 1);
+                cuda(gpu_dev, grid, block, || {
+                    let (tid_x, tid_y) = (cuda_threadIdx_x(), cuda_threadIdx_y());
+                    let gid_x = x_lower + tid_x + cuda_blockDim_x() * cuda_blockIdx_x();
+                    let gid_y = y_lower + tid_y + cuda_blockDim_y() * cuda_blockIdx_y();
+                    let (tmp_size_x, tmp_size_y) = (tile_x + 2 * x_extent, tile_y + 2 * y_extent);
+                    let tmp = reserve_shared[i32](tmp_size_x * tmp_size_y);
+
+                    let tmp_idx = @|x, y| { x_extent + x + (y_extent + y) * tmp_size_x };
+
+                    if tid_y < y_extent {
+                        tmp(tmp_idx(tid_x, tid_y - y_extent)) = body_pre(read, gid_x, gid_y - y_extent);
+                    }
+                    if tid_y >= tile_y - y_extent {
+                        tmp(tmp_idx(tid_x, tid_y + y_extent)) = body_pre(read, gid_x, gid_y + y_extent);
+                    }
+                    tmp(tmp_idx(tid_x, tid_y)) = body_pre(read, gid_x, gid_y);
+
+                    cuda_syncthreads();
+
+                    let tmp_read = @|x, y| tmp(tmp_idx(x - gid_x + tid_x, y - gid_y + tid_y));
+                    body(tmp_read, gid_x, gid_y)
+                });
+            }
+        }
+        synchronize_cuda(gpu_dev)
     }
 }
 
@@ -212,16 +250,17 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
 
     let blur_simple = @|read: Read, x: i32, y: i32| blur_y(@|x: i32, y: i32| blur_x(read, x, y), x, y);
 
-    // let schedule_cpu = combine_xy(range, range, (1, 1));
-    // let schedule_cpu = combine_xy(vec(8), par(16), (1, 1));
+    //let schedule_cpu = combine_xy(range, range, (1, 1));
+    //let schedule_cpu = combine_xy(vec(8), par(16), (1, 1));
 
-    // let schedule_cpu = tile(256, 32, vec(8), par(0), (1, 1));
-    // let schedule_cpu = tile(32, 16, vec(8), par(0), (1, 1));
+    //let schedule_cpu = tile(256, 32, vec(8), par(0), (1, 1));
+    //let schedule_cpu = tile(32, 16, vec(8), par(0), (1, 1));
 
-    // let schedule_cpu = tile_tmp_x(256, 32, vec(8), par(0), blur_x, (1, 1));
+    //let schedule_cpu = tile_tmp_x(256, 32, vec(8), par(0), blur_x, (1, 1));
     let schedule_cpu = tile_tmp_x(32, 16, vec(8), par(0), blur_x, (1, 1));
 
-    let schedule_gpu = tile_gpu(32, 4, (1, 1));
+    //let schedule_gpu = tile_gpu(32, 4, (1, 1));
+    let schedule_gpu = tile_gpu_tmp_x(32, 4, blur_x, (1, 1));
 
     //let border = border_const(0);
     //let border = border_mirror();
@@ -233,6 +272,7 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
         runtime_copy(runtime_device(0, 0), img.data as &[i8], 0i64, runtime_device(1, gpu_dev), img_gpu.data as &[i8], 0i64, (width * height * sizeof[i32]()) as i64);
 
         with benchmark_gpu() {
+            //compute(img_gpu, out_gpu, border, schedule_gpu, blur_simple);
             compute(img_gpu, out_gpu, border, schedule_gpu, blur_y);
         }
 
@@ -241,7 +281,7 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
         runtime_release(runtime_device(1, gpu_dev), out_gpu.data as &[i8]);
     } else {
         with benchmark_cpu() {
-            // compute(img, out, border, schedule_cpu, blur_simple);
+            //compute(img, out, border, schedule_cpu, blur_simple);
             compute(img, out, border, schedule_cpu, blur_y);
         }
     }
