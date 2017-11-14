@@ -46,7 +46,7 @@ fn @combine_xy(loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
 }
 
 fn @tile_tmp_x(x_step: i32, y_step: i32, loop_y: Loop, inner_loop_x: Loop, body_x: ReadOp, extent: (i32, i32)) -> Loop_xy {
-    |border:Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
+    @|border: Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
         let (x_extent, y_extent) = extent;
 
         let x_lower_aligned = round_up(x_lower + x_extent, x_step);
@@ -57,8 +57,8 @@ fn @tile_tmp_x(x_step: i32, y_step: i32, loop_y: Loop, inner_loop_x: Loop, body_
         let x_region = [[x_lower, x_lower_aligned], [x_lower_aligned, x_upper_aligned], [x_upper_aligned, x_upper]];
         let y_region = [[y_lower, y_lower_aligned], [y_lower_aligned, y_upper_aligned], [y_upper_aligned, y_upper]];
 
-        for region_y in unroll(0, 3) @{
-            for region_x in unroll(0, 3) @{
+        for region_y in unroll(0, 3) {
+            for region_x in unroll(0, 3) {
                 let read = border((region_x, region_y));
                 let x_lower = x_region(region_x)(0);
                 let y_lower = y_region(region_y)(0);
@@ -109,8 +109,8 @@ fn @tile(x_step: i32, y_step: i32, loop_x: Loop, loop_y: Loop, extent: (i32, i32
         let x_region = [[x_lower, x_lower_aligned], [x_lower_aligned, x_upper_aligned], [x_upper_aligned, x_upper]];
         let y_region = [[y_lower, y_lower_aligned], [y_lower_aligned, y_upper_aligned], [y_upper_aligned, y_upper]];
 
-        for region_y in unroll(0, 3) @{
-            for region_x in unroll(0, 3) @{
+        for region_y in unroll(0, 3) {
+            for region_x in unroll(0, 3) {
                 let read = border((region_x, region_y));
                 let x_lower = x_region(region_x)(0);
                 let y_lower = y_region(region_y)(0);
@@ -200,18 +200,18 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
 
     let blur_simple = @|read:Read, x:i32, y:i32| blur_y(@|x:i32, y:i32| blur_x(read, x, y), x, y);
 
-    //let schedule = combine_xy(range, range, (1, 1));
-    //let schedule = combine_xy(vec(8), par(16), (1, 1));
-    //let schedule = tile(256, 32, vec(8), par(4), (1, 1));
+    // let schedule = combine_xy(range, range, (1, 1));
+    // let schedule = combine_xy(vec(8), par(16), (1, 1));
 
-    let schedule = tile_tmp_x(256, 32, par(0), vec(8), blur_x, (1, 1));
+    // let schedule = tile_tmp_x(256, 32, par(0), vec(8), blur_x, (1, 1));
+    let schedule = tile_tmp_x(32, 16, par(0), vec(8), blur_x, (1, 1));
 
     //let border = border_const(0);
     //let border = border_mirror();
     let border = border_clamp();
 
     with benchmark_cpu() {
-        //compute(img, out, border, schedule, blur_simple);
+        // compute(img, out, border, schedule, blur_simple);
         compute(img, out, border, schedule, blur_y);
     }
     print_total_timing();
