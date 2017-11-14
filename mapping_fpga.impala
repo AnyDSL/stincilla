@@ -661,7 +661,7 @@ fn iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Boundar
             let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
             //let coarsening = FetchAndCalc(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
-            let coarsening = CalcAndPack (math, in_s, out_s, arr.width, mask, pFactor, bh_lower, bh_upper, body);
+            let coarsening = CalcAndPack (math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
 
             let process_time    = crsn_width * arr.height + 1;
             let initial_delay   = crsn_width * radius_y + win_lat - 1;
