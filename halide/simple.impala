@@ -36,13 +36,12 @@ fn tile_gpu(tile_x: i32, tile_y: i32) -> Loop_xy {
     |x_lower, y_lower, x_upper, y_upper, body: fn(i32, i32)->()| {
         let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
         let block = (tile_x, tile_y, 1);
-        let dev = 0;
-        cuda(dev, grid, block, || {
+        cuda(gpu_dev, grid, block, || {
             let x = cuda_threadIdx_x() + cuda_blockDim_x() * cuda_blockIdx_x();
             let y = cuda_threadIdx_y() + cuda_blockDim_y() * cuda_blockIdx_y();
             body(x, y)
         });
-        synchronize_cuda(dev)
+        synchronize_cuda(gpu_dev)
     }
 }
 
