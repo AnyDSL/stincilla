@@ -42,9 +42,16 @@ fn init_rand(arr: &mut[f32], width: i32, height: i32) -> () {
 fn @min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
 fn @max(a: i32, b: i32) -> i32 { if a > b { a } else { b } }
 
+fn @abs(x: i32) -> i32 { if x < 0 { -x } else { x } }
+
 // nearest multiple of num
 fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
 fn @round_down(num: i32, multiple: i32) -> i32 { (num / multiple) * multiple }
+
+fn @gcd(a: i32, b: i32) -> i32 {
+    if b == 0  { abs(a) } else { gcd(b, a % b) }
+}
+fn @lcm(a: i32, b: i32) -> i32 { abs(a * b) / gcd(a, b) }
 
 static mut total_kernel_timing = 0i64;
 static mut total_cpu_timing = 0i64;

@@ -1,14 +1,17 @@
 type Read = fn(i32, i32) -> pixel_t;
+type Write = fn(i32, i32, pixel_t) -> ();
 type BinOp = fn(i32, i32) -> pixel_t;
 
-type ReadOp = fn(Read, i32, i32) -> pixel_t;
+type StencilOp = fn(Read, i32, i32) -> pixel_t;
 
-type Region = (i32, i32);
-type Border = fn(Region) -> Read;
-type ImgBorder = fn(Img) -> Border;
+struct Extents {
+    x: i32,
+    y: i32
+};
 
-type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
-type Loop_xy = fn(Border, i32, i32, i32, i32, fn(Read, i32, i32) -> ()) -> ();
+fn @add_extents(e1: Extents, e2: Extents) -> Extents {
+    Extents { x: e1.x + e2.x, y: e1.y + e2.y }
+}
 
 struct Img {
     width  : i32,
@@ -16,24 +19,45 @@ struct Img {
     data : &[pixel_t]
 };
 
+type Region = (i32, i32);
+type Border = fn(Region, Read) -> Read;
+type ImgBorder = fn(Img) -> Border;
+
+type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
+type Schedule = fn(Read, i32, i32, i32, i32, Write) -> ();
 
 // compute
 
-fn @compute(input: Img, out: Img, border: ImgBorder, loop: Loop_xy, f: ReadOp) -> BinOp {
-    let width  = out.width;
-    let height = out.height;
-    let data   = bitcast[&mut[pixel_t]](out.data);
-
-    for read, x, y in loop(border(input), 0, 0, width, height) @{
-        data(y * width + x) = f(read, x, y);
-    }
-    |x, y| data(y * width + x)
+fn @compute(input: Img, out: Img, loop: Schedule) -> BinOp {
+    loop(img_read(input), 0, 0, out.width, out.height, img_write(out));
+    img_read(out)
 }
 
+// image read and write
+
+fn @img_read(img: Img) -> Read {
+    |x: i32, y: i32| -> i32 { img.data(y * img.width + x) }
+}
+
+fn @img_read_bounds(img: Img) -> Read {
+    |x: i32, y: i32| -> i32 {
+        if (x < 0 || x >= img.width || y < 0 || y >= img.height) {
+            print_string("OOB: "); print_i32(x); print_string(", "); print_i32(y);
+            print_string(" not in "); print_i32(img.width); print_string(" x "); print_i32(img.height);
+            print_string("\n");
+            return(128)
+        }
+
+        img_read(img)(x, y)
+    }
+}
+
+fn @img_write(img: Img) -> Write {
+    let data = bitcast[&mut[pixel_t]](img.data);
+    |x: i32, y: i32, v: i32| -> () { data(y * img.width + x) = v; }
+}
 
 // border handling
-
-fn @access(img: Img, x: i32, y: i32) -> pixel_t { img.data(y * img.width + x) }
 
 fn @clip(v: i32, a: i32, b: i32) -> i32 { min(max(v, a), b) }
 
@@ -48,143 +72,141 @@ fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
     check(rx, x, w) && check(ry, y, h)
 }
 
-fn @border_img(border: fn(Img, i32, i32) -> pixel_t) -> ImgBorder {
-    @|img| @|region| @|x, y| if is_within(region, x, y, img.width, img.height) {
-        access(img, x, y)
+fn @border_img(border: fn(Img, Read, i32, i32) -> pixel_t) -> ImgBorder {
+    @|img| @|region, read| @|x, y| if is_within(region, x, y, img.width, img.height) {
+        read(x, y)
     } else {
-        @@border(img, x, y)
+        @@border(img, read, x, y)
     }
 }
 
 fn @border_const(v: pixel_t) -> ImgBorder {
-    border_img(@|_, _, _| v)
+    border_img(|_, _, _, _| v)
 }
 
 fn @border_clamp() -> ImgBorder {
-    border_img(@|img, x, y| access(img, clip(x, 0, img.width-1), clip(y, 0, img.height-1)))
+    border_img(|img, read, x, y| read(clip(x, 0, img.width-1), clip(y, 0, img.height-1)))
 }
 
 fn @border_mirror() -> ImgBorder {
     let mirror = @|x, w| if x < 0 { -x } else { if x >= w { w + w - x - 1 } else { x } };
-    border_img(@|img, x, y| access(img, mirror(x, img.width), mirror(y, img.height)))
+    border_img(|img, read, x, y| read(mirror(x, img.width), mirror(y, img.height)))
 }
 
+// 1D loops
 
 fn vec(vector_length: i32) -> Loop {
-    |lower, upper, body| vectorize(vector_length, 32, lower, upper, body)
+    if vector_length == 1 {
+        range
+    } else {
+        |lower, upper, body| vectorize(vector_length, 32, lower, upper, body)
+    }
 }
 
 fn par(num_threads: i32) -> Loop {
     |lower, upper, body| parallel(num_threads, lower, upper, body)
 }
 
-fn @combine_xy(loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
-    @|border: Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
-        let (x_extent, y_extent) = extent;
-        let (tile_x, tile_y) = (1, 1);
 
-        for region_y in unroll(0, 3) {
-            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, y_extent, region_y);
-            for region_x in unroll(0, 3) {
-                let (x_lower, x_upper) = get_bounds(x_lower, x_upper, tile_x, x_extent, region_x);
-                let read = border((region_x, region_y));
-                loop_y(y_lower, y_upper, |yy|
-                    loop_x(x_lower, x_upper, |xx|
-                        body(read, xx, yy)))
-            }
-        }
+// 2D schedules
+
+fn @get_bounds(lower: i32, upper: i32, tile_size: i32, extent: i32, boundary: i32) -> (i32, i32) {
+    let lower_aligned = round_up(lower + extent, tile_size);
+    let upper_aligned = round_down(upper - extent, tile_size);
+    match boundary {
+        0 => (lower, lower_aligned),
+        1 => (lower_aligned, upper_aligned),
+        2 => (upper_aligned, upper),
+        _ => undef()
     }
 }
 
-fn @tile(tile_x: i32, tile_y: i32, loop_x: Loop, loop_y: Loop, extent: (i32, i32)) -> Loop_xy {
-    |border: Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
-        let (x_extent, y_extent) = extent;
-
+fn @handle_border(border: Border, align_x:i32, align_y:i32, loop_middle: Schedule, loop_border: Schedule, extents: Extents) -> Schedule {
+    |read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
         for region_y in unroll(0, 3) {
-            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, y_extent, region_y);
+            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, align_y, extents.y, region_y);
             for region_x in unroll(0, 3) {
-                let (x_lower, x_upper) = get_bounds(x_lower, x_upper, tile_x, x_extent, region_x);
-                let read = border((region_x, region_y));
-
+                let (x_lower, x_upper) = get_bounds(x_lower, x_upper, align_x, extents.x, region_x);
+                let border_read = border((region_x, region_y), read);
                 if region_x == 1 && region_y == 1 {
-                    loop_y(0, (y_upper - y_lower) / tile_y, |ly|
-                        range(ly * tile_y + y_lower, (ly + 1) * tile_y + y_lower, |ry|
-                            range(0, (x_upper - x_lower) / tile_x, |rx|
-                                loop_x(rx * tile_x + x_lower, (rx + 1) * tile_x + x_lower, |lx|
-                                    body(read, lx, ry)))))
+                    loop_middle(border_read, x_lower, y_lower, x_upper, y_upper, write);
                 } else {
-                    loop_y(y_lower, y_upper, |y|
-                        loop_x(x_lower, x_upper, |x|
-                            body(read, x, y)))
+                    loop_border(border_read, x_lower, y_lower, x_upper, y_upper, write);
                 }
             }
         }
     }
 }
 
-
-fn @tile_tmp_x(tile_x: i32, tile_y: i32, inner_loop_x: Loop, loop_y: Loop, body_pre: ReadOp, extent_pre: (i32, i32), extent: (i32, i32)) -> Loop_xy {
-    @|border: Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
-        let (x_extent, y_extent) = (extent(0) + extent_pre(0), extent(1) + extent_pre(1));
-
-        for region_y in unroll(0, 3) {
-            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, y_extent, region_y);
-            for region_x in unroll(0, 3) {
-                let (x_lower, x_upper)   = get_bounds(x_lower, x_upper, tile_x, x_extent, region_x);
-                let (x_extent, y_extent) = extent;
-                let read = border((region_x, region_y));
-
-                let inner = @|outer_y| @|outer_x| {
-                    let (tmp_size_x, tmp_size_y) = (tile_x + 2 * x_extent, tile_y + 2 * y_extent);
-                    let tmp = Img { width : tile_x, height : tile_y, data : ~[tmp_size_x*tmp_size_y:pixel_t] };
-                    let tmp_data = bitcast[&mut[pixel_t]](tmp.data);
-
-                    let tile_border = @|region| @|ix, iy| read(x_lower + outer_x * tile_x + ix, y_lower + outer_y * tile_y + iy);
-                    let inner_xy = combine_xy(inner_loop_x, range, (0, 0));
-
-                    for read, x, y in inner_xy(tile_border, 0, -1, tile_x, tile_y + 1) @{
-                        tmp_data((y+1) * tile_x + x) = body_pre(read, x, y);
-                    }
-
-                    let tmp_border = @|region| @|x, y| tmp_data((y - y_lower - outer_y * tile_y + 1) * tile_x + x - x_lower - outer_x * tile_x);
-                    for read, x, y in inner_xy(tmp_border, x_lower + outer_x * tile_x,
-                                                           y_lower + outer_y * tile_y,
-                                                           x_lower + (outer_x+1) * tile_x,
-                                                           y_lower + (outer_y+1) * tile_y) @{ body(read, x, y); }
-                    runtime_release(0, bitcast[&[i8]](tmp.data));
-                };
-
-                if region_x == 1 && region_y == 1 {
-                    loop_y(0, (y_upper - y_lower) / tile_y, |outer_y|
-                        range(0, (x_upper - x_lower) / tile_x, inner(outer_y)))
-                } else {
-                    loop_y(y_lower, y_upper, |y|
-                       range(x_lower, x_upper, |x|
-                          body(@|x, y| body_pre(read, x, y), x, y)))
-                }
+fn @combine_xy(loop_x: Loop, loop_y: Loop, stencil: StencilOp) -> Schedule {
+    @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+        for y in loop_y(y_lower, y_upper) {
+            for x in loop_x(x_lower, x_upper) {
+                write(x, y, stencil(read, x, y))
             }
         }
     }
 }
 
+fn @produce_root(loop1: Schedule, loop2: Schedule, extents2: Extents) -> Schedule {
+    @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+        let width = x_upper - x_lower;
+        let height = y_upper - y_lower;
+
+        let tmp_width = width + extents2.x * 2;
+        let tmp_height = height + extents2.y * 2;
+        let tmp = Img { width : tmp_width, height : tmp_height, data : ~[tmp_width * tmp_height:i32] };
+
+        let read_outer = @|ix, iy| read(x_lower + ix, y_lower + iy);
+
+        for ix, iy, value in loop1(read_outer, -extents2.x, -extents2.y, width + extents2.x, height + extents2.y) @{
+            img_write(tmp)(ix + extents2.x, iy + extents2.y, value);
+        }
+
+        let read_tmp = @|ix, iy| { img_read(tmp)(ix + extents2.x, iy + extents2.y) };
+
+        for ix, iy, value in loop2(read_tmp, 0, 0, width, height) {
+            write(x_lower + ix, y_lower + iy, value);
+        }
+        runtime_release(0, bitcast[&[i8]](tmp.data));
+    }
+}
+
+fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Schedule {
+    @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+        for y_tile in y_loop(0, (y_upper - y_lower) / tile_height) {
+            for x_tile in range(0, (x_upper - x_lower) / tile_width) {
+                let to_img_x = @|ix| x_lower + x_tile * tile_width + ix;
+                let to_img_y = @|iy| y_lower + y_tile * tile_height + iy;
+
+                let tile_read = @|ix, iy| read(to_img_x(ix), to_img_y(iy));
+
+                for ix, iy, value in inner(tile_read, 0, 0, tile_width, tile_height) @{
+                    write(to_img_x(ix), to_img_y(iy), value)
+                }
+            }
+        }
+    }
+}
 
 static cuda_dev = 0;
-fn @benchmark_cuda(body: fn() -> ()) -> () { total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev)) }
+fn @benchmark_cuda(body: fn() -> ()) -> () {
+    total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev))
+}
 
-fn @tile_cuda(tile_x: i32, tile_y: i32, extent: (i32, i32)) -> Loop_xy {
-    |border: Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
-        let (x_extent, y_extent) = extent;
+fn @tile_cuda(border: Border, tile_x: i32, tile_y: i32, stencil: StencilOp, extents: Extents) -> Schedule {
+    @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
         for region_y in unroll(0, 3) {
-            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, y_extent, region_y);
+            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, extents.y, region_y);
             for region_x in unroll(0, 3) {
-                let (x_lower, x_upper) = get_bounds(x_lower, x_upper, tile_x, x_extent, region_x);
-                let read = border((region_x, region_y));
+                let (x_lower, x_upper) = get_bounds(x_lower, x_upper, tile_x, extents.x, region_x);
+                let read = border((region_x, region_y), read);
                 let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
                 let block = (tile_x, tile_y, 1);
                 cuda(cuda_dev, grid, block, || {
                     let x = x_lower + cuda_threadIdx_x() + cuda_blockDim_x() * cuda_blockIdx_x();
                     let y = y_lower + cuda_threadIdx_y() + cuda_blockDim_y() * cuda_blockIdx_y();
-                    body(read, x, y)
+                    write(x, y, stencil(read, x, y))
                 });
             }
         }
@@ -192,15 +214,15 @@ fn @tile_cuda(tile_x: i32, tile_y: i32, extent: (i32, i32)) -> Loop_xy {
     }
 }
 
-fn @tile_cuda_tmp(tile_x: i32, tile_y: i32, body_pre: ReadOp, extent_pre: (i32, i32), extent: (i32, i32)) -> Loop_xy {
-    @|border: Border, x_lower, y_lower, x_upper, y_upper, body: fn(Read, i32, i32)->()| {
-        let (x_extent, y_extent) = (extent(0) + extent_pre(0), extent(1) + extent_pre(1));
+fn @tile_cuda_tmp(border: Border, tile_x: i32, tile_y: i32, stencil1: StencilOp, stencil2: StencilOp, extents1: Extents, extents2: Extents) -> Schedule {
+    @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+        let extents = add_extents(extents1, extents2);
         for region_y in unroll(0, 3) {
-            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, y_extent, region_y);
+            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, extents.y, region_y);
             for region_x in unroll(0, 3) {
-                let (x_lower, x_upper)   = get_bounds(x_lower, x_upper, tile_x, x_extent, region_x);
-                let (x_extent, y_extent) = extent;
-                let read  = border((region_x, region_y));
+                let (x_lower, x_upper)   = get_bounds(x_lower, x_upper, tile_x, extents.x, region_x);
+                let (x_extent, y_extent) = (extents2.x, extents2.y);
+                let read  = border((region_x, region_y), read);
                 let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
                 let block = (tile_x, tile_y, 1);
                 cuda(cuda_dev, grid, block, || {
@@ -213,17 +235,17 @@ fn @tile_cuda_tmp(tile_x: i32, tile_y: i32, body_pre: ReadOp, extent_pre: (i32, 
                     let tmp_idx = @|x, y| { x_extent + x + (y_extent + y) * tmp_size_x };
 
                     if tid_y < y_extent {
-                        tmp(tmp_idx(tid_x, tid_y - y_extent)) = body_pre(read, gid_x, gid_y - y_extent);
+                        tmp(tmp_idx(tid_x, tid_y - y_extent)) = stencil1(read, gid_x, gid_y - y_extent);
                     }
                     if tid_y >= tile_y - y_extent {
-                        tmp(tmp_idx(tid_x, tid_y + y_extent)) = body_pre(read, gid_x, gid_y + y_extent);
+                        tmp(tmp_idx(tid_x, tid_y + y_extent)) = stencil1(read, gid_x, gid_y + y_extent);
                     }
-                    tmp(tmp_idx(tid_x, tid_y)) = body_pre(read, gid_x, gid_y);
+                    tmp(tmp_idx(tid_x, tid_y)) = stencil1(read, gid_x, gid_y);
 
                     cuda_syncthreads();
 
                     let tmp_read = @|x, y| tmp(tmp_idx(x - gid_x + tid_x, y - gid_y + tid_y));
-                    body(tmp_read, gid_x, gid_y)
+                    write(gid_x, gid_y, stencil2(tmp_read, gid_x, gid_y))
                 });
             }
         }
@@ -231,14 +253,3 @@ fn @tile_cuda_tmp(tile_x: i32, tile_y: i32, body_pre: ReadOp, extent_pre: (i32, 
     }
 }
 
-
-fn @get_bounds(lower: i32, upper: i32, tile_size: i32, extent: i32, boundary: i32) -> (i32, i32) {
-    let lower_aligned = round_up(lower + extent, tile_size);
-    let upper_aligned = round_down(upper - extent, tile_size);
-    match boundary {
-      0 => (lower, lower_aligned),
-      1 => (lower_aligned, upper_aligned),
-      2 => (upper_aligned, upper),
-      _ => undef()
-    }
-}
