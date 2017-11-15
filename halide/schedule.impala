@@ -1,3 +1,75 @@
+type Read = fn(i32, i32) -> i32;
+type BinOp = fn(i32, i32) -> i32;
+
+type ReadOp = fn(Read, i32, i32) -> i32;
+
+type Region = (i32, i32);
+type Border = fn(Region) -> Read;
+type ImgBorder = fn(Img) -> Border;
+
+type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
+type Loop_xy = fn(Border, i32, i32, i32, i32, fn(Read, i32, i32) -> ()) -> ();
+
+struct Img {
+    width  : i32,
+    height : i32,
+    data : &[i32]
+};
+
+
+// compute
+
+fn @compute(input: Img, out: Img, border: ImgBorder, loop: Loop_xy, f: ReadOp) -> BinOp {
+    let width  = out.width;
+    let height = out.height;
+    let data   = bitcast[&mut[i32]](out.data);
+
+    for read, x, y in loop(border(input), 0, 0, width, height) @{
+        data(y * width + x) = f(read, x, y);
+    }
+    |x, y| data(y * width + x)
+}
+
+
+// border handling
+
+fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y * img.width + x) }
+
+fn @clip(v: i32, a: i32, b: i32) -> i32 { min(max(v, a), b) }
+
+fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
+    let (rx, ry) = region;
+    pe_info("region", region);
+    let check = @|region, idx, upper| match region {
+        0 => 0 <= idx,
+        2 => idx < upper,
+        _ => true
+    };
+    check(rx, x, w) && check(ry, y, h)
+}
+
+fn @border_img(border: fn(Img, i32, i32) -> i32) -> ImgBorder {
+    @|img| @|region| @|x, y| if is_within(region, x, y, img.width, img.height) {
+        access(img, x, y)
+    } else {
+        @@border(img, x, y)
+    }
+}
+
+fn @border_const(v: i32) -> ImgBorder {
+    border_img(@|_, _, _| v)
+}
+
+fn @border_clamp() -> ImgBorder {
+    border_img(@|img, x, y| access(img, clip(x, 0, img.width-1), clip(y, 0, img.height-1)))
+}
+
+fn @border_mirror() -> ImgBorder {
+    let mirror = @|x, w| if x < 0 { -x } else { if x >= w { w + w - x - 1 } else { x } };
+    border_img(@|img, x, y| access(img, mirror(x, img.width), mirror(y, img.height)))
+}
+
+
 fn vec(vector_length: i32) -> Loop {
     |lower, upper, body| vectorize(vector_length, 32, lower, upper, body)
 }
