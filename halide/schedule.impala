@@ -73,10 +73,16 @@ fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
 }
 
 fn @border_img(border: fn(Img, Read, i32, i32) -> pixel_t) -> ImgBorder {
-    @|img| @|region, read| @|x, y| if is_within(region, x, y, img.width, img.height) {
-        read(x, y)
-    } else {
-        @@border(img, read, x, y)
+    @|img| @|region, read| @|x, y| {
+        if region(0) == -1 {
+            @@border(img, read, x, y)
+        } else {
+            if is_within(region, x, y, img.width, img.height) {
+                read(x, y)
+            } else {
+                @@border(img, read, x, y)
+            }
+        }
     }
 }
 
@@ -126,6 +132,13 @@ fn @iterate_regions(lower: i32, upper: i32, tile_size: i32, extent: i32, body: f
             };
             @@body(lower, upper, region);
         }
+    }
+}
+
+fn @dummy_border(border: Border, align_x:i32, align_y:i32, loop: Schedule) -> Schedule {
+    |read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+        let border_read = border((-1, -1), read);
+        loop(border_read, x_lower, y_lower, x_upper, y_upper, write);
     }
 }
 
