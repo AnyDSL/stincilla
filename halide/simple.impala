@@ -13,8 +13,8 @@ struct Img {
 fn @clip(i: i32, a: i32, b: i32) -> i32 { min(max(i, a), b) }
 fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(clip(y, 0, img.height-1) * img.width + clip(x, 0, img.width-1)) }
 
-static gpu_dev = 0;
-fn @benchmark_gpu(body: fn() -> ()) -> () { total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(gpu_dev)) }
+static cuda_dev = 0;
+fn @benchmark_cuda(body: fn() -> ()) -> () { total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev)) }
 
 fn combine_xy(loop_x: Loop, loop_y: Loop) -> Loop_xy {
     |x_lower, y_lower, x_upper, y_upper, body: fn(i32, i32)->()|
@@ -32,16 +32,16 @@ fn tile(tile_x: i32, tile_y: i32, loop_x: Loop, loop_y: Loop) -> Loop_xy {
                         body(lx, ry)))))
 }
 
-fn tile_gpu(tile_x: i32, tile_y: i32) -> Loop_xy {
+fn tile_cuda(tile_x: i32, tile_y: i32) -> Loop_xy {
     |x_lower, y_lower, x_upper, y_upper, body: fn(i32, i32)->()| {
         let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
         let block = (tile_x, tile_y, 1);
-        cuda(gpu_dev, grid, block, || {
+        cuda(cuda_dev, grid, block, || {
             let x = cuda_threadIdx_x() + cuda_blockDim_x() * cuda_blockIdx_x();
             let y = cuda_threadIdx_y() + cuda_blockDim_y() * cuda_blockIdx_y();
             body(x, y)
         });
-        synchronize_cuda(gpu_dev)
+        synchronize_cuda(cuda_dev)
     }
 }
 
@@ -81,14 +81,14 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
     //let schedule_cpu = combine_xy(range, range);
     //let schedule_cpu = tile(512, 32, range, range);
 
-    let schedule_cpu = tile(512, 32, vec(8), par(0));
-    let schedule_gpu = tile_gpu(32, 4);
+    let schedule_cpu  = tile(512, 32, vec(8), par(0));
+    let schedule_cuda = tile_cuda(32, 4);
 
-    let use_gpu = true;
+    let use_cuda = true;
 
-    if use_gpu {
-        with benchmark_gpu() {
-            compute(out, schedule_gpu, blur_y);
+    if use_cuda {
+        with benchmark_cuda() {
+            compute(out, schedule_cuda, blur_y);
         }
     } else {
         with benchmark_cpu() {
