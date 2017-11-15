@@ -1,7 +1,7 @@
-type Read = fn(i32, i32) -> i32;
-type BinOp = fn(i32, i32) -> i32;
+type Read = fn(i32, i32) -> pixel_t;
+type BinOp = fn(i32, i32) -> pixel_t;
 
-type ReadOp = fn(Read, i32, i32) -> i32;
+type ReadOp = fn(Read, i32, i32) -> pixel_t;
 
 type Region = (i32, i32);
 type Border = fn(Region) -> Read;
@@ -13,7 +13,7 @@ type Loop_xy = fn(Border, i32, i32, i32, i32, fn(Read, i32, i32) -> ()) -> ();
 struct Img {
     width  : i32,
     height : i32,
-    data : &[i32]
+    data : &[pixel_t]
 };
 
 
@@ -22,7 +22,7 @@ struct Img {
 fn @compute(input: Img, out: Img, border: ImgBorder, loop: Loop_xy, f: ReadOp) -> BinOp {
     let width  = out.width;
     let height = out.height;
-    let data   = bitcast[&mut[i32]](out.data);
+    let data   = bitcast[&mut[pixel_t]](out.data);
 
     for read, x, y in loop(border(input), 0, 0, width, height) @{
         data(y * width + x) = f(read, x, y);
@@ -33,7 +33,7 @@ fn @compute(input: Img, out: Img, border: ImgBorder, loop: Loop_xy, f: ReadOp) -
 
 // border handling
 
-fn @access(img: Img, x: i32, y:  i32) -> i32 { img.data(y * img.width + x) }
+fn @access(img: Img, x: i32, y: i32) -> pixel_t { img.data(y * img.width + x) }
 
 fn @clip(v: i32, a: i32, b: i32) -> i32 { min(max(v, a), b) }
 
@@ -48,7 +48,7 @@ fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
     check(rx, x, w) && check(ry, y, h)
 }
 
-fn @border_img(border: fn(Img, i32, i32) -> i32) -> ImgBorder {
+fn @border_img(border: fn(Img, i32, i32) -> pixel_t) -> ImgBorder {
     @|img| @|region| @|x, y| if is_within(region, x, y, img.width, img.height) {
         access(img, x, y)
     } else {
@@ -56,7 +56,7 @@ fn @border_img(border: fn(Img, i32, i32) -> i32) -> ImgBorder {
     }
 }
 
-fn @border_const(v: i32) -> ImgBorder {
+fn @border_const(v: pixel_t) -> ImgBorder {
     border_img(@|_, _, _| v)
 }
 
@@ -136,8 +136,8 @@ fn @tile_tmp_x(tile_x: i32, tile_y: i32, inner_loop_x: Loop, loop_y: Loop, body_
 
                 let inner = @|outer_y| @|outer_x| {
                     let (tmp_size_x, tmp_size_y) = (tile_x + 2 * x_extent, tile_y + 2 * y_extent);
-                    let tmp = Img { width : tile_x, height : tile_y, data : ~[tmp_size_x*tmp_size_y:i32] };
-                    let tmp_data = bitcast[&mut[i32]](tmp.data);
+                    let tmp = Img { width : tile_x, height : tile_y, data : ~[tmp_size_x*tmp_size_y:pixel_t] };
+                    let tmp_data = bitcast[&mut[pixel_t]](tmp.data);
 
                     let tile_border = @|region| @|ix, iy| read(x_lower + outer_x * tile_x + ix, y_lower + outer_y * tile_y + iy);
                     let inner_xy = combine_xy(inner_loop_x, range, (0, 0));
@@ -208,7 +208,7 @@ fn @tile_cuda_tmp(tile_x: i32, tile_y: i32, body_pre: ReadOp, extent_pre: (i32, 
                     let gid_x = x_lower + tid_x + cuda_blockDim_x() * cuda_blockIdx_x();
                     let gid_y = y_lower + tid_y + cuda_blockDim_y() * cuda_blockIdx_y();
                     let (tmp_size_x, tmp_size_y) = (tile_x + 2 * x_extent, tile_y + 2 * y_extent);
-                    let tmp = reserve_shared[i32](tmp_size_x * tmp_size_y);
+                    let tmp = reserve_shared[pixel_t](tmp_size_x * tmp_size_y);
 
                     let tmp_idx = @|x, y| { x_extent + x + (y_extent + y) * tmp_size_x };
 
