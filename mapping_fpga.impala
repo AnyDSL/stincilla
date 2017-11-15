@@ -41,6 +41,12 @@ fn get_global_stream_vec16(data: &[i8]) -> stream_in {
     fn read(idx: int) -> pixel_t { value(idx) }
     stream_in { update: update, read: read, pFactor: 16 }
 }
+fn get_global_stream_vec32(data: &[i8]) -> stream_in {
+    let mut value = undef[[pixel_t * 32]]();
+    fn update(idx : int) -> () { value = bitcast[&[1][[pixel_t * 32]]](bitcast[&[1][pixel_t]](data))(idx); }
+    fn read(idx: int) -> pixel_t { value(idx) }
+    stream_in { update: update, read: read, pFactor: 32 }
+}
 fn get_global_stream_from_img(img: Img,  pFactor: int) -> stream_in {
         match pFactor {
              1 => get_global_stream_vec1(img.buf.data),
@@ -48,6 +54,7 @@ fn get_global_stream_from_img(img: Img,  pFactor: int) -> stream_in {
              4 => get_global_stream_vec4(img.buf.data),
              8 => get_global_stream_vec8(img.buf.data),
             16 => get_global_stream_vec16(img.buf.data),
+            32 => get_global_stream_vec32(img.buf.data),
             _ => undef[stream_in]()
         }
 }
@@ -82,6 +89,12 @@ fn set_global_stream_vec16(data: &[i8]) -> stream_out {
     fn write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     stream_out { update: update, write : write, pFactor : 16 }
 }
+fn set_global_stream_vec32(data: &[i8]) -> stream_out {
+    let mut value = undef[[pixel_t * 32]]();
+    fn update(idx : int) -> () { bitcast[&mut[1][[pixel_t * 32]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
+    fn write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    stream_out { update: update, write : write, pFactor : 32 }
+}
 fn set_global_stream_from_img(img: Img,  pFactor: int) -> stream_out {
         match pFactor {
              1 => set_global_stream_vec1(img.buf.data),
@@ -89,6 +102,7 @@ fn set_global_stream_from_img(img: Img,  pFactor: int) -> stream_out {
              4 => set_global_stream_vec4(img.buf.data),
              8 => set_global_stream_vec8(img.buf.data),
             16 => set_global_stream_vec16(img.buf.data),
+            32 => set_global_stream_vec32(img.buf.data),
             _ => undef[stream_out]()
         }
 }
@@ -178,6 +192,29 @@ fn new_shared_line_vec16(in_s: stream_in, width: int) -> stream_in {
         pFactor : 16
     }
 }
+fn new_shared_line_vec32(in_s: stream_in, width: int) -> stream_in {
+    let mut value = undef[[pixel_t * 32]]();
+    let lbuf = reserve_shared[[pixel_t * 32]](width);
+
+    fn shift(col: int) -> () {
+        value     = lbuf(col);
+        let dlbin = [in_s.read(0),  in_s.read(1),  in_s.read(2),  in_s.read(3),
+                     in_s.read(4),  in_s.read(5),  in_s.read(6),  in_s.read(7),
+                     in_s.read(8),  in_s.read(9),  in_s.read(10), in_s.read(11),
+                     in_s.read(12), in_s.read(13), in_s.read(14), in_s.read(15),
+                     in_s.read(16), in_s.read(17), in_s.read(18), in_s.read(19),
+                     in_s.read(20), in_s.read(21), in_s.read(22), in_s.read(23),
+                     in_s.read(24), in_s.read(25), in_s.read(26), in_s.read(27),
+                     in_s.read(28), in_s.read(29), in_s.read(30), in_s.read(31)];
+        lbuf(col) = dlbin;
+    }
+
+    stream_in {
+        read   : |v| value(v),
+        update : shift,
+        pFactor : 32
+    }
+}
 fn new_shared_line(in_s: stream_in, width: int) -> stream_in {
         match in_s.pFactor {
              1 => new_shared_line_vec1(in_s, width),
@@ -185,6 +222,7 @@ fn new_shared_line(in_s: stream_in, width: int) -> stream_in {
              4 => new_shared_line_vec4(in_s, width),
              8 => new_shared_line_vec8(in_s, width),
             16 => new_shared_line_vec16(in_s, width),
+            32 => new_shared_line_vec32(in_s, width),
             _ => undef[stream_in]()
         }
 }
