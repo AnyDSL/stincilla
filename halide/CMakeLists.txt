@@ -1,7 +1,7 @@
 anydsl_runtime_wrap(HALIDE_BLUR_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../utils.impala blur.impala)
+    FILES ../${BACKEND_FILE} ../utils.impala schedule.impala blur.impala)
 add_executable(blur blur.cpp ${HALIDE_BLUR_PROGRAM})
 target_link_libraries(blur ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(blur PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
