@@ -58,10 +58,8 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     // let border = border_mirror();
     let border = border_clamp();
 
-    let align_x = lcm(tile_width, vec_size_x); let align_y = lcm(tile_height, vec_size_y);
-
     // --- bake everything together with border handling ---
-    let schedule_cpu = handle_border(border(img), align_x, align_y, middle_schedule, border_schedule, blur_extents);
+    let schedule_cpu = handle_border(border(img), tile_width, tile_height, middle_schedule, border_schedule, blur_extents);
 
     // let schedule_cuda = tile_cuda(border(img), 32, 4, blur, blur_extents);
     let schedule_cuda = tile_cuda_tmp(border(img), 32, 4, blur_x, blur_y, blur_x_extents, blur_y_extents);

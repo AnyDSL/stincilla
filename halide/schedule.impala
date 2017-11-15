@@ -36,16 +36,16 @@ fn @compute(input: Img, out: Img, loop: Schedule) -> BinOp {
 // image read and write
 
 fn @img_read(img: Img) -> Read {
-    |x: i32, y: i32| -> i32 { img.data(y * img.width + x) }
+    |x: i32, y: i32| -> pixel_t { img.data(y * img.width + x) }
 }
 
 fn @img_read_bounds(img: Img) -> Read {
-    |x: i32, y: i32| -> i32 {
+    |x: i32, y: i32| -> pixel_t {
         if (x < 0 || x >= img.width || y < 0 || y >= img.height) {
             print_string("OOB: "); print_i32(x); print_string(", "); print_i32(y);
             print_string(" not in "); print_i32(img.width); print_string(" x "); print_i32(img.height);
             print_string("\n");
-            return(128)
+            return(128 as pixel_t)
         }
 
         img_read(img)(x, y)
@@ -54,7 +54,7 @@ fn @img_read_bounds(img: Img) -> Read {
 
 fn @img_write(img: Img) -> Write {
     let data = bitcast[&mut[pixel_t]](img.data);
-    |x: i32, y: i32, v: i32| -> () { data(y * img.width + x) = v; }
+    |x: i32, y: i32, v: pixel_t| -> () { data(y * img.width + x) = v; }
 }
 
 // border handling
@@ -155,7 +155,7 @@ fn @produce_root(loop1: Schedule, loop2: Schedule, extents2: Extents) -> Schedul
 
         let tmp_width = width + extents2.x * 2;
         let tmp_height = height + extents2.y * 2;
-        let tmp = Img { width : tmp_width, height : tmp_height, data : ~[tmp_width * tmp_height:i32] };
+        let tmp = Img { width : tmp_width, height : tmp_height, data : ~[tmp_width * tmp_height:pixel_t] };
 
         let read_outer = @|ix, iy| read(x_lower + ix, y_lower + iy);
 
