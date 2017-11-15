@@ -5,8 +5,8 @@ type BinOp = fn(i32, i32) -> pixel_t;
 type StencilOp = fn(Read, i32, i32) -> pixel_t;
 
 struct Extents {
-    x: i32,
-    y: i32
+    x : i32,
+    y : i32
 };
 
 fn @add_extents(e1: Extents, e2: Extents) -> Extents {
@@ -110,23 +110,29 @@ fn par(num_threads: i32) -> Loop {
 
 // 2D schedules
 
-fn @get_bounds(lower: i32, upper: i32, tile_size: i32, extent: i32, boundary: i32) -> (i32, i32) {
-    let lower_aligned = round_up(lower + extent, tile_size);
-    let upper_aligned = round_down(upper - extent, tile_size);
-    match boundary {
-        0 => (lower, lower_aligned),
-        1 => (lower_aligned, upper_aligned),
-        2 => (upper_aligned, upper),
-        _ => undef()
+fn @iterate_regions(lower: i32, upper: i32, tile_size: i32, extent: i32, body: fn(i32, i32, i32) -> ()) -> () {
+    if extent == 0 {
+        let region = 1;
+        @@body(lower, upper, 1);
+    } else {
+        let lower_aligned = round_up(lower + extent, tile_size);
+        let upper_aligned = round_down(upper - extent, tile_size);
+        for region in unroll(0, 3) {
+            let (lower, upper) = match region {
+                0 => (lower, lower_aligned),
+                1 => (lower_aligned, upper_aligned),
+                2 => (upper_aligned, upper),
+                _ => undef()
+            };
+            @@body(lower, upper, region);
+        }
     }
 }
 
 fn @handle_border(border: Border, align_x:i32, align_y:i32, loop_middle: Schedule, loop_border: Schedule, extents: Extents) -> Schedule {
     |read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
-        for region_y in unroll(0, 3) {
-            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, align_y, extents.y, region_y);
-            for region_x in unroll(0, 3) {
-                let (x_lower, x_upper) = get_bounds(x_lower, x_upper, align_x, extents.x, region_x);
+        for y_lower, y_upper, region_y in iterate_regions(y_lower, y_upper, align_y, extents.y) {
+            for x_lower, x_upper, region_x in iterate_regions(x_lower, x_upper, align_x, extents.x) {
                 let border_read = border((region_x, region_y), read);
                 if region_x == 1 && region_y == 1 {
                     loop_middle(border_read, x_lower, y_lower, x_upper, y_upper, write);
@@ -150,10 +156,10 @@ fn @combine_xy(loop_x: Loop, loop_y: Loop, stencil: StencilOp) -> Schedule {
 
 fn @produce_root(loop1: Schedule, loop2: Schedule, extents2: Extents) -> Schedule {
     @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
-        let width = x_upper - x_lower;
+        let width  = x_upper - x_lower;
         let height = y_upper - y_lower;
 
-        let tmp_width = width + extents2.x * 2;
+        let tmp_width  = width  + extents2.x * 2;
         let tmp_height = height + extents2.y * 2;
         let tmp = Img { width : tmp_width, height : tmp_height, data : ~[tmp_width * tmp_height:pixel_t] };
 
@@ -189,67 +195,50 @@ fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Sc
     }
 }
 
+
 static cuda_dev = 0;
 fn @benchmark_cuda(body: fn() -> ()) -> () {
     total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev))
 }
 
-fn @tile_cuda(border: Border, tile_x: i32, tile_y: i32, stencil: StencilOp, extents: Extents) -> Schedule {
+fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: StencilOp) -> Schedule {
     @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
-        for region_y in unroll(0, 3) {
-            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, extents.y, region_y);
-            for region_x in unroll(0, 3) {
-                let (x_lower, x_upper) = get_bounds(x_lower, x_upper, tile_x, extents.x, region_x);
-                let read = border((region_x, region_y), read);
-                let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
-                let block = (tile_x, tile_y, 1);
-                cuda(cuda_dev, grid, block, || {
-                    let x = x_lower + cuda_threadIdx_x() + cuda_blockDim_x() * cuda_blockIdx_x();
-                    let y = y_lower + cuda_threadIdx_y() + cuda_blockDim_y() * cuda_blockIdx_y();
-                    write(x, y, stencil(read, x, y))
-                });
-            }
-        }
-        synchronize_cuda(cuda_dev)
+        let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
+        let block = (tile_width, tile_height, 1);
+        cuda(cuda_dev, grid, block, || {
+            let x = x_lower + cuda_threadIdx_x() + cuda_blockDim_x() * cuda_blockIdx_x();
+            let y = y_lower + cuda_threadIdx_y() + cuda_blockDim_y() * cuda_blockIdx_y();
+            write(x, y, stencil(read, x, y))
+        });
     }
 }
 
-fn @tile_cuda_tmp(border: Border, tile_x: i32, tile_y: i32, stencil1: StencilOp, stencil2: StencilOp, extents1: Extents, extents2: Extents) -> Schedule {
+fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: StencilOp, stencil2: StencilOp, extents1: Extents, extents2: Extents) -> Schedule {
     @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
-        let extents = add_extents(extents1, extents2);
-        for region_y in unroll(0, 3) {
-            let (y_lower, y_upper) = get_bounds(y_lower, y_upper, tile_y, extents.y, region_y);
-            for region_x in unroll(0, 3) {
-                let (x_lower, x_upper)   = get_bounds(x_lower, x_upper, tile_x, extents.x, region_x);
-                let (x_extent, y_extent) = (extents2.x, extents2.y);
-                let read  = border((region_x, region_y), read);
-                let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
-                let block = (tile_x, tile_y, 1);
-                cuda(cuda_dev, grid, block, || {
-                    let (tid_x, tid_y) = (cuda_threadIdx_x(), cuda_threadIdx_y());
-                    let gid_x = x_lower + tid_x + cuda_blockDim_x() * cuda_blockIdx_x();
-                    let gid_y = y_lower + tid_y + cuda_blockDim_y() * cuda_blockIdx_y();
-                    let (tmp_size_x, tmp_size_y) = (tile_x + 2 * x_extent, tile_y + 2 * y_extent);
-                    let tmp = reserve_shared[pixel_t](tmp_size_x * tmp_size_y);
+        let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
+        let block = (tile_width, tile_height, 1);
+        let (x_extent, y_extent) = (extents2.x, extents2.y);
+        cuda(cuda_dev, grid, block, || {
+            let (tid_x, tid_y) = (cuda_threadIdx_x(), cuda_threadIdx_y());
+            let gid_x = x_lower + tid_x + cuda_blockDim_x() * cuda_blockIdx_x();
+            let gid_y = y_lower + tid_y + cuda_blockDim_y() * cuda_blockIdx_y();
+            let (tmp_size_x, tmp_size_y) = (tile_width + 2 * x_extent, tile_height + 2 * y_extent);
+            let tmp = reserve_shared[pixel_t](tmp_size_x * tmp_size_y);
 
-                    let tmp_idx = @|x, y| { x_extent + x + (y_extent + y) * tmp_size_x };
+            let tmp_idx = @|x, y| { x_extent + x + (y_extent + y) * tmp_size_x };
 
-                    if tid_y < y_extent {
-                        tmp(tmp_idx(tid_x, tid_y - y_extent)) = stencil1(read, gid_x, gid_y - y_extent);
-                    }
-                    if tid_y >= tile_y - y_extent {
-                        tmp(tmp_idx(tid_x, tid_y + y_extent)) = stencil1(read, gid_x, gid_y + y_extent);
-                    }
-                    tmp(tmp_idx(tid_x, tid_y)) = stencil1(read, gid_x, gid_y);
-
-                    cuda_syncthreads();
-
-                    let tmp_read = @|x, y| tmp(tmp_idx(x - gid_x + tid_x, y - gid_y + tid_y));
-                    write(gid_x, gid_y, stencil2(tmp_read, gid_x, gid_y))
-                });
+            if tid_y < y_extent {
+                tmp(tmp_idx(tid_x, tid_y - y_extent)) = stencil1(read, gid_x, gid_y - y_extent);
             }
-        }
-        synchronize_cuda(cuda_dev)
+            if tid_y >= tile_height - y_extent {
+                tmp(tmp_idx(tid_x, tid_y + y_extent)) = stencil1(read, gid_x, gid_y + y_extent);
+            }
+            tmp(tmp_idx(tid_x, tid_y)) = stencil1(read, gid_x, gid_y);
+
+            cuda_syncthreads();
+
+            let tmp_read = @|x, y| tmp(tmp_idx(x - gid_x + tid_x, y - gid_y + tid_y));
+            write(gid_x, gid_y, stencil2(tmp_read, gid_x, gid_y))
+        });
     }
 }
-
