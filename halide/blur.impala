@@ -12,8 +12,8 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
 
     let blur_op = @|read: Read, x: i32, y: i32| blur_y_op(@|x: i32, y: i32| blur_x_op(read, x, y), x, y);
 
-    let blur_x_extents = Extents { x: 1, y: 0 };
-    let blur_y_extents = Extents { x: 0, y: 1 };
+    let blur_x_extents = Extents { x : 1, y : 0 };
+    let blur_y_extents = Extents { x : 0, y : 1 };
     let blur_extents = max_extents(blur_x_extents, blur_y_extents);
 
     let blur_x = stencil(blur_x_op, blur_x_extents);

@@ -1,0 +1,44 @@
+type pixel_t = f32;
+
+extern
+fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
+    let use_cuda = false;
+
+    let img = Img { width : width, height : height, data : data };
+    let out = Img { width : width, height : height, data : ~[width*height:pixel_t] };
+
+    //         -- ix -- ixx -- sxx -- 
+    //       /         \              \
+    // in --            ixy -- sxy --  hc -- out
+    //       \         /              /
+    //         -- iy -- iyy -- syy -- 
+
+    let i_x:StencilOp = @|read: Read, x, y|
+        - 1.0f / 12.0f * read(x-1, y-1) + 1.0f / 12.0f * read(x+1, y-1)
+        - 2.0f / 12.0f * read(x-1, y  ) + 2.0f / 12.0f * read(x+1, y  )
+        - 1.0f / 12.0f * read(x-1, y+1) + 1.0f / 12.0f * read(x+1, y+1);
+    let i_y:StencilOp = @|read: Read, x, y|
+        - 1.0f / 12.0f * read(x-1, y-1) - 2.0f / 12.0f * read(x, y-1) - 1.0f / 12.0f * read(x+1, y-1)
+        + 1.0f / 12.0f * read(x-1, y+1) + 2.0f / 12.0f * read(x, y+1) + 1.0f / 12.0f * read(x+1, y+1);
+    let i_xx:StencilOp2 = @|read1: Read, read2: Read, x, y| read1(x, y) * read2(x, y);
+    let s_xx:StencilOp  = @|read: Read, x, y|
+        read(x-1, y-1) + read(x-1, y) + read(x-1, y+1) +
+        read(x,   y-1) + read(x,   y) + read(x,   y+1) +
+        read(x+1, y-1) + read(x+1, y) + read(x+1, y+1);
+    //let det:StencilOp3    = @|read_sxx: Read, read_syy: Read, read_sxy: Read, x, y| read_sxx(x, y) * read_syy(x, y) - read_sxy(x, y) * read_sxy(x, y);
+    //let trace:StencilOp2  = @|read_sxx: Read, read_syy: Read,                 x, y| read_sxx(x, y) + read_syy(x, y);
+    //let harris:StencilOp2 = @|read_det: Read, read_trace: Read,               x, y| read_det(x, y) - 0.04f * read_trace(x, y) * read_trace(x, y);
+    let harris:Stencil3 = @|read_sxx: Read, read_syy: Read, read_sxy: Read, x, y| {
+        let det = read_sxx(x, y) * read_syy(x, y) - read_sxy(x, y) * read_sxy(x, y);
+        let trace = read_sxx(x, y) + read_syy(x, y);
+        det - 0.04f * trace * trace
+    }
+
+    print_total_timing();
+
+    for y in range(0, height) {
+        for x in range(0, width) {
+            data(y * width + x) = out.data(y * width + x);
+        }
+    }
+}
