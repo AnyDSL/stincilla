@@ -268,14 +268,16 @@ fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
 
 fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule {
     let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
-        let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
-        let block = (tile_width, tile_height, 1);
         let (x_extent, y_extent) = (stencil2.extents.x, stencil2.extents.y);
+        let (x_range,  y_range)  = (x_upper - x_lower, y_upper - y_lower);
+        let block = (tile_width + 2 * x_extent, tile_height + 2 * y_extent, 1);
+        let grid  = ((x_range / tile_width) * block(0), (y_range / tile_height) * block(1), 1);
         cuda(cuda_dev, grid, block, || {
             let (tid_x, tid_y)   = (cuda_threadIdx_x(), cuda_threadIdx_y());
-            let (bdim_x, bdim_y) = (cuda_blockDim_x(),  cuda_blockDim_y());
-            let gid_x = x_lower + tid_x + bdim_x * cuda_blockIdx_x();
-            let gid_y = y_lower + tid_y + bdim_y * cuda_blockIdx_y();
+            let (bid_x, bid_y)   = (cuda_blockIdx_x(),  cuda_blockIdx_y());
+
+            let gid_x = x_lower + tid_x + block(0) * bid_x - 2 * x_extent * bid_x - x_extent;
+            let gid_y = y_lower + tid_y + block(1) * bid_y - 2 * y_extent * bid_y - y_extent;
 
             let (tmp_size_x, tmp_size_y) = (tile_width + 2 * x_extent, tile_height + 2 * y_extent);
             let tmp = reserve_shared[pixel_t](tmp_size_x * tmp_size_y);
@@ -284,24 +286,15 @@ fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2:
             let steps_x  = round_up(tile_width,  tmp_size_x) / tile_width;
             let steps_y  = round_up(tmp_size_y, tile_height) / tile_height;
 
-            for yy in unroll(0, steps_y) {
-                let lid_y = tid_y            + yy * bdim_y;
-                let idx_y = gid_y - y_extent + yy * bdim_y;
-                for xx in unroll(0, steps_x) {
-                    let lid_x = tid_x            + xx * bdim_x;
-                    let idx_x = gid_x - x_extent + xx * bdim_x;
-
-                    if lid_x < tmp_size_x && lid_y < tmp_size_y {
-                        tmp(tmp_idx1(lid_x, lid_y)) = stencil1.op(read, idx_x, idx_y);
-                    }
-                }
-            }
+            tmp(tmp_idx1(tid_x, tid_y)) = stencil1.op(read, gid_x, gid_y);
 
             cuda_syncthreads();
 
-            let tmp_idx2 = @|x, y| x_extent + x + (y_extent + y) * tmp_size_x;
-            let tmp_read = @|x, y| tmp(tmp_idx2(x - gid_x + tid_x, y - gid_y + tid_y));
-            write(gid_x, gid_y, stencil2.op(tmp_read, gid_x, gid_y))
+            if tid_y < tile_height && tid_x < tile_width {
+                let tmp_idx2 = @|x, y| x_extent + x + (y_extent + y) * tmp_size_x;
+                let tmp_read = @|x, y| tmp(tmp_idx2(x - gid_x + tid_x, y - gid_y + tid_y));
+                write(gid_x, gid_y, stencil2.op(tmp_read, gid_x, gid_y))
+            }
         });
     };
     Schedule { loop: loop, extents: max_extents(stencil1.extents, stencil2.extents) }
