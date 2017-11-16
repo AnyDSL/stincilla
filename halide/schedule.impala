@@ -20,8 +20,8 @@ struct Img {
 };
 
 type Region = (i32, i32);
-type Border = fn(Region, Read) -> Read;
-type ImgBorder = fn(Img) -> Border;
+type Boundary = fn(Region, Read) -> Read;
+type ImgBoundary = fn(Img) -> Boundary;
 
 type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
 type Schedule = fn(Read, i32, i32, i32, i32, Write) -> ();
@@ -57,7 +57,7 @@ fn @img_write(img: Img) -> Write {
     |x: i32, y: i32, v: pixel_t| -> () { data(y * img.width + x) = v; }
 }
 
-// border handling
+// boundary handling
 
 fn @clip(v: i32, a: i32, b: i32) -> i32 { min(max(v, a), b) }
 
@@ -72,31 +72,31 @@ fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
     check(rx, x, w) && check(ry, y, h)
 }
 
-fn @border_img(border: fn(Img, Read, i32, i32) -> pixel_t) -> ImgBorder {
+fn @boundary_img(boundary: fn(Img, Read, i32, i32) -> pixel_t) -> ImgBoundary {
     @|img| @|region, read| @|x, y| {
         if region(0) == -1 {
-            @@border(img, read, x, y)
+            @@boundary(img, read, x, y)
         } else {
             if is_within(region, x, y, img.width, img.height) {
                 read(x, y)
             } else {
-                @@border(img, read, x, y)
+                @@boundary(img, read, x, y)
             }
         }
     }
 }
 
-fn @border_const(v: pixel_t) -> ImgBorder {
-    border_img(|_, _, _, _| v)
+fn @boundary_const(v: pixel_t) -> ImgBoundary {
+    boundary_img(|_, _, _, _| v)
 }
 
-fn @border_clamp() -> ImgBorder {
-    border_img(|img, read, x, y| read(clip(x, 0, img.width-1), clip(y, 0, img.height-1)))
+fn @boundary_clamp() -> ImgBoundary {
+    boundary_img(|img, read, x, y| read(clip(x, 0, img.width-1), clip(y, 0, img.height-1)))
 }
 
-fn @border_mirror() -> ImgBorder {
+fn @boundary_mirror() -> ImgBoundary {
     let mirror = @|x, w| if x < 0 { -x } else { if x >= w { w + w - x - 1 } else { x } };
-    border_img(|img, read, x, y| read(mirror(x, img.width), mirror(y, img.height)))
+    boundary_img(|img, read, x, y| read(mirror(x, img.width), mirror(y, img.height)))
 }
 
 // 1D loops
@@ -135,22 +135,22 @@ fn @iterate_regions(lower: i32, upper: i32, tile_size: i32, extent: i32, body: f
     }
 }
 
-fn @dummy_border(border: Border, align_x:i32, align_y:i32, loop: Schedule) -> Schedule {
+fn @dummy_boundary(boundary: Boundary, align_x: i32, align_y: i32, loop: Schedule) -> Schedule {
     |read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
-        let border_read = border((-1, -1), read);
-        loop(border_read, x_lower, y_lower, x_upper, y_upper, write);
+        let boundary_read = boundary((-1, -1), read);
+        loop(boundary_read, x_lower, y_lower, x_upper, y_upper, write);
     }
 }
 
-fn @handle_border(border: Border, align_x:i32, align_y:i32, loop_middle: Schedule, loop_border: Schedule, extents: Extents) -> Schedule {
+fn @handle_boundaries(boundary: Boundary, align_x: i32, align_y: i32, loop_middle: Schedule, loop_boundary: Schedule, extents: Extents) -> Schedule {
     |read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
         for y_lower, y_upper, region_y in iterate_regions(y_lower, y_upper, align_y, extents.y) {
             for x_lower, x_upper, region_x in iterate_regions(x_lower, x_upper, align_x, extents.x) {
-                let border_read = border((region_x, region_y), read);
+                let boundary_read = boundary((region_x, region_y), read);
                 if region_x == 1 && region_y == 1 {
-                    loop_middle(border_read, x_lower, y_lower, x_upper, y_upper, write);
+                    loop_middle(boundary_read, x_lower, y_lower, x_upper, y_upper, write);
                 } else {
-                    loop_border(border_read, x_lower, y_lower, x_upper, y_upper, write);
+                    loop_boundary(boundary_read, x_lower, y_lower, x_upper, y_upper, write);
                 }
             }
         }

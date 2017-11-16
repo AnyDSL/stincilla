@@ -49,17 +49,17 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     // let middle_schedule = tile_schedule;
     let middle_schedule = tile_256_32;
 
-    // --- schedule to use in border regions ---
-    // let border_schedule = xy_r_r(@|read, x, y| 0);
-    let border_schedule = middle_schedule;
+    // --- schedule to use in boundary regions ---
+    // let boundary_schedule = xy_r_r(@|read, x, y| 0);
+    let boundary_schedule = middle_schedule;
 
-    // --- which border handling to use ---
-    // let border = border_const(0);
-    // let border = border_mirror();
-    let border = border_clamp();
+    // --- which boundary handling to use ---
+    // let boundary = boundary_const(0);
+    // let boundary = boundary_mirror();
+    let boundary = boundary_clamp();
 
-    // --- bake everything together with border handling ---
-    let schedule_cpu = handle_border(border(img), tile_width, tile_height, middle_schedule, border_schedule, blur_extents);
+    // --- bake everything together with boundary handling ---
+    let schedule_cpu = handle_boundaries(boundary(img), tile_width, tile_height, middle_schedule, boundary_schedule, blur_extents);
 
     let tile_width_cuda = 32; let tile_height_cuda = 8;
     // let schedule_cuda = tile_cuda(tile_width_cuda, tile_height_cuda, blur);
@@ -70,8 +70,8 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
         let out_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, width * height * sizeof[pixel_t]()).data as &[pixel_t] };
         runtime_copy(runtime_device(0, 0), img.data as &[i8], 0i64, runtime_device(1, cuda_dev), img_cuda.data as &[i8], 0i64, (width * height * sizeof[pixel_t]()) as i64);
 
-        let schedule_cuda = handle_border(border(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda, schedule_cuda, blur_extents);
-        //let schedule_cuda = dummy_border(border(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda);
+        let schedule_cuda = handle_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda, schedule_cuda, blur_extents);
+        //let schedule_cuda = dummy_boundary(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda);
 
         with benchmark_cuda() {
             compute(img_cuda, out_cuda, schedule_cuda);
