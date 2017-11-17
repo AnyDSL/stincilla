@@ -7,25 +7,25 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     let img = Img { width : width, height : height, data : data };
     let out = Img { width : width, height : height, data : ~[width*height:pixel_t] };
 
-    let identity = stencil(@|read: Read, x: i32, y: i32| read(0)(x, y), Extents { x: 0, y: 0}, 1);
-    let add_constant = @|c: pixel_t| stencil(|read: Read, x: i32, y: i32| clip(read(0)(x, y) + c, 0, 255), Extents { x: 0, y: 0}, 1);
-    let constant = @|c: pixel_t| stencil(|read: Read, x: i32, y: i32| c, Extents { x: 0, y: 0}, 1);
-    let invert = stencil(|read: Read, x: i32, y: i32| (255 - read(0)(x, y)) as pixel_t, Extents { x: 0, y: 0 }, 1);
+    let identity = stencil(|read: Read, x: i32, y: i32| read(0)(x, y), extents(0, 0), 1);
+    let add_constant = @|c: pixel_t| stencil(|read: Read, x: i32, y: i32| clip(read(0)(x, y) + c, 0, 255), extents(0, 0), 1);
+    let constant = @|c: pixel_t| stencil(|read: Read, x: i32, y: i32| c, extents(0, 0), 1);
+    let invert = stencil(|read: Read, x: i32, y: i32| (255 - read(0)(x, y)) as pixel_t, extents(0, 0), 1);
 
     let diff = stencil(|read: Read, x: i32, y: i32| clip(read(0)(x, y) - read(1)(x, y), 0, 255) as pixel_t,
-                       Extents { x: 0, y: 0 }, 2);
+                       extents(0, 0), 2);
     let add = stencil(|read: Read, x: i32, y: i32| clip(read(0)(x, y) + read(1)(x, y), 0, 255) as pixel_t,
-                      Extents { x: 0, y: 0 }, 2);
+                      extents(0, 0), 2);
     let avg = stencil(|read: Read, x: i32, y: i32| { ((read(0)(x, y) + read(1)(x, y)) / 2) as pixel_t},
-                      Extents { x: 0, y: 0 }, 2);
+                      extents(0, 0), 2);
 
     let blur_x_op = |read: Read, x: i32, y: i32| (read(0)(x-1, y) + read(0)(x, y) + read(0)(x+1, y)) / 3 as pixel_t;
     let blur_y_op = |read: Read, x: i32, y: i32| (read(0)(x, y-1) + read(0)(x, y) + read(0)(x, y+1)) / 3 as pixel_t;
 
     let blur_op = |read: Read, x: i32, y: i32| blur_y_op(|i| |x: i32, y: i32| blur_x_op(read, x, y), x, y);
 
-    let blur_x_extents = Extents { x : 1, y : 0 };
-    let blur_y_extents = Extents { x : 0, y : 1 };
+    let blur_x_extents = extents(1, 0);
+    let blur_y_extents = extents(0, 1);
     let blur_extents = max_extents(blur_x_extents, blur_y_extents);
 
     let blur_x = stencil(blur_x_op, blur_x_extents, 1);

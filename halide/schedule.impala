@@ -9,6 +9,8 @@ struct Extents {
     y : i32
 }
 
+fn @extents(x: i32, y: i32) -> Extents { Extents { x: x, y: y } }
+
 fn @add_extents(e1: Extents, e2: Extents) -> Extents {
     Extents { x : e1.x + e2.x, y : e1.y + e2.y }
 }
