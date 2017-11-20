@@ -1,6 +1,4 @@
-fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer,
-                   body: fn(i32, i32, &mut[1][f32], &[1][f32]) -> ()
-                  ) -> () {
+fn @iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(i32, i32, &mut[1][f32], &[1][f32]) -> ()) -> () {
     let num_dev  = 2;
     let ids_buf  = alloc_cpu(num_dev * sizeof[f32]());
     let ids      = bitcast[&mut[i32]](ids_buf.data);
@@ -11,17 +9,17 @@ fn iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer,
         let grid  = (width, height / num_dev, 1);
         let block = (128, 1, 1);
 
-        ids(dev) = with spawn() @{
+        ids(dev) = with spawn() {
             let acc = accelerator(dev);
             let arr_gpu = acc.alloc(size_gpu);
             let out_gpu = acc.alloc(size_gpu);
             copy_offset(arr, offset, arr_gpu, 0, size_gpu);
 
-            for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+            for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
                 let (gidx,  gidy,  _) = gid;
                 let gid_x = gidx();
                 let gid_y = gidy();
-                body(gid_x, gid_y, bitcast[&mut[1][f32]](out_gpu.data), bitcast[&[1][f32]](arr_gpu.data));
+                @@body(gid_x, gid_y, bitcast[&mut[1][f32]](out_gpu.data), bitcast[&[1][f32]](arr_gpu.data));
             }
             acc.sync();
 
@@ -46,7 +44,7 @@ fn main() -> int {
     init_rand(arr, width, height);
     init_zero(out, width, height);
 
-    for x, y, out, arr in @iteration_multi(width, height, out_buf, arr_buf) {
+    for x, y, out, arr in iteration_multi(width, height, out_buf, arr_buf) {
         out(y*width + x) = arr(y*width + x);
     }
 

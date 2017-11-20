@@ -1,60 +1,59 @@
-fn range_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () {
+fn @(?lower & ?upper & ?step) may_unroll_step(lower: i32, upper: i32, @step: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
-        body(lower);
-        range_step(lower+step, upper, step, body)
+        @@body(lower);
+        may_unroll_step(lower+step, upper, step, body)
     }
 }
 
-fn range_step_rev(upper: i32, lower: i32, step: i32, body: fn(i32) -> ()) -> () {
+fn @(?upper & ?lower & ?step) may_unroll_step_rev(upper: i32, lower: i32, @step: i32, body: fn(i32) -> ()) -> () {
     if upper > lower {
-        body(upper);
-        range_step_rev(upper-step, lower, step, body)
+        @@body(upper);
+        may_unroll_step_rev(upper-step, lower, step, body)
     }
 }
 
-fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range_step(lower, upper, 1, body) }
-fn range_rev(upper: i32, lower: i32, body: fn(i32) -> ()) -> () { range_step_rev(upper, lower, 1, body) }
+fn @range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { may_unroll_step($lower, $upper, 1, body) }
+fn @range_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () { may_unroll_step($lower, $upper, step, body) }
+fn @range_rev(upper: i32, lower: i32, body: fn(i32) -> ()) -> () { may_unroll_step_rev($upper, $lower, 1, body) }
 
-fn force_unroll(a: i32, b: i32, body: fn(i32) -> ()) -> () {
-    if a < b {
-        body(a);
-        @force_unroll(a+1, b, body)
-    }
-}
+fn @unroll(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { may_unroll_step(lower, upper, 1, body) }
+fn @unroll_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () { may_unroll_step(lower, upper, step, body) }
 
-fn range_times_two(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+fn @(?lower & ?upper) range_times_two(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
-        body(lower);
+        @@body(lower);
         range_times_two(lower*2, upper, body)
     }
 }
 
 fn init_zero(arr: &mut[pixel_t], width: i32, height: i32) -> () {
-    for i in $range(0, width*height) {
+    for i in range(0, width*height) {
         arr(i) = 0 as pixel_t;
     }
 }
 fn init_rand(arr: &mut[pixel_t], width: i32, height: i32) -> () {
-    for y in $range(0, height) {
+    for y in range(0, height) {
         for x in range(0, width) {
             arr(y*width + x) = (random_val_f32() * 1024f) as pixel_t;
         }
     }
 }
 
-fn min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
-fn max(a: i32, b: i32) -> i32 { if a > b { a } else { b } }
+fn @min(a: i32, b: i32) -> i32 { if a < b { a } else { b } }
+fn @max(a: i32, b: i32) -> i32 { if a > b { a } else { b } }
+fn @abs(a: i32) -> i32 { if a < 0 { -a } else { a } }
 
 // nearest multiple of num
-fn round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
+fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
+fn @round_down(num: i32, multiple: i32) -> i32 { (num / multiple) * multiple }
 
 static mut total_kernel_timing = 0i64;
 static mut total_cpu_timing = 0i64;
 
-fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn() -> ()) -> i64 {
+fn @benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn() -> ()) -> i64 {
     let times_buf = alloc_cpu(num_iter * sizeof[i64]());
     let times = bitcast[&mut[i64]](times_buf.data);
-    for i in $range(0, num_iter) {
+    for i in range(0, num_iter) {
         let start = get_time();
         body();
         sync();
@@ -77,9 +76,9 @@ fn benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn() 
 
 static iter_acc =  7;
 static iter_cpu = 27;
-fn benchmark_acc(acc: Accelerator,  body: fn() -> ()) -> () { total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, acc.sync) }
-fn benchmark_cpu(                   body: fn() -> ()) -> () { total_cpu_timing    += benchmark(get_micro_time,  iter_cpu, body, ||) }
-fn benchmark_aocl(acc: Accelerator, body: fn() -> ()) -> () { total_cpu_timing    += benchmark(get_micro_time,  iter_cpu, body, acc.sync) }
+fn @benchmark_acc(acc: Accelerator,  body: fn() -> ()) -> () { total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, acc.sync) }
+fn @benchmark_cpu(                   body: fn() -> ()) -> () { total_cpu_timing    += benchmark(get_micro_time,  iter_cpu, body, ||) }
+fn @benchmark_aocl(acc: Accelerator, body: fn() -> ()) -> () { total_cpu_timing    += benchmark(get_micro_time,  iter_cpu, body, acc.sync) }
 
 fn print_total_timing() -> () {
     print_string("Total timing for cpu / kernel: ");
@@ -89,7 +88,7 @@ fn print_total_timing() -> () {
     print_string(" ms\n")
 }
 
-fn sort_i64(num: i32, arr: &mut[i64]) -> () {
+fn @(?num) sort_i64(num: i32, arr: &mut[i64]) -> () {
     // insertion sort
     for i in range(1, num) {
         let x = arr(i);
@@ -101,7 +100,7 @@ fn sort_i64(num: i32, arr: &mut[i64]) -> () {
         arr(j) = x;
     }
 }
-fn sort_f32(num: i32, arr: &mut[f32]) -> () {
+fn @(?num) sort_f32(num: i32, arr: &mut[f32]) -> () {
     // insertion sort
     for i in range(1, num) {
         let x = arr(i);

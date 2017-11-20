@@ -1,71 +1,57 @@
 static math = cpu_intrinsics;
-fn is_nvvm() -> bool { false }
-fn is_cuda() -> bool { false }
-fn is_opencl() -> bool { false }
-fn is_amdgpu() -> bool { false }
-fn is_hls() -> bool { false }
-fn is_x86() -> bool { true }
-fn is_sse() -> bool { true }
-fn is_avx() -> bool { true }
-fn is_avx2() -> bool { false }
+fn @is_nvvm() -> bool { false }
+fn @is_cuda() -> bool { false }
+fn @is_opencl() -> bool { false }
+fn @is_amdgpu() -> bool { false }
+fn @is_hls() -> bool { false }
+fn @is_x86() -> bool { true }
+fn @is_sse() -> bool { true }
+fn @is_avx() -> bool { true }
+fn @is_avx2() -> bool { false }
 
-fn get_vector_length() -> int { 4 }
-fn get_alignment() -> int { 32 }
-fn get_thread_count() -> int { 4 }
+fn @get_vector_length() -> int { 8 }
+fn @get_alignment() -> int { 32 }
+fn @get_thread_count() -> int { 4 }
 
 // amount of full vector iterations that trigger loop vectorization
 static simd_iter_threshold = 2;
 
-fn outer_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
+fn @outer_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
     for i in parallel(get_thread_count(), lower, upper) {
-        body(i);
+        @@body(i);
     }
 }
-fn outer_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
-    for i in parallel(get_thread_count(), 0, (upper-lower)/step) {
-        body(i * step + lower);
-    }
-}
-
-fn inner_loop_scalar(lower: int, upper: int, body: fn(int) -> ()) -> () {
-    if lower < upper {
-        body(lower);
-        inner_loop_scalar(lower+1, upper, body)
+fn @outer_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
+    for i in parallel(get_thread_count(), 0, (upper - lower) / step) {
+        @@body(i * step + lower);
     }
 }
 
-fn inner_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
+fn @inner_loop(lower: int, upper: int, body: fn(int) -> ()) -> () {
     if upper - lower < get_vector_length() * simd_iter_threshold {
-        inner_loop_scalar(lower, upper, body);
+        range(lower, upper, body);
     } else {
         let peel_end = round_up(lower, get_vector_length());
         let remainder_start = round_up(upper - get_vector_length() + 1, get_vector_length());
 
-        inner_loop_scalar(lower, peel_end, body);
+        range(lower, peel_end, body);
         for i in vectorize(get_vector_length(), get_alignment(), peel_end, remainder_start) {
-            body(i);
+            @@body(i);
         }
-        inner_loop_scalar(remainder_start, upper, body);
+        range(remainder_start, upper, body);
     }
 }
 
-fn inner_loop_step_scalar(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
-    if lower < upper {
-        body(lower);
-        inner_loop_step_scalar(lower+step, upper, step, body)
-    }
-}
-
-fn inner_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
+fn @inner_loop_step(lower: int, upper: int, step: int, body: fn(int) -> ()) -> () {
     if upper - lower < get_vector_length() * simd_iter_threshold * step {
-        inner_loop_step_scalar(lower, upper, step, body);
+        range_step(lower, upper, step, body);
     } else {
         let iter_vec = (upper - lower) / (step * get_vector_length());
         let remainder_start = lower + iter_vec * get_vector_length() * step;
 
         for i in vectorize(get_vector_length(), 4, 0, iter_vec * get_vector_length()) {
-            body(i * step + lower);
+            @@body(i * step + lower);
         }
-        inner_loop_step_scalar(remainder_start, upper, step, body);
+        range_step(remainder_start, upper, step, body);
     }
 }

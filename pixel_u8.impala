@@ -1,9 +1,9 @@
 type pixel_t = u8;
-static nvvm_ldg = nvvm_ldg_i32;
-static cuda_ldg = cuda_ldg_i32;
-fn is_same_pixel(a: u8 , b: u8 ) -> bool { a == b }
-fn print_pixel(pixel: u8) -> () {print_i32(pixel as i32)};
-static gaussian_mask_sep5 = [ 1u8, 4u8, 6u8, 4u8, 1u8];
+static nvvm_ldg = nvvm_ldg_u8;
+static cuda_ldg = cuda_ldg_u8;
+fn @is_same_pixel(a: u8, b: u8 ) -> bool { a == b }
+fn @print_pixel(pixel: u8) -> () { print_i32(pixel as i32) }
+static gaussian_mask_sep5 = [ 1u8, 4u8, 6u8, 4u8, 1u8 ];
 static gaussian_mask5 = [[ 1u8,  4u8,  6u8,  4u8, 1u8 ],
                          [ 4u8, 16u8, 24u8, 16u8, 4u8 ],
                          [ 6u8, 24u8, 36u8, 24u8, 6u8 ],
