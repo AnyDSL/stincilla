@@ -2,6 +2,7 @@ type pixel_t = f32;
 static nvvm_ldg = nvvm_ldg_f32;
 static cuda_ldg = cuda_ldg_f32;
 fn @is_same_pixel(a: f32, b: f32) -> bool { cpu_fabsf(a - b) < 0.01f }
+fn @print_pixel(pixel: f32) -> () { print_f32(pixel) }
 static gaussian_mask_sep5 = [ 0.070767f, 0.244460f, 0.369546f, 0.244460f, 0.070767f ];
 static gaussian_mask5 = [[ 0.005008f, 0.017300f, 0.026151f, 0.017300f, 0.005008f ],
                          [ 0.017300f, 0.059761f, 0.090339f, 0.059761f, 0.017300f ],
