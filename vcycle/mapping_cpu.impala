@@ -9,16 +9,14 @@ fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
     let bhx = round_up(residual_mask.size_x / 2, get_vector_length());
 
     for benchmark_cpu() {
-        for boundary_col in iterate_1dregion() {
-            let bounds_col = get_bounds(0, Sol.height, bhy, boundary_col);
+        for bounds_col, boundary_col in iterate_1dregion(0, Sol.height, bhy) {
             //let outer_col  = match boundary_col { Boundary::Center => outer_loop_step, _ => range_step };
             // allocate temporary array
             let tmp = alloc_cpu(Sol.stride * step * coarsening_factor * sizeof[f32]());
             // gets slower when computed in parallel
             for y in range_step(bounds_col(0), bounds_col(1), step * coarsening_factor) {
                 // residual: index space == cache line
-                for boundary_row in iterate_1dregion() {
-                    let bounds_row = get_bounds(0, Sol.width, bhx, boundary_row);
+                for bounds_row, boundary_row in iterate_1dregion(0, Sol.width, bhx) {
                     let inner_row  = match boundary_row { Boundary::Center => inner_loop, _ => range };
                     for yi in unroll(0, step * coarsening_factor) {
                         for x in inner_row(bounds_row(0), bounds_row(1)) {

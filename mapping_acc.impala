@@ -190,11 +190,9 @@ fn @iteration_bounds(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower:
             }
         }
     } else {
-        for region in iterate_2dregion() {
-            let (boundary_row, boundary_col) = region;
-            let bounds_row = get_bounds(0, out.width,                      bx * block(0), boundary_row);
-            let bounds_col = get_bounds(0, out.height / coarsening_factor, by * block(1), boundary_col);
-            let grid       = (bounds_row(1) - bounds_row(0), bounds_col(1) - bounds_col(0), 1);
+        for bounds, region in iterate_2dregion((0, 0), (out.width, out.height / coarsening_factor), (bx * block(0), by * block(1))) {
+            let (bounds_row, bounds_col) = bounds;
+            let grid = (bounds_row(1) - bounds_row(0), bounds_col(1) - bounds_col(0), 1);
 
             let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
@@ -451,8 +449,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
             }
         }
     } else {
-        for boundary_col in iterate_1dregion() {
-            let bounds = get_bounds(0, out.height / coarsening_factor, by * block_col(1), boundary_col);
+        for bounds, boundary_col in iterate_1dregion(0, out.height / coarsening_factor, by * block_col(1)) {
             let region = (Boundary::Center, boundary_col);
             let grid   = (out.width, bounds(1) - bounds(0), 1);
 
@@ -481,8 +478,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
             }
         }
 
-        for boundary_row in iterate_1dregion() {
-            let bounds = get_bounds(0, out.width, bx * block_row(0), boundary_row);
+        for bounds, boundary_row in iterate_1dregion(0, out.width, bx * block_row(0)) {
             let region = (boundary_row, Boundary::Center);
             let grid   = (bounds(1) - bounds(0), out.height / coarsening_factor, 1);
 

@@ -98,18 +98,22 @@ fn @get_boundary(boundary: i32) -> Boundary {
         _ => undef()
     }
 }
-fn @iterate_1dregion(body: fn(Boundary) -> ()) -> () {
-    for row in unroll(0, 3) {
-        let boundary = get_boundary(row);
-        @@body(boundary);
+fn @iterate_1dregion(lower: i32, upper: i32, tile_size: i32, body: fn((i32, i32), Boundary) -> ()) -> () {
+    if tile_size == 0 {
+        let boundary:Boundary = Boundary::Center;
+        @@body((lower, upper), boundary)
+    } else {
+        for region in unroll(0, 3) {
+            let boundary = get_boundary(region);
+            let bounds   = get_bounds(lower, upper, tile_size, boundary);
+            @@body(bounds, boundary)
+        }
     }
 }
-fn @iterate_2dregion(body: fn(Region) -> ()) -> () {
-    for row in unroll(0, 3) {
-        let row_boundary = get_boundary(row);
-        for col in unroll(0, 3) {
-            let col_boundary = get_boundary(col);
-            @@body((row_boundary, col_boundary));
+fn @iterate_2dregion(lower: (i32, i32), upper: (i32, i32), tile_size: (i32, i32), body: fn(((i32, i32), (i32, i32)), Region) -> ()) -> () {
+    for bounds_row, boundary_row in iterate_1dregion(lower(0), upper(0), tile_size(0)) {
+        for bounds_col, boundary_col in iterate_1dregion(lower(1), upper(1), tile_size(1)) {
+            @@body((bounds_row, bounds_col), (boundary_row, boundary_col))
         }
     }
 }
