@@ -9,48 +9,48 @@
 extern
 fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32) -> () {
     let input  = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](img_data) }, width : width, height : height, stride : width };
-    let harris = @create_img(width, height, alloc_cpu);
-    let dx     = @create_img(width, height, alloc_cpu);
-    let dy     = @create_img(width, height, alloc_cpu);
-    let dxx    = @create_img(width, height, alloc_cpu);
-    let dxy    = @create_img(width, height, alloc_cpu);
-    let dyy    = @create_img(width, height, alloc_cpu);
-    let gxx    = @create_img(width, height, alloc_cpu);
-    let gxy    = @create_img(width, height, alloc_cpu);
-    let gyy    = @create_img(width, height, alloc_cpu);
+    let harris = create_img(width, height, alloc_cpu);
+    let dx     = create_img(width, height, alloc_cpu);
+    let dy     = create_img(width, height, alloc_cpu);
+    let dxx    = create_img(width, height, alloc_cpu);
+    let dxy    = create_img(width, height, alloc_cpu);
+    let dyy    = create_img(width, height, alloc_cpu);
+    let gxx    = create_img(width, height, alloc_cpu);
+    let gxy    = create_img(width, height, alloc_cpu);
+    let gyy    = create_img(width, height, alloc_cpu);
 
     // compute the first derivative using the Sobel operator
-    let mdx = @get_mask3([[ -1.0f,  0.0f,  1.0f ],
-                          [ -2.0f,  0.0f,  2.0f ],
-                          [ -1.0f,  0.0f,  1.0f ]]);
-    let mdy = @get_mask3([[ -1.0f, -2.0f, -1.0f ],
-                          [  0.0f,  0.0f,  0.0f ],
-                          [  1.0f,  2.0f,  1.0f ]]);
+    let mdx = get_mask3([[ -1.0f,  0.0f,  1.0f ],
+                         [ -2.0f,  0.0f,  2.0f ],
+                         [ -1.0f,  0.0f,  1.0f ]]);
+    let mdy = get_mask3([[ -1.0f, -2.0f, -1.0f ],
+                         [  0.0f,  0.0f,  0.0f ],
+                         [  1.0f,  2.0f,  1.0f ]]);
 
     let lower = clamp_lower;
     let upper = clamp_upper;
     let iteration_fun = iteration;
 
-    for math, x, y, out, arr, mask in @iteration_fun(math, dx, input, mdx, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_fun(math, dx, input, mdx, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for math, x, y, out, arr, mask in @iteration_fun(math, dy, input, mdy, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_fun(math, dy, input, mdy, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
 
 
     // compute dxx, dyy, dxy
-    let dx_dev = @get_device_copy(dx);
-    let dy_dev = @get_device_copy(dy);
-    for math, x, y, out in @iteration_point(math, dxx) {
+    let dx_dev = get_device_copy(dx);
+    let dy_dev = get_device_copy(dy);
+    for math, x, y, out in iteration_point(math, dxx) {
         let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
         out.write(x, y, dx.read(x, y) * dx.read(x, y));
     }
-    for math, x, y, out in @iteration_point(math, dyy) {
+    for math, x, y, out in iteration_point(math, dyy) {
         let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
         out.write(x, y, dy.read(x, y) * dy.read(x, y));
     }
-    for math, x, y, out in @iteration_point(math, dxy) {
+    for math, x, y, out in iteration_point(math, dxy) {
         let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
         let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
         out.write(x, y, dx.read(x, y) * dy.read(x, y));
@@ -60,26 +60,26 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
 
 
     // compute gxx, gyy, gxy using Gaussian blur
-    let mg = @get_mask3([[ 0.057118f, 0.124758f, 0.057118f ],
-                         [ 0.124758f, 0.272496f, 0.124758f ],
-                         [ 0.057118f, 0.124758f, 0.057118f ]]);
+    let mg = get_mask3([[ 0.057118f, 0.124758f, 0.057118f ],
+                        [ 0.124758f, 0.272496f, 0.124758f ],
+                        [ 0.057118f, 0.124758f, 0.057118f ]]);
 
-    for math, x, y, out, arr, mask in @iteration_fun(math, gxx, dxx, mg, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_fun(math, gxx, dxx, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for math, x, y, out, arr, mask in @iteration_fun(math, gyy, dyy, mg, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_fun(math, gyy, dyy, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for math, x, y, out, arr, mask in @iteration_fun(math, gxy, dxy, mg, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_fun(math, gxy, dxy, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
 
 
     // compute score for Harris corner
-    let gxx_dev = @get_device_copy(gxx);
-    let gyy_dev = @get_device_copy(gyy);
-    let gxy_dev = @get_device_copy(gxy);
-    for math, x, y, out in @iteration_point(math, harris) {
+    let gxx_dev = get_device_copy(gxx);
+    let gyy_dev = get_device_copy(gyy);
+    let gxy_dev = get_device_copy(gxy);
+    for math, x, y, out in iteration_point(math, harris) {
         let gxx_acc = get_acc(gxx_dev, set_pixel_fn(gxx_dev), get_pixel_fn(gxx_dev));
         let gyy_acc = get_acc(gyy_dev, set_pixel_fn(gyy_dev), get_pixel_fn(gyy_dev));
         let gxy_acc = get_acc(gxy_dev, set_pixel_fn(gxy_dev), get_pixel_fn(gxy_dev));
@@ -99,13 +99,13 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
 
     // post-processing: mark corners
     let threshold = 100000.0f;
-    for y in $range(0, height) {
-        for x in range(0, width) @{
+    for y in range(0, height) {
+        for x in range(0, width) {
             out_data(y*width + x) = img_data(y*width + x);
         }
     }
-    for y in $range(0, height) {
-        for x in range(0, width) @{
+    for y in range(0, height) {
+        for x in range(0, width) {
             let harris_acc = get_acc(harris, |idx, val| { bitcast[&mut[f32]](harris.buf.data)(idx) = val }, |idx| bitcast[&[f32]](harris.buf.data)(idx));
             if harris_acc.read(x, y) > threshold {
                 for i in range(-5, 5+1) {

@@ -5,14 +5,14 @@ fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     }
 }
 
-fn iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
+fn @iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
-    for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
+    for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
         let (gidx,  gidy,  _) = gid;
         let gid_x = gidx();
         let gid_y = gidy();
-        body(gid_x, gid_y);
+        @@body(gid_x, gid_y);
     }
     acc.sync();
 }
@@ -37,7 +37,7 @@ fn main() -> i32 {
 
     copy(arr, arr_gpu, width * height * sizeof[f32]());
 
-    for x, y in @iteration(acc, width, height) {
+    for x, y in iteration(acc, width, height) {
         let idx = y*width + x;
         write(out_gpu, idx, read(arr_gpu, idx));
     }
