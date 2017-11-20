@@ -70,8 +70,8 @@ fn compute(out: Img, loop: Loop_xy, f: BinOp) -> BinOp {
 
 extern
 fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
-    let img = Img{width: width, height: height, data: data};
-    let out = Img{width: width, height: height, data: ~[width*height:i32]};
+    let img = Img { width : width, height : height, data : data };
+    let out = Img { width : width, height : height, data : ~[width*height:i32] };
 
     let input  = |x, y| access(img, x, y);
     let blur_x = |x, y| ( input(x-1, y) +  input(x, y) +  input(x+1, y)) / 3;

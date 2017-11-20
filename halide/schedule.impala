@@ -9,24 +9,24 @@ struct Extents {
     y : i32
 }
 
-fn @extents(x: i32, y: i32) -> Extents { Extents { x: x, y: y } }
+fn @extents(x: i32, y: i32) -> Extents { Extents { x : x, y : y } }
 
 fn @add_extents(e1: Extents, e2: Extents) -> Extents {
     Extents { x : e1.x + e2.x, y : e1.y + e2.y }
 }
 
 fn @max_extents(e1: Extents, e2: Extents) -> Extents {
-    Extents { x: max(e1.x, e2.x), y: max(e1.y, e2.y) }
+    Extents { x : max(e1.x, e2.x), y : max(e1.y, e2.y) }
 }
 
 struct Stencil {
-    op: StencilOp,
-    extents: Extents,
-    num_inputs: i32
+    op : StencilOp,
+    extents : Extents,
+    num_inputs : i32
 }
 
 fn @stencil(op: StencilOp, extents: Extents, num_inputs: i32) -> Stencil {
-    Stencil { op: op, extents: extents, num_inputs: num_inputs }
+    Stencil { op : op, extents : extents, num_inputs : num_inputs }
 }
 
 fn @infer_stencil(op: StencilOp) -> Stencil {
@@ -36,7 +36,7 @@ fn @infer_stencil(op: StencilOp) -> Stencil {
 
 fn @infer_extents_inputs(stencil: StencilOp) -> (Extents, i32) {
     let mut num_inputs = 0;
-    let mut extents = Extents { x: 0, y: 0 };
+    let mut extents = Extents { x : 0, y : 0 };
     @@stencil(|input| |x, y| {
         num_inputs = max(num_inputs, input);
         extents.x = max(extents.x, abs(x));
@@ -60,13 +60,13 @@ type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
 type ScheduleLoop = fn(Read, i32, i32, i32, i32, Write) -> ();
 
 struct Schedule {
-    loop: ScheduleLoop,
-    extents: Extents,
-    num_inputs: i32
+    loop : ScheduleLoop,
+    extents : Extents,
+    num_inputs : i32
 };
 
 fn @schedule(loop: ScheduleLoop, extents: Extents, num_inputs: i32) -> Schedule {
-    Schedule {loop: loop, extents: extents, num_inputs: num_inputs }
+    Schedule {loop : loop, extents : extents, num_inputs : num_inputs }
 }
 
 // compute
@@ -163,7 +163,7 @@ fn @par(num_threads: i32) -> Loop {
 fn @iterate_regions(lower: i32, upper: i32, tile_size: i32, extent: i32, body: fn(i32, i32, i32) -> ()) -> () {
     if extent == 0 {
         let region = 1;
-        @@body(lower, upper, 1);
+        @@body(lower, upper, region);
     } else {
         let lower_aligned = round_up(lower + extent, tile_size);
         let upper_aligned = round_down(upper - extent, tile_size);
@@ -184,7 +184,7 @@ fn @dummy_boundaries(boundary: Boundary, align_x:i32, align_y:i32, schedule: Sch
         let boundary_read = boundary((-1, -1), read);
         schedule.loop(boundary_read, x_lower, y_lower, x_upper, y_upper, write);
     };
-    Schedule { loop: loop, extents: schedule.extents, num_inputs: schedule.num_inputs }
+    Schedule { loop : loop, extents : schedule.extents, num_inputs : schedule.num_inputs }
 }
 
 fn @handle_boundaries(boundary: Boundary, align_x:i32, align_y:i32, center: Schedule, perimeter: Schedule) -> Schedule {
@@ -212,7 +212,7 @@ fn @combine_xy(loop_x: Loop, loop_y: Loop, stencil: Stencil) -> Schedule {
             }
         }
     };
-    Schedule { loop: loop, extents: stencil.extents, num_inputs: stencil.num_inputs }
+    Schedule { loop : loop, extents : stencil.extents, num_inputs : stencil.num_inputs }
 }
 
 fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Schedule {
@@ -283,7 +283,7 @@ fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Sc
             }
         }
     };
-    Schedule { loop: loop, extents: inner.extents, num_inputs: inner.num_inputs }
+    Schedule { loop : loop, extents : inner.extents, num_inputs : inner.num_inputs }
 }
 
 
@@ -302,7 +302,7 @@ fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
             write(x, y, stencil.op(read, x, y))
         });
     };
-    Schedule { loop: loop, extents: stencil.extents, num_inputs: stencil.num_inputs }
+    Schedule { loop : loop, extents : stencil.extents, num_inputs : stencil.num_inputs }
 }
 
 fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule {
