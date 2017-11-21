@@ -58,11 +58,11 @@ struct CacheSizes {
     count : i32,
 }
 
-fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn(i32, i32) -> ()) -> () {
+fn @tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn(i32, i32) -> ()) -> () {
     let debug_tiling = false;
 
     // analyze stencil
-    fn distances(idx: (i32, i32), last_idx: (i32, i32), sum_dist: (i32, i32), max_dist: (i32, i32)) -> ((i32, i32), (i32, i32)) {
+    fn @(?idx & ?mask) distances(idx: (i32, i32), last_idx: (i32, i32), sum_dist: (i32, i32), max_dist: (i32, i32)) -> ((i32, i32), (i32, i32)) {
         if idx(0) >= mask.size_x {
             // end of mask line
             distances((0, idx(1)+1), last_idx, sum_dist, max_dist)
@@ -81,8 +81,7 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
             let dist = (idx(0) - last_idx(0),
                         idx(1) - last_idx(1));
             let mut new_max_dist = max_dist;
-            if (dist(1) > max_dist(1) ||
-                (dist(1) == max_dist(1) && dist(0) > max_dist(0))) {
+            if dist(1) > max_dist(1) || (dist(1) == max_dist(1) && dist(0) > max_dist(0)) {
                 new_max_dist = dist;
             }
             distances((idx(0)+1, idx(1)), idx,
@@ -95,11 +94,11 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
     pe_info("sum", sum_distances);
     pe_info("max", max_distance);
 
-    fn get_tile_dims(mask: Mask, img: Img) -> (i32, i32) {
+    fn @get_tile_dims(mask: Mask, img: Img) -> (i32, i32) {
         // TODO make this dimension independent, currently only 2D is supported
         // TODO get cache information from machine/compiler/somewhere else
 
-        let caches = CacheSizes {sizes: [32*1024, 256*1024, 20*1024*1024], count: 3}; // in bytes
+        let caches = CacheSizes { sizes : [ 32*1024, 256*1024, 20*1024*1024 ], count : 3}; // in bytes
         let element_size = 4; // TODO make this dynamic based on used type. templates?
 
         if debug_tiling {
@@ -116,7 +115,7 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
             print_string("\n");
         }
 
-        fn cache_tile(cache_lvl: i32, max_tile_size: i32) -> i32 {
+        fn @(?cache_lvl) cache_tile(cache_lvl: i32, max_tile_size: i32) -> i32 {
             let min_loop_length = 200; // controls when loop should be blocked
 
             if cache_lvl < 0 {
@@ -150,7 +149,7 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
     let y_upper = yu;
     let y_lower = yl;
 
-    fn tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
+    fn @(?cur_lvl) tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
         if debug_tiling {
             print_string("tile(");
             print_i32(cur_lvl);
@@ -183,7 +182,7 @@ fn tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, mask: Mask, img: Img, body: fn
         } else {
             for y in range(yl, yu) {
                 for x in range(xl, xu) {
-                    body(x, y);
+                    @@body(x, y);
                 }
             }
         }
