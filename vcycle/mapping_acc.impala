@@ -1,23 +1,31 @@
-fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
-                   bh_lower: BoundaryFn, bh_upper: BoundaryFn,
-                   residual: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
-                   restrict: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
-                  ) -> () {
-    let sol_gpu  = get_img(acc.alloc(acc.dev(), Sol.stride  * Sol.height  * sizeof[f32]()), Sol.width,  Sol.height);
-    let rhsf_gpu = get_img(acc.alloc(acc.dev(), RHSF.stride * RHSF.height * sizeof[f32]()), RHSF.width, RHSF.height);
-    let rhsc_gpu = get_img(acc.alloc(acc.dev(), RHSC.stride * RHSC.height * sizeof[f32]()), RHSC.width, RHSC.height);
-    copy(RHSF.buf, rhsf_gpu.buf, rhsf_gpu.width * rhsf_gpu.height * sizeof[f32]());
-    copy(Sol.buf,  sol_gpu.buf,  sol_gpu.width  * sol_gpu.height  * sizeof[f32]());
+fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
+                    bh_lower: BoundaryFn, bh_upper: BoundaryFn,
+                    residual: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
+                    restrict: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
+                   ) -> () {
+    let acc      = accelerator(device_id);
+    let sol_gpu  = alloc_img(Sol,  acc.alloc);
+    let rhsf_gpu = alloc_img(RHSF, acc.alloc);
+    let rhsc_gpu = alloc_img(RHSC, acc.alloc);
+    copy_img(RHSF, rhsf_gpu);
+    copy_img(Sol,  sol_gpu);
 
     let step  = 2; // restrict by 2x
     let grid  = (Sol.width, Sol.height, 1);
     let block = (64, step, 1);
 
-    for benchmark_acc() {
-        with acc.exec(acc.dev(), grid, block) @{
-            let tid_x = acc.tidx();
-            let tid_y = acc.tidy();
-            let gid_y = acc.gidy();
+    for benchmark_acc(acc) {
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+            let (tidx,  tidy,  _) = tid;
+            let (bidx,  bidy,  _) = bid;
+            let (bdimx, bdimy, _) = bdim;
+            let tid_x  = tidx();
+            let tid_y  = tidy();
+            let bid_x  = bidx();
+            let bid_y  = bidy();
+            let bdim_x = bdimx();
+            let bdim_y = bdimy();
+            let gid_y  = tid_y + bdim_y * bid_y;
 
             let spm_stride = block(0);
             let spm_height = block(1);
@@ -25,22 +33,22 @@ fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
 
             // residual: index space == block
             let tmp_acc  = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
-            let rhsf_acc = get_acc_offset(rhsf_gpu, set_pixel_fn(rhsf_gpu), get_pixel_fn(rhsf_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy());
-            let sol_acc  = get_acc_bh_offset(sol_gpu, set_pixel_fn(sol_gpu), get_pixel_ldg_fn(sol_gpu), acc.bdimx() * acc.bidx(), acc.bdimy() * acc.bidy(), 10  /* all */, bh_lower, bh_upper);
-            residual(math, tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
+            let rhsf_acc = get_acc_offset(rhsf_gpu, set_pixel_fn(rhsf_gpu), get_pixel_fn(rhsf_gpu), bdim_x * bid_x, bdim_y * bid_y);
+            let sol_acc  = get_acc_bh_offset(sol_gpu, set_pixel_fn(sol_gpu), get_pixel_ldg_fn(sol_gpu), bdim_x * bid_x, bdim_y * bid_y, (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
+            @@residual(math, tid_x, tid_y, tmp_acc, sol_acc, rhsf_acc, residual_mask);
 
             acc.barrier();
 
             // restrict: index space == block
-            if tid_x < block(0) / step && gid_y % step == 0 @{
+            if tid_x < block(0) / step && gid_y % step == 0 {
                 let tmp_acc = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
-                let rhs_acc = get_acc_offset(rhsc_gpu, set_pixel_fn(rhsc_gpu), get_pixel_fn(rhsc_gpu), acc.bdimx() * acc.bidx()/step, acc.bdimy() * acc.bidy()/step);
-                restrict(math, tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
+                let rhs_acc = get_acc_offset(rhsc_gpu, set_pixel_fn(rhsc_gpu), get_pixel_fn(rhsc_gpu), bdim_x * bid_x / step, bdim_y * bid_y / step);
+                @@restrict(math, tid_x, tid_y, rhs_acc, tmp_acc, restrict_mask);
             }
         }
     }
 
-    copy(rhsc_gpu.buf, RHSC.buf, rhsc_gpu.width * rhsc_gpu.height * sizeof[f32]());
+    copy_img(rhsc_gpu, RHSC);
     release(sol_gpu.buf);
     release(rhsf_gpu.buf);
     release(rhsc_gpu.buf);

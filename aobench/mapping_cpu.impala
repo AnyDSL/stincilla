@@ -1,18 +1,18 @@
-extern "C" {
-    fn drand48() -> f64;
-    fn srand48(i64) -> ();
-}
-
-fn iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
-             body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
-            ) -> () {
-    srand48(get_micro_time());
-    fn rand() -> f64 { drand48() }
+fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
+              body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
+             ) -> () {
+    random_seed(get_micro_time() as u32);
 
     for benchmark_cpu() {
-        for y in $outer_loop(0, height) {
-            for x in inner_loop(0, width) @{
-                fn out_fun(r: u8, g: u8, b: u8) -> () {
+        for y in outer_loop(0, height) {
+            let mut state = random_val_u64();
+            fn @rand() -> f64 {
+                let (r, s) = rnd_f64(state);
+                state = s;
+                r
+            }
+            for x in range(0, width) {
+                fn @out_fun(r: u8, g: u8, b: u8) -> () {
                     let out = bitcast[&mut[u8]](out.data);
                     out(3 * (y * width + x) + 0) = r;
                     out(3 * (y * width + x) + 1) = g;

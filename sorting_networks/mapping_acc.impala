@@ -1,24 +1,26 @@
 fn iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: BoundaryFn,
                     body: fn(i32, i32, Acc, Acc) -> ()
                    ) -> () {
+    let acc   = accelerator(device_id);
     let grid  = (out.width, out.height, 1);
     let block = (128, 1, 1);
 
-    let out_gpu = get_img(acc.alloc(acc.dev(), out.width * out.height * sizeof[f32]()), out.width, out.height);
-    let arr_gpu = get_img(acc.alloc(acc.dev(), arr.width * arr.height * sizeof[f32]()), arr.width, arr.height);
-    copy(arr.buf, arr_gpu.buf, arr.width * arr.height * sizeof[f32]());
+    let out_gpu = alloc_img(out, acc.alloc);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    copy_img(arr, arr_gpu);
 
-    for benchmark_acc() {
-        with acc.exec(acc.dev(), grid, block) @{
-            let gid_x = acc.gidx();
-            let gid_y = acc.gidy();
-            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), 10, bh_lower, bh_upper);
+    for benchmark_acc(acc) {
+        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+            let (gidx,  gidy,  _) = gid;
+            let gid_x = gidx();
+            let gid_y = gidy();
+            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Unknown, Boundary::Center), bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-            body(gid_x, gid_y, out_acc, arr_acc);
+            @@body(gid_x, gid_y, out_acc, arr_acc);
         }
     }
 
-    copy(out_gpu.buf, out.buf, out.width * out.height * sizeof[f32]());
+    copy_img(out_gpu, out);
     release(out_gpu.buf);
     release(arr_gpu.buf);
 }

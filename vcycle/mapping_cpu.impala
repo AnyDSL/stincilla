@@ -1,53 +1,38 @@
-fn iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
-                   bh_lower: BoundaryFn, bh_upper: BoundaryFn,
-                   residual: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
-                   restrict: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
-                  ) -> () {
-    let unroll = 1;
+fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
+                    bh_lower: BoundaryFn, bh_upper: BoundaryFn,
+                    residual: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
+                    restrict: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
+                   ) -> () {
+    let coarsening_factor = 1;
     let step   = 2; // restrict by 2x
-    let bhy = round_up(residual_mask.size_y / 2, step * unroll);
+    let bhy = round_up(residual_mask.size_y / 2, step * coarsening_factor);
     let bhx = round_up(residual_mask.size_x / 2, get_vector_length());
 
-    let Bounds2DCol = [
-        (0               , bhy),
-        (bhy             , Sol.height - bhy),
-        (Sol.height - bhy, Sol.height)
-    ];
-
-    let Bounds2DRow = [
-        (0              , bhx),
-        (bhx            , Sol.width - bhx),
-        (Sol.width - bhx, Sol.width)
-    ];
-
     for benchmark_cpu() {
-        for iter_col in @range(0, 3) {
-            let bounds_col = Bounds2DCol(iter_col);
-            //let outer_col  = if iter_col == 1 { outer_loop_step } else { range_step };
+        for bounds_col, boundary_col in iterate_1dregion(0, Sol.height, bhy) {
+            //let outer_col  = match boundary_col { Boundary::Center => outer_loop_step, _ => range_step };
             // allocate temporary array
-            let tmp = alloc_cpu(Sol.stride * step * unroll * sizeof[f32]());
+            let tmp = alloc_cpu(Sol.stride * step * coarsening_factor * sizeof[f32]());
             // gets slower when computed in parallel
-            for y in $range_step(bounds_col(0), bounds_col(1), step * unroll) @{
+            for y in range_step(bounds_col(0), bounds_col(1), step * coarsening_factor) {
                 // residual: index space == cache line
-                for iter_row in range(0, 3) {
-                    let bounds_row = Bounds2DRow(iter_row);
-                    let inner_row  = if iter_row == 1 { inner_loop } else { range };
-                    for yi in range(0, step * unroll) {
-                        for x in $inner_row(bounds_row(0), bounds_row(1)) @{
-                            let region   = Region2D(3 * iter_col + iter_row);
-                            let tmp_acc  = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), Sol.stride, step * unroll);
+                for bounds_row, boundary_row in iterate_1dregion(0, Sol.width, bhx) {
+                    let inner_row  = match boundary_row { Boundary::Center => inner_loop, _ => range };
+                    for yi in unroll(0, step * coarsening_factor) {
+                        for x in inner_row(bounds_row(0), bounds_row(1)) {
+                            let tmp_acc  = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), Sol.stride, step * coarsening_factor);
                             let rhsf_acc = get_acc_offset(RHSF, set_pixel_fn(RHSF), get_pixel_fn(RHSF), 0, y);
-                            let sol_acc  = get_acc_bh_offset(Sol, set_pixel_fn(Sol), get_pixel_fn(Sol), 0, y, region, bh_lower, bh_upper);
-                            residual(math, x, yi, tmp_acc, sol_acc, rhsf_acc, residual_mask);
+                            let sol_acc  = get_acc_bh_offset(Sol, set_pixel_fn(Sol), get_pixel_fn(Sol), 0, y, (boundary_row, boundary_col), bh_lower, bh_upper);
+                            @@residual(math, x, yi, tmp_acc, sol_acc, rhsf_acc, residual_mask);
                         }
                     }
                 }
                 // restrict: index space == cache line
-                for yi in range(0, unroll) {
-                    let tmp_acc  = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), Sol.stride, step * unroll);
+                for yi in unroll(0, coarsening_factor) {
+                    let tmp_acc  = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), Sol.stride, step * coarsening_factor);
                     let rhsc_acc = get_acc_offset(RHSC, set_pixel_fn(RHSC), get_pixel_fn(RHSC), 0, y/step + yi);
-                    for x in $range(0, RHSC.width) @{
-                        restrict(math, x, yi, rhsc_acc, tmp_acc, restrict_mask);
+                    for x in range(0, RHSC.width) {
+                        @@restrict(math, x, yi, rhsc_acc, tmp_acc, restrict_mask);
                     }
                 }
             }

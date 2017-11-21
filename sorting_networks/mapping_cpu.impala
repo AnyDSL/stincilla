@@ -1,13 +1,13 @@
-fn iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: BoundaryFn,
-                    body: fn(i32, i32, Acc, Acc) -> ()
-                   ) -> () {
-    let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), 10, bh_lower, bh_upper);
+fn @iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: BoundaryFn,
+                     body: fn(i32, i32, Acc, Acc) -> ()
+                    ) -> () {
+    let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), (Boundary::Unknown, Boundary::Center), bh_lower, bh_upper);
     let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
 
     for benchmark_cpu() {
-        for y in $outer_loop(0, out.height) {
-            for x in inner_loop(0, out.width) @{
-                body(x, y, out_acc, arr_acc);
+        for y in outer_loop(0, out.height) {
+            for x in inner_loop(0, out.width) {
+                @@body(x, y, out_acc, arr_acc);
             }
         }
     }

@@ -1,30 +1,37 @@
 fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     if lower < upper {
         body(lower);
-        range(lower+1, upper, body, return)
+        range(lower+1, upper, body)
     }
 }
 
-fn iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) -> () {
-    let arr_buf_gpu = acc.alloc(acc.dev(), width * height * sizeof[f32]());
-    let out_buf_gpu = acc.alloc(acc.dev(), width * height * sizeof[f32]());
+fn @iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) -> () {
+    let acc         = accelerator(device_id);
+    let arr_buf_gpu = acc.alloc(width * height * sizeof[f32]());
+    let out_buf_gpu = acc.alloc(width * height * sizeof[f32]());
     let     arr_gpu = bitcast[&   [1][f32]](arr_buf_gpu.data);
     let     out_gpu = bitcast[&mut[1][f32]](out_buf_gpu.data);
     copy(arr, arr_buf_gpu, width * height * sizeof[f32]());
 
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
-    with acc.exec(acc.dev(), grid, block) @{
+    for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+        let (tidx,  tidy,  _) = tid;
+        let (gidx,  gidy,  _) = gid;
+        let tid_x = tidx();
+        let gid_x = gidx();
+        let gid_y = gidy();
         let shared = reserve_shared[f32](block(0) * block(1));
         // arr -> shared
-        body(acc.gidx(), acc.gidy(),
-             |x, y|      { arr_gpu(y*width + x) },
-             |x, y, val| {  shared(acc.tidx()) = val; });
+        @@body(gid_x, gid_y,
+               |x, y|      { arr_gpu(y*width + x) },
+               |x, y, val| {  shared(tid_x) = val; });
         // shared -> out
-        body(acc.gidx(), acc.gidy(),
-             |x, y|      {  shared(acc.tidx()) },
-             |x, y, val| { out_gpu(y*width + x) = val; });
+        @@body(gid_x, gid_y,
+               |x, y|      {  shared(tid_x) },
+               |x, y, val| { out_gpu(y*width + x) = val; });
     }
+    acc.sync();
 
     copy(out_buf_gpu, out, width * height * sizeof[f32]());
     release(out_buf_gpu);
@@ -43,7 +50,7 @@ fn main() -> i32 {
         out_ptr(i) = 0.0f;
     }
 
-    for x, y, read, write in @iteration(out, arr, width, height) {
+    for x, y, read, write in iteration(out, arr, width, height) {
         let val = read(x, y);
         write(x, y, val);
     }

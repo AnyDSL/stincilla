@@ -1,4 +1,4 @@
-type BoundaryFni16 = fn(i32, i32, i32, fn(i16) -> !) -> i32;
+type BoundaryFni16 = fn(i32, i32, i32) -> BoundaryModei16;
 
 struct Imgi16 {
     buf : Buffer,
@@ -6,95 +6,110 @@ struct Imgi16 {
     height : i32,
     stride : i32,
 }
+
 struct Acci16 {
     read  : fn(i32, i32) -> i16,
     write : fn(i32, i32, i16) -> (),
 }
 
-// &   [i16] on CPU/AVX
-// &[1][i16] on CUDA/NVVM & OpenCL
-fn get_acci16_bh(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, region: i32, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
-    get_acci16_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
+enum BoundaryModei16 {
+    Index(i32),
+    Const(i16)
 }
-fn get_acci16_bh_offset(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32, region: i32, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
-    Acci16 {
-        read  : |x, y|    read_pixeli16(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, |x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
-        write : |x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
-    }
-}
-fn get_acci16(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16) -> Acci16 {
-    get_acci16_offset(img, set_pixel, get_pixel, 0, 0)
-}
-fn get_acci16_offset(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32) -> Acci16 {
-    Acci16 {
-        read  : |x, y|    { get_pixel((y + roy) * img.stride + x + rox) },
-        write : |x, y, v| { set_pixel((y + roy) * img.stride + x + rox, v) }
-    }
-}
-fn get_img_i16(buf: Buffer, width: i32, height: i32) -> Imgi16 {
-    Imgi16 { buf : buf, width : width,  height : height, stride : width }
-}
-fn read_pixeli16(x: i32, y: i32, region: i32, roi: RoI, read: fn(i32, i32) -> i16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> i16 {
-    let mut idx_x = roi.o_x + x;
-    let mut idx_y = roi.o_y + y;
 
+fn @nobh_center_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 { BoundaryModei16::Index(idx) }
+fn @clamp_lower_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx < lower { lower } else { idx })
+}
+fn @clamp_upper_i16 (idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx >= upper { upper - 1 } else { idx })
+}
+fn @mirror_lower_i16(idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx < lower { lower + (lower - idx-1) } else { idx })
+}
+fn @mirror_upper_i16(idx: i32, lower: i32, upper: i32) -> BoundaryModei16 {
+    BoundaryModei16::Index(if idx >= upper { upper - (idx+1 - upper) } else { idx })
+}
+
+fn @map_boundary_modei16(mode: BoundaryModei16, bh_fun: fn(i32) -> BoundaryModei16) -> BoundaryModei16 {
+    match mode {
+        BoundaryModei16::Index(idx) => bh_fun(idx),
+        BoundaryModei16::Const(val) => mode
+    }
+}
+fn @read_pixeli16(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> i16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> i16 {
     let lower_x = roi.o_x;
     let lower_y = roi.o_y;
     let upper_x = roi.o_x + roi.width;
     let upper_y = roi.o_y + roi.height;
 
-    // region encoding
-    // 0 --- 1 --- 2
-    // 3 --- 4 --- 5
-    // 6 --- 7 --- 8
-    // region encoding
+    let (mode_x, mode_y) = match region {
+        (row, col) => {
+            let mode_x = match row {
+                Boundary::Lower   => bh_lower(roi.o_x + x, lower_x, upper_x),
+                Boundary::Center  => BoundaryModei16::Index(roi.o_x + x),
+                Boundary::Upper   => bh_upper(roi.o_x + x, lower_x, upper_x),
+                Boundary::Unknown => map_boundary_modei16(bh_lower(roi.o_x + x, lower_x, upper_x), @|idx| bh_upper(idx, lower_x, upper_x))
+            };
+            let mode_y = match col {
+                Boundary::Lower   => bh_lower(roi.o_y + y, lower_y, upper_y),
+                Boundary::Center  => BoundaryModei16::Index(roi.o_y + y),
+                Boundary::Upper   => bh_upper(roi.o_y + y, lower_y, upper_y),
+                Boundary::Unknown => map_boundary_modei16(bh_lower(roi.o_y + y, lower_y, upper_y), @|idx| bh_upper(idx, lower_y, upper_y))
+            };
+            (mode_x, mode_y)
+        }
+    };
 
-    // left
-    if region == 0 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
-    if region == 3 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
-    if region == 6 { idx_x = @bh_lower(idx_x, lower_x, upper_x, return); }
-
-    // right
-    if region == 2 { idx_x = @bh_upper(idx_x, lower_x, upper_x, return); }
-    if region == 5 { idx_x = @bh_upper(idx_x, lower_x, upper_x, return); }
-    if region == 8 { idx_x = @bh_upper(idx_x, lower_x, upper_x, return); }
-
-    // top
-    if region == 0 { idx_y = @bh_lower(idx_y, lower_y, upper_y, return); }
-    if region == 1 { idx_y = @bh_lower(idx_y, lower_y, upper_y, return); }
-    if region == 2 { idx_y = @bh_lower(idx_y, lower_y, upper_y, return); }
-
-    // bottom
-    if region == 6 { idx_y = @bh_upper(idx_y, lower_y, upper_y, return); }
-    if region == 7 { idx_y = @bh_upper(idx_y, lower_y, upper_y, return); }
-    if region == 8 { idx_y = @bh_upper(idx_y, lower_y, upper_y, return); }
-
-    // all in
-    if region == 10 {
-        idx_x = @bh_lower(idx_x, lower_x, upper_x, return);
-        idx_x = @bh_upper(idx_x, lower_x, upper_x, return);
-        idx_y = @bh_lower(idx_y, lower_y, upper_y, return);
-        idx_y = @bh_upper(idx_y, lower_y, upper_y, return);
+    match (mode_x, mode_y) {
+        (BoundaryModei16::Index(x), BoundaryModei16::Index(y)) => read(x, y),
+        (BoundaryModei16::Const(c), _) => c,
+        (_, BoundaryModei16::Const(c)) => c,
+        _ => undef()
     }
+}
 
-    @read(idx_x, idx_y)
+// &   [i16] on CPU/AVX
+// &[1][i16] on CUDA/NVVM & OpenCL
+fn @get_acci16_bh(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, region: Region, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
+    get_acci16_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 }
-fn nobh_center_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 { idx }
-fn clamp_lower_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx < lower { lower } else { idx }
+fn @get_acci16_bh_offset(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
+    Acci16 {
+        read  : @|x, y|    read_pixeli16(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, @|x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
+        write : @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
+    }
 }
-fn clamp_upper_i16 (idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx >= upper { upper - 1 } else { idx }
+fn @get_acci16(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16) -> Acci16 {
+    get_acci16_offset(img, set_pixel, get_pixel, 0, 0)
 }
-fn mirror_lower_i16(idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx < lower { lower + (lower - idx-1) } else { idx }
+fn @get_acci16_offset(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32) -> Acci16 {
+    Acci16 {
+        read  : @|x, y|    { get_pixel((y + roy) * img.stride + x + rox) },
+        write : @|x, y, v| { set_pixel((y + roy) * img.stride + x + rox, v) }
+    }
 }
-fn mirror_upper_i16(idx: i32, lower: i32, upper: i32, out: fn(i16) -> !) -> i32 {
-    if idx >= upper { upper - (idx+1 - upper) } else { idx }
+
+fn @new_imgi16(width: i32, height: i32, stride: i32, buf: Buffer) -> Imgi16 {
+    Imgi16 { buf : buf, width : width,  height : height, stride : stride }
 }
+
+fn @alloc_imgi16(img: Imgi16, alloc: fn(i32) -> Buffer) -> Imgi16 {
+    new_imgi16(img.width, img.height, img.stride, alloc(img.stride * img.height * sizeof[i16]()))
+}
+
+fn @create_imgi16(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Imgi16 {
+    let stride = round_up(width * sizeof[i16](), 64) / sizeof[i16]();
+    new_imgi16(width, height, stride, alloc(stride * height * sizeof[i16]()))
+}
+
+fn @copy_imgi16(src: Imgi16, dst: Imgi16) -> () {
+    copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[i16]());
+}
+
 
 // conditional swap using pointers
-fn swap_if(a: &mut i16, b: &mut i16) -> () {
+fn @swap_if(a: &mut i16, b: &mut i16) -> () {
     if *a > *b {
         let tmp = *a;
         *a = *b;
@@ -102,197 +117,23 @@ fn swap_if(a: &mut i16, b: &mut i16) -> () {
     }
 }
 
-fn qcod(x: i32, y: i32, map: Acc, img: Acci16) -> () {
-    let mut r0  = img.read(x-2, y-2);
-    let mut r1  = img.read(x-1, y-2);
-    let mut r2  = img.read(x  , y-2);
-    let mut r3  = img.read(x+1, y-2);
-    let mut r4  = img.read(x+2, y-2);
-    let mut r5  = img.read(x-2, y-1);
-    let mut r6  = img.read(x-1, y-1);
-    let mut r7  = img.read(x  , y-1);
-    let mut r8  = img.read(x+1, y-1);
-    let mut r9  = img.read(x+2, y-1);
-    let mut r10 = img.read(x-2, y  );
-    let mut r11 = img.read(x-1, y  );
-    let mut r12 = img.read(x  , y  );
-    let mut r13 = img.read(x+1, y  );
-    let mut r14 = img.read(x+2, y  );
-    let mut r15 = img.read(x-2, y+1);
-    let mut r16 = img.read(x-1, y+1);
-    let mut r17 = img.read(x  , y+1);
-    let mut r18 = img.read(x+1, y+1);
-    let mut r19 = img.read(x+2, y+1);
-    let mut r20 = img.read(x-2, y+2);
-    let mut r21 = img.read(x-1, y+2);
-    let mut r22 = img.read(x  , y+2);
-    let mut r23 = img.read(x+1, y+2);
-    let mut r24 = img.read(x+2, y+2);
+fn @qcod(x: i32, y: i32, map: Acc, img: Acci16) -> () {
+    let mut arr: [i16 * 25];
+    for y in unroll(0, 5) {
+        for x in unroll(0, 5) {
+            arr(y * 5 + x) = img.read(x, y);
+        }
+    }
 
-    // sorting network using "Best" algorithm according to
-    // http://pages.ripco.net/~jgamble/nw.html
-    swap_if(&mut r1,  &mut r2);
-    swap_if(&mut r0,  &mut r2);
-    swap_if(&mut r0,  &mut r1);
-    swap_if(&mut r4,  &mut r5);
-    swap_if(&mut r3,  &mut r5);
-    swap_if(&mut r3,  &mut r4);
-    swap_if(&mut r0,  &mut r3);
-    swap_if(&mut r1,  &mut r4);
-    swap_if(&mut r2,  &mut r5);
-    swap_if(&mut r2,  &mut r4);
-    swap_if(&mut r1,  &mut r3);
-    swap_if(&mut r2,  &mut r3);
-    swap_if(&mut r7,  &mut r8);
-    swap_if(&mut r6,  &mut r8);
-    swap_if(&mut r6,  &mut r7);
-    swap_if(&mut r10, &mut r11);
-    swap_if(&mut r9,  &mut r11);
-    swap_if(&mut r9,  &mut r10);
-    swap_if(&mut r6,  &mut r9);
-    swap_if(&mut r7,  &mut r10);
-    swap_if(&mut r8,  &mut r11);
-    swap_if(&mut r8,  &mut r10);
-    swap_if(&mut r7,  &mut r9);
-    swap_if(&mut r8,  &mut r9);
-    swap_if(&mut r0,  &mut r6);
-    swap_if(&mut r1,  &mut r7);
-    swap_if(&mut r2,  &mut r8);
-    swap_if(&mut r2,  &mut r7);
-    swap_if(&mut r1,  &mut r6);
-    swap_if(&mut r2,  &mut r6);
-    swap_if(&mut r3,  &mut r9);
-    swap_if(&mut r4,  &mut r10);
-    swap_if(&mut r5,  &mut r11);
-    swap_if(&mut r5,  &mut r10);
-    swap_if(&mut r4,  &mut r9);
-    swap_if(&mut r5,  &mut r9);
-    swap_if(&mut r3,  &mut r6);
-    swap_if(&mut r4,  &mut r7);
-    swap_if(&mut r5,  &mut r8);
-    swap_if(&mut r5,  &mut r7);
-    swap_if(&mut r4,  &mut r6);
-    swap_if(&mut r5,  &mut r6);
-    swap_if(&mut r13, &mut r14);
-    swap_if(&mut r12, &mut r14);
-    swap_if(&mut r12, &mut r13);
-    swap_if(&mut r16, &mut r17);
-    swap_if(&mut r15, &mut r17);
-    swap_if(&mut r15, &mut r16);
-    swap_if(&mut r12, &mut r15);
-    swap_if(&mut r13, &mut r16);
-    swap_if(&mut r14, &mut r17);
-    swap_if(&mut r14, &mut r16);
-    swap_if(&mut r13, &mut r15);
-    swap_if(&mut r14, &mut r15);
-    swap_if(&mut r19, &mut r20);
-    swap_if(&mut r18, &mut r20);
-    swap_if(&mut r18, &mut r19);
-    swap_if(&mut r21, &mut r22);
-    swap_if(&mut r23, &mut r24);
-    swap_if(&mut r21, &mut r23);
-    swap_if(&mut r22, &mut r24);
-    swap_if(&mut r22, &mut r23);
-    swap_if(&mut r18, &mut r22);
-    swap_if(&mut r18, &mut r21);
-    swap_if(&mut r19, &mut r23);
-    swap_if(&mut r20, &mut r24);
-    swap_if(&mut r20, &mut r23);
-    swap_if(&mut r19, &mut r21);
-    swap_if(&mut r20, &mut r22);
-    swap_if(&mut r20, &mut r21);
-    swap_if(&mut r12, &mut r19);
-    swap_if(&mut r12, &mut r18);
-    swap_if(&mut r13, &mut r20);
-    swap_if(&mut r14, &mut r21);
-    swap_if(&mut r14, &mut r20);
-    swap_if(&mut r13, &mut r18);
-    swap_if(&mut r14, &mut r19);
-    swap_if(&mut r14, &mut r18);
-    swap_if(&mut r15, &mut r22);
-    swap_if(&mut r16, &mut r23);
-    swap_if(&mut r17, &mut r24);
-    swap_if(&mut r17, &mut r23);
-    swap_if(&mut r16, &mut r22);
-    swap_if(&mut r17, &mut r22);
-    swap_if(&mut r15, &mut r19);
-    swap_if(&mut r15, &mut r18);
-    swap_if(&mut r16, &mut r20);
-    swap_if(&mut r17, &mut r21);
-    swap_if(&mut r17, &mut r20);
-    swap_if(&mut r16, &mut r18);
-    swap_if(&mut r17, &mut r19);
-    swap_if(&mut r17, &mut r18);
-    swap_if(&mut r0,  &mut r13);
-    swap_if(&mut r0,  &mut r12);
-    swap_if(&mut r1,  &mut r14);
-    swap_if(&mut r2,  &mut r15);
-    swap_if(&mut r2,  &mut r14);
-    swap_if(&mut r1,  &mut r12);
-    swap_if(&mut r2,  &mut r13);
-    swap_if(&mut r2,  &mut r12);
-    swap_if(&mut r3,  &mut r16);
-    swap_if(&mut r4,  &mut r17);
-    swap_if(&mut r5,  &mut r18);
-    swap_if(&mut r5,  &mut r17);
-    swap_if(&mut r4,  &mut r16);
-    swap_if(&mut r5,  &mut r16);
-    swap_if(&mut r3,  &mut r13);
-    swap_if(&mut r3,  &mut r12);
-    swap_if(&mut r4,  &mut r14);
-    swap_if(&mut r5,  &mut r15);
-    swap_if(&mut r5,  &mut r14);
-    swap_if(&mut r4,  &mut r12);
-    swap_if(&mut r5,  &mut r13);
-    swap_if(&mut r5,  &mut r12);
-    swap_if(&mut r6,  &mut r19);
-    swap_if(&mut r7,  &mut r20);
-    swap_if(&mut r8,  &mut r21);
-    swap_if(&mut r8,  &mut r20);
-    swap_if(&mut r7,  &mut r19);
-    swap_if(&mut r8,  &mut r19);
-    swap_if(&mut r9,  &mut r22);
-    swap_if(&mut r10, &mut r23);
-    swap_if(&mut r11, &mut r24);
-    swap_if(&mut r11, &mut r23);
-    swap_if(&mut r10, &mut r22);
-    swap_if(&mut r11, &mut r22);
-    swap_if(&mut r9,  &mut r19);
-    swap_if(&mut r10, &mut r20);
-    swap_if(&mut r11, &mut r21);
-    swap_if(&mut r11, &mut r20);
-    swap_if(&mut r10, &mut r19);
-    swap_if(&mut r11, &mut r19);
-    swap_if(&mut r6,  &mut r13);
-    swap_if(&mut r6,  &mut r12);
-    swap_if(&mut r7,  &mut r14);
-    swap_if(&mut r8,  &mut r15);
-    swap_if(&mut r8,  &mut r14);
-    swap_if(&mut r7,  &mut r12);
-    swap_if(&mut r8,  &mut r13);
-    swap_if(&mut r8,  &mut r12);
-    swap_if(&mut r9,  &mut r16);
-    swap_if(&mut r10, &mut r17);
-    swap_if(&mut r11, &mut r18);
-    swap_if(&mut r11, &mut r17);
-    swap_if(&mut r10, &mut r16);
-    swap_if(&mut r11, &mut r16);
-    swap_if(&mut r9,  &mut r13);
-    swap_if(&mut r9,  &mut r12);
-    swap_if(&mut r10, &mut r14);
-    swap_if(&mut r11, &mut r15);
-    swap_if(&mut r11, &mut r14);
-    swap_if(&mut r10, &mut r12);
-    swap_if(&mut r11, &mut r13);
-    swap_if(&mut r11, &mut r12);
+    bitonic_sort_i16(25, @|idx| arr(idx), @|idx, val| arr(idx) = val);
 
-    let Q1 = (r5 + r6) as f32 / 2.0f;
-    let Q3 = (r18 + r19) as f32 / 2.0f;
+    let Q1 = (arr(5)  + arr(6))  as f32 / 2.0f;
+    let Q3 = (arr(18) + arr(19)) as f32 / 2.0f;
 
     map.write(x, y, (Q3 - Q1) / (Q3 + Q1));
 }
 
-fn sobel(x: i32, y: i32, tmp: Acci16, img: Acci16) -> () {
+fn @sobel(x: i32, y: i32, tmp: Acci16, img: Acci16) -> () {
     let mask_x  = [[-1,  0, +1],
                    [-2,  0, +2],
                    [-1,  0, +1]];
@@ -302,8 +143,8 @@ fn sobel(x: i32, y: i32, tmp: Acci16, img: Acci16) -> () {
     let ksizeh  = 1;
     let mut g_x = 0;
     let mut g_y = 0;
-    for ym in range(-ksizeh, ksizeh+1) {
-        for xm in range(-ksizeh, ksizeh+1) {
+    for ym in unroll(-ksizeh, ksizeh+1) {
+        for xm in unroll(-ksizeh, ksizeh+1) {
             let val_x = mask_x(xm + ksizeh)(ym + ksizeh);
             let val_y = mask_y(xm + ksizeh)(ym + ksizeh);
             if val_x != 0 {
@@ -325,23 +166,23 @@ fn sobel(x: i32, y: i32, tmp: Acci16, img: Acci16) -> () {
     tmp.write(x, y, val);
 }
 
-fn filter(x: i32, y: i32, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ksize: i32) -> () {
+fn @filter(x: i32, y: i32, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ksize: i32) -> () {
     let val = map.read(x, y);
     let ksizeh = ksize / 2;
-    if val > threshold @{
+    if val > threshold {
         let mut sum = 0i16;
-        for ym in range(-ksizeh, ksizeh+1) {
-            for xm in range(-ksizeh, ksizeh+1) {
+        for ym in unroll(-ksizeh, ksizeh+1) {
+            for xm in unroll(-ksizeh, ksizeh+1) {
                 sum += img.read(x + xm, y + ym);
             }
         }
         tmp.write(x, y, (sum as f32 / ((ksize * ksize) as f32)) as i16);
-    } else @{
+    } else {
         tmp.write(x, y, img.read(x, y));
     }
 }
 
-fn sharpen(x: i32, y: i32, out: Acci16, img: Acci16, blur: Acci16) -> () {
+fn @sharpen(x: i32, y: i32, out: Acci16, img: Acci16, blur: Acci16) -> () {
     let val_img  =  img.read(x, y);
     let val_blur = blur.read(x, y);
     out.write(x, y, val_img + (val_img - val_blur));
@@ -352,11 +193,11 @@ extern
 fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
     let img     = Imgi16 { buf : Buffer { device : 0, data : bitcast[&[i8]](input)  }, width : width, height : height, stride : width };
     let out     = Imgi16 { buf : Buffer { device : 0, data : bitcast[&[i8]](output) }, width : width, height : height, stride : width };
-    let tmp     = Imgi16 { buf : alloc_cpu(width * height * sizeof[i16]()),            width : width, height : height, stride : width };
-    let map     = Img    { buf : alloc_cpu(width * height * sizeof[f32]()),            width : width, height : height, stride : width };
-    let mask    = @get_mask5([[1.0f, .. 5], .. 5]);
+    let tmp     = create_imgi16(width, height, alloc_cpu);
+    let map     = create_img   (width, height, alloc_cpu);
+    let mask    = get_mask5([[1.0f, .. 5], .. 5]);
 
-    fn sharpening() -> () {
+    fn @sharpening() -> () {
         // compute quartile coefficient of dispersion (QCOD)
         for x, y, map, img in iteration1f1i(map, img, mirror_lower_i16, mirror_upper_i16) {
             qcod(x, y, map, img);
@@ -373,7 +214,7 @@ fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
                 if tmp.read(x, y) == 0i16 { 0 } else { 1 }
             };
         print_string("# of non-edge pixels: ");
-        print_int(bw_count);
+        print_i32(bw_count);
         print_char('\n');
 
 
@@ -406,7 +247,7 @@ fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
         release(sum_count);
     }
 
-    @sharpening();
+    sharpening();
     print_total_timing();
 
     release(tmp.buf);

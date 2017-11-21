@@ -1,0 +1,120 @@
+type pixel_t = i32;
+
+extern
+fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
+    let use_cuda = true;
+
+    let img = Img { width : width, height : height, data : data };
+    let out = Img { width : width, height : height, data : ~[width*height:pixel_t] };
+
+    let identity = stencil(|read: Read, x: i32, y: i32| read(0)(x, y), extents(0, 0), 1);
+    let add_constant = @|c: pixel_t| stencil(|read: Read, x: i32, y: i32| clip(read(0)(x, y) + c, 0, 255), extents(0, 0), 1);
+    let constant = @|c: pixel_t| stencil(|read: Read, x: i32, y: i32| c, extents(0, 0), 1);
+    let invert = stencil(|read: Read, x: i32, y: i32| (255 - read(0)(x, y)) as pixel_t, extents(0, 0), 1);
+
+    let diff = stencil(|read: Read, x: i32, y: i32| clip(read(0)(x, y) - read(1)(x, y), 0, 255) as pixel_t,
+                       extents(0, 0), 2);
+    let add = stencil(|read: Read, x: i32, y: i32| clip(read(0)(x, y) + read(1)(x, y), 0, 255) as pixel_t,
+                      extents(0, 0), 2);
+    let avg = stencil(|read: Read, x: i32, y: i32| { ((read(0)(x, y) + read(1)(x, y)) / 2) as pixel_t},
+                      extents(0, 0), 2);
+
+    let blur_x_op = |read: Read, x: i32, y: i32| (read(0)(x-1, y) + read(0)(x, y) + read(0)(x+1, y)) / 3 as pixel_t;
+    let blur_y_op = |read: Read, x: i32, y: i32| (read(0)(x, y-1) + read(0)(x, y) + read(0)(x, y+1)) / 3 as pixel_t;
+
+    let blur_op = |read: Read, x: i32, y: i32| blur_y_op(|i| |x: i32, y: i32| blur_x_op(read, x, y), x, y);
+
+    let blur_x_extents = extents(1, 0);
+    let blur_y_extents = extents(0, 1);
+    let blur_extents = max_extents(blur_x_extents, blur_y_extents);
+
+    let blur_x = stencil(blur_x_op, blur_x_extents, 1);
+    let blur_y = stencil(blur_y_op, blur_y_extents, 1);
+    let blur = stencil(blur_op, blur_extents, 1);
+    // TODO implement load-store opts for PE, then we can infer the extents at compile time
+    // let blur_x = infer_stencil(blur_x_op);
+    // let blur_y = infer_stencil(blur_y_op);
+    // let blur = infer_stencil(blur_op);
+    // pe_info("inferred extents", blur.extents);
+
+    let vec_size_x = 8;
+    let vec_size_y = 1;
+
+    // --- stencil schedules with parallelization and/or vectorization ---
+    let xy_r_r = @|s: Stencil| combine_xy(range, range, s);
+    let xy_p_r = @|s: Stencil| combine_xy(par(0), range, s);
+    let xy_v_v = @|s: Stencil| combine_xy(vec(vec_size_x), vec(vec_size_y), s);
+    let xy_v_p = @|s: Stencil| combine_xy(vec(vec_size_x), par(0), s);
+
+    // --- scheduling multiple stencils ---
+    let schedule_x = xy_v_v(blur_x);
+    let schedule_y = xy_v_v(blur_y);
+    let xy_schedule = produce_root(schedule_x, schedule_y);
+
+    // --- multiple inputs test: not the same as blur ---
+    // let xy_schedule = produce_roots(
+    //     |i| match i { 0 => schedule_x, 1 => schedule_y, _ => undef[Schedule]() },
+    //     xy_r_r(avg));
+
+    // --- which schedule to use in the tiling or in general if no tiling ---
+    let tile_schedule = xy_schedule;
+
+    // --- outermost y loop for tiling ---
+    let outer_tile_loop = par(0);
+    // let outer_tile_loop = range;
+
+    // --- tiling schedules ---
+    let tile_width = 256; let tile_height = 32;
+    // let tile_width = 32; let tile_height = 16;
+    let tile = @|w, h| tile(w, h, tile_schedule, outer_tile_loop);
+
+    // --- schedule to use in central region ---
+    // let middle_schedule = tile_schedule;
+    let middle_schedule = tile(tile_width, tile_height);
+
+    // --- schedule to use in boundary regions ---
+    // let boundary_schedule = xy_r_r(constant(0));
+    let boundary_schedule = middle_schedule;
+
+    // --- which boundary handling to use ---
+    // let boundary = boundary_const(0);
+    // let boundary = boundary_mirror();
+    let boundary = boundary_clamp();
+
+    // --- bake everything together with boundary handling ---
+    let schedule_cpu = handle_boundaries(boundary(img), tile_width, tile_height, middle_schedule, boundary_schedule);
+    // let schedule_cpu = middle_schedule;
+
+    let tile_width_cuda = 32; let tile_height_cuda = 8;
+    // let schedule_cuda = tile_cuda(tile_width_cuda, tile_height_cuda, blur_op);
+    let schedule_cuda = tile_cuda_at(tile_width_cuda, tile_height_cuda, blur_x, blur_y);
+
+    if use_cuda {
+        let img_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, width * height * sizeof[pixel_t]()).data as &[pixel_t] };
+        let out_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, width * height * sizeof[pixel_t]()).data as &[pixel_t] };
+        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0i64, runtime_device(1, cuda_dev), img_cuda.data as &[i8], 0i64, (width * height * sizeof[pixel_t]()) as i64);
+
+        let schedule_cuda = handle_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda, schedule_cuda);
+        //let schedule_cuda = dummy_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda);
+
+        with benchmark_cuda() {
+            compute(img_cuda, out_cuda, schedule_cuda);
+        }
+
+        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0i64, runtime_device(0, 0), out.data as &[i8], 0i64, (width * height * sizeof[pixel_t]()) as i64);
+        runtime_release(runtime_device(1, cuda_dev), img_cuda.data as &[i8]);
+        runtime_release(runtime_device(1, cuda_dev), out_cuda.data as &[i8]);
+    } else {
+        with benchmark_cpu() {
+            compute(img, out, schedule_cpu);
+        }
+    }
+
+    print_total_timing();
+
+    for y in range(0, height) {
+        for x in range(0, width) {
+            data(y * width + x) = out.data(y * width + x);
+        }
+    }
+}
