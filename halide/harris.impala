@@ -47,10 +47,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
 
     let harris_all = stencil(@|r, x, y| { harris.op(@|i| @|x, y| { match i { 0 => i_x.op(r, x, y), _ => i_y.op(r, x, y) }}, x, y) },
                              extents(1, 1), 2);
-    // TODO: vectorization leads to double-free
-    //let vec_length = 8;
-    let vec_length = 1;
-    let vec_x = @|s: Stencil| combine_xy(vec(vec_length), range, s);
+    let vec_x = @|s: Stencil| combine_xy(vec(8), range, s);
     let tile_schedule = produce_roots(@|i| match i { 0 => vec_x(i_x), _ => vec_x(i_y) }, vec_x(harris));
     let tile_width = 128; let tile_height = 128;
     let tile = tile(tile_width, tile_height, tile_schedule, par(0));
