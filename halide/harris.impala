@@ -51,12 +51,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     //let vec_length = 8;
     let vec_length = 1;
     let vec_x = @|s: Stencil| combine_xy(vec(vec_length), range, s);
-    let i_x_schedule = combine_xy(vec(vec_length), range, i_x);
-    let i_y_schedule = combine_xy(vec(vec_length), range, i_y);
-    let harris_schedule = combine_xy(vec(vec_length), range, harris);
-    let tile_schedule = produce_roots(|i| match i { 0 => i_x_schedule, _ => i_y_schedule }, harris_schedule);
-    // TODO: PE takes forever for the schedule below
-    // let tile_schedule = produce_roots(|i| match i { 0 => vec_x(i_x), _ => vec_x(i_y) }, vec_x(harris));
+    let tile_schedule = produce_roots(@|i| match i { 0 => vec_x(i_x), _ => vec_x(i_y) }, vec_x(harris));
     let tile_width = 128; let tile_height = 128;
     let tile = tile(tile_width, tile_height, tile_schedule, par(0));
     // let tile = tile(tile_width, tile_height, tile_schedule, range);
