@@ -49,7 +49,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
                              extents(1, 1), 2);
     let vec_x = |s: Stencil| combine_xy(vec(8), range, s);
     let tile_schedule = produce_roots(@|i| match i { 0 => vec_x(i_x), _ => vec_x(i_y) }, vec_x(harris));
-    let tile_width = 128; let tile_height = 128;
+    let (tile_width, tile_height) = (128, 128);
     let tile = tile(tile_width, tile_height, tile_schedule, par(0));
     // let tile = tile(tile_width, tile_height, tile_schedule, range);
     // let tile = tile_schedule;
