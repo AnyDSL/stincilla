@@ -2,7 +2,7 @@ type pixel_t = f32;
 
 extern
 fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
-    let use_cuda = false;
+    let use_cuda = true;
 
     let img = Img { width : width, height : height, data : data };
     let out = Img { width : width, height : height, data : ~[width*height:pixel_t] };
@@ -33,7 +33,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
         op(r, x-1, y-1) + op(r, x-1, y) + op(r, x-1, y+1) +
         op(r, x,   y-1) + op(r, x,   y) + op(r, x,   y+1) +
         op(r, x+1, y-1) + op(r, x+1, y) + op(r, x+1, y+1) };
-    let s_xx = sum(i_xx);
+    let s_xx: StencilOp = sum(i_xx);
     let s_yy = sum(i_yy);
     let s_xy = sum(i_xy);
 
@@ -64,8 +64,24 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     let schedule_cpu = handle_boundaries(boundary(img), tile_width, tile_height, tile, tile);
     // let schedule_cpu = middle_schedule;
 
+    let tile_width_cuda = 14; let tile_height_cuda = 14;
+    let schedule_cuda = tile_cuda_ats(tile_width_cuda, tile_height_cuda, @|i| match i { 0 => i_x, _ => i_y }, harris);
+
     if use_cuda {
-        ;
+        let img_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, width * height * sizeof[pixel_t]()).data as &[pixel_t] };
+        let out_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, width * height * sizeof[pixel_t]()).data as &[pixel_t] };
+        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0i64, runtime_device(1, cuda_dev), img_cuda.data as &[i8], 0i64, (width * height * sizeof[pixel_t]()) as i64);
+
+        let schedule_cuda = handle_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda, schedule_cuda);
+        //let schedule_cuda = dummy_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda);
+
+        with benchmark_cuda() {
+            compute(img_cuda, out_cuda, schedule_cuda);
+        }
+
+        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0i64, runtime_device(0, 0), out.data as &[i8], 0i64, (width * height * sizeof[pixel_t]()) as i64);
+        runtime_release(runtime_device(1, cuda_dev), img_cuda.data as &[i8]);
+        runtime_release(runtime_device(1, cuda_dev), out_cuda.data as &[i8]);
     } else {
         with benchmark_cpu() {
             compute(img, out, schedule_cpu);
