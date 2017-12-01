@@ -1,3 +1,12 @@
+// ---------------------------- types ------------------------------------------
+// border handling
+type Bounds = (int, int);
+type get_bounds_fun_type = fn(Boundary) -> Bounds;
+type pixel_read_type  = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pixel_t;
+type row_sel_fun_type = fn(int, win_acc) -> ();
+
+
+// ---------------------------- structs ----------------------------------------
 // Stream types for data movements
 struct stream_in {
     update: fn(int) -> (),
@@ -10,6 +19,61 @@ struct stream_out {
     pFactor  : int
 }
 
+// register arrays
+struct regs1d {
+    read  : fn(int) -> pixel_t,
+    write : fn(int, pixel_t) -> (),
+    begin : int,
+    end   : int
+}
+struct regs2d {
+    read  : fn(int, int) -> pixel_t,
+    write : fn(int, int, pixel_t) -> (),
+    begin : (int, int),
+    end   : (int, int)
+}
+
+// on-chip memory
+struct swin_acc {
+    read   : fn(int, int) -> pixel_t,
+    shift  : fn(int, int) -> (),
+    size_x : int,
+    size_y : int
+}
+
+// border handling
+struct win_acc {
+    read   : fn(int, int) -> pixel_t,
+    write  : fn(int, int, pixel_t) -> (),
+    size_x : int,
+    size_y : int
+}
+struct RoI1d {
+    o_x : i32,
+    width : i32,
+}
+struct col_selection {
+    get_read_fn : fn(int) -> fn(int, int) -> pixel_t,
+    update      : fn(int) -> ()
+}
+struct coarsening_type {
+    process : fn(int, int) -> ()
+}
+
+
+// ------------------------------ loops ----------------------------------------
+fn @iterate1d_border(body: fn(Boundary) -> ()) -> () {
+    for row in unroll(0, 3) {
+        let boundary = get_boundary(row);
+        @@body(boundary);
+    }
+}
+fn @iterate1d_atborders(body: fn(Boundary) -> ()) -> () {
+    @@body(Boundary::Lower);
+    @@body(Boundary::Upper);
+}
+
+// ---------------------------- streaming --------------------------------------
 // Global memory read/write functions
 fn @get_global_stream_vec1(data: &[i8]) -> stream_in {
     let mut value = 0 as pixel_t;
@@ -228,21 +292,7 @@ fn @new_shared_line(in_s: stream_in, width: int) -> stream_in {
 }
 
 
-//  -------------- Array of Registers --------------------
-struct regs1d {
-    write : fn(int, pixel_t) -> (),
-    read  : fn(int) -> pixel_t,
-    begin : int,
-    end   : int
-}
-
-struct regs2d {
-    write : fn(int, int, pixel_t) -> (),
-    read  : fn(int, int) -> pixel_t,
-    begin : (int, int),
-    end   : (int, int)
-}
-
+// -------------------------- Array of Registers -------------------------------
 fn @new_databeat(width: int) -> regs1d {
     new_regs1d(0, width)
 }
@@ -312,33 +362,18 @@ fn @new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
 
 
 //  ---- Instances of On Chip Memory: Line Buffers and Sliding Window  --------
-// On Chip Memory
-struct lbuftype {
-    read  : fn(int, int) -> pixel_t,
-    shift : fn(int) -> (),
-    size_x : int,
-    size_y : int
-}
-struct onchipmem {
-    read  : fn(int, int) -> pixel_t,
-    shift : fn(int, int) -> (),
-    size_x : int,
-    size_y : int
-}
-
-// Line Buffer
-fn @new_line_buffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype {
+fn @new_line_buffer(in_s: stream_in, size_x: int, size_y: int) -> swin_acc {
     if size_y == 0 {
-        lbuftype {
+        swin_acc {
             read   : @|x, y| in_s.read(x),
-            shift  : @|_| (),
+            shift  : @|_, _| (),
             size_x : size_x,
             size_y : size_y
         }
     } else {
         let shared_s = new_shared_line(in_s, size_x);
         let sub_lbuf = new_line_buffer(shared_s, size_x, size_y - 1);
-        lbuftype {
+        swin_acc {
             read   : @|x, y| {
                 if y == size_y {
                     in_s.read(x)
@@ -346,9 +381,9 @@ fn @new_line_buffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype {
                     sub_lbuf.read(x, y)
                 }
             },
-            shift  : @|col| {
+            shift  : @|col, row| {
                 shared_s.update(col);
-                sub_lbuf.shift(col)
+                sub_lbuf.shift(col, 0)
             },
             size_x : size_x,
             size_y : size_y
@@ -356,8 +391,7 @@ fn @new_line_buffer(in_s: stream_in, size_x: int, size_y: int) -> lbuftype {
     }
 }
 
-// Sliding window
-fn @new_sliding_win(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> onchipmem {
+fn @new_sliding_win(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int) -> swin_acc {
     let swin = new_regs2d((0, 0), (swin_x, swin_y));
 
     fn @shift() -> () {
@@ -375,12 +409,12 @@ fn @new_sliding_win(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> 
             }
         }
     }
-    onchipmem {
+    swin_acc {
         read  : @|x, y| {
             swin.read(x, y)
         },
         shift : @|col_ridx, row_ridx| {
-            lbufs.shift(col_ridx);
+            lbufs.shift(col_ridx, 0);
             shift()
         },
         size_x : swin_x,
@@ -388,77 +422,8 @@ fn @new_sliding_win(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int) -> 
     }
 }
 
-// Sliding window
-fn @new_sliding_win_simple(get_fun: fn(int, int) -> pixel_t, width: int, height: int, pFactor: int) -> onchipmem {
-    let swin = new_regs2d((0, 0), (width, height));
-
-    fn @shift() -> () {
-        // Shift sliding window
-        for j in unroll(0, height) {
-            for i in unroll(0, width - pFactor) {
-                swin.write(i, j, swin.read(i + pFactor, j));
-            }
-        }
-
-        // Read new col
-        for j in unroll(0, height) {
-            for v in unroll(0, pFactor) {
-                swin.write((v + width - pFactor), j, get_fun(v, j));
-            }
-        }
-    }
-    onchipmem {
-        read  : swin.read,
-        shift : @|col_ridx, row_ridx| shift(),
-        size_x : width,
-        size_y : height
-    }
-}
-
-//  -------------------  Border Handling  ----------------------
-type Bounds = (int, int);
-type get_bounds_fun_type = fn(Boundary) -> Bounds;
-type pixel_read_type = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pixel_t;
-type row_sel_fun_type = fn(int, win_acc) -> ();
-
-struct RoI1d {
-    o_x : i32,
-    width : i32,
-}
-
-struct borderhandling {
-    get_read_fn : fn(int) -> fn(int, int) -> pixel_t,
-    update      : fn(int) -> ()
-}
-
-struct coarsening_type {
-    process : fn(int, int) -> ()
-}
-
-fn @new_bounds(lower: i32, lower_bh_pixels: i32, upper_bh_pixels: i32, upper: i32) -> get_bounds_fun_type {
-    @|boundary| {
-        match boundary {
-            Boundary::Lower  => (lower, lower_bh_pixels),
-            Boundary::Center => (lower_bh_pixels, upper_bh_pixels),
-            Boundary::Upper  => (upper_bh_pixels, upper),
-            _                => undef()
-        }
-    }
-}
-
-fn @iterate1d_border(body: fn(Boundary) -> ()) -> () {
-    for row in unroll(0, 3) {
-        let boundary = get_boundary(row);
-        @@body(boundary);
-    }
-}
-fn @iterate1d_atborders(body: fn(Boundary) -> ()) -> () {
-    @@body(Boundary::Lower);
-    @@body(Boundary::Upper);
-}
-
 // sliding window with row selection
-fn @new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int, row_sel_fun: row_sel_fun_type) -> onchipmem {
+fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int, row_sel_fun: row_sel_fun_type) -> swin_acc {
     let swin = new_regs2d((0, 0), (swin_x, swin_y));
     let out_width = 4 + pFactor;
     let radius_y = 2;
@@ -476,11 +441,24 @@ fn @new_sliding_win_bh(lbufs: lbuftype, swin_x: int, swin_y: int, pFactor: int, 
         row_sel_fun(row_ridx, wacc);
     }
 
-    onchipmem {
+    swin_acc {
         read  : swin.read,
-        shift : @|col_ridx, row_ridx| { lbufs.shift(col_ridx); shift(col_ridx, row_ridx) },
+        shift : @|col_ridx, row_ridx| { lbufs.shift(col_ridx, 0); shift(col_ridx, row_ridx) },
         size_x : out_width,
         size_y : swin_y
+    }
+}
+
+
+//  --------------------------  Border Handling  -------------------------------
+fn @new_bounds(lower: i32, lower_bh_pixels: i32, upper_bh_pixels: i32, upper: i32) -> get_bounds_fun_type {
+    @|boundary| {
+        match boundary {
+            Boundary::Lower  => (lower, lower_bh_pixels),
+            Boundary::Center => (lower_bh_pixels, upper_bh_pixels),
+            Boundary::Upper  => (upper_bh_pixels, upper),
+            _                => undef()
+        }
     }
 }
 
@@ -499,15 +477,6 @@ fn @read_pixel_bh(xw: int, read: fn(int) -> pixel_t, boundary: Boundary, lower_h
         }
 }
 
-
-struct win_acc {
-    read:  fn(int, int) -> pixel_t,
-    write: fn(int, int, pixel_t) -> (),
-    size_x: int,
-    size_y: int
-}
-
-//wip
 fn @bh_type0(imx: int, wacc: win_acc, boundary: Boundary, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> () {
     // roi @ image
     let lower_arr   = roi.o_x;
@@ -553,7 +522,7 @@ fn @bh_type0(imx: int, wacc: win_acc, boundary: Boundary, pFactor: int, roi: RoI
     };
 }
 
-fn @bh_type0_1d(pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> row_sel_fun_type {
+fn @get_type0_row_sel(pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> row_sel_fun_type {
     @|idx, wacc| {
         for boundary in iterate1d_border() {
             let bh_type0_fun = bh_type0(idx, wacc, boundary, pFactor, roi, get_bounds_fun, bh_lower, bh_upper);
@@ -561,7 +530,7 @@ fn @bh_type0_1d(pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, b
     }
 }
 
-fn @new_type0(swin: onchipmem, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> borderhandling {
+fn @new_type0_col_selection(swin: swin_acc, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> col_selection {
     let (lower_low, lower_high) = get_bounds_fun(Boundary::Lower);
     let (upper_low, upper_high) = get_bounds_fun(Boundary::Upper);
     let lower_regs = new_regs2d((lower_low, 0), (lower_high, swin.size_y));
@@ -586,7 +555,7 @@ fn @new_type0(swin: onchipmem, pFactor: int, roi: RoI1d, get_bounds_fun: get_bou
         }
     }
 
-    borderhandling {
+    col_selection {
         get_read_fn : @|v| { @|x, y| read_fun(x + v, y) },
         update      : update
     }
@@ -603,7 +572,7 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
 
     // border handling row selection
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    let row_sel_fun = bh_type0_1d(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
+    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
@@ -611,7 +580,7 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
 
     // border handling col selection
     let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
-    let col_sel_type0 = new_type0(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
+    let col_sel_type0 = new_type0_col_selection(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
         swin.shift(col_ridx, row_ridx);
@@ -638,7 +607,7 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 
     // Border_handling
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    let row_sel_fun = bh_type0_1d(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
+    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
@@ -653,16 +622,16 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
         if pack_offset == pFactor {
             let win_lat = round_up(radius_x, pFactor) / pFactor;
             let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x);
-            new_type0(swin, pFactor, RoI1d { o_x : win_lat, width : 0 }, get_bounds_fun, bh_lower, bh_upper)
+            new_type0_col_selection(swin, pFactor, RoI1d { o_x : win_lat, width : 0 }, get_bounds_fun, bh_lower, bh_upper)
         } else {
             let win_lat = radius_x / pFactor;
             let roi = RoI1d { o_x : win_lat, width : 1 };
             let upper_low  = pack_offset + radius_x;
             let upper_get_bounds_fun = new_bounds(0, 0, upper_low, upper_low + radius_x);
             let lower_get_bounds_fun = new_bounds(upper_low - radius_x, upper_low, swin_x, swin_x);
-            let upper = new_type0(swin, pFactor, roi, upper_get_bounds_fun, bh_lower, bh_upper);
-            let lower = new_type0(swin, pFactor, roi, lower_get_bounds_fun, bh_lower, bh_upper);
-            borderhandling {
+            let upper = new_type0_col_selection(swin, pFactor, roi, upper_get_bounds_fun, bh_lower, bh_upper);
+            let lower = new_type0_col_selection(swin, pFactor, roi, lower_get_bounds_fun, bh_lower, bh_upper);
+            col_selection {
                 get_read_fn : @|v|   { if v < pack_offset { upper.get_read_fn(v) } else { lower.get_read_fn(v) } },
                 update      : @|idx| { upper.update(idx); lower.update(idx); }
             }
@@ -874,7 +843,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
 
     // border handling row selection
     //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    //let row_sel_fun = bh_type0_1d(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
+    //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
@@ -883,7 +852,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
 
     // border handling col selection
     // let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
-    // let col_sel_type0 = new_type0(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
+    // let col_sel_type0 = new_type0_col_selection(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
         swin.shift(col_ridx, row_ridx);
@@ -910,7 +879,7 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
 
     // Border_handling
     //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    //let row_sel_fun = bh_type0_1d(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
+    //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
@@ -926,16 +895,16 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
     //    if pack_offset == pFactor {
     //        let win_lat = round_up(radius_x, pFactor) / pFactor;
     //        let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x);
-    //        new_type0(swin, pFactor, RoI1d { o_x : win_lat, width : 0 }, get_bounds_fun, bh_lower, bh_upper)
+    //        new_type0_col_selection(swin, pFactor, RoI1d { o_x : win_lat, width : 0 }, get_bounds_fun, bh_lower, bh_upper)
     //    } else {
     //        let win_lat = radius_x / pFactor;
     //        let roi = RoI1d { o_x : win_lat, width : 1 };
     //        let upper_low  = pack_offset + radius_x;
     //        let upper_get_bounds_fun = new_bounds(0, 0, upper_low, upper_low + radius_x);
     //        let lower_get_bounds_fun = new_bounds(upper_low - radius_x, upper_low, swin_x, swin_x);
-    //        let upper = new_type0(swin, pFactor, roi, upper_get_bounds_fun, bh_lower, bh_upper);
-    //        let lower = new_type0(swin, pFactor, roi, lower_get_bounds_fun, bh_lower, bh_upper);
-    //        borderhandling {
+    //        let upper = new_type0_col_selection(swin, pFactor, roi, upper_get_bounds_fun, bh_lower, bh_upper);
+    //        let lower = new_type0_col_selection(swin, pFactor, roi, lower_get_bounds_fun, bh_lower, bh_upper);
+    //        col_selection {
     //            get_read_fn : @|v|   { if v < pack_offset { upper.get_read_fn(v) } else { lower.get_read_fn(v) } },
     //            update      : @|idx| { upper.update(idx); lower.update(idx); }
     //        }
