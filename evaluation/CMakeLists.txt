@@ -100,6 +100,59 @@ add_executable(g1fac_mirror ${g1FAC_MIRROR_PROGRAM})
 target_link_libraries(g1fac_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g1fac_mirror" g1fac_mirror)
 
+
+## v=g8
+# No border handling at all
+anydsl_runtime_wrap(g8CAP_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8cap.impala)
+add_executable(g8cap ${g8CAP_PROGRAM})
+target_link_libraries(g8cap ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("g8cap" g8cap)
+
+anydsl_runtime_wrap(g8FAC_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8fac.impala)
+add_executable(g8fac ${g8FAC_PROGRAM})
+target_link_libraries(g8fac ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("g8fac" g8fac)
+
+# Type-0 border handling 
+anydsl_runtime_wrap(g8CAP_NOBH_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8cap_nobh.impala)
+add_executable(g8cap_nobh ${g8CAP_NOBH_PROGRAM})
+target_link_libraries(g8cap_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("g8cap_nobh" g8cap_nobh)
+
+anydsl_runtime_wrap(g8FAC_NOBH_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8fac_nobh.impala)
+add_executable(g8fac_nobh ${g8FAC_NOBH_PROGRAM})
+target_link_libraries(g8fac_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("g8fac_nobh" g8fac_nobh)
+
+anydsl_runtime_wrap(g8CAP_MIRROR_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8cap_mirror.impala)
+add_executable(g8cap_mirror ${g8CAP_MIRROR_PROGRAM})
+target_link_libraries(g8cap_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("g8cap_mirror" g8cap_mirror)
+
+anydsl_runtime_wrap(g8FAC_MIRROR_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8fac_mirror.impala)
+add_executable(g8fac_mirror ${g8FAC_MIRROR_PROGRAM})
+target_link_libraries(g8fac_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("g8fac_mirror" g8fac_mirror)
+
+
 ## v=g16
 # No border handling at all
 anydsl_runtime_wrap(g16CAP_PROGRAM
