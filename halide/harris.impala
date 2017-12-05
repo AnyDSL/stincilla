@@ -2,7 +2,7 @@ type pixel_t = f32;
 
 extern
 fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
-    let use_cuda = false;
+    let use_cuda = true;
 
     let img = Img { width : width, height : height, data : data };
     let out = Img { width : width, height : height, data : ~[width*height:pixel_t] };
@@ -18,11 +18,11 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
         let read = read(0);
         - 1.0f / 12.0f * read(x-1, y-1) + 1.0f / 12.0f * read(x+1, y-1)
         - 2.0f / 12.0f * read(x-1, y  ) + 2.0f / 12.0f * read(x+1, y  )
-        - 1.0f / 12.0f * read(x-1, y+1) + 1.0f / 12.0f * read(x+1, y+1)}, extents(1, 1), 1);
+        - 1.0f / 12.0f * read(x-1, y+1) + 1.0f / 12.0f * read(x+1, y+1) }, extents(1, 1), 1);
     let i_y = stencil(|read: Read, x, y| {
         let read = read(0);
         - 1.0f / 12.0f * read(x-1, y-1) - 2.0f / 12.0f * read(x, y-1) - 1.0f / 12.0f * read(x+1, y-1)
-        + 1.0f / 12.0f * read(x-1, y+1) + 2.0f / 12.0f * read(x, y+1) + 1.0f / 12.0f * read(x+1, y+1)}, extents(1, 1), 1);
+        + 1.0f / 12.0f * read(x-1, y+1) + 2.0f / 12.0f * read(x, y+1) + 1.0f / 12.0f * read(x+1, y+1) }, extents(1, 1), 1);
 
     let multiply = |i, j| |read: Read, x, y| read(i)(x, y) * read(j)(x, y);
     let i_xx = multiply(0, 0);
@@ -32,21 +32,18 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     let sum = |op| |r: Read, x:i32, y:i32| {
         op(r, x-1, y-1) + op(r, x-1, y) + op(r, x-1, y+1) +
         op(r, x,   y-1) + op(r, x,   y) + op(r, x,   y+1) +
-        op(r, x+1, y-1) + op(r, x+1, y) + op(r, x+1, y+1)};
+        op(r, x+1, y-1) + op(r, x+1, y) + op(r, x+1, y+1) };
     let s_xx: StencilOp = sum(i_xx);
     let s_yy = sum(i_yy);
     let s_xy = sum(i_xy);
 
-    let det = |r: Read, x:i32, y:i32| { s_xx(r, x, y) * s_yy(r, x, y) - s_xy(r, x, y) * s_xy(r, x, y) };
+    let det   = |r: Read, x:i32, y:i32| { s_xx(r, x, y) * s_yy(r, x, y) - s_xy(r, x, y) * s_xy(r, x, y) };
     let trace = |r: Read, x:i32, y:i32| { s_xx(r, x, y) + s_yy(r, x, y) };
 
-    // let harris = stencil(|r, x, y| { det(r, x, y) - 0.04f * trace(r, x, y) * trace(r, x, y) },
-    //                      extents(1, 1), 2);
-    let harris = stencil(|r, x, y| { let traced = trace(r, x, y); det(r, x, y) - 0.04f * traced * traced },
-                         extents(1, 1), 2);
+    // let harris = stencil(|r, x, y| { det(r, x, y) - 0.04f * trace(r, x, y) * trace(r, x, y) }, extents(1, 1), 2);
+    let harris = stencil(|r, x, y| { let trace = trace(r, x, y); det(r, x, y) - 0.04f * trace * trace }, extents(1, 1), 2);
+    let harris_all = stencil(|r, x, y| { harris.op(@|i| |x, y| { match i { 0 => i_x.op(r, x, y), _ => i_y.op(r, x, y) }}, x, y) }, extents(1, 1), 2);
 
-    let harris_all = stencil(|r, x, y| { harris.op(@|i| |x, y| { match i { 0 => i_x.op(r, x, y), _ => i_y.op(r, x, y) }}, x, y) },
-                             extents(1, 1), 2);
     let vec_x = |s: Stencil| combine_xy(vec(8), range, s);
     let tile_schedule = produce_roots(@|i| match i { 0 => vec_x(i_x), _ => vec_x(i_y) }, vec_x(harris));
     let (tile_width, tile_height) = (128, 128);
@@ -64,12 +61,28 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     let schedule_cpu = handle_boundaries(boundary(img), tile_width, tile_height, tile, tile);
     // let schedule_cpu = middle_schedule;
 
+    let tile_width_cuda = 14; let tile_height_cuda = 14;
+    let schedule_cuda = tile_cuda_ats(tile_width_cuda, tile_height_cuda, @|i| match i { 0 => i_x, _ => i_y }, harris);
+
     if use_cuda {
-        ;
+        let img_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, width * height * sizeof[pixel_t]()).data as &[pixel_t] };
+        let out_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, width * height * sizeof[pixel_t]()).data as &[pixel_t] };
+        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0i64, runtime_device(1, cuda_dev), img_cuda.data as &[i8], 0i64, (width * height * sizeof[pixel_t]()) as i64);
+
+        let schedule_cuda = handle_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda, schedule_cuda);
+        //let schedule_cuda = dummy_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda);
+
+        with benchmark_cuda() {
+            compute(img_cuda, out_cuda, schedule_cuda);
+        }
+
+        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0i64, runtime_device(0, 0), out.data as &[i8], 0i64, (width * height * sizeof[pixel_t]()) as i64);
+        runtime_release(runtime_device(1, cuda_dev), img_cuda.data as &[i8]);
+        runtime_release(runtime_device(1, cuda_dev), out_cuda.data as &[i8]);
     } else {
-     with benchmark_cpu() {
-         compute(img, out, schedule_cpu);
-     }
+        with benchmark_cpu() {
+            compute(img, out, schedule_cpu);
+        }
     }
 
     print_total_timing();

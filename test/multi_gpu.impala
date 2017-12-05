@@ -34,7 +34,7 @@ fn @iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(
     }
 }
 
-fn main() -> int {
+fn main() -> i32 {
     let width   = 4096;
     let height  = 4096;
     let arr_buf = alloc_cpu(width * height * sizeof[f32]());

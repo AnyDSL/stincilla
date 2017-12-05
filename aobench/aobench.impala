@@ -201,7 +201,7 @@ fn @clamp(f: f64) -> u8 {
     i as u8
 }
 
-fn render(img: Buffer, w: int, h: int, nsubsamples: int, spheres: [Sphere * 3], plane: Plane) -> () {
+fn render(img: Buffer, w: i32, h: i32, nsubsamples: i32, spheres: [Sphere * 3], plane: Plane) -> () {
     for math, x, y, out, rand in iteration(math, img, w, h) {
         let mut r = 0.0;
         let mut g = 0.0;
