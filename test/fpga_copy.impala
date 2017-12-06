@@ -1,24 +1,17 @@
-fn range(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
-    if lower < upper {
-        body(lower);
-        range(lower+1, upper, body)
-    }
-}
-
-fn iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
+fn @iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let grid  = (1, 1, 1);
     let block = (1, 1, 1);
-    for tid, bid, bdim, gdim, gid in acc.exec(grid, block) @{
-        for x in $range(0, width) {
-            for y in range(0, height) @{
-                body(x, y);
+    for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+        for x in range(0, width) {
+            for y in range(0, height) {
+                @@body(x, y);
             }
         }
     }
 }
 
-fn read(buf: Buffer, i: i32) -> f32 { bitcast[&[1][f32]](buf.data)(i) }
-fn write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&mut[1][f32]](buf.data)(i) = v }
+fn @read(buf: Buffer, i: i32) -> f32 { bitcast[&[1][f32]](buf.data)(i) }
+fn @write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&mut[1][f32]](buf.data)(i) = v }
 
 fn main() -> i32 {
     let width   = 2048;
@@ -33,7 +26,7 @@ fn main() -> i32 {
         out_ptr(i) = 0.0f;
     }
 
-    for x, y in @iteration(acc, width, height) {
+    for x, y in iteration(acc, width, height) {
         let idx = y*width + x;
         write(out, idx, read(arr, idx));
     }
