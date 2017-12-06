@@ -1,8 +1,8 @@
 // odd-even merge sort works only for power of two
 fn @oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) -> () {
     fn @compare_and_swap(i: i32, j: i32) -> () {
-        //print_int(i); print_string(", ");
-        //print_int(j); print_string("\n");
+        //print_i32(i); print_string(", ");
+        //print_i32(j); print_string("\n");
         if read(i) > read(j) {
             let tmp = read(i);
             write(i, read(j));
