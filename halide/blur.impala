@@ -42,7 +42,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
 
     // --- stencil schedules with parallelization and/or vectorization ---
     let xy_r_r = @|s: Stencil| combine_xy(range, range, s);
-    let xy_p_r = @|s: Stencil| combine_xy(par(0), range, s);
+    let xy_r_p = @|s: Stencil| combine_xy(range, par(0), s);
     let xy_v_v = @|s: Stencil| combine_xy(vec(vec_size_x), vec(vec_size_y), s);
     let xy_v_p = @|s: Stencil| combine_xy(vec(vec_size_x), par(0), s);
 

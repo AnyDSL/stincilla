@@ -149,7 +149,16 @@ fn @vec(vector_length: i32) -> Loop {
     if vector_length == 1 {
         range
     } else {
-        @|lower, upper, body| vectorize(vector_length, 32, lower, upper, body)
+        @|lower, upper, body| {
+            let peel_begin = round_down(upper, vector_length);
+            for i in range_step(lower, peel_begin, vector_length) {
+                vectorize(vector_length, 32, 0, vector_length, |j| body(i + j))
+            }
+            // peel remaining iterations
+            for i in range(peel_begin, upper) {
+                body(i)
+            }
+        }
     }
 }
 
@@ -226,7 +235,7 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
         let tmp_width  = width  + extents.x * 2;
         let tmp_height = height + extents.y * 2;
 
-        let read_outer = |input| |ix, iy| read(input)(x_lower + ix, y_lower + iy);
+        let read_outer = |input| |ix, iy| read(input)(x_lower + ix - extents.x, y_lower + iy);
 
         fn @alloc_tmps(n: i32) -> fn(i32) -> Img {
             let data = ~[tmp_width * tmp_height:pixel_t];
@@ -242,8 +251,9 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
         }
         let tmps = alloc_tmps(consume.num_inputs);
         for i in unroll(0, consume.num_inputs) {
-            for ix, iy, value in root_schedules(i).loop(read_outer, -extents.x, -extents.y, width + extents.x, height + extents.y) @{
-                img_write(tmps(i))(ix + extents.x, iy + extents.y, value);
+            // iterate from 0 to please the vectorizer
+            for ix, iy, value in root_schedules(i).loop(read_outer, 0, -extents.y, width + 2 * extents.x, height + extents.y) @{
+                img_write(tmps(i))(ix, iy + extents.y, value);
             }
         }
 
@@ -305,37 +315,59 @@ fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
     Schedule { loop : loop, extents : stencil.extents, num_inputs : stencil.num_inputs }
 }
 
-fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule {
-    // TODO assert that stencil2.num_inputs == 1
+fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> Stencil, consume: Stencil) -> Schedule {
+    // TODO assert that consume_stencil.num_inputs == 1
+    let extents = consume.extents;
     let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
-        let (x_extent, y_extent) = (stencil2.extents.x, stencil2.extents.y);
-        let (x_range,  y_range)  = (x_upper - x_lower, y_upper - y_lower);
-        let block = (tile_width + 2 * x_extent, tile_height + 2 * y_extent, 1);
-        let grid  = ((x_range / tile_width) * block(0), (y_range / tile_height) * block(1), 1);
+        let (x_range, y_range)  = (x_upper - x_lower, y_upper - y_lower);
+        let block = (tile_width + 2 * extents.x, tile_height + 2 * extents.y, 1);
+        let grid  = (round_up(x_range, tile_width) / tile_width * block(0), round_up(y_range, tile_height) / tile_height * block(1), 1);
         cuda(cuda_dev, grid, block, || {
-            let (tid_x, tid_y)   = (cuda_threadIdx_x(), cuda_threadIdx_y());
-            let (bid_x, bid_y)   = (cuda_blockIdx_x(),  cuda_blockIdx_y());
+            let (tid_x, tid_y) = (cuda_threadIdx_x(), cuda_threadIdx_y());
+            let (bid_x, bid_y) = (cuda_blockIdx_x(),  cuda_blockIdx_y());
 
-            let gid_x = x_lower + tid_x + block(0) * bid_x - 2 * x_extent * bid_x - x_extent;
-            let gid_y = y_lower + tid_y + block(1) * bid_y - 2 * y_extent * bid_y - y_extent;
+            let gid_x = x_lower + tid_x + block(0) * bid_x - 2 * extents.x * bid_x - extents.x;
+            let gid_y = y_lower + tid_y + block(1) * bid_y - 2 * extents.y * bid_y - extents.y;
 
-            let (tmp_size_x, tmp_size_y) = (tile_width + 2 * x_extent, tile_height + 2 * y_extent);
-            let tmp = reserve_shared[pixel_t](tmp_size_x * tmp_size_y);
+            if gid_x >= x_range || gid_y >= y_range {
+                return()
+            }
 
-            let tmp_idx1 = |x, y| x + y * tmp_size_x;
-            let steps_x  = round_up(tile_width,  tmp_size_x) / tile_width;
-            let steps_y  = round_up(tmp_size_y, tile_height) / tile_height;
+            let (tmp_size_x, tmp_size_y) = (block(0), block(1));
+            fn @alloc_tmps(n: i32) -> fn(i32) -> &mut[3][pixel_t] {
+                let data = reserve_shared[pixel_t](tmp_size_x * tmp_size_y);
+                // do not inline syntactically, this needs to be captured
+                if n == 1 {
+                    @|i| data
+                } else {
+                    // do not inline syntactically, this needs to be captured
+                    let tmps = alloc_tmps(n-1);
+                    @|i:i32| if i == n-1 { data } else { tmps(i) }
+                }
+            }
+            let tmps = alloc_tmps(consume.num_inputs);
+            let tmp_idx_read  = |x, y| extents.x + x + (extents.y + y) * tmp_size_x;
+            let tmp_idx_write = |x, y| x + y * tmp_size_x;
 
-            tmp(tmp_idx1(tid_x, tid_y)) = stencil1.op(read, gid_x, gid_y);
+            for i in unroll(0, consume.num_inputs) {
+                tmps(i)(tmp_idx_write(tid_x, tid_y)) = root_stencils(i).op(read, gid_x, gid_y);
+            }
 
             cuda_syncthreads();
 
             if tid_y < tile_height && tid_x < tile_width {
-                let tmp_idx2 = |x, y| x_extent + x + (y_extent + y) * tmp_size_x;
-                let tmp_read = |i:i32| |x, y| tmp(tmp_idx2(x - gid_x + tid_x, y - gid_y + tid_y));
-                write(gid_x, gid_y, stencil2.op(tmp_read, gid_x, gid_y))
+                let tmp_read = @|i:i32| |x, y| tmps(i)(tmp_idx_read(x - gid_x + tid_x, y - gid_y + tid_y));
+                write(gid_x, gid_y, consume.op(tmp_read, gid_x, gid_y))
             }
         });
     };
-    schedule(loop, max_extents(stencil1.extents, stencil2.extents), stencil1.num_inputs)
+    fn @max_root_exts(n: i32) -> Extents {
+        let extents = root_stencils(n-1).extents;
+        if n == 1 { extents } else { max_extents(max_root_exts(n-1), extents) }
+    }
+    schedule(loop, max_extents(max_root_exts(consume.num_inputs), consume.extents), root_stencils(0).num_inputs)
+}
+
+fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule {
+    tile_cuda_ats(tile_width, tile_height, |i| stencil1, stencil2)
 }

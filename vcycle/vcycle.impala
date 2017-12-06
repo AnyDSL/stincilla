@@ -162,7 +162,7 @@ fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
             residual(math, Res(level), Sol(level), RHS(level));
             restrict(math, RHS(level+1), Res(level));
 
-            //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
+            //if level == 0 { print_string("L2 norm: "); print_f32(l2norm(Res(level))); print_char('\n'); }
 
             init_zero(bitcast[&mut[f32]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_intern(level+1);
@@ -258,7 +258,7 @@ fn @vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
                 }
             }
 
-            //if level == 0 { print_string("L2 norm: "); print_float(l2norm(Res(level))); print_char('\n'); }
+            //if level == 0 { print_string("L2 norm: "); print_f32(l2norm(Res(level))); print_char('\n'); }
 
             init_zero(bitcast[&mut[f32]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_dsl_intern(level+1);
