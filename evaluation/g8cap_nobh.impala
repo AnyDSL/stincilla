@@ -10,8 +10,8 @@ fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
     print_string("y = ");
     print_i32(roi_y);
     print_string(")\n");
-    for y in $range(roi_y, upper_y) {
-        for x in $range(roi_x, upper_x) {
+    for y in range(roi_y, upper_y) {
+        for x in range(roi_x, upper_x) {
             let pixel = arr.read(x, y);
             print_pixel(pixel);
             print_string("\t\t");
@@ -70,7 +70,7 @@ fn main() -> i32 {
 
         let offset_x = 2;
         let offset_y = 2;
-        for y in $range(0, out.height) {
+        for y in range(0, out.height) {
             for x in range(0, out.width) {
                 let mut ref = 0 as pixel_t;
                 if y > offset_y - 1 && y < out.height - offset_y && x > offset_x -1 && x < out.width - offset_x {
