@@ -5,6 +5,33 @@ type get_bounds_fun_type = fn(Boundary) -> Bounds;
 type pixel_read_type  = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pixel_t;
 type row_sel_fun_type = fn(int, win_acc) -> ();
 
+// --------------------- stuff for point operators ----------------------------
+fn @get_device_copy(img: Img) -> Img {
+    let acc = accelerator(device_id);
+    let img_gpu = alloc_img(img, acc.alloc);
+    copy_img(img, img_gpu);
+    img_gpu
+}
+
+fn @release_device_copy(img: Img) -> () {
+    release(img.buf)
+}
+
+fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
+fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t { |idx| bitcast[&[1][pixel_t]](img.buf.data)(idx) }
+
+fn @set_pixel_fn_vec2(img: Img) ->  fn(i32, [pixel_t *  2]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t *  2]]](img.buf.data)(idx) = val }
+fn @set_pixel_fn_vec4(img: Img) ->  fn(i32, [pixel_t *  4]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t *  4]]](img.buf.data)(idx) = val }
+fn @set_pixel_fn_vec8(img: Img) ->  fn(i32, [pixel_t *  8]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t *  8]]](img.buf.data)(idx) = val }
+fn @set_pixel_fn_vec16(img: Img) -> fn(i32, [pixel_t * 16]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t * 16]]](img.buf.data)(idx) = val }
+fn @set_pixel_fn_vec32(img: Img) -> fn(i32, [pixel_t * 32]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t * 32]]](img.buf.data)(idx) = val }
+
+fn @get_pixel_fn_vec2(img: Img) ->  fn(i32) -> [pixel_t *  2]     { |idx| bitcast[&[1][[pixel_t *  2]]](img.buf.data)(idx)}
+fn @get_pixel_fn_vec4(img: Img) ->  fn(i32) -> [pixel_t *  4]     { |idx| bitcast[&[1][[pixel_t *  4]]](img.buf.data)(idx)}
+fn @get_pixel_fn_vec8(img: Img) ->  fn(i32) -> [pixel_t *  8]     { |idx| bitcast[&[1][[pixel_t *  8]]](img.buf.data)(idx)}
+fn @get_pixel_fn_vec16(img: Img) -> fn(i32) -> [pixel_t * 16]     { |idx| bitcast[&[1][[pixel_t * 16]]](img.buf.data)(idx)}
+fn @get_pixel_fn_vec32(img: Img) -> fn(i32) -> [pixel_t * 32]     { |idx| bitcast[&[1][[pixel_t * 32]]](img.buf.data)(idx)}
+
 
 // ---------------------------- structs ----------------------------------------
 // Stream types for data movements
@@ -666,6 +693,62 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
     coarsening_type {
         process : process
     }
+}
+
+
+// -------------------- Point Operators -------------------------
+fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    let coarsening_factor = 1;
+    iteration_point_crsn(math, coarsening_factor, out, body);
+}
+
+fn @iteration_point_crsn(math: Intrinsics, coarsening_factor: i32, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    let acc = accelerator(device_id);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    for benchmark_fpga(acc) {
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+
+            for y in range(0, out.height) {
+                for x in range(0, out.width) {
+                    for v in unroll(0, coarsening_factor) {
+                        @@body(math, x + v, y, out_acc);
+                    }
+                }
+            }
+        }
+    }
+    copy_img(out_gpu, out);
+}
+
+// ------------------------- Copy Kernel ---------------------------------
+fn @copy_crsn(math: Intrinsics, coarsening_factor: i32, out: Img, arr : Img) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    for benchmark_fpga(acc) {
+        let crsn_stride = (arr.stride -1) / coarsening_factor + 1;
+        let crsn_width  = (arr.width - 1) / coarsening_factor + 1;
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            for y in range(0, out.height) {
+                for x in range(0, crsn_width) {
+                    let idx = y * crsn_stride + x;
+                    match coarsening_factor{
+                         2 => bitcast[&mut[1][[pixel_t *  2]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  2]]](arr_gpu.buf.data)(idx),
+                         4 => bitcast[&mut[1][[pixel_t *  4]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  4]]](arr_gpu.buf.data)(idx),
+                         8 => bitcast[&mut[1][[pixel_t *  8]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  8]]](arr_gpu.buf.data)(idx),
+                        16 => bitcast[&mut[1][[pixel_t * 16]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t * 16]]](arr_gpu.buf.data)(idx),
+                        32 => bitcast[&mut[1][[pixel_t * 32]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t * 32]]](arr_gpu.buf.data)(idx),
+                         _ => bitcast[&mut[1][pixel_t]](out_gpu.buf.data)(idx) = bitcast[&[1][pixel_t]](arr_gpu.buf.data)(idx)
+                    }
+                }
+            }
+        }
+    }
+    copy_img(out_gpu, out);
 }
 
 

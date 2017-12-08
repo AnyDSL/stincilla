@@ -1,0 +1,82 @@
+fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
+    let width  = 10;
+    let height = 10;
+    let upper_x = roi_x + width;
+    let upper_y = roi_y + height;
+
+    print_string("@(x = ");
+    print_i32(roi_x);
+    print_string(",\t");
+    print_string("y = ");
+    print_i32(roi_y);
+    print_string(")\n");
+    for y in range(roi_y, upper_y) {
+        for x in range(roi_x, upper_x) {
+            let pixel = arr.read(x, y);
+            print_pixel(pixel);
+            print_string("\t\t");
+        }
+        print_string("\n");
+    }
+}
+
+
+fn main() -> i32 {
+    let width  = 1024;
+    let height = 1024;
+    let arr    = create_img(width, height, alloc_cpu);
+    let out    = create_img(width, height, alloc_cpu);
+    init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
+
+    let pFactor = 32;
+    copy_crsn(math, pFactor, out, arr);
+    print_total_timing();
+
+    fn reference() -> i32 {
+        let mut passed = 0;
+        let mut err_x = 0; 
+        let mut err_y = 0;
+        let arr_acc = get_acc(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx));
+        let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+
+        let offset_x = 0;
+        let offset_y = 0;
+        for y in range(0, out.height) {
+            for x in range(0, out.width) {
+                let mut ref = 0 as pixel_t;
+                if y > offset_y - 1 && y < out.height - offset_y && x > offset_x -1 && x < out.width - offset_x {
+                    ref = arr_acc.read(x, y);
+                    let res = out_acc.read(x, y);
+                    if !is_same_pixel(ref, res) && passed != 42 {
+                        err_x = x; err_y = y;
+                        passed = 42;
+                    }
+                }
+            }
+        }
+
+        let roi_x = 0; //arr.width - 10;
+        let roi_y = 0; //arr.height - 10;
+        print_string("input image:\n");
+        display_image(arr_acc, roi_x, roi_y);
+        print_string("output image:\n");
+        display_image(out_acc, roi_x, roi_y);
+
+        if passed == 0 {
+            print_string("Test PASSED!\n");
+        } else {
+            print_string("Test FAILED @ (");
+            print_i32(err_x); print_string(", "); print_i32(err_y); print_string(")!\n");
+            print_pixel(arr_acc.read(err_x, err_y)); print_string( " (ref) vs ");
+            print_pixel(out_acc.read(err_x, err_y)); print_string( " (res)\n"); 
+        }
+        passed
+    }
+    let result = reference();
+
+    release(arr.buf);
+    release(out.buf);
+
+    result
+}
