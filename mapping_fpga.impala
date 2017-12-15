@@ -781,6 +781,7 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
 
             let mut col_ridx = 0; let mut row_ridx = 0;
             let mut col_widx = 0; let mut row_widx = 0;
+            hls_pragma_pipeline();
             for clock_tick in range(0, life_time) {
                 // read new pix
                 if clock_tick < process_time {
