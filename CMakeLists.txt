@@ -45,6 +45,7 @@ add_subdirectory(aobench)
 add_subdirectory(bilateral_grid)
 add_subdirectory(halide)
 add_subdirectory(harris_corner)
+add_subdirectory(gaussian_ext)
 add_subdirectory(test)
 add_subdirectory(image_sharpening)
 add_subdirectory(sorting_networks)
@@ -75,6 +76,14 @@ anydsl_runtime_wrap(GAUSSIAN_DEBUG_PROGRAM
 add_executable(gaussian_debug ${GAUSSIAN_DEBUG_PROGRAM})
 target_link_libraries(gaussian_debug ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian_debug" gaussian_debug)
+
+anydsl_runtime_wrap(FILTER_CHAIN_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala filter_chain.impala)
+add_executable(filter_chain ${FILTER_CHAIN_PROGRAM})
+target_link_libraries(filter_chain ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("filter_chain" filter_chain)
 
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
