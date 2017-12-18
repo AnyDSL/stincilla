@@ -20,11 +20,11 @@ fn @release_device_copy(img: Img) -> () {
 fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
 fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t { |idx| bitcast[&[1][pixel_t]](img.buf.data)(idx) }
 
-fn @set_pixel_fn_vec2(img: Img) ->  fn(i32, [pixel_t *  2]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t *  2]]](img.buf.data)(idx) = val }
-fn @set_pixel_fn_vec4(img: Img) ->  fn(i32, [pixel_t *  4]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t *  4]]](img.buf.data)(idx) = val }
-fn @set_pixel_fn_vec8(img: Img) ->  fn(i32, [pixel_t *  8]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t *  8]]](img.buf.data)(idx) = val }
-fn @set_pixel_fn_vec16(img: Img) -> fn(i32, [pixel_t * 16]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t * 16]]](img.buf.data)(idx) = val }
-fn @set_pixel_fn_vec32(img: Img) -> fn(i32, [pixel_t * 32]) -> () { |idx, val|  bitcast[&mut[1][[pixel_t * 32]]](img.buf.data)(idx) = val }
+fn @set_pixel_fn_vec2(img: Img) ->  fn(i32, [pixel_t *  2]) -> () { |idx, val| bitcast[&mut[1][[pixel_t *  2]]](img.buf.data)(idx) = val }
+fn @set_pixel_fn_vec4(img: Img) ->  fn(i32, [pixel_t *  4]) -> () { |idx, val| bitcast[&mut[1][[pixel_t *  4]]](img.buf.data)(idx) = val }
+fn @set_pixel_fn_vec8(img: Img) ->  fn(i32, [pixel_t *  8]) -> () { |idx, val| bitcast[&mut[1][[pixel_t *  8]]](img.buf.data)(idx) = val }
+fn @set_pixel_fn_vec16(img: Img) -> fn(i32, [pixel_t * 16]) -> () { |idx, val| bitcast[&mut[1][[pixel_t * 16]]](img.buf.data)(idx) = val }
+fn @set_pixel_fn_vec32(img: Img) -> fn(i32, [pixel_t * 32]) -> () { |idx, val| bitcast[&mut[1][[pixel_t * 32]]](img.buf.data)(idx) = val }
 
 fn @get_pixel_fn_vec2(img: Img) ->  fn(i32) -> [pixel_t *  2]     { |idx| bitcast[&[1][[pixel_t *  2]]](img.buf.data)(idx)}
 fn @get_pixel_fn_vec4(img: Img) ->  fn(i32) -> [pixel_t *  4]     { |idx| bitcast[&[1][[pixel_t *  4]]](img.buf.data)(idx)}
@@ -102,43 +102,71 @@ fn @iterate1d_atborders(body: fn(Boundary) -> ()) -> () {
 
 // ---------------------------- streaming --------------------------------------
 // Global memory read/write functions
-fn @get_global_stream_vec1(data: &[i8]) -> stream_in {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { value = bitcast[&[1][pixel_t]](data)(idx); }
-    fn @read(idx: int) -> pixel_t { value }
-    stream_in { update : update, read : read, pFactor : 1 }
+fn @get_global_stream_vec1(data: &[i8]) -> fn() -> stream_in {
+    let ptr = bitcast[&[1][pixel_t]](data);
+    @|| {
+        let mut value = 0 as pixel_t;
+        fn @update(idx: int) -> () { value = ptr(idx); }
+        fn @read(idx: int) -> pixel_t { value }
+        stream_in { update : update, read : read, pFactor : 1 }
+    }
 }
-fn @get_global_stream_vec2(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 2 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 2 }
+fn @get_global_stream_vec2(data: &[i8]) -> fn() -> stream_in {
+    let ptr = bitcast[&[1][[pixel_t * 2]]](
+        bitcast[&[1][i8]](
+            bitcast[&[1][[pixel_t * 2]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 2 ];
+        fn @update(idx: int) -> () { value = ptr(idx); }
+        fn @read(idx: int) -> pixel_t { value(idx) }
+        stream_in { update : update, read : read, pFactor : 2 }
+    }
 }
-fn @get_global_stream_vec4(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 4 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 4 }
+fn @get_global_stream_vec4(data: &[i8]) -> fn() -> stream_in {
+    let ptr = bitcast[&[1][[pixel_t * 4]]](
+        bitcast[&[1][i8]](
+            bitcast[&[1][[pixel_t * 4]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 4 ];
+        fn @update(idx: int) -> () { value = ptr(idx); }
+        fn @read(idx: int) -> pixel_t { value(idx) }
+        stream_in { update : update, read : read, pFactor : 4 }
+    }
 }
-fn @get_global_stream_vec8(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 8 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 8 }
+fn @get_global_stream_vec8(data: &[i8]) -> fn() -> stream_in {
+    let ptr = bitcast[&[1][[pixel_t * 8]]](
+        bitcast[&[1][i8]](
+            bitcast[&[1][[pixel_t * 8]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 8 ];
+        fn @update(idx: int) -> () { value = ptr(idx); }
+        fn @read(idx: int) -> pixel_t { value(idx) }
+        stream_in { update : update, read : read, pFactor : 8 }
+    }
 }
-fn @get_global_stream_vec16(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 16 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 16 }
+fn @get_global_stream_vec16(data: &[i8]) -> fn() -> stream_in {
+    let ptr = bitcast[&[1][[pixel_t * 16]]](
+        bitcast[&[1][i8]](
+            bitcast[&[1][[pixel_t * 16]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 16 ];
+        fn @update(idx: int) -> () { value = ptr(idx); }
+        fn @read(idx: int) -> pixel_t { value(idx) }
+        stream_in { update : update, read : read, pFactor : 16 }
+    }
 }
-fn @get_global_stream_vec32(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 32 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t * 32]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 32 }
+fn @get_global_stream_vec32(data: &[i8]) -> fn() -> stream_in {
+    let ptr = bitcast[&[1][[pixel_t * 32]]](
+        bitcast[&[1][i8]](
+            bitcast[&[1][[pixel_t * 32]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 32 ];
+        fn @update(idx: int) -> () { value = ptr(idx); }
+        fn @read(idx: int) -> pixel_t { value(idx) }
+        stream_in { update : update, read : read, pFactor : 32 }
+    }
 }
-fn @get_global_stream_from_img(img: Img, pFactor: int) -> stream_in {
+fn @get_global_stream_from_img(img: Img, pFactor: int) -> fn() -> stream_in {
     match pFactor {
          1 => get_global_stream_vec1(img.buf.data),
          2 => get_global_stream_vec2(img.buf.data),
@@ -146,47 +174,75 @@ fn @get_global_stream_from_img(img: Img, pFactor: int) -> stream_in {
          8 => get_global_stream_vec8(img.buf.data),
         16 => get_global_stream_vec16(img.buf.data),
         32 => get_global_stream_vec32(img.buf.data),
-         _ => undef[stream_in]()
+         _ => undef[fn() -> stream_in]()
     }
 }
 
-fn @set_global_stream_vec1(data: &[i8]) -> stream_out {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { bitcast[&mut[1][pixel_t]](data)(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value = din; }
-    stream_out { update : update, write : write, pFactor : 1 }
+fn @set_global_stream_vec1(data: &[i8]) -> fn() -> stream_out {
+    let ptr = bitcast[&mut[1][pixel_t]](data);
+    @|| {
+        let mut value = 0 as pixel_t;
+        fn @update(idx: int) -> () { ptr(idx) = value; }
+        fn @write(idx: int, din: pixel_t) -> () { value = din; }
+        stream_out { update : update, write : write, pFactor : 1 }
+    }
 }
-fn @set_global_stream_vec2(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 2 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 2 }
+fn @set_global_stream_vec2(data: &[i8]) -> fn() -> stream_out {
+    let ptr = bitcast[&mut[1][[pixel_t * 2]]](
+        bitcast[&mut[1][i8]](
+            bitcast[&mut[1][[pixel_t * 2]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 2 ];
+        fn @update(idx: int) -> () { ptr(idx) = value; }
+        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+        stream_out { update : update, write : write, pFactor : 2 }
+    }
 }
-fn @set_global_stream_vec4(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 4 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 4 }
+fn @set_global_stream_vec4(data: &[i8]) -> fn() -> stream_out {
+    let ptr = bitcast[&mut[1][[pixel_t * 4]]](
+        bitcast[&mut[1][i8]](
+            bitcast[&mut[1][[pixel_t * 4]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 4 ];
+        fn @update(idx: int) -> () { ptr(idx) = value; }
+        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+        stream_out { update : update, write : write, pFactor : 4 }
+    }
 }
-fn @set_global_stream_vec8(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 8 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 8 }
+fn @set_global_stream_vec8(data: &[i8]) -> fn() -> stream_out {
+    let ptr = bitcast[&mut[1][[pixel_t * 8]]](
+        bitcast[&mut[1][i8]](
+            bitcast[&mut[1][[pixel_t * 8]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 8 ];
+        fn @update(idx: int) -> () { ptr(idx) = value; }
+        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+        stream_out { update : update, write : write, pFactor : 8 }
+    }
 }
-fn @set_global_stream_vec16(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 16 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 16 }
+fn @set_global_stream_vec16(data: &[i8]) -> fn() -> stream_out {
+    let ptr = bitcast[&mut[1][[pixel_t * 16]]](
+        bitcast[&mut[1][i8]](
+            bitcast[&mut[1][[pixel_t * 16]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 16 ];
+        fn @update(idx: int) -> () { ptr(idx) = value; }
+        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+        stream_out { update : update, write : write, pFactor : 16 }
+    }
 }
-fn @set_global_stream_vec32(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 32 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t * 32]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 32 }
+fn @set_global_stream_vec32(data: &[i8]) -> fn() -> stream_out {
+    let ptr = bitcast[&mut[1][[pixel_t * 32]]](
+        bitcast[&mut[1][i8]](
+            bitcast[&mut[1][[pixel_t * 32]]](data)));
+    @|| {
+        let mut value = [ 0 as pixel_t, .. 32 ];
+        fn @update(idx: int) -> () { ptr(idx) = value; }
+        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+        stream_out { update : update, write : write, pFactor : 32 }
+    }
 }
-fn @set_global_stream_from_img(img: Img, pFactor: int) -> stream_out {
+fn @set_global_stream_from_img(img: Img, pFactor: int) -> fn() -> stream_out {
     match pFactor {
          1 => set_global_stream_vec1(img.buf.data),
          2 => set_global_stream_vec2(img.buf.data),
@@ -194,7 +250,7 @@ fn @set_global_stream_from_img(img: Img, pFactor: int) -> stream_out {
          8 => set_global_stream_vec8(img.buf.data),
         16 => set_global_stream_vec16(img.buf.data),
         32 => set_global_stream_vec32(img.buf.data),
-         _ => undef[stream_out]()
+         _ => undef[fn() -> stream_out]()
     }
 }
 
@@ -763,16 +819,17 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
 
     copy_img(arr, arr_gpu);
     for benchmark_fpga(acc) {
+        let pFactor  = 2;
+        let in_s_fn  = get_global_stream_from_img(arr_gpu, pFactor);
+        let out_s_fn = set_global_stream_from_img(out_gpu, pFactor);
+
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = 1;
+            let (in_s, out_s) = (in_s_fn(), out_s_fn());
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
             let win_lat = round_up(radius_x, pFactor) / pFactor;
             let crsn_width  = (arr.width - 1) / pFactor + 1;
             let crsn_stride = (arr.stride -1) / pFactor + 1;
-
-            let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
-            let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
             let coarsening = FetchAndCalc(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
             let process_time  = crsn_width * arr.height + 1;
@@ -818,15 +875,16 @@ fn @fac(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower
 
     copy_img(arr, arr_gpu);
     for benchmark_fpga(acc) {
+        let in_s_fn  = get_global_stream_from_img(arr_gpu, pFactor);
+        let out_s_fn = set_global_stream_from_img(out_gpu, pFactor);
+
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let (in_s, out_s) = (in_s_fn(), out_s_fn());
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
             let win_lat = round_up(radius_x, pFactor) / pFactor;
             let crsn_width  = (arr.width - 1) / pFactor + 1;
             let crsn_stride = (arr.stride -1) / pFactor + 1;
-
-            let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
-            let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
             let coarsening = FetchAndCalc(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
 
@@ -869,15 +927,16 @@ fn @cap(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower
 
     copy_img(arr, arr_gpu);
     for benchmark_fpga(acc) {
+        let in_s_fn  = get_global_stream_from_img(arr_gpu, pFactor);
+        let out_s_fn = set_global_stream_from_img(out_gpu, pFactor);
+
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let (in_s, out_s) = (in_s_fn(), out_s_fn());
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
             let win_lat = round_up(radius_x, pFactor) / pFactor;
             let crsn_width  = (arr.width - 1) / pFactor + 1;
             let crsn_stride = (arr.stride -1) / pFactor + 1;
-
-            let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
-            let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
             let coarsening = CalcAndPack (math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
 
@@ -1031,15 +1090,16 @@ fn @fac_nobh(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_
 
     copy_img(arr, arr_gpu);
     for benchmark_fpga(acc) {
+        let in_s_fn  = get_global_stream_from_img(arr_gpu, pFactor);
+        let out_s_fn = set_global_stream_from_img(out_gpu, pFactor);
+
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let (in_s, out_s) = (in_s_fn(), out_s_fn());
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
             let win_lat = round_up(radius_x, pFactor) / pFactor;
             let crsn_width  = (arr.width - 1) / pFactor + 1;
             let crsn_stride = (arr.stride -1) / pFactor + 1;
-
-            let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
-            let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
             let coarsening = FetchAndCalc_nobh(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
 
@@ -1082,15 +1142,16 @@ fn @cap_nobh(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_
 
     copy_img(arr, arr_gpu);
     for benchmark_fpga(acc) {
+        let in_s_fn  = get_global_stream_from_img(arr_gpu, pFactor);
+        let out_s_fn = set_global_stream_from_img(out_gpu, pFactor);
+
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let (in_s, out_s) = (in_s_fn(), out_s_fn());
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
             let win_lat = round_up(radius_x, pFactor) / pFactor;
             let crsn_width  = (arr.width - 1) / pFactor + 1;
             let crsn_stride = (arr.stride -1) / pFactor + 1;
-
-            let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
-            let out_s = set_global_stream_from_img(out_gpu, pFactor);
 
             let coarsening = CalcAndPack_nobh(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
 
@@ -1183,17 +1244,19 @@ fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, 
 
     copy_img(arr, arr_gpu);
     for benchmark_fpga(acc) {
+        // output image
+        let out_stride = (arr.stride - 1) / pFactor + 1;
+        let out_s_fn   = set_global_stream_from_img(out_gpu, pFactor);
+
+        // input image
+        let in_s_fn   = get_global_stream_from_img(arr_gpu, pFactor);
+
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let (in_s, out_s) = (in_s_fn(), out_s_fn());
+            let out_s_pad  = crop_out_stream(out_s, mask);
             let radius_y = mask.size_y >> 1;
             let radius_x = mask.size_x >> 1;
 
-            // output image
-            let out_stride = (arr.stride - 1) / pFactor + 1;
-            let out_s      = set_global_stream_from_img(out_gpu, pFactor);
-            let out_s_pad  = crop_out_stream(out_s, mask);
-
-            // input image
-            let in_s      = get_global_stream_from_img(arr_gpu, pFactor);
             // padding
             let in_s_pad  = pad_in_stream(in_s, mask);
             let crsn_stride = (arr.stride + mask.size_x - 2) / pFactor + 1;
