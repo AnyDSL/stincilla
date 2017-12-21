@@ -38,12 +38,24 @@ fn @get_pixel_fn_vec32(img: Img) -> fn(i32) -> [pixel_t * 32]     { |idx| bitcas
 struct stream_in {
     update: fn(int) -> (),
     read  : fn(int) -> pixel_t,
-    pFactor  : int
+    pFactor : int
 }
 struct stream_out {
     update: fn(int) -> (),
     write : fn(int, pixel_t) -> (),
-    pFactor  : int
+    pFactor : int
+}
+struct stream_in_img {
+    stream_in: stream_in,
+    width   : int,
+    height  : int,
+    stride  : int
+}
+struct stream_out_img {
+    stream_out: stream_out,
+    width   : int,
+    height  : int,
+    stride  : int
 }
 
 // register arrays
@@ -106,7 +118,7 @@ fn @get_global_stream_vec1(data: &[i8]) -> stream_in {
     let mut value = 0 as pixel_t;
     fn @update(idx: int) -> () { value = bitcast[&[1][pixel_t]](data)(idx); }
     fn @read(idx: int) -> pixel_t { value }
-    stream_in { update : update, read : read, pFactor : 1 }
+    stream_in { update : update, read : read, pFactor : 1}
 }
 fn @get_global_stream_vec2(data: &[i8]) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 2 ];
@@ -140,10 +152,10 @@ fn @get_global_stream_vec32(data: &[i8]) -> stream_in {
 }
 fn @get_global_stream_from_img(img: Img, pFactor: int) -> stream_in {
     match pFactor {
-         1 => get_global_stream_vec1(img.buf.data),
-         2 => get_global_stream_vec2(img.buf.data),
-         4 => get_global_stream_vec4(img.buf.data),
-         8 => get_global_stream_vec8(img.buf.data),
+         1 => get_global_stream_vec1 (img.buf.data),
+         2 => get_global_stream_vec2 (img.buf.data),
+         4 => get_global_stream_vec4 (img.buf.data),
+         8 => get_global_stream_vec8 (img.buf.data),
         16 => get_global_stream_vec16(img.buf.data),
         32 => get_global_stream_vec32(img.buf.data),
          _ => undef[stream_in]()
@@ -753,6 +765,94 @@ fn @copy_crsn(math: Intrinsics, coarsening_factor: i32, out: Img, arr : Img) -> 
 
 
 //  ------------------- Stencil Processing ----------------------
+fn @get_stream_from_global_img(img: Img, pFactor: int) -> stream_in_img {
+    let stream_in = match pFactor {
+         1 => get_global_stream_vec1 (img.buf.data),
+         2 => get_global_stream_vec2 (img.buf.data),
+         4 => get_global_stream_vec4 (img.buf.data),
+         8 => get_global_stream_vec8 (img.buf.data),
+        16 => get_global_stream_vec16(img.buf.data),
+        32 => get_global_stream_vec32(img.buf.data),
+         _ => undef[stream_in]()
+    };
+    let width  = (img.width - 1) / pFactor + 1;
+    let stride = (img.stride - 1) / pFactor + 1;
+    stream_in_img { stream_in: stream_in, width: width, height: img.height, stride: stride }
+}
+fn @set_stream_from_global_img(img: Img, pFactor: int) -> stream_out_img {
+    let stream_out = match pFactor {
+         1 => set_global_stream_vec1(img.buf.data),
+         2 => set_global_stream_vec2(img.buf.data),
+         4 => set_global_stream_vec4(img.buf.data),
+         8 => set_global_stream_vec8(img.buf.data),
+        16 => set_global_stream_vec16(img.buf.data),
+        32 => set_global_stream_vec32(img.buf.data),
+         _ => undef[stream_out]()
+    };
+    let width  = (img.width - 1) / pFactor + 1;
+    let stride = (img.stride - 1) / pFactor + 1;
+    stream_out_img { stream_out: stream_out, width: width, height: img.height, stride: stride }
+}
+
+fn @get_stream_from_channel(data: &mut channel, pFactor: int) -> stream_in_img {
+    let mut value = 0 as pixel_t;
+    fn @update(idx: int) -> () { value = read_channel_intel_u8(data); }
+    fn @read(idx: int) -> pixel_t { value }
+    let in_s = stream_in { update : update, read : read, pFactor : pFactor};
+    stream_in_img { stream_in: in_s, width: 1024, stride: 1024, height: 1024 }
+}
+fn @set_stream_from_channel(data: &mut channel, pFactor: int) -> stream_out_img {
+    let mut value = 0 as pixel_t;
+    fn @update(idx: int) -> () { write_channel_intel_u8(data, value); }
+    fn @write(idx: int, din: pixel_t) -> () { value = din; }
+    let out_s = stream_out { update : update, write : write, pFactor : pFactor};
+    stream_out_img { stream_out: out_s, width: 1024, stride: 1024, height: 1024}
+}
+
+
+fn @iter_body(pFactor: int, out: stream_out_img, arr: stream_in_img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let radius_y = mask.size_y >> 1;
+    let radius_x = mask.size_x >> 1;
+    let win_lat = round_up(radius_x, pFactor) / pFactor;
+    let crsn_width  = (arr.width - 1) / pFactor + 1;
+    let crsn_stride = (arr.stride -1) / pFactor + 1;
+
+    let in_s = arr.stream_in;
+    let out_s = out.stream_out;
+
+    let coarsening = FetchAndCalc(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
+    let process_time  = crsn_width * arr.height;
+    let initial_delay = crsn_width * radius_y + win_lat - 1;
+    let life_time     = initial_delay + process_time + 1;
+
+    let mut col_ridx = 0; let mut row_ridx = 0;
+    let mut col_widx = 0; let mut row_widx = 0;
+    for clock_tick in range(0, life_time) {
+        hls_pragma_pipeline();
+
+        // read new pix
+        if clock_tick < process_time {
+            in_s.update(row_ridx * crsn_stride + col_ridx);
+        }
+
+        // shift on chip mem
+        coarsening.process(col_ridx, row_ridx);
+        //for v in unroll(0, pFactor) { out_s.write(v, in_s.read(v)); }
+
+        // write output
+        if clock_tick > initial_delay {
+            out_s.update(row_widx * crsn_stride + col_widx);
+            col_widx++;
+        }
+
+        // update image indexes
+        col_ridx++;
+        if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
+        if col_widx == crsn_width { col_widx = 0; row_widx++; }
+    }
+}
+
+
 // coarsening: assumes that image_stride is factor of pFactor
 // note that image stride was the factor of 64 at the time this mapping
 // is developed (create_img)
@@ -765,64 +865,14 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
     for benchmark_fpga(acc) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = 1;
-            let radius_y = mask.size_y >> 1;
-            let radius_x = mask.size_x >> 1;
-            let win_lat = round_up(radius_x, pFactor) / pFactor;
-            let crsn_width  = (arr.width - 1) / pFactor + 1;
-            let crsn_stride = (arr.stride -1) / pFactor + 1;
 
-            let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
-            let out_s = set_global_stream_from_img(out_gpu, pFactor);
-
-            let coarsening = FetchAndCalc(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
-            let process_time  = crsn_width * arr.height + 1;
-            let initial_delay = crsn_width * radius_y + win_lat - 1;
-            let life_time     = initial_delay + process_time;
-
-            let mut col_ridx = 0; let mut row_ridx = 0;
-            let mut col_widx = 0; let mut row_widx = 0;
-            for clock_tick in range(0, life_time) {
-                hls_pragma_pipeline();
-
-                // read new pix
-                if clock_tick < process_time {
-                    in_s.update(row_ridx * crsn_stride + col_ridx);
-                }
-
-                // shift on chip mem
-                coarsening.process(col_ridx, row_ridx);
-                //for v in unroll(0, pFactor) { out_s.write(v, in_s.read(v)); }
-
-                // write output
-                if clock_tick > initial_delay {
-                    out_s.update(row_widx * crsn_stride + col_widx);
-                    col_widx++;
-                }
-
-                // update image indexes
-                col_ridx++;
-                if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
-                if col_widx == crsn_width { col_widx = 0; row_widx++; }
-            }
+            let in_s  = get_stream_from_global_img(arr_gpu, pFactor);
+            let out_s = set_stream_from_global_img(out_gpu, pFactor);
+            iter_body(pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
         }
-        //acc.sync();
     }
     copy_img(out_gpu, out);
 }
-
-fn @get_stream_from_channel(data: &mut channel) -> stream_in {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { value = read_channel_intel_u8(data); }
-    fn @read(idx: int) -> pixel_t { value }
-    stream_in { update : update, read : read, pFactor : 1 }
-}
-fn @set_stream_from_channel(data: &mut channel) -> stream_out {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { write_channel_intel_u8(data, value); }
-    fn @write(idx: int, din: pixel_t) -> () { value = din; }
-    stream_out { update : update, write : write, pFactor : 1 }
-}
-
 fn @iteration_img2chan(math: Intrinsics, out: &mut channel, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
@@ -832,49 +882,30 @@ fn @iteration_img2chan(math: Intrinsics, out: &mut channel, arr: Img, mask: Mask
     for benchmark_fpga(acc) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = 1;
-            let radius_y = mask.size_y >> 1;
-            let radius_x = mask.size_x >> 1;
-            let win_lat = round_up(radius_x, pFactor) / pFactor;
-            let crsn_width  = (arr.width - 1) / pFactor + 1;
-            let crsn_stride = (arr.stride -1) / pFactor + 1;
 
-            let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
-            //let out_s = set_global_stream_from_img(out_gpu, pFactor);
-            let out_s  = set_stream_from_channel(out);
-
-            let coarsening = FetchAndCalc(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
-            let process_time  = crsn_width * arr.height + 1;
-            let initial_delay = crsn_width * radius_y + win_lat - 1;
-            let life_time     = initial_delay + process_time + 1;
-
-            let mut col_ridx = 0; let mut row_ridx = 0;
-            let mut col_widx = 0; let mut row_widx = 0;
-            for clock_tick in range(0, life_time) {
-                hls_pragma_pipeline();
-
-                // read new pix
-                if clock_tick < process_time {
-                    in_s.update(row_ridx * crsn_stride + col_ridx);
-                }
-
-                // shift on chip mem
-                coarsening.process(col_ridx, row_ridx);
-                //for v in unroll(0, pFactor) { out_s.write(v, in_s.read(v)); }
-
-                // write output
-                if clock_tick > initial_delay {
-                    out_s.update(row_widx * crsn_stride + col_widx);
-                    col_widx++;
-                }
-
-                // update image indexes
-                col_ridx++;
-                if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
-                if col_widx == crsn_width { col_widx = 0; row_widx++; }
-            }
+            let in_s  = get_stream_from_global_img(arr_gpu, pFactor);
+            let out_s = set_stream_from_channel(out, pFactor);
+            iter_body(pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
         }
-        //acc.sync();
     }
+    //copy_img(out_gpu, out);
+}
+fn @iteration_chan2chan(math: Intrinsics, out: &mut channel, arr: &mut channel, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    //let arr_gpu = alloc_img(arr, acc.alloc);
+    //let out_gpu = alloc_img(out, acc.alloc);
+
+    //copy_img(arr, arr_gpu);
+    for benchmark_fpga(acc) {
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let pFactor = 1;
+
+            let in_s  = get_stream_from_channel(arr, pFactor);
+            let out_s = set_stream_from_channel(out, pFactor);
+            iter_body(pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
+        }
+    }
+    //acc.sync();
     //copy_img(out_gpu, out);
 }
 fn @iteration_chan2img(math: Intrinsics, out: Img, arr: &mut channel, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
@@ -886,107 +917,16 @@ fn @iteration_chan2img(math: Intrinsics, out: Img, arr: &mut channel, mask: Mask
     for benchmark_fpga(acc) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = 1;
-            let radius_y = mask.size_y >> 1;
-            let radius_x = mask.size_x >> 1;
-            let win_lat = round_up(radius_x, pFactor) / pFactor;
-            let crsn_width  = (out.width - 1) / pFactor + 1;
-            let crsn_stride = (out.stride -1) / pFactor + 1;
 
-            let in_s  = get_stream_from_channel(arr);
-            let out_s = set_global_stream_from_img(out_gpu, pFactor);
-
-            let coarsening = FetchAndCalc(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
-            let process_time  = crsn_width * out.height + 1;
-            let initial_delay = crsn_width * radius_y + win_lat - 1;
-            let life_time     = initial_delay + process_time + 1;
-
-            let mut col_ridx = 0; let mut row_ridx = 0;
-            let mut col_widx = 0; let mut row_widx = 0;
-            for clock_tick in range(0, life_time) {
-
-                // read new pix
-                if clock_tick < process_time {
-                    in_s.update(row_ridx * crsn_stride + col_ridx);
-                }
-
-                // shift on chip mem
-                coarsening.process(col_ridx, row_ridx);
-                //for v in unroll(0, pFactor) { out_s.write(v, in_s.read(v)); }
-
-                // write output
-                if clock_tick > initial_delay {
-                    out_s.update(row_widx * crsn_stride + col_widx);
-                    col_widx++;
-                }
-
-                // update image indexes
-                col_ridx++;
-                if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
-                if col_widx == crsn_width { col_widx = 0; row_widx++; }
-            }
+            let in_s  = get_stream_from_channel(arr, pFactor);
+            let out_s = set_stream_from_global_img(out_gpu, pFactor);
+            iter_body(pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
         }
-        acc.sync();
     }
+    acc.sync();
     copy_img(out_gpu, out);
 }
-fn @iteration_chan2chan(math: Intrinsics, out: &mut channel, arr: &mut channel, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    //let arr_gpu = alloc_img(arr, acc.alloc);
-    //let out_gpu = alloc_img(out, acc.alloc);
 
-    //copy_img(arr, arr_gpu);
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let arr_width = 1024;
-            let arr_stride= 1024;
-            let arr_height= 1024;
-            let pFactor = 1;
-            let radius_y = mask.size_y >> 1;
-            let radius_x = mask.size_x >> 1;
-            let win_lat = round_up(radius_x, pFactor) / pFactor;
-            let crsn_width  = (arr_width - 1) / pFactor + 1;
-            let crsn_stride = (arr_stride -1) / pFactor + 1;
-
-            //let in_s  = get_global_stream_from_img(arr_gpu, pFactor);
-            //let out_s = set_global_stream_from_img(out_gpu, pFactor);
-            let in_s  = get_stream_from_channel(arr);
-            let out_s = set_stream_from_channel(out);
-
-            let coarsening = FetchAndCalc(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
-            let process_time  = crsn_width * arr_height + 1;
-            let initial_delay = crsn_width * radius_y + win_lat - 1;
-            let life_time     = initial_delay + process_time + 1;
-
-            let mut col_ridx = 0; let mut row_ridx = 0;
-            let mut col_widx = 0; let mut row_widx = 0;
-            for clock_tick in range(0, life_time) {
-                hls_pragma_pipeline();
-
-                // read new pix
-                if clock_tick < process_time {
-                    in_s.update(row_ridx * crsn_stride + col_ridx);
-                }
-
-                // shift on chip mem
-                coarsening.process(col_ridx, row_ridx);
-                //for v in unroll(0, pFactor) { out_s.write(v, in_s.read(v)); }
-
-                // write output
-                if clock_tick > initial_delay {
-                    out_s.update(row_widx * crsn_stride + col_widx);
-                    col_widx++;
-                }
-
-                // update image indexes
-                col_ridx++;
-                if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
-                if col_widx == crsn_width { col_widx = 0; row_widx++; }
-            }
-        }
-        //acc.sync();
-    }
-    //copy_img(out_gpu, out);
-}
 
 // Temporary for benchmarks
 fn @fac(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
