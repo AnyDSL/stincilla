@@ -85,6 +85,14 @@ add_executable(filter_chain ${FILTER_CHAIN_PROGRAM})
 target_link_libraries(filter_chain ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("filter_chain" filter_chain)
 
+anydsl_runtime_wrap(FILTER_CHAIN_PIPELINED_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala filter_chain_pipelined.impala)
+add_executable(filter_chain_pipelined ${FILTER_CHAIN_PIPELINED_PROGRAM})
+target_link_libraries(filter_chain_pipelined ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("filter_chain_pipelined" filter_chain_pipelined)
+
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
