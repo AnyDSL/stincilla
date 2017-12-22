@@ -796,14 +796,14 @@ fn @set_stream_from_global_img(img: Img, pFactor: int) -> stream_out_img {
 
 fn @get_stream_from_channel(data: &mut channel, pFactor: int) -> stream_in_img {
     let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { value = read_channel_intel_u8(data); }
+    fn @update(idx: int) -> () { value = read_channel(data); }
     fn @read(idx: int) -> pixel_t { value }
     let in_s = stream_in { update : update, read : read, pFactor : pFactor};
     stream_in_img { stream_in: in_s, width: 1024, stride: 1024, height: 1024 }
 }
 fn @set_stream_from_channel(data: &mut channel, pFactor: int) -> stream_out_img {
     let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { write_channel_intel_u8(data, value); }
+    fn @update(idx: int) -> () { write_channel(data, value); }
     fn @write(idx: int, din: pixel_t) -> () { value = din; }
     let out_s = stream_out { update : update, write : write, pFactor : pFactor};
     stream_out_img { stream_out: out_s, width: 1024, stride: 1024, height: 1024}
@@ -871,6 +871,7 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
             iter_body(pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
         }
     }
+    acc.sync();
     copy_img(out_gpu, out);
 }
 fn @iteration_img2chan(math: Intrinsics, out: &mut channel, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
