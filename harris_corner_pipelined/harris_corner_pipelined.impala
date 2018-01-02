@@ -1,0 +1,145 @@
+/*
+ * Harris Corner
+ *
+ * A Combined Corner and Edge Detector
+ * Chris Harris and Mike Stephens - Alvey Vision Conference, 1988
+ *
+ */
+
+extern
+fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
+    let width  = 1024;
+    let height = 1024;
+    
+    let input  = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](img_data) }, width : width, height : height, stride : width };
+    let harris = create_img(width, height, alloc_cpu);
+    //let dx     = create_img(width, height, alloc_cpu);
+    //let dy     = create_img(width, height, alloc_cpu);
+    //let dxx    = create_img(width, height, alloc_cpu);
+    //let dxy    = create_img(width, height, alloc_cpu);
+    //let dyy    = create_img(width, height, alloc_cpu);
+    //let gxx    = create_img(width, height, alloc_cpu);
+    //let gxy    = create_img(width, height, alloc_cpu);
+    //let gyy    = create_img(width, height, alloc_cpu);
+    //         -- ix -|-- ixx -- sxx -
+    //       /         \              \
+    // in --            > ixy -- sxy --> hc -- out
+    //       \         /              /
+    //         -- iy -|-- iyy -- syy -
+    static mut dx_c  : channel;
+    static mut dx_c0 : channel;
+    static mut dx_c1 : channel;
+    static mut dy_c  : channel;
+    static mut dy_c0 : channel;
+    static mut dy_c1 : channel;
+    static mut dxx_c : channel;
+    static mut dxy_c : channel;
+    static mut dyy_c : channel;
+    static mut gxx_c : channel;
+    static mut gxy_c : channel;
+    static mut gyy_c : channel;
+
+    // compute the first derivative using the Sobel operator
+    let mdx = get_mask3(sobel_mask3_x);
+    let mdy = get_mask3(sobel_mask3_y);
+
+    let lower = clamp_lower;
+    let upper = clamp_upper;
+    let iteration_fun = iteration;
+
+    for math, x, y, out, arr, mask in iteration_img2chan(math, &mut dx_c, input, mdx, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
+    }
+    for math, x, y, out, arr, mask in iteration_img2chan(math, &mut dy_c, input, mdy, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
+    }
+  
+    // Multiply channels
+    split_channel(math, &mut dx_c0, &mut dx_c1, &mut dx_c);
+    split_channel(math, &mut dy_c0, &mut dy_c1, &mut dy_c);
+
+    // compute dxx, dyy, dxy
+    //let dx_dev = get_device_copy(dx);
+    //let dy_dev = get_device_copy(dy);
+    for math, x, y, out in iteration_point_2chan(math, &mut dxx_c) {
+        //let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
+        let dx = read_channel(&mut dx_c0);
+        out.write(x, y, dx * dx);
+    }
+    for math, x, y, out in iteration_point_2chan(math, &mut dyy_c) {
+        //let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
+        let dy = read_channel(&mut dy_c0);
+        out.write(x, y, dy * dy);
+    }
+    for math, x, y, out in iteration_point_2chan(math, &mut dxy_c) {
+        //let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
+        //let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
+        let dx = read_channel(&mut dx_c1);
+        let dy = read_channel(&mut dy_c1);
+        out.write(x, y, dx * dy);
+    }
+    //release_device_copy(dx_dev);
+    //release_device_copy(dy_dev);
+
+
+    // compute gxx, gyy, gxy using Gaussian blur
+    let mg = get_mask3(gauss_mask3);
+
+    for math, x, y, out, arr, mask in iteration_chan2chan(math, &mut gxx_c, &mut dxx_c, mg, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
+    }
+    for math, x, y, out, arr, mask in iteration_chan2chan(math, &mut gyy_c, &mut dyy_c, mg, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
+    }
+    for math, x, y, out, arr, mask in iteration_chan2chan(math, &mut gxy_c, &mut dxy_c, mg, lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arr, mask));
+    }
+
+
+    // compute score for Harris corner
+    //let gxx_dev = get_device_copy(gxx);
+    //let gyy_dev = get_device_copy(gyy);
+    //let gxy_dev = get_device_copy(gxy);
+    for math, x, y, out in iteration_point_2img(math, harris) {
+        //let gxx_acc = get_acc(gxx_dev, set_pixel_fn(gxx_dev), get_pixel_fn(gxx_dev));
+        //let gyy_acc = get_acc(gyy_dev, set_pixel_fn(gyy_dev), get_pixel_fn(gyy_dev));
+        //let gxy_acc = get_acc(gxy_dev, set_pixel_fn(gxy_dev), get_pixel_fn(gxy_dev));
+        //let gxx     = gxx_acc.read(x, y);
+        //let gyy     = gyy_acc.read(x, y);
+        //let gxy     = gxy_acc.read(x, y);
+        let gxx     = read_channel(&mut gxx_c);
+        let gyy     = read_channel(&mut gyy_c);
+        let gxy     = read_channel(&mut gxy_c);
+        let det     = gxx * gyy - gxy * gxy;
+        let trace   = gxx + gyy;
+        out.write(x, y, det - k * trace * trace);
+    }
+    //release_device_copy(gxx_dev);
+    //release_device_copy(gyy_dev);
+    //release_device_copy(gxy_dev);
+
+    print_total_timing();
+
+    // post-processing: mark corners
+    for y in range(0, height) {
+        for x in range(0, width) {
+            let harris_acc = get_acc(harris, |idx, val| { bitcast[&mut[pixel_t]](harris.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](harris.buf.data)(idx));
+            if harris_acc.read(x, y) > threshold {
+                out_data(y*width + x) = markHigh 
+            } else{
+                out_data(y*width + x) = markLow 
+            }
+            //out_data(y*width + x) = harris_acc.read(x, y);
+        }   
+    }   
+
+    //release(harris.buf);
+    //release(dx.buf);
+    //release(dy.buf);
+    //release(dxx.buf);
+    //release(dxy.buf);
+    //release(dyy.buf);
+    //release(gxx.buf);
+    //release(gxy.buf);
+    //release(gyy.buf);
+}
