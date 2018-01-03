@@ -210,7 +210,6 @@ fn @set_global_stream_from_img(img: Img, pFactor: int) -> stream_out {
     }
 }
 
-
 // Shared memory read/write functions
 fn @new_shared_line_vec1(in_s: stream_in, width: int) -> stream_in {
     let mut value = 0 as pixel_t;
@@ -330,6 +329,50 @@ fn @new_shared_line(in_s: stream_in, width: int) -> stream_in {
     }
 }
 
+// Create stream images
+fn @get_stream_from_global_img(img: Img, pFactor: int) -> stream_in_img {
+    let stream_in = match pFactor {
+         1 => get_global_stream_vec1 (img.buf.data),
+         2 => get_global_stream_vec2 (img.buf.data),
+         4 => get_global_stream_vec4 (img.buf.data),
+         8 => get_global_stream_vec8 (img.buf.data),
+        16 => get_global_stream_vec16(img.buf.data),
+        32 => get_global_stream_vec32(img.buf.data),
+         _ => undef[stream_in]()
+    };
+    let width  = (img.width - 1) / pFactor + 1;
+    let stride = (img.stride - 1) / pFactor + 1;
+    stream_in_img { stream_in: stream_in, width: width, height: img.height, stride: stride }
+}
+fn @set_stream_from_global_img(img: Img, pFactor: int) -> stream_out_img {
+    let stream_out = match pFactor {
+         1 => set_global_stream_vec1(img.buf.data),
+         2 => set_global_stream_vec2(img.buf.data),
+         4 => set_global_stream_vec4(img.buf.data),
+         8 => set_global_stream_vec8(img.buf.data),
+        16 => set_global_stream_vec16(img.buf.data),
+        32 => set_global_stream_vec32(img.buf.data),
+         _ => undef[stream_out]()
+    };
+    let width  = (img.width - 1) / pFactor + 1;
+    let stride = (img.stride - 1) / pFactor + 1;
+    stream_out_img { stream_out: stream_out, width: width, height: img.height, stride: stride }
+}
+
+fn @get_stream_from_channel(data: &mut channel, pFactor: int) -> stream_in_img {
+    let mut value = 0 as pixel_t;
+    fn @update(idx: int) -> () { value = read_channel(data); }
+    fn @read(idx: int) -> pixel_t { value }
+    let in_s = stream_in { update : update, read : read, pFactor : pFactor};
+    stream_in_img { stream_in: in_s, width: 1024, stride: 1024, height: 1024 }
+}
+fn @set_stream_from_channel(data: &mut channel, pFactor: int) -> stream_out_img {
+    let mut value = 0 as pixel_t;
+    fn @update(idx: int) -> () { write_channel(data, value); }
+    fn @write(idx: int, din: pixel_t) -> () { value = din; }
+    let out_s = stream_out { update : update, write : write, pFactor : pFactor};
+    stream_out_img { stream_out: out_s, width: 1024, stride: 1024, height: 1024}
+}
 
 // -------------------------- Array of Registers -------------------------------
 fn @new_databeat(width: int) -> regs1d {
@@ -400,6 +443,9 @@ fn @new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
 }
 
 
+// ---------------------------------------------------------------------------
+// ------------------------ Stencil Codes ------------------------------------
+// ---------------------------------------------------------------------------
 //  ---- Instances of On Chip Memory: Line Buffers and Sliding Window  --------
 fn @new_line_buffer(in_s: stream_in, size_x: int, size_y: int) -> swin_acc {
     if size_y == 0 {
@@ -707,144 +753,118 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
     }
 }
 
+// coarsening nobh
+fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+    let radius_y = mask.size_y >> 1;
+    let radius_x = mask.size_x >> 1;
+    let win_lat = round_up(radius_x, pFactor) / pFactor;
+    let swin_y = mask.size_y;
+    let swin_x = radius_x + (1 + win_lat) * pFactor;
+    let swin_x_opt = pFactor + 2 * radius_x;
 
-// -------------------- Point Operators -------------------------
-fn @iter_point_body(pFactor: i32, out: stream_out_img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
-    let out_s = out.stream_out;
+    // border handling row selection
+    //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
+    //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
-    for y in range(0, out.height) {
-        for x in range(0, out.width) {
-            hls_pragma_pipeline();
-            for v in unroll(0, pFactor) {
-                let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(v, data) };
-                @@body(math, x + v, y, out_acc);
+    // On Chip Memory Architecture
+    let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
+    //let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
+    let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
+
+    // border handling col selection
+    // let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
+    // let col_sel_type0 = new_type0_col_selection(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
+
+    fn @process(col_ridx: int, row_ridx: int) -> () {
+        swin.shift(col_ridx, row_ridx);
+        //col_sel_type0.update(col_ridx);
+
+        for v in unroll(0, pFactor) {
+            let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
+            let out_acc = Acc { read : @|x, y| 0 as pixel_t,        write : @|x, y, data| out_s.write(v, data) };
+            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
+        }
+    }
+
+    coarsening_type {
+        process : process
+    }
+}
+
+fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+    let radius_y = mask.size_y >> 1;
+    let radius_x = mask.size_x >> 1;
+    let swin_y = mask.size_y;
+    let swin_x = pFactor + 2 * radius_x;
+
+    // Border_handling
+    //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
+    //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
+
+    // On Chip Memory Architecture
+    let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
+    //let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
+    let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
+
+    // Constants for Packing
+    let delay_width = (pFactor + ((pFactor - radius_x) % pFactor)) % pFactor;
+    let pack_offset = pFactor - delay_width;
+    let vec_delayed = new_databeat(delay_width);
+
+    //let col_sel_type0 = {
+    //    if pack_offset == pFactor {
+    //        let win_lat = round_up(radius_x, pFactor) / pFactor;
+    //        let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x);
+    //        new_type0_col_selection(swin, pFactor, RoI1d { o_x : win_lat, width : 0 }, get_bounds_fun, bh_lower, bh_upper)
+    //    } else {
+    //        let win_lat = radius_x / pFactor;
+    //        let roi = RoI1d { o_x : win_lat, width : 1 };
+    //        let upper_low  = pack_offset + radius_x;
+    //        let upper_get_bounds_fun = new_bounds(0, 0, upper_low, upper_low + radius_x);
+    //        let lower_get_bounds_fun = new_bounds(upper_low - radius_x, upper_low, swin_x, swin_x);
+    //        let upper = new_type0_col_selection(swin, pFactor, roi, upper_get_bounds_fun, bh_lower, bh_upper);
+    //        let lower = new_type0_col_selection(swin, pFactor, roi, lower_get_bounds_fun, bh_lower, bh_upper);
+    //        col_selection {
+    //            get_read_fn : @|v|   { if v < pack_offset { upper.get_read_fn(v) } else { lower.get_read_fn(v) } },
+    //            update      : @|idx| { upper.update(idx); lower.update(idx); }
+    //        }
+    //    }
+    //};
+
+    fn @pack(v: int) -> fn(int, int, pixel_t) -> () {
+        @|x, y, data| {
+            if  v < pack_offset {
+                let pack_idx =  v + delay_width;
+                out_s.write(pack_idx, data);
+            } else {
+                let pack_idx =  v - pack_offset;
+                out_s.write(pack_idx, vec_delayed.read(pack_idx));
+                vec_delayed.write(pack_idx, data);
             }
-            out_s.update(y * out.stride + x);
         }
     }
-}
 
-fn @iteration_point_2img(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
-    let acc = accelerator(device_id);
-    let out_gpu = alloc_img(out, acc.alloc);
+    fn @process(col_ridx: int, row_ridx: int) -> () {
+        swin.shift(col_ridx, row_ridx);
+        //col_sel_type0.update(col_ridx);
 
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = 1;
-            let out_s = set_stream_from_global_img(out_gpu, pFactor);
-            iter_point_body(pFactor, out_s, body);
+        for v in unroll(0, pFactor) {
+            //let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
+            let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
+            let out_acc = Acc { read : @|x, y| 0 as pixel_t, write : pack(v) };
+            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            //vec_pix_out_acc.write(0, 0, in_acc.read(radius_x, radius_y));
         }
     }
-    acc.sync();
-    copy_img(out_gpu, out);
-}
 
-fn @iteration_point_2chan(math: Intrinsics, out: &mut channel, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
-    let acc = accelerator(device_id);
-    //let out_gpu = alloc_img(out, acc.alloc);
-
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = 1;
-            let out_s = set_stream_from_channel(out, pFactor);
-            iter_point_body(pFactor, out_s, body);
-        }
+    coarsening_type {
+        process : process
     }
-    //acc.sync();
-    //copy_img(out_gpu, out);
-}
-
-fn @split_channel(math: Intrinsics, out0_c: &mut channel, out1_c: &mut channel, in_c: &mut channel) ->() {
-    let acc = accelerator(device_id);
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = 1;
-            let image_size = 1024 * 1024;
-            for y in range(0, image_size) {
-                let data = read_channel(in_c);
-                write_channel(out0_c, data);
-                write_channel(out1_c, data);
-            }
-        }
-    }
-}
-
-// ------------------------- Copy Kernel ---------------------------------
-fn @copy_crsn(math: Intrinsics, pFactor: i32, out: Img, arr : Img) -> () {
-    let acc = accelerator(device_id);
-    let arr_gpu = alloc_img(arr, acc.alloc);
-    let out_gpu = alloc_img(out, acc.alloc);
-
-    copy_img(arr, arr_gpu);
-    for benchmark_fpga(acc) {
-        let crsn_stride = (arr.stride -1) / pFactor + 1;
-        let crsn_width  = (arr.width - 1) / pFactor + 1;
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            for y in range(0, out.height) {
-                for x in range(0, crsn_width) {
-                    let idx = y * crsn_stride + x;
-                    match pFactor {
-                         2 => bitcast[&mut[1][[pixel_t *  2]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  2]]](arr_gpu.buf.data)(idx),
-                         4 => bitcast[&mut[1][[pixel_t *  4]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  4]]](arr_gpu.buf.data)(idx),
-                         8 => bitcast[&mut[1][[pixel_t *  8]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  8]]](arr_gpu.buf.data)(idx),
-                        16 => bitcast[&mut[1][[pixel_t * 16]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t * 16]]](arr_gpu.buf.data)(idx),
-                        32 => bitcast[&mut[1][[pixel_t * 32]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t * 32]]](arr_gpu.buf.data)(idx),
-                         _ => bitcast[&mut[1][pixel_t]](out_gpu.buf.data)(idx) = bitcast[&[1][pixel_t]](arr_gpu.buf.data)(idx)
-                    }
-                }
-            }
-        }
-    }
-    copy_img(out_gpu, out);
 }
 
 
 //  ------------------- Stencil Processing ----------------------
-fn @get_stream_from_global_img(img: Img, pFactor: int) -> stream_in_img {
-    let stream_in = match pFactor {
-         1 => get_global_stream_vec1 (img.buf.data),
-         2 => get_global_stream_vec2 (img.buf.data),
-         4 => get_global_stream_vec4 (img.buf.data),
-         8 => get_global_stream_vec8 (img.buf.data),
-        16 => get_global_stream_vec16(img.buf.data),
-        32 => get_global_stream_vec32(img.buf.data),
-         _ => undef[stream_in]()
-    };
-    let width  = (img.width - 1) / pFactor + 1;
-    let stride = (img.stride - 1) / pFactor + 1;
-    stream_in_img { stream_in: stream_in, width: width, height: img.height, stride: stride }
-}
-fn @set_stream_from_global_img(img: Img, pFactor: int) -> stream_out_img {
-    let stream_out = match pFactor {
-         1 => set_global_stream_vec1(img.buf.data),
-         2 => set_global_stream_vec2(img.buf.data),
-         4 => set_global_stream_vec4(img.buf.data),
-         8 => set_global_stream_vec8(img.buf.data),
-        16 => set_global_stream_vec16(img.buf.data),
-        32 => set_global_stream_vec32(img.buf.data),
-         _ => undef[stream_out]()
-    };
-    let width  = (img.width - 1) / pFactor + 1;
-    let stride = (img.stride - 1) / pFactor + 1;
-    stream_out_img { stream_out: stream_out, width: width, height: img.height, stride: stride }
-}
-
-fn @get_stream_from_channel(data: &mut channel, pFactor: int) -> stream_in_img {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { value = read_channel(data); }
-    fn @read(idx: int) -> pixel_t { value }
-    let in_s = stream_in { update : update, read : read, pFactor : pFactor};
-    stream_in_img { stream_in: in_s, width: 1024, stride: 1024, height: 1024 }
-}
-fn @set_stream_from_channel(data: &mut channel, pFactor: int) -> stream_out_img {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { write_channel(data, value); }
-    fn @write(idx: int, din: pixel_t) -> () { value = din; }
-    let out_s = stream_out { update : update, write : write, pFactor : pFactor};
-    stream_out_img { stream_out: out_s, width: 1024, stride: 1024, height: 1024}
-}
-
-
 fn @iter_body(pFactor: int, out: stream_out_img, arr: stream_in_img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let radius_y = mask.size_y >> 1;
     let radius_x = mask.size_x >> 1;
@@ -964,7 +984,7 @@ fn @iteration_chan2img(math: Intrinsics, out: Img, arr: &mut channel, mask: Mask
 }
 
 
-// Temporary for benchmarks
+// Iterations for coarsening benchmarks
 fn @fac(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
@@ -1067,117 +1087,6 @@ fn @cap(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower
     }
     copy_img(out_gpu, out);
 }
-
-// Benchmarks with nobh
-fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
-    let radius_y = mask.size_y >> 1;
-    let radius_x = mask.size_x >> 1;
-    let win_lat = round_up(radius_x, pFactor) / pFactor;
-    let swin_y = mask.size_y;
-    let swin_x = radius_x + (1 + win_lat) * pFactor;
-    let swin_x_opt = pFactor + 2 * radius_x;
-
-    // border handling row selection
-    //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
-
-    // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
-    //let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
-    let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
-
-    // border handling col selection
-    // let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
-    // let col_sel_type0 = new_type0_col_selection(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
-
-    fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift(col_ridx, row_ridx);
-        //col_sel_type0.update(col_ridx);
-
-        for v in unroll(0, pFactor) {
-            let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
-            let out_acc = Acc { read : @|x, y| 0 as pixel_t,        write : @|x, y, data| out_s.write(v, data) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
-            //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
-        }
-    }
-
-    coarsening_type {
-        process : process
-    }
-}
-
-fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
-    let radius_y = mask.size_y >> 1;
-    let radius_x = mask.size_x >> 1;
-    let swin_y = mask.size_y;
-    let swin_x = pFactor + 2 * radius_x;
-
-    // Border_handling
-    //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
-
-    // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
-    //let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
-    let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
-
-    // Constants for Packing
-    let delay_width = (pFactor + ((pFactor - radius_x) % pFactor)) % pFactor;
-    let pack_offset = pFactor - delay_width;
-    let vec_delayed = new_databeat(delay_width);
-
-    //let col_sel_type0 = {
-    //    if pack_offset == pFactor {
-    //        let win_lat = round_up(radius_x, pFactor) / pFactor;
-    //        let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x);
-    //        new_type0_col_selection(swin, pFactor, RoI1d { o_x : win_lat, width : 0 }, get_bounds_fun, bh_lower, bh_upper)
-    //    } else {
-    //        let win_lat = radius_x / pFactor;
-    //        let roi = RoI1d { o_x : win_lat, width : 1 };
-    //        let upper_low  = pack_offset + radius_x;
-    //        let upper_get_bounds_fun = new_bounds(0, 0, upper_low, upper_low + radius_x);
-    //        let lower_get_bounds_fun = new_bounds(upper_low - radius_x, upper_low, swin_x, swin_x);
-    //        let upper = new_type0_col_selection(swin, pFactor, roi, upper_get_bounds_fun, bh_lower, bh_upper);
-    //        let lower = new_type0_col_selection(swin, pFactor, roi, lower_get_bounds_fun, bh_lower, bh_upper);
-    //        col_selection {
-    //            get_read_fn : @|v|   { if v < pack_offset { upper.get_read_fn(v) } else { lower.get_read_fn(v) } },
-    //            update      : @|idx| { upper.update(idx); lower.update(idx); }
-    //        }
-    //    }
-    //};
-
-    fn @pack(v: int) -> fn(int, int, pixel_t) -> () {
-        @|x, y, data| {
-            if  v < pack_offset {
-                let pack_idx =  v + delay_width;
-                out_s.write(pack_idx, data);
-            } else {
-                let pack_idx =  v - pack_offset;
-                out_s.write(pack_idx, vec_delayed.read(pack_idx));
-                vec_delayed.write(pack_idx, data);
-            }
-        }
-    }
-
-    fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift(col_ridx, row_ridx);
-        //col_sel_type0.update(col_ridx);
-
-        for v in unroll(0, pFactor) {
-            //let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
-            let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
-            let out_acc = Acc { read : @|x, y| 0 as pixel_t, write : pack(v) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
-            //vec_pix_out_acc.write(0, 0, in_acc.read(radius_x, radius_y));
-        }
-    }
-
-    coarsening_type {
-        process : process
-    }
-}
-
 fn @fac_nobh(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
@@ -1283,7 +1192,7 @@ fn @cap_nobh(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_
 
 
 
-// wip
+//  ------------------------ Padding (WIP) -----------------------------------
 struct padded_stream_in{
    stream : stream_in,
    update : fn(int, int, int) -> ()
@@ -1329,7 +1238,6 @@ fn @crop_out_stream(out_s: stream_out, mask: Mask) -> padded_stream_out {
     }
 }
 
-//  ------------------- Padding ----------------------
 fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_gpu = alloc_img(arr, acc.alloc);
@@ -1405,6 +1313,100 @@ fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, 
             }
         }
         //acc.sync();
+    }
+    copy_img(out_gpu, out);
+}
+
+
+
+// ---------------------------------------------------------------------------
+// ------------------------ Point Operators ----------------------------------
+// ---------------------------------------------------------------------------
+fn @iter_point_body(pFactor: i32, out: stream_out_img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    let out_s = out.stream_out;
+
+    for y in range(0, out.height) {
+        for x in range(0, out.width) {
+            hls_pragma_pipeline();
+            for v in unroll(0, pFactor) {
+                let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(v, data) };
+                @@body(math, x + v, y, out_acc);
+            }
+            out_s.update(y * out.stride + x);
+        }
+    }
+}
+
+fn @iteration_point_2img(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    let acc = accelerator(device_id);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    for benchmark_fpga(acc) {
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let pFactor = 1;
+            let out_s = set_stream_from_global_img(out_gpu, pFactor);
+            iter_point_body(pFactor, out_s, body);
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+fn @iteration_point_2chan(math: Intrinsics, out: &mut channel, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    let acc = accelerator(device_id);
+    //let out_gpu = alloc_img(out, acc.alloc);
+
+    for benchmark_fpga(acc) {
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let pFactor = 1;
+            let out_s = set_stream_from_channel(out, pFactor);
+            iter_point_body(pFactor, out_s, body);
+        }
+    }
+    //acc.sync();
+    //copy_img(out_gpu, out);
+}
+
+
+fn @split_channel(math: Intrinsics, out0_c: &mut channel, out1_c: &mut channel, in_c: &mut channel) ->() {
+    let acc = accelerator(device_id);
+    for benchmark_fpga(acc) {
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let pFactor = 1;
+            let image_size = 1024 * 1024;
+            for y in range(0, image_size) {
+                let data = read_channel(in_c);
+                write_channel(out0_c, data);
+                write_channel(out1_c, data);
+            }
+        }
+    }
+}
+
+
+fn @copy_crsn(math: Intrinsics, pFactor: i32, out: Img, arr : Img) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    for benchmark_fpga(acc) {
+        let crsn_stride = (arr.stride -1) / pFactor + 1;
+        let crsn_width  = (arr.width - 1) / pFactor + 1;
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            for y in range(0, out.height) {
+                for x in range(0, crsn_width) {
+                    let idx = y * crsn_stride + x;
+                    match pFactor {
+                         2 => bitcast[&mut[1][[pixel_t *  2]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  2]]](arr_gpu.buf.data)(idx),
+                         4 => bitcast[&mut[1][[pixel_t *  4]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  4]]](arr_gpu.buf.data)(idx),
+                         8 => bitcast[&mut[1][[pixel_t *  8]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  8]]](arr_gpu.buf.data)(idx),
+                        16 => bitcast[&mut[1][[pixel_t * 16]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t * 16]]](arr_gpu.buf.data)(idx),
+                        32 => bitcast[&mut[1][[pixel_t * 32]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t * 32]]](arr_gpu.buf.data)(idx),
+                         _ => bitcast[&mut[1][pixel_t]](out_gpu.buf.data)(idx) = bitcast[&[1][pixel_t]](arr_gpu.buf.data)(idx)
+                    }
+                }
+            }
+        }
     }
     copy_img(out_gpu, out);
 }
