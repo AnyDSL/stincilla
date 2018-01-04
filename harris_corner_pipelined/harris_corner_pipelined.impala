@@ -38,6 +38,18 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
     static mut gxx_c : channel;
     static mut gxy_c : channel;
     static mut gyy_c : channel;
+    let dx  = create_virtual_img(width, height, &mut dx_c );
+    let dx0 = create_virtual_img(width, height, &mut dx_c0);
+    let dx1 = create_virtual_img(width, height, &mut dx_c1);
+    let dy  = create_virtual_img(width, height, &mut dy_c );
+    let dy0 = create_virtual_img(width, height, &mut dy_c0);
+    let dy1 = create_virtual_img(width, height, &mut dy_c1);
+    let dxx = create_virtual_img(width, height, &mut dxx_c);
+    let dxy = create_virtual_img(width, height, &mut dxy_c);
+    let dyy = create_virtual_img(width, height, &mut dyy_c);
+    let gxx = create_virtual_img(width, height, &mut gxx_c);
+    let gxy = create_virtual_img(width, height, &mut gxy_c);
+    let gyy = create_virtual_img(width, height, &mut gyy_c);
 
     // compute the first derivative using the Sobel operator
     let mdx = get_mask3(sobel_mask3_x);
@@ -47,35 +59,35 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
     let upper = clamp_upper;
     let iteration_fun = iteration;
 
-    for math, x, y, out, arr, mask in iteration_img2chan(math, &mut dx_c, input, mdx, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_img2virt(math, dx, input, mdx, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for math, x, y, out, arr, mask in iteration_img2chan(math, &mut dy_c, input, mdy, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_img2virt(math, dy, input, mdy, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
   
-    // Multiply channels
-    split_channel(math, &mut dx_c0, &mut dx_c1, &mut dx_c);
-    split_channel(math, &mut dy_c0, &mut dy_c1, &mut dy_c);
+    // Replicate virtual images for multiple reads
+    split_virtual_image(math, dx0, dx1, dx);
+    split_virtual_image(math, dy0, dy1, dy);
 
     // compute dxx, dyy, dxy
     //let dx_dev = get_device_copy(dx);
     //let dy_dev = get_device_copy(dy);
-    for math, x, y, out in iteration_point_2chan(math, &mut dxx_c) {
+    for math, x, y, out in iteration_point_2virt(math, dxx) {
         //let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
-        let dx = read_channel(&mut dx_c0);
+        let dx = read_channel(dx0.buf);
         out.write(x, y, dx * dx);
     }
-    for math, x, y, out in iteration_point_2chan(math, &mut dyy_c) {
+    for math, x, y, out in iteration_point_2virt(math, dyy) {
         //let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
-        let dy = read_channel(&mut dy_c0);
+        let dy = read_channel(dy0.buf);
         out.write(x, y, dy * dy);
     }
-    for math, x, y, out in iteration_point_2chan(math, &mut dxy_c) {
+    for math, x, y, out in iteration_point_2virt(math, dxy) {
         //let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
         //let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
-        let dx = read_channel(&mut dx_c1);
-        let dy = read_channel(&mut dy_c1);
+        let dx = read_channel(dx1.buf);
+        let dy = read_channel(dy1.buf);
         out.write(x, y, dx * dy);
     }
     //release_device_copy(dx_dev);
@@ -85,13 +97,13 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
     // compute gxx, gyy, gxy using Gaussian blur
     let mg = get_mask3(gauss_mask3);
 
-    for math, x, y, out, arr, mask in iteration_chan2chan(math, &mut gxx_c, &mut dxx_c, mg, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_virt2virt(math, gxx, dxx, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for math, x, y, out, arr, mask in iteration_chan2chan(math, &mut gyy_c, &mut dyy_c, mg, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_virt2virt(math, gyy, dyy, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-    for math, x, y, out, arr, mask in iteration_chan2chan(math, &mut gxy_c, &mut dxy_c, mg, lower, upper) {
+    for math, x, y, out, arr, mask in iteration_virt2virt(math, gxy, dxy, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
 
@@ -107,11 +119,11 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
         //let gxx     = gxx_acc.read(x, y);
         //let gyy     = gyy_acc.read(x, y);
         //let gxy     = gxy_acc.read(x, y);
-        let gxx     = read_channel(&mut gxx_c);
-        let gyy     = read_channel(&mut gyy_c);
-        let gxy     = read_channel(&mut gxy_c);
-        let det     = gxx * gyy - gxy * gxy;
-        let trace   = gxx + gyy;
+        let xx = read_channel(gxx.buf);
+        let yy = read_channel(gyy.buf);
+        let xy = read_channel(gxy.buf);
+        let det   = xx * yy - xy * xy;
+        let trace = xx + yy;
         out.write(x, y, det - k * trace * trace);
     }
     //release_device_copy(gxx_dev);
