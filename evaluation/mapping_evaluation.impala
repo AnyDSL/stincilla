@@ -1,0 +1,62 @@
+// Iterations for coarsening benchmarks
+fn @iteration_with_policy(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    for benchmark_fpga(acc) {
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            let in_s  = get_stream_from_global_img(arr_gpu, pFactor);
+            let out_s = set_stream_from_global_img(out_gpu, pFactor);
+            iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
+        }
+    }
+    acc.sync();
+    copy_img(out_gpu, out);
+}
+
+fn @fac(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let coarsening_fun = FetchAndCalc;
+    iteration_with_policy(math, coarsening_fun, pFactor, out, arr, mask, bh_lower, bh_upper, body)
+}
+fn @fac_nobh(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let coarsening_fun = FetchAndCalc_nobh;
+    iteration_with_policy(math, coarsening_fun, pFactor, out, arr, mask, bh_lower, bh_upper, body)
+}
+fn @cap(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let coarsening_fun = CalcAndPack;
+    iteration_with_policy(math, coarsening_fun, pFactor, out, arr, mask, bh_lower, bh_upper, body)
+}
+fn @cap_nobh(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let coarsening_fun = CalcAndPack_nobh;
+    iteration_with_policy(math, coarsening_fun, pFactor, out, arr, mask, bh_lower, bh_upper, body)
+}
+
+fn @copy_crsn(math: Intrinsics, pFactor: i32, out: Img, arr : Img) -> () {
+    let acc = accelerator(device_id);
+    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img(out, acc.alloc);
+
+    copy_img(arr, arr_gpu);
+    for benchmark_fpga(acc) {
+        let crsn_stride = (arr.stride -1) / pFactor + 1;
+        let crsn_width  = (arr.width - 1) / pFactor + 1;
+        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+            for y in range(0, out.height) {
+                for x in range(0, crsn_width) {
+                    let idx = y * crsn_stride + x;
+                    match pFactor {
+                         2 => bitcast[&mut[1][[pixel_t *  2]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  2]]](arr_gpu.buf.data)(idx),
+                         4 => bitcast[&mut[1][[pixel_t *  4]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  4]]](arr_gpu.buf.data)(idx),
+                         8 => bitcast[&mut[1][[pixel_t *  8]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t *  8]]](arr_gpu.buf.data)(idx),
+                        16 => bitcast[&mut[1][[pixel_t * 16]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t * 16]]](arr_gpu.buf.data)(idx),
+                        32 => bitcast[&mut[1][[pixel_t * 32]]](out_gpu.buf.data)(idx) = bitcast[&[1][[pixel_t * 32]]](arr_gpu.buf.data)(idx),
+                         _ => bitcast[&mut[1][pixel_t]](out_gpu.buf.data)(idx) = bitcast[&[1][pixel_t]](arr_gpu.buf.data)(idx)
+                    }
+                }
+            }
+        }
+    }
+    copy_img(out_gpu, out);
+}

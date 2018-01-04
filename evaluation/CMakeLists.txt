@@ -20,9 +20,6 @@ endif()
 string(TOLOWER "${PIXEL_TYPE}" PIXEL_TYPE)
 message(STATUS "Selected pixel type: ${PIXEL_TYPE}")
 
-set(BACKEND_FILE backend_${BACKEND}.impala)
-set(PIXEL_TYPE_FILES pixel_${PIXEL_TYPE}.impala)
-
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
 elseif(BACKEND STREQUAL "aocl" OR BACKEND STREQUAL "hls")
@@ -34,6 +31,10 @@ else()
     set(DEVICE "acc")
 endif()
 
+set(BACKEND_FILE backend_${BACKEND}.impala)
+set(PIXEL_TYPE_FILES pixel_${PIXEL_TYPE}.impala)
+set(DSL_TYPE_FILES ../utils.impala ../stencil_lib.impala)
+set(MAPPING_TYPE_FILES ../mapping_${DEVICE}.impala mapping_evaluation.impala)
 
 set(CLANG_FLAGS -march=native)
 set(IMPALA_FLAGS --log-level info)
@@ -44,18 +45,16 @@ include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 anydsl_runtime_wrap(GAUSSIAN_DEBUG_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala gaussian_debug.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} ../gaussian_debug.impala)
 add_executable(gaussian_debug ${GAUSSIAN_DEBUG_PROGRAM})
 target_link_libraries(gaussian_debug ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian_debug" gaussian_debug)
-
-
 
 ## Copy kernels
 anydsl_runtime_wrap(v1COPY_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala v1copy.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} v1copy.impala)
 add_executable(v1copy ${v1COPY_PROGRAM})
 target_link_libraries(v1copy ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("v1copy" v1copy)
@@ -63,7 +62,7 @@ add_test("v1copy" v1copy)
 anydsl_runtime_wrap(v2COPY_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala v2copy.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} v2copy.impala)
 add_executable(v2copy ${v2COPY_PROGRAM})
 target_link_libraries(v2copy ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("v2copy" v2copy)
@@ -71,7 +70,7 @@ add_test("v2copy" v2copy)
 anydsl_runtime_wrap(v4COPY_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala v4copy.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} v4copy.impala)
 add_executable(v4copy ${v4COPY_PROGRAM})
 target_link_libraries(v4copy ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("v4copy" v4copy)
@@ -79,7 +78,7 @@ add_test("v4copy" v4copy)
 anydsl_runtime_wrap(v8COPY_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala v8copy.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} v8copy.impala)
 add_executable(v8copy ${v8COPY_PROGRAM})
 target_link_libraries(v8copy ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("v8copy" v8copy)
@@ -87,7 +86,7 @@ add_test("v8copy" v8copy)
 anydsl_runtime_wrap(v16COPY_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala v16copy.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} v16copy.impala)
 add_executable(v16copy ${v16COPY_PROGRAM})
 target_link_libraries(v16copy ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("v16copy" v16copy)
@@ -95,7 +94,7 @@ add_test("v16copy" v16copy)
 anydsl_runtime_wrap(v32COPY_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala v32copy.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} v32copy.impala)
 add_executable(v32copy ${v32COPY_PROGRAM})
 target_link_libraries(v32copy ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("v32copy" v32copy)
@@ -107,7 +106,7 @@ add_test("v32copy" v32copy)
 anydsl_runtime_wrap(g1CAP_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g1cap.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g1cap.impala)
 add_executable(g1cap ${g1CAP_PROGRAM})
 target_link_libraries(g1cap ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g1cap" g1cap)
@@ -115,7 +114,7 @@ add_test("g1cap" g1cap)
 anydsl_runtime_wrap(g1FAC_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g1fac.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g1fac.impala)
 add_executable(g1fac ${g1FAC_PROGRAM})
 target_link_libraries(g1fac ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g1fac" g1fac)
@@ -124,7 +123,7 @@ add_test("g1fac" g1fac)
 anydsl_runtime_wrap(g1CAP_NOBH_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g1cap_nobh.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g1cap_nobh.impala)
 add_executable(g1cap_nobh ${g1CAP_NOBH_PROGRAM})
 target_link_libraries(g1cap_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g1cap_nobh" g1cap_nobh)
@@ -132,7 +131,7 @@ add_test("g1cap_nobh" g1cap_nobh)
 anydsl_runtime_wrap(g1FAC_NOBH_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g1fac_nobh.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g1fac_nobh.impala)
 add_executable(g1fac_nobh ${g1FAC_NOBH_PROGRAM})
 target_link_libraries(g1fac_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g1fac_nobh" g1fac_nobh)
@@ -140,7 +139,7 @@ add_test("g1fac_nobh" g1fac_nobh)
 anydsl_runtime_wrap(g1CAP_MIRROR_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g1cap_mirror.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g1cap_mirror.impala)
 add_executable(g1cap_mirror ${g1CAP_MIRROR_PROGRAM})
 target_link_libraries(g1cap_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g1cap_mirror" g1cap_mirror)
@@ -148,7 +147,7 @@ add_test("g1cap_mirror" g1cap_mirror)
 anydsl_runtime_wrap(g1FAC_MIRROR_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g1fac_mirror.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g1fac_mirror.impala)
 add_executable(g1fac_mirror ${g1FAC_MIRROR_PROGRAM})
 target_link_libraries(g1fac_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g1fac_mirror" g1fac_mirror)
@@ -159,7 +158,7 @@ add_test("g1fac_mirror" g1fac_mirror)
 anydsl_runtime_wrap(g8CAP_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8cap.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g8cap.impala)
 add_executable(g8cap ${g8CAP_PROGRAM})
 target_link_libraries(g8cap ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g8cap" g8cap)
@@ -167,7 +166,7 @@ add_test("g8cap" g8cap)
 anydsl_runtime_wrap(g8FAC_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8fac.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g8fac.impala)
 add_executable(g8fac ${g8FAC_PROGRAM})
 target_link_libraries(g8fac ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g8fac" g8fac)
@@ -176,7 +175,7 @@ add_test("g8fac" g8fac)
 anydsl_runtime_wrap(g8CAP_NOBH_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8cap_nobh.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g8cap_nobh.impala)
 add_executable(g8cap_nobh ${g8CAP_NOBH_PROGRAM})
 target_link_libraries(g8cap_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g8cap_nobh" g8cap_nobh)
@@ -184,7 +183,7 @@ add_test("g8cap_nobh" g8cap_nobh)
 anydsl_runtime_wrap(g8FAC_NOBH_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8fac_nobh.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g8fac_nobh.impala)
 add_executable(g8fac_nobh ${g8FAC_NOBH_PROGRAM})
 target_link_libraries(g8fac_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g8fac_nobh" g8fac_nobh)
@@ -192,7 +191,7 @@ add_test("g8fac_nobh" g8fac_nobh)
 anydsl_runtime_wrap(g8CAP_MIRROR_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8cap_mirror.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g8cap_mirror.impala)
 add_executable(g8cap_mirror ${g8CAP_MIRROR_PROGRAM})
 target_link_libraries(g8cap_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g8cap_mirror" g8cap_mirror)
@@ -200,7 +199,7 @@ add_test("g8cap_mirror" g8cap_mirror)
 anydsl_runtime_wrap(g8FAC_MIRROR_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g8fac_mirror.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g8fac_mirror.impala)
 add_executable(g8fac_mirror ${g8FAC_MIRROR_PROGRAM})
 target_link_libraries(g8fac_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g8fac_mirror" g8fac_mirror)
@@ -211,7 +210,7 @@ add_test("g8fac_mirror" g8fac_mirror)
 anydsl_runtime_wrap(g16CAP_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g16cap.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g16cap.impala)
 add_executable(g16cap ${g16CAP_PROGRAM})
 target_link_libraries(g16cap ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g16cap" g16cap)
@@ -219,7 +218,7 @@ add_test("g16cap" g16cap)
 anydsl_runtime_wrap(g16FAC_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g16fac.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g16fac.impala)
 add_executable(g16fac ${g16FAC_PROGRAM})
 target_link_libraries(g16fac ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g16fac" g16fac)
@@ -228,7 +227,7 @@ add_test("g16fac" g16fac)
 anydsl_runtime_wrap(g16CAP_NOBH_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g16cap_nobh.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g16cap_nobh.impala)
 add_executable(g16cap_nobh ${g16CAP_NOBH_PROGRAM})
 target_link_libraries(g16cap_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g16cap_nobh" g16cap_nobh)
@@ -236,7 +235,7 @@ add_test("g16cap_nobh" g16cap_nobh)
 anydsl_runtime_wrap(g16FAC_NOBH_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g16fac_nobh.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g16fac_nobh.impala)
 add_executable(g16fac_nobh ${g16FAC_NOBH_PROGRAM})
 target_link_libraries(g16fac_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g16fac_nobh" g16fac_nobh)
@@ -244,7 +243,7 @@ add_test("g16fac_nobh" g16fac_nobh)
 anydsl_runtime_wrap(g16CAP_MIRROR_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g16cap_mirror.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g16cap_mirror.impala)
 add_executable(g16cap_mirror ${g16CAP_MIRROR_PROGRAM})
 target_link_libraries(g16cap_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g16cap_mirror" g16cap_mirror)
@@ -252,7 +251,7 @@ add_test("g16cap_mirror" g16cap_mirror)
 anydsl_runtime_wrap(g16FAC_MIRROR_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g16fac_mirror.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g16fac_mirror.impala)
 add_executable(g16fac_mirror ${g16FAC_MIRROR_PROGRAM})
 target_link_libraries(g16fac_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g16fac_mirror" g16fac_mirror)
@@ -263,7 +262,7 @@ add_test("g16fac_mirror" g16fac_mirror)
 anydsl_runtime_wrap(g32CAP_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g32cap.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g32cap.impala)
 add_executable(g32cap ${g32CAP_PROGRAM})
 target_link_libraries(g32cap ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g32cap" g32cap)
@@ -271,7 +270,7 @@ add_test("g32cap" g32cap)
 anydsl_runtime_wrap(g32FAC_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g32fac.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g32fac.impala)
 add_executable(g32fac ${g32FAC_PROGRAM})
 target_link_libraries(g32fac ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g32fac" g32fac)
@@ -280,7 +279,7 @@ add_test("g32fac" g32fac)
 anydsl_runtime_wrap(g32CAP_NOBH_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g32cap_nobh.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g32cap_nobh.impala)
 add_executable(g32cap_nobh ${g32CAP_NOBH_PROGRAM})
 target_link_libraries(g32cap_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g32cap_nobh" g32cap_nobh)
@@ -288,7 +287,7 @@ add_test("g32cap_nobh" g32cap_nobh)
 anydsl_runtime_wrap(g32FAC_NOBH_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g32fac_nobh.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g32fac_nobh.impala)
 add_executable(g32fac_nobh ${g32FAC_NOBH_PROGRAM})
 target_link_libraries(g32fac_nobh ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g32fac_nobh" g32fac_nobh)
@@ -296,7 +295,7 @@ add_test("g32fac_nobh" g32fac_nobh)
 anydsl_runtime_wrap(g32CAP_MIRROR_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g32cap_mirror.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g32cap_mirror.impala)
 add_executable(g32cap_mirror ${g32CAP_MIRROR_PROGRAM})
 target_link_libraries(g32cap_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g32cap_mirror" g32cap_mirror)
@@ -304,7 +303,7 @@ add_test("g32cap_mirror" g32cap_mirror)
 anydsl_runtime_wrap(g32FAC_MIRROR_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala g32fac_mirror.impala)
+    FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} g32fac_mirror.impala)
 add_executable(g32fac_mirror ${g32FAC_MIRROR_PROGRAM})
 target_link_libraries(g32fac_mirror ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("g32fac_mirror" g32fac_mirror)
