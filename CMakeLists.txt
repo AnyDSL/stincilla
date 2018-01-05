@@ -25,10 +25,13 @@ set(PIXEL_TYPE_FILES pixel_${PIXEL_TYPE}.impala)
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
+    set(MAPPING_FILES ${CMAKE_CURRENT_SOURCE_DIR}/mapping_processor.impala ${CMAKE_CURRENT_SOURCE_DIR}/mapping_${DEVICE}.impala)
 elseif(BACKEND STREQUAL "aocl" OR BACKEND STREQUAL "hls")
     set(DEVICE "fpga")
+    set(MAPPING_FILES ${CMAKE_CURRENT_SOURCE_DIR}/mapping_${DEVICE}.impala)
 else()
     set(DEVICE "acc")
+    set(MAPPING_FILES ${CMAKE_CURRENT_SOURCE_DIR}/mapping_processor.impala ${CMAKE_CURRENT_SOURCE_DIR}/mapping_${DEVICE}.impala)
 endif()
 
 
@@ -62,7 +65,7 @@ add_test("matmul" matmul)
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala ${MAPPING_FILES}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
 target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
@@ -70,7 +73,7 @@ add_test("gaussian" gaussian)
 anydsl_runtime_wrap(GAUSSIAN_DEBUG_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian_debug.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala ${MAPPING_FILES} gaussian_debug.impala)
 add_executable(gaussian_debug ${GAUSSIAN_DEBUG_PROGRAM})
 target_link_libraries(gaussian_debug ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian_debug" gaussian_debug)
@@ -78,7 +81,7 @@ add_test("gaussian_debug" gaussian_debug)
 anydsl_runtime_wrap(FILTER_CHAIN_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala filter_chain.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala ${MAPPING_FILES} filter_chain.impala)
 add_executable(filter_chain ${FILTER_CHAIN_PROGRAM})
 target_link_libraries(filter_chain ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("filter_chain" filter_chain)
@@ -86,7 +89,7 @@ add_test("filter_chain" filter_chain)
 anydsl_runtime_wrap(FILTER_CHAIN_PIPELINED_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala filter_chain_pipelined.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala ${MAPPING_FILES} filter_chain_pipelined.impala)
 add_executable(filter_chain_pipelined ${FILTER_CHAIN_PIPELINED_PROGRAM})
 target_link_libraries(filter_chain_pipelined ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("filter_chain_pipelined" filter_chain_pipelined)
@@ -94,7 +97,7 @@ add_test("filter_chain_pipelined" filter_chain_pipelined)
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala ${MAPPING_FILES} bilateral.impala)
 add_executable(bilateral ${BILATERAL_PROGRAM})
 target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
@@ -102,7 +105,7 @@ add_test("bilateral" bilateral)
 anydsl_runtime_wrap(JACOBI_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} utils.impala stencil_lib.impala ${MAPPING_FILES} jacobi.impala)
 add_executable(jacobi ${JACOBI_PROGRAM})
 target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("jacobi" jacobi)

@@ -26,24 +26,20 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
     // in --            > ixy -- sxy --> hc -- out
     //       \         /              /
     //         -- iy -|-- iyy -- syy -
-    static mut dx_c  : channel;
-    static mut dx_c0 : channel;
-    static mut dx_c1 : channel;
-    static mut dy_c  : channel;
-    static mut dy_c0 : channel;
-    static mut dy_c1 : channel;
-    static mut dxx_c : channel;
-    static mut dxy_c : channel;
-    static mut dyy_c : channel;
-    static mut gxx_c : channel;
-    static mut gxy_c : channel;
-    static mut gyy_c : channel;
+    static mut dx_c  : pipe;
+    static mut dy_c  : pipe;
+    static mut dxx_c : pipe;
+    static mut dxy_c : pipe;
+    static mut dyy_c : pipe;
+    static mut gxx_c : pipe;
+    static mut gxy_c : pipe;
+    static mut gyy_c : pipe;
     let dx  = create_virtual_img(width, height, &mut dx_c );
-    let dx0 = create_virtual_img(width, height, &mut dx_c0);
-    let dx1 = create_virtual_img(width, height, &mut dx_c1);
+    //let dx0 = create_virtual_img(width, height, &mut dx_c0);
+    //let dx1 = create_virtual_img(width, height, &mut dx_c1);
     let dy  = create_virtual_img(width, height, &mut dy_c );
-    let dy0 = create_virtual_img(width, height, &mut dy_c0);
-    let dy1 = create_virtual_img(width, height, &mut dy_c1);
+    //let dy0 = create_virtual_img(width, height, &mut dy_c0);
+    //let dy1 = create_virtual_img(width, height, &mut dy_c1);
     let dxx = create_virtual_img(width, height, &mut dxx_c);
     let dxy = create_virtual_img(width, height, &mut dxy_c);
     let dyy = create_virtual_img(width, height, &mut dyy_c);
@@ -67,8 +63,12 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
     }
   
     // Replicate virtual images for multiple reads
-    split_virtual_image(math, dx0, dx1, dx);
-    split_virtual_image(math, dy0, dy1, dy);
+    static mut dx_c0 : pipe;
+    static mut dx_c1 : pipe;
+    static mut dy_c0 : pipe;
+    static mut dy_c1 : pipe;
+    let (dx0, dx1) = split_virtual_image(math, dx, &mut dx_c0, &mut dx_c1);
+    let (dy0, dy1) = split_virtual_image(math, dy, &mut dy_c0, &mut dy_c1);
 
     // compute dxx, dyy, dxy
     let dx0_dev = get_device_copy_virtual(dx0);

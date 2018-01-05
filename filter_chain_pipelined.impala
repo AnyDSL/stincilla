@@ -27,8 +27,8 @@ fn main() -> i32 {
     let arr    = create_img(width, height, alloc_cpu);
     let out    = create_img(width, height, alloc_cpu);
 
-    static mut out0_buf: channel;
-    static mut out1_buf: channel;
+    static mut out0_buf: pipe;
+    static mut out1_buf: pipe;
     let out0   = create_virtual_img(width, height, &mut out0_buf);
     let out1   = create_virtual_img(width, height, &mut out1_buf);
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);

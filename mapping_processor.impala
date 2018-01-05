@@ -1,0 +1,45 @@
+// pipe support
+type VirtualImg = Img;
+type pipe = i32;
+
+fn @create_virtual_img(width: i32, height: i32, buf: &mut pipe) -> VirtualImg {
+    create_img(width, height, alloc_cpu)
+}
+
+// accessor
+fn @get_pixel_fn_virtual(img: VirtualImg) -> fn(i32) -> pixel_t     { get_pixel_fn(img) }
+fn @set_pixel_fn_virtual(img: VirtualImg) -> fn(i32, pixel_t) -> () { set_pixel_fn(img) }
+
+fn @get_acc_virtual(img: VirtualImg, set_pixel_fn_virtual: fn(i32, pixel_t) -> (), get_pixel_fn_virtual: fn(i32) -> pixel_t) -> Acc {
+    get_acc(img, set_pixel_fn_virtual, get_pixel_fn_virtual)
+}
+
+// stencil codes
+fn @iteration_img2virt(math: Intrinsics, out: VirtualImg, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    iteration(math, out, arr, mask, bh_lower, bh_upper, body)
+}
+
+fn @iteration_virt2virt(math: Intrinsics, out: VirtualImg, arr: VirtualImg, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    iteration(math, out, arr, mask, bh_lower, bh_upper, body)
+}
+
+fn @iteration_virt2img(math: Intrinsics, out: Img, arr: VirtualImg, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    iteration(math, out, arr, mask, bh_lower, bh_upper, body)
+}
+
+fn @iteration_point_2img(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    iteration_point(math, out, body)
+}
+
+// point operators
+fn @iteration_point_2virt(math: Intrinsics, out: VirtualImg, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    iteration_point(math, out, body)
+}
+
+// split_image and memory copy
+fn @get_device_copy_virtual(img: VirtualImg) -> VirtualImg { get_device_copy(img) }
+fn @release_device_copy_virtual(img: VirtualImg) -> () { release_device_copy(img) }
+
+fn @split_virtual_image(math: Intrinsics, arr: VirtualImg, out0: &mut pipe, out1: &mut pipe) -> (VirtualImg, VirtualImg) {
+    (arr, arr)
+}

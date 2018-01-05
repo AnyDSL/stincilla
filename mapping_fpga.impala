@@ -1,4 +1,6 @@
 // channel support
+type pipe = channel;
+
 struct VirtualImg {
     buf    : &mut channel,
     width  : i32,
@@ -1185,7 +1187,7 @@ fn @iteration_point_2virt(math: Intrinsics, out: VirtualImg, body: fn(Intrinsics
 }
 
 
-fn @split_virtual_image(math: Intrinsics, out0: VirtualImg, out1: VirtualImg, arr: VirtualImg) ->() {
+fn @split_virtual_image(math: Intrinsics, arr: VirtualImg, pipe0: &mut pipe, pipe1: &mut pipe) -> (VirtualImg, VirtualImg) {
     let acc = accelerator(device_id);
     for benchmark_fpga(acc) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
@@ -1194,9 +1196,12 @@ fn @split_virtual_image(math: Intrinsics, out0: VirtualImg, out1: VirtualImg, ar
 
             for y in range(0, image_size) {
                 let data = read_channel(arr.buf);
-                write_channel(out0.buf, data);
-                write_channel(out1.buf, data);
+                write_channel(pipe0, data);
+                write_channel(pipe1, data);
             }
         }
     }
+    let out0 = create_virtual_img(arr.width, arr.height, pipe0);
+    let out1 = create_virtual_img(arr.width, arr.height, pipe1);
+    (out0, out1)
 }
