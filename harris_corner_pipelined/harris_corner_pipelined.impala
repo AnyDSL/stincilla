@@ -71,27 +71,31 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
     split_virtual_image(math, dy0, dy1, dy);
 
     // compute dxx, dyy, dxy
-    //let dx_dev = get_device_copy(dx);
-    //let dy_dev = get_device_copy(dy);
+    let dx0_dev = get_device_copy_virtual(dx0);
+    let dx1_dev = get_device_copy_virtual(dx1);
+    let dy0_dev = get_device_copy_virtual(dy0);
+    let dy1_dev = get_device_copy_virtual(dy1);
     for math, x, y, out in iteration_point_2virt(math, dxx) {
-        //let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
-        let dx = read_channel(dx0.buf);
+        let dx_acc = get_acc_virtual(dx0_dev, set_pixel_fn_virtual(dx0_dev), get_pixel_fn_virtual(dx0_dev));
+        let dx = dx_acc.read(x, y);
         out.write(x, y, dx * dx);
     }
     for math, x, y, out in iteration_point_2virt(math, dyy) {
-        //let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
-        let dy = read_channel(dy0.buf);
+        let dy_acc = get_acc_virtual(dy0_dev, set_pixel_fn_virtual(dy0_dev), get_pixel_fn_virtual(dy0_dev));
+        let dy = dy_acc.read(x, y);
         out.write(x, y, dy * dy);
     }
     for math, x, y, out in iteration_point_2virt(math, dxy) {
-        //let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
-        //let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
-        let dx = read_channel(dx1.buf);
-        let dy = read_channel(dy1.buf);
+        let dx_acc = get_acc_virtual(dx1_dev, set_pixel_fn_virtual(dx1_dev), get_pixel_fn_virtual(dx1_dev));
+        let dy_acc = get_acc_virtual(dy1_dev, set_pixel_fn_virtual(dy1_dev), get_pixel_fn_virtual(dy1_dev));
+        let dx = dx_acc.read(x, y);
+        let dy = dy_acc.read(x, y);
         out.write(x, y, dx * dy);
     }
-    //release_device_copy(dx_dev);
-    //release_device_copy(dy_dev);
+    release_device_copy_virtual(dx0_dev);
+    release_device_copy_virtual(dx1_dev);
+    release_device_copy_virtual(dy0_dev);
+    release_device_copy_virtual(dy1_dev);
 
 
     // compute gxx, gyy, gxy using Gaussian blur
@@ -109,26 +113,23 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
 
 
     // compute score for Harris corner
-    //let gxx_dev = get_device_copy(gxx);
-    //let gyy_dev = get_device_copy(gyy);
-    //let gxy_dev = get_device_copy(gxy);
+    let gxx_dev = get_device_copy_virtual(gxx);
+    let gyy_dev = get_device_copy_virtual(gyy);
+    let gxy_dev = get_device_copy_virtual(gxy);
     for math, x, y, out in iteration_point_2img(math, harris) {
-        //let gxx_acc = get_acc(gxx_dev, set_pixel_fn(gxx_dev), get_pixel_fn(gxx_dev));
-        //let gyy_acc = get_acc(gyy_dev, set_pixel_fn(gyy_dev), get_pixel_fn(gyy_dev));
-        //let gxy_acc = get_acc(gxy_dev, set_pixel_fn(gxy_dev), get_pixel_fn(gxy_dev));
-        //let gxx     = gxx_acc.read(x, y);
-        //let gyy     = gyy_acc.read(x, y);
-        //let gxy     = gxy_acc.read(x, y);
-        let xx = read_channel(gxx.buf);
-        let yy = read_channel(gyy.buf);
-        let xy = read_channel(gxy.buf);
+        let gxx_acc = get_acc_virtual(gxx_dev, set_pixel_fn_virtual(gxx_dev), get_pixel_fn_virtual(gxx_dev));
+        let gyy_acc = get_acc_virtual(gyy_dev, set_pixel_fn_virtual(gyy_dev), get_pixel_fn_virtual(gyy_dev));
+        let gxy_acc = get_acc_virtual(gxy_dev, set_pixel_fn_virtual(gxy_dev), get_pixel_fn_virtual(gxy_dev));
+        let xx = gxx_acc.read(x, y);
+        let yy = gyy_acc.read(x, y);
+        let xy = gxy_acc.read(x, y);
         let det   = xx * yy - xy * xy;
         let trace = xx + yy;
         out.write(x, y, det - k * trace * trace);
     }
-    //release_device_copy(gxx_dev);
-    //release_device_copy(gyy_dev);
-    //release_device_copy(gxy_dev);
+    release_device_copy_virtual(gxx_dev);
+    release_device_copy_virtual(gyy_dev);
+    release_device_copy_virtual(gxy_dev);
 
     print_total_timing();
 
