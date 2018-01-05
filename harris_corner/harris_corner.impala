@@ -84,8 +84,7 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32]) -> () {
         let gxy     = gxy_acc.read(x, y);
         let det     = gxx * gyy - gxy * gxy;
         let trace   = gxx + gyy;
-        out.write(x, y, det - trace * trace * 4 / 100);
-        //out.write(x, y, det - 0.04f * trace * trace);
+        out.write(x, y, det - k * trace * trace);
     }
     release_device_copy(gxx_dev);
     release_device_copy(gyy_dev);
@@ -95,8 +94,6 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32]) -> () {
 
 
     // post-processing: mark corners
-    //let threshold = 100000f;
-    let threshold = 100000;
     for y in range(0, height) {
         for x in range(0, width) {
             out_data(y*width + x) = img_data(y*width + x);
@@ -108,12 +105,12 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32]) -> () {
             if harris_acc.read(x, y) > threshold {
                 for i in range(-5, 5+1) {
                     if x+i >= 0 && x+i < width {
-                        out_data(y*width + x + i) = 255f;
+                        out_data(y*width + x + i) = markHigh;
                     }
                 }
                 for i in range(-5, 5+1) {
                     if y+i >= 0 && y+i < height {
-                        out_data((y + i)*width + x) = 255f;
+                        out_data((y + i)*width + x) = markLow;
                     }
                 }
             }

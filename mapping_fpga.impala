@@ -48,9 +48,9 @@ fn @get_acc_virtual(img: VirtualImg, set_pixel_fn_virtual: fn(i32, pixel_t) -> (
 
 // images
 fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t     { |idx| bitcast[&[1][pixel_t]](img.buf.data)(idx) }
-fn @get_pixel_fn_virtual(img: VirtualImg) -> fn(i32) -> pixel_t  {|idx| read_channel(img.buf) }
-
 fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
+
+fn @get_pixel_fn_virtual(img: VirtualImg) -> fn(i32) -> pixel_t  {|idx| read_channel(img.buf) }
 fn @set_pixel_fn_virtual(img: VirtualImg) -> fn(i32, pixel_t) -> () {|idx, val|  write_channel(img.buf, val) }
 
 // ---------------------------- structs ----------------------------------------

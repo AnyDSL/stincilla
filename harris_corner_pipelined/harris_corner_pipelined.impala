@@ -97,7 +97,6 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
     release_device_copy_virtual(dy0_dev);
     release_device_copy_virtual(dy1_dev);
 
-
     // compute gxx, gyy, gxy using Gaussian blur
     let mg = get_mask3(gauss_mask3);
 
@@ -110,7 +109,6 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
     for math, x, y, out, arr, mask in iteration_virt2virt(math, gxy, dxy, mg, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-
 
     // compute score for Harris corner
     let gxx_dev = get_device_copy_virtual(gxx);
@@ -138,13 +136,13 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
         for x in range(0, width) {
             let harris_acc = get_acc(harris, |idx, val| { bitcast[&mut[pixel_t]](harris.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](harris.buf.data)(idx));
             if harris_acc.read(x, y) > threshold {
-                out_data(y*width + x) = markHigh 
+                out_data(y*width + x) = markHigh;
             } else{
-                out_data(y*width + x) = markLow 
+                out_data(y*width + x) = markLow;
             }
             //out_data(y*width + x) = harris_acc.read(x, y);
-        }   
-    }   
+        }
+    }
 
     //release(harris.buf);
     //release(dx.buf);
