@@ -1,18 +1,3 @@
-// channel support
-type pipe = channel;
-
-struct VirtualImg {
-    buf    : &mut channel,
-    width  : i32,
-    height : i32,
-    stride : i32,
-}
-
-fn @create_virtual_img(width: i32, height: i32, buf: &mut channel) -> VirtualImg {
-    let stride = round_up(width, get_alignment());
-    VirtualImg { buf : buf, width : width,  height : height, stride : stride }
-}
-
 // ---------------------------- types ------------------------------------------
 // border handling
 type Bounds = (int, int);
@@ -21,39 +6,27 @@ type pixel_read_type  = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pi
 type row_sel_fun_type = fn(int, win_acc) -> ();
 type crsn_type = fn(Intrinsics, stream_in, stream_out, int, Mask, int, BoundaryFn, BoundaryFn, StencilFn) -> coarsening_type;
 
-// --------------------- memory copy functions --------------------------------
+// --------------------- accessor: mapping dependent functions ----------------
+// images
+fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t     { |idx| bitcast[&[1][pixel_t]](img.buf.data)(idx) }
+fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
+
 fn @get_device_copy(img: Img) -> Img {
     let acc = accelerator(device_id);
     let img_dev = alloc_img(img, acc.alloc);
     copy_img(img, img_dev);
     img_dev
 }
+
 fn @get_host_copy(img_dev: Img, img: Img) -> () {
     let acc = accelerator(device_id);
     acc.sync();
     copy_img(img_dev, img);
 }
-fn @release_device_copy(img: Img) -> () { }
 
-fn @get_device_copy_virtual(img: VirtualImg) -> VirtualImg { img }
-fn @get_host_copy_virtual(img_dev: VirtualImg, img: VirtualImg) -> () {}
-fn @release_device_copy_virtual(img: VirtualImg) -> () {}
-
-// --------------------- accessor: mapping dependent functions ----------------
-// Virtual images
-// Todo: think about the cases where channel streaming is not suitable
-fn @get_acc_virtual(img: VirtualImg, set_pixel_fn_virtual: fn(i32, pixel_t) -> (), get_pixel_fn_virtual: fn(i32) -> pixel_t) -> Acc {
-    Acc { read:  @|x, y|    get_pixel_fn_virtual(0),
-          write: @|x, y, v| set_pixel_fn_virtual(0, v)
-      }
+fn @release_device_copy(img: Img) -> () {
+    release(img.buf)
 }
-
-// images
-fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t     { |idx| bitcast[&[1][pixel_t]](img.buf.data)(idx) }
-fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
-
-fn @get_pixel_fn_virtual(img: VirtualImg) -> fn(i32) -> pixel_t  {|idx| read_channel(img.buf) }
-fn @set_pixel_fn_virtual(img: VirtualImg) -> fn(i32, pixel_t) -> () {|idx, val|  write_channel(img.buf, val) }
 
 // ---------------------------- structs ----------------------------------------
 // Stream types for data movements
@@ -379,22 +352,6 @@ fn @set_stream_from_global_img(img: Img, pFactor: int) -> stream_out_img {
     let width  = img.width;
     let stride = img.stride;
     stream_out_img { stream_out: stream_out, width: width, height: img.height, stride: stride }
-}
-
-fn @get_stream_from_virtual_img(img: VirtualImg, pFactor: int) -> stream_in_img {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { value = read_channel(img.buf); }
-    fn @read(idx: int) -> pixel_t { value }
-    let in_s = stream_in { update : update, read : read, pFactor : pFactor};
-    stream_in_img { stream_in: in_s, width: img.width, stride: img.stride, height: img.height }
-}
-
-fn @set_stream_from_virtual_img(img: VirtualImg, pFactor: int) -> stream_out_img {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { write_channel(img.buf, value); }
-    fn @write(idx: int, din: pixel_t) -> () { value = din; }
-    let out_s = stream_out { update : update, write : write, pFactor : pFactor};
-    stream_out_img { stream_out: out_s, width: img.width, stride: img.stride, height: img.height }
 }
 
 // -------------------------- Array of Registers -------------------------------
@@ -937,7 +894,6 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
     let arr_gpu = get_device_copy(arr);
     let out_gpu = get_device_copy(out);
 
-    copy_img(arr, arr_gpu);
     for benchmark_fpga(acc) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
@@ -949,69 +905,6 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
         }
     }
     get_host_copy(out_gpu, out);
-    release_device_copy(arr_gpu);
-    release_device_copy(out_gpu);
-}
-
-fn @iteration_img2virt(math: Intrinsics, out: VirtualImg, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    let arr_gpu = get_device_copy(arr);
-    let out_gpu = get_device_copy_virtual(out);
-
-    copy_img(arr, arr_gpu);
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = get_vector_length();
-            let coarsening_fun = FetchAndCalc;
-
-            let in_s  = get_stream_from_global_img(arr_gpu, pFactor);
-            let out_s = set_stream_from_virtual_img(out_gpu, pFactor);
-            iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
-        }
-    }
-    get_host_copy_virtual(out_gpu, out);
-    release_device_copy(arr_gpu);
-    release_device_copy_virtual(out_gpu);
-}
-
-fn @iteration_virt2virt(math: Intrinsics, out: VirtualImg, arr: VirtualImg, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    let arr_gpu = get_device_copy_virtual(arr);
-    let out_gpu = get_device_copy_virtual(out);
-
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = get_vector_length();
-            let coarsening_fun = FetchAndCalc;
-
-            let in_s  = get_stream_from_virtual_img(arr_gpu, pFactor);
-            let out_s = set_stream_from_virtual_img(out_gpu, pFactor);
-            iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
-        }
-    }
-    get_host_copy_virtual(out_gpu, out);
-    release_device_copy_virtual(arr_gpu);
-    release_device_copy_virtual(out_gpu);
-}
-
-fn @iteration_virt2img(math: Intrinsics, out: Img, arr: VirtualImg, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    let arr_gpu = get_device_copy_virtual(arr);
-    let out_gpu = get_device_copy(out);
-
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = get_vector_length();
-            let coarsening_fun = FetchAndCalc;
-
-            let in_s  = get_stream_from_virtual_img(arr_gpu, pFactor);
-            let out_s = set_stream_from_global_img(out_gpu, pFactor);
-            iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
-        }
-    }
-    get_host_copy(out_gpu, out);
-    release_device_copy_virtual(arr_gpu);
-    release_device_copy(out_gpu);
 }
 
 //  ------------------------ Padding (WIP) -----------------------------------
@@ -1158,7 +1051,7 @@ fn @iter_point_body(pFactor: i32, out: stream_out_img, body: fn(Intrinsics, i32,
     }
 }
 
-fn @iteration_point_2img(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
     let acc = accelerator(device_id);
     let out_gpu = get_device_copy(out);
 
@@ -1170,38 +1063,4 @@ fn @iteration_point_2img(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i
         }
     }
     get_host_copy(out_gpu, out);
-}
-
-fn @iteration_point_2virt(math: Intrinsics, out: VirtualImg, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
-    let acc = accelerator(device_id);
-    let out_gpu = get_device_copy_virtual(out);
-
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = get_vector_length();
-            let out_s = set_stream_from_virtual_img(out, pFactor);
-            iter_point_body(pFactor, out_s, body);
-        }
-    }
-    get_host_copy_virtual(out_gpu, out);
-}
-
-
-fn @split_virtual_image(math: Intrinsics, arr: VirtualImg, pipe0: &mut pipe, pipe1: &mut pipe) -> (VirtualImg, VirtualImg) {
-    let acc = accelerator(device_id);
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = get_vector_length();
-            let image_size = arr.height * arr.stride;
-
-            for y in range(0, image_size) {
-                let data = read_channel(arr.buf);
-                write_channel(pipe0, data);
-                write_channel(pipe1, data);
-            }
-        }
-    }
-    let out0 = create_virtual_img(arr.width, arr.height, pipe0);
-    let out1 = create_virtual_img(arr.width, arr.height, pipe1);
-    (out0, out1)
 }

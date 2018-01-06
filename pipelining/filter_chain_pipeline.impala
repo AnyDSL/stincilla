@@ -68,9 +68,9 @@ fn main() -> i32 {
         init_zero(bitcast[&mut[pixel_t]](ref.buf.data),  ref.stride, ref.height);
         init_zero(bitcast[&mut[pixel_t]](ref0.buf.data), ref.stride, ref.height);
         init_zero(bitcast[&mut[pixel_t]](ref1.buf.data), ref.stride, ref.height);
-        
+
         let mut passed = 0;
-        let mut err_x = 0; 
+        let mut err_x = 0;
         let mut err_y = 0;
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
@@ -121,7 +121,7 @@ fn main() -> i32 {
             print_string("Test FAILED @ (");
             print_i32(err_x); print_string(", "); print_i32(err_y); print_string(")!\n");
             print_pixel(ref_acc.read(err_x, err_y)); print_string( " (ref) vs ");
-            print_pixel(out_acc.read(err_x, err_y)); print_string( " (res)\n"); 
+            print_pixel(out_acc.read(err_x, err_y)); print_string( " (res)\n");
         }
         passed
     }

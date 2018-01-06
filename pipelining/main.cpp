@@ -4,39 +4,39 @@
 
 #include "pnm_image.h"
 
-void displayFrame(float* frame, int stride, const int width, const int height, 
+void displayFrame(float* frame, int stride, const int width, const int height,
                   const int offset_x=0, const int offset_y=0){
     for (int y=0; y<height; ++y) {
         for (int x=0; x<width; ++x) {
             printf("%15.2f", frame[(y+offset_y)*stride + offset_x + x]);
         }
         std::cout<<std::endl;
-    } 
+    }
 }
 
-void displayFrame(int* frame, int stride, const int width, const int height, 
+void displayFrame(int* frame, int stride, const int width, const int height,
                   const int offset_x=0, const int offset_y=0){
     for (int y=0; y<height; ++y) {
         for (int x=0; x<width; ++x) {
             std::cout<< int(frame[(y+offset_y)*stride + offset_x + x]) << " \t ";
         }
         std::cout<<std::endl;
-    }	
+    }
 }
-void displayFrame(unsigned char* frame, int stride, const int width, const int height, 
+void displayFrame(unsigned char* frame, int stride, const int width, const int height,
                   const int offset_x=0, const int offset_y=0){
     for (int y=0; y<height; ++y) {
         for (int x=0; x<width; ++x) {
             std::cout<< int(frame[(y+offset_y)*stride + offset_x + x]) << " \t ";
         }
         std::cout<<std::endl;
-    }	
+    }
 }
 
 #define din_t  int
 #define dout_t int
 #define mask_t int
-extern "C" void harris_corner_pipelined(din_t*, dout_t*);
+extern "C" void harris_corner(din_t*, dout_t*);
 
 /*************************************************************************
  * Main function                                                         *
@@ -59,9 +59,9 @@ int main(int argc, const char **argv) {
         }
     }
 
-    harris_corner_pipelined(input.data(), output.data());
+    harris_corner(input.data(), output.data());
 
-    // Print Output 
+    // Print Output
     int pOfX= 0; //width-20;
     int pOfY= 0; //height-10;
     printf("Input \n"); displayFrame(input.data(),  stride, 16, 16, pOfX, pOfY);

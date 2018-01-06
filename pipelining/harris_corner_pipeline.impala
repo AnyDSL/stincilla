@@ -7,10 +7,10 @@
  */
 
 extern
-fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
+fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     let width  = 1024;
     let height = 1024;
-    
+
     let input  = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](img_data) }, width : width, height : height, stride : width };
     let harris = create_img(width, height, alloc_cpu);
     //let dx     = create_img(width, height, alloc_cpu);
@@ -61,7 +61,7 @@ fn harris_corner_pipelined(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () 
     for math, x, y, out, arr, mask in iteration_img2virt(math, dy, input, mdy, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));
     }
-  
+
     // Replicate virtual images for multiple reads
     static mut dx_c0 : pipe;
     static mut dx_c1 : pipe;

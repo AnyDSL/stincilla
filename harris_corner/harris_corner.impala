@@ -12,22 +12,14 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32]) -> () {
     let height = 2048;
     let input  = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](img_data) }, width : width, height : height, stride : width };
     let harris = create_img(width, height, alloc_cpu);
-    static mut dx_c  : pipe;
-    static mut dy_c  : pipe;
-    static mut dxx_c : pipe;
-    static mut dxy_c : pipe;
-    static mut dyy_c : pipe;
-    static mut gxx_c : pipe;
-    static mut gxy_c : pipe;
-    static mut gyy_c : pipe;
-    let dx     = create_virtual_img(width, height, &mut dx_c );
-    let dy     = create_virtual_img(width, height, &mut dy_c );
-    let dxx    = create_virtual_img(width, height, &mut dxx_c);
-    let dxy    = create_virtual_img(width, height, &mut dxy_c);
-    let dyy    = create_virtual_img(width, height, &mut dyy_c);
-    let gxx    = create_virtual_img(width, height, &mut gxx_c);
-    let gxy    = create_virtual_img(width, height, &mut gxy_c);
-    let gyy    = create_virtual_img(width, height, &mut gyy_c);
+    let dx     = create_img(width, height, &mut dx_c );
+    let dy     = create_img(width, height, &mut dy_c );
+    let dxx    = create_img(width, height, &mut dxx_c);
+    let dxy    = create_img(width, height, &mut dxy_c);
+    let dyy    = create_img(width, height, &mut dyy_c);
+    let gxx    = create_img(width, height, &mut gxx_c);
+    let gxy    = create_img(width, height, &mut gxy_c);
+    let gyy    = create_img(width, height, &mut gyy_c);
 
     // compute the first derivative using the Sobel operator
     let mdx = get_mask3(sobel_mask3_x);

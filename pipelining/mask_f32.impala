@@ -10,7 +10,6 @@ static gauss_mask3 = [[ 0.057118f, 0.124758f, 0.057118f ],
                       [ 0.124758f, 0.272496f, 0.124758f ],
                       [ 0.057118f, 0.124758f, 0.057118f ]];
 
-
 static threshold = 100000f;
 static k = 0.04f;
 static markHigh = 255f;
