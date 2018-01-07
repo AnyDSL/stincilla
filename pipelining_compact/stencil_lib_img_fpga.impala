@@ -1,6 +1,52 @@
 // ---------------------------------------------------------------------------
 // Everything related with Img in stencil_lib
 // ---------------------------------------------------------------------------
+// ------------------------- new stuff
+struct NewImg{
+    buf : Buffer,
+    fifo: &mut pipe,
+    virtual: bool,
+    width  : i32,
+    height : i32,
+    stride : i32,
+}
+
+fn @new_newimg(width: i32, height: i32, stride: i32, buf: Buffer) -> NewImg {
+    static mut dummy: pipe;
+    NewImg { buf: buf, fifo: &mut dummy, virtual: false, width: width, height: height, stride: stride}
+}
+
+fn @alloc_newimg(img: NewImg, alloc: fn(i32) -> Buffer) -> NewImg {
+    new_newimg(img.width, img.height, img.stride, alloc(img.stride * img.height * sizeof[pixel_t]()))
+}
+
+fn @create_host_newimg(width: i32, height: i32) -> NewImg {
+    let stride = round_up(width * sizeof[pixel_t](), get_alignment()) / sizeof[pixel_t]();
+    let buf = alloc_cpu(stride * height * sizeof[pixel_t]()); 
+    new_newimg(width, height, stride, buf)
+}
+
+fn @new_virtual_newimg(width: i32, height: i32, stride: i32, fifo: &mut pipe) -> NewImg {
+    let buf = alloc_cpu(0); 
+    NewImg { buf: buf, fifo: fifo, virtual: true, width: width, height: height, stride: stride}
+}
+
+fn @create_virtual_newimg(width: i32, height: i32, fifo: &mut pipe) -> NewImg {
+    let stride = round_up(width * sizeof[pixel_t](), get_alignment()) / sizeof[pixel_t]();
+    new_virtual_newimg(width, height, stride, fifo)
+}
+
+fn @get_acc_NEW(img: NewImg, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
+    let real_img = new_img(img.width, img.height, img.stride, img.buf);
+    get_acc_offset(real_img, set_pixel, get_pixel, 0, 0)
+}
+
+fn @get_acc_NEW_bh(img: NewImg, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+    let real_img = new_img(img.width, img.height, img.stride, img.buf);
+    get_acc_bh_offset(real_img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
+}
+
+// ------------------------- old stuff
 struct Img {
     buf : Buffer,
     width  : i32,
@@ -46,4 +92,3 @@ fn @get_acc_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i3
         write : @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
     }
 }
-
