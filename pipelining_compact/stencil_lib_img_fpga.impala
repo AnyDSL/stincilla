@@ -46,3 +46,4 @@ fn @get_acc_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i3
         write : @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
     }
 }
+
