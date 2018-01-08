@@ -25,10 +25,13 @@ set(PIXEL_TYPE_FILES pixel_${PIXEL_TYPE}.impala)
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
+    set(MAPPING_FILES mapping_${DEVICE}.impala)
 elseif(BACKEND STREQUAL "aocl" OR BACKEND STREQUAL "hls")
     set(DEVICE "fpga")
+    set(MAPPING_FILES mapping_${DEVICE}.impala mapping_fpga_img.impala)
 else()
     set(DEVICE "acc")
+    set(MAPPING_FILES mapping_${DEVICE}.impala)
 endif()
 
 
@@ -50,7 +53,6 @@ add_subdirectory(sorting_networks)
 add_subdirectory(vcycle)
 
 set(DSL_TYPE_FILES utils.impala stencil_lib.impala stencil_lib_img.impala)
-set(MAPPING_FILES mapping_${DEVICE}.impala)
 
 # simple CPU-based examples
 anydsl_runtime_wrap(MATMUL_PROGRAM

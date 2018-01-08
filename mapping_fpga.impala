@@ -6,28 +6,6 @@ type pixel_read_type  = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pi
 type row_sel_fun_type = fn(int, win_acc) -> ();
 type crsn_type = fn(Intrinsics, stream_in, stream_out, int, Mask, int, BoundaryFn, BoundaryFn, StencilFn) -> coarsening_type;
 
-// --------------------- accessor: mapping dependent functions ----------------
-// images
-fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t     { |idx| bitcast[&[1][pixel_t]](img.buf.data)(idx) }
-fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
-
-fn @get_device_copy(img: Img) -> Img {
-    let acc = accelerator(device_id);
-    let img_dev = alloc_img(img, acc.alloc);
-    copy_img(img, img_dev);
-    img_dev
-}
-
-fn @get_host_copy(img_dev: Img, img: Img) -> () {
-    let acc = accelerator(device_id);
-    acc.sync();
-    copy_img(img_dev, img);
-}
-
-fn @release_device_copy(img: Img) -> () {
-    release(img.buf)
-}
-
 // ---------------------------- structs ----------------------------------------
 // Stream types for data movements
 struct stream_in {
@@ -887,26 +865,6 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out: st
     }
 }
 
-// coarsening: assumes that image_stride is factor of pFactor
-// note that image stride was the factor of 64 at the time this mapping is developed (create_img)
-fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    let arr_gpu = get_device_copy(arr);
-    let out_gpu = get_device_copy(out);
-
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = get_vector_length();
-            let coarsening_fun = FetchAndCalc;
-
-            let in_s  = get_stream_from_global_img(arr_gpu, pFactor);
-            let out_s = set_stream_from_global_img(out_gpu, pFactor);
-            iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
-        }
-    }
-    get_host_copy(out_gpu, out);
-}
-
 //  ------------------------ Padding (WIP) -----------------------------------
 struct padded_stream_in{
    stream : stream_in,
@@ -1049,18 +1007,4 @@ fn @iter_point_body(pFactor: i32, out: stream_out_img, body: fn(Intrinsics, i32,
             out_s.update(y * out.stride + x);
         }
     }
-}
-
-fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
-    let acc = accelerator(device_id);
-    let out_gpu = get_device_copy(out);
-
-    for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = get_vector_length();
-            let out_s = set_stream_from_global_img(out_gpu, pFactor);
-            iter_point_body(pFactor, out_s, body);
-        }
-    }
-    get_host_copy(out_gpu, out);
 }
