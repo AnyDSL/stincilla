@@ -24,8 +24,8 @@ fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
 fn main() -> i32 {
     let width  = 1024;
     let height = 1024;
-    let arr    = create_host_newimg(width, height);
-    let out    = create_host_newimg(width, height);
+    let arr    = create_host_img(width, height);
+    let out    = create_host_img(width, height);
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
@@ -42,7 +42,7 @@ fn main() -> i32 {
     let upper = mirror_upper;
 
 
-    let iteration_fun = iteration_NEW;                  // SS
+    let iteration_fun = iteration;                  // SS
     for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out, arr, mask, lower, upper) {
         out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
     }
@@ -59,13 +59,13 @@ fn main() -> i32 {
     // print_total_timing();
 
     fn reference() -> i32 {
-        let ref = create_host_newimg(width, height);
+        let ref = create_host_img(width, height);
         let mut passed = 0;
         let mut err_x = 0;
         let mut err_y = 0;
-        let arr_acc = get_acc_NEW_bh(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
-        let out_acc = get_acc_NEW   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
-        let ref_acc = get_acc_NEW   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
+        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
+        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+        let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
 
         let offset_x = 0;
         let offset_y = 0;

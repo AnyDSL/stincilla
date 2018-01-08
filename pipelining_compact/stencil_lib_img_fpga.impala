@@ -2,7 +2,7 @@
 // Everything related with Img in stencil_lib
 // ---------------------------------------------------------------------------
 // ------------------------- new stuff
-struct NewImg{
+struct Img{
     buf : Buffer,
     fifo: &mut pipe,
     virtual: bool,
@@ -11,81 +11,67 @@ struct NewImg{
     stride : i32,
 }
 
-fn @new_newimg(width: i32, height: i32, stride: i32, buf: Buffer) -> NewImg {
-    static mut dummy: pipe;
-    NewImg { buf: buf, fifo: &mut dummy, virtual: false, width: width, height: height, stride: stride}
-}
-
-fn @alloc_newimg(img: NewImg, alloc: fn(i32) -> Buffer) -> NewImg {
-    new_newimg(img.width, img.height, img.stride, alloc(img.stride * img.height * sizeof[pixel_t]()))
-}
-
-fn @create_host_newimg(width: i32, height: i32) -> NewImg {
-    let stride = round_up(width * sizeof[pixel_t](), get_alignment()) / sizeof[pixel_t]();
-    let buf = alloc_cpu(stride * height * sizeof[pixel_t]()); 
-    new_newimg(width, height, stride, buf)
-}
-
-fn @new_virtual_newimg(width: i32, height: i32, stride: i32, fifo: &mut pipe) -> NewImg {
-    let buf = alloc_cpu(0); 
-    NewImg { buf: buf, fifo: fifo, virtual: true, width: width, height: height, stride: stride}
-}
-
-fn @create_virtual_newimg(width: i32, height: i32, fifo: &mut pipe) -> NewImg {
-    let stride = round_up(width * sizeof[pixel_t](), get_alignment()) / sizeof[pixel_t]();
-    new_virtual_newimg(width, height, stride, fifo)
-}
-
-fn @get_acc_NEW(img: NewImg, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
-    let real_img = new_img(img.width, img.height, img.stride, img.buf);
-    get_acc_offset(real_img, set_pixel, get_pixel, 0, 0)
-}
-
-fn @get_acc_NEW_bh(img: NewImg, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    let real_img = new_img(img.width, img.height, img.stride, img.buf);
-    get_acc_bh_offset(real_img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
-}
-
-// ------------------------- old stuff
-struct Img {
-    buf : Buffer,
-    width  : i32,
-    height : i32,
-    stride : i32,
-}
-
 fn @new_img(width: i32, height: i32, stride: i32, buf: Buffer) -> Img {
-    Img { buf : buf, width : width,  height : height, stride : stride }
+    static mut dummy: pipe;
+    Img { buf: buf, fifo: &mut dummy, virtual: false, width: width, height: height, stride: stride}
 }
 
 fn @alloc_img(img: Img, alloc: fn(i32) -> Buffer) -> Img {
     new_img(img.width, img.height, img.stride, alloc(img.stride * img.height * sizeof[pixel_t]()))
 }
 
-fn @create_img(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Img {
-    //let stride = round_up(width * sizeof[pixel_t](), 64) / sizeof[pixel_t]();
+fn @create_host_img(width: i32, height: i32) -> Img {
     let stride = round_up(width * sizeof[pixel_t](), get_alignment()) / sizeof[pixel_t]();
-    new_img(width, height, stride, alloc(stride * height * sizeof[pixel_t]()))
+    let buf = alloc_cpu(stride * height * sizeof[pixel_t]()); 
+    new_img(width, height, stride, buf)
 }
 
-fn @copy_img(src: Img, dst: Img) -> () {
-    copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[pixel_t]())
+fn @new_virtual_img(width: i32, height: i32, stride: i32, fifo: &mut pipe) -> Img {
+    let buf = alloc_cpu(0); 
+    Img { buf: buf, fifo: fifo, virtual: true, width: width, height: height, stride: stride}
 }
 
+fn @create_virtual_img(width: i32, height: i32, fifo: &mut pipe) -> Img {
+    let stride = round_up(width * sizeof[pixel_t](), get_alignment()) / sizeof[pixel_t]();
+    new_virtual_img(width, height, stride, fifo)
+}
+
+// ------------------------- hackish
+fn @get_acc_virtual(set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
+    Acc {
+        read  : @|x, y|    { get_pixel(0) },
+        write : @|x, y, v| { set_pixel(0, v) }
+    }
+}
+
+fn @get_acc(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
+    if img.virtual == false {
+        let real_img = new_img(img.width, img.height, img.stride, img.buf);
+        get_acc_offset(real_img, set_pixel, get_pixel, 0, 0)
+    } else {
+        get_acc_virtual(set_pixel, get_pixel)
+    }
+}
+
+fn @get_acc_bh(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
+    if img.virtual == false {
+        let real_img = new_img(img.width, img.height, img.stride, img.buf);
+        get_acc_bh_offset(real_img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
+    } else {
+        get_acc_virtual(set_pixel, get_pixel)
+    }
+}
+
+// ------------------------- old
 // &   [pixel_t] on CPU/AVX
 // &[1][pixel_t] on CUDA/NVVM & OpenCL
-fn @get_acc_bh(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    get_acc_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
-}
 fn @get_acc_bh_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     Acc {
         read  : @|x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, @|x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
         write : @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
     }
 }
-fn @get_acc(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
-    get_acc_offset(img, set_pixel, get_pixel, 0, 0)
-}
+
 fn @get_acc_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, rox: i32, roy: i32) -> Acc {
     Acc {
         read  : @|x, y|    get_pixel((y + roy) * img.stride + x + rox),

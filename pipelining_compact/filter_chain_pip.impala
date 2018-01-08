@@ -26,10 +26,10 @@ fn main() -> i32 {
     let height = 1024;
     static mut out0_buf: pipe;
     static mut out1_buf: pipe;
-    let arr    = create_host_newimg(width, height);
-    let out    = create_host_newimg(width, height);
-    let out0   = create_virtual_newimg(width, height, &mut out0_buf);
-    let out1   = create_virtual_newimg(width, height, &mut out1_buf);
+    let arr    = create_host_img(width, height);
+    let out    = create_host_img(width, height);
+    let out0   = create_virtual_img(width, height, &mut out0_buf);
+    let out1   = create_virtual_img(width, height, &mut out1_buf);
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
@@ -45,9 +45,9 @@ fn main() -> i32 {
     let lower = mirror_lower;
     let upper = mirror_upper;
 
-    let iteration_fun  = iteration_NEW; //img2virt;
-    let iteration_fun2 = iteration_NEW; //virt2virt;
-    let iteration_fun3 = iteration_NEW; //virt2img;
+    let iteration_fun  = iteration; //img2virt;
+    let iteration_fun2 = iteration; //virt2virt;
+    let iteration_fun3 = iteration; //virt2img;
     for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out0, arr, mask, lower, upper) {
         out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
     }
@@ -61,9 +61,9 @@ fn main() -> i32 {
     }
 
     fn reference() -> i32 {
-        let ref  = create_img(width, height, alloc_cpu);
-        let ref0 = create_img(width, height, alloc_cpu);
-        let ref1 = create_img(width, height, alloc_cpu);
+        let ref  = create_host_img(width, height);
+        let ref0 = create_host_img(width, height);
+        let ref1 = create_host_img(width, height);
         init_zero(bitcast[&mut[pixel_t]](ref.buf.data),  ref.stride, ref.height);
         init_zero(bitcast[&mut[pixel_t]](ref0.buf.data), ref.stride, ref.height);
         init_zero(bitcast[&mut[pixel_t]](ref1.buf.data), ref.stride, ref.height);
@@ -71,9 +71,9 @@ fn main() -> i32 {
         let mut passed = 0;
         let mut err_x = 0;
         let mut err_y = 0;
-        let out_acc = get_acc_NEW   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
-        let arr_acc  = get_acc_NEW_bh(arr, |idx, val|  { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx),   (Boundary::Unknown, Boundary::Unknown), lower, upper);
+        let arr_acc  = get_acc_bh(arr, |idx, val|  { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx),   (Boundary::Unknown, Boundary::Unknown), lower, upper);
         let ref0_acc = get_acc_bh(ref0, |idx, val| { bitcast[&mut[pixel_t]](ref0.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref0.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
         let ref1_acc = get_acc_bh(ref1, |idx, val| { bitcast[&mut[pixel_t]](ref1.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref1.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
 
