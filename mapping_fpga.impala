@@ -11,24 +11,18 @@ type crsn_type = fn(Intrinsics, stream_in, stream_out, int, Mask, int, BoundaryF
 struct stream_in {
     update: fn(int) -> (),
     read  : fn(int) -> pixel_t,
+    width   : int,
+    height  : int,
+    stride  : int,
     pFactor : int
 }
 struct stream_out {
     update: fn(int) -> (),
     write : fn(int, pixel_t) -> (),
+    width   : int,
+    height  : int,
+    stride  : int,
     pFactor : int
-}
-struct stream_in_img {
-    stream_in: stream_in,
-    width   : int,
-    height  : int,
-    stride  : int
-}
-struct stream_out_img {
-    stream_out: stream_out,
-    width   : int,
-    height  : int,
-    stride  : int
 }
 
 // register arrays
@@ -86,101 +80,119 @@ fn @iterate1d_atborders(body: fn(Boundary) -> ()) -> () {
 }
 
 // ---------------------------- streaming --------------------------------------
+fn img_to_stream_in(img: Img, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t) -> stream_in {
+    stream_in{ width: img.width, height: img.height, stride: img.stride, pFactor: pFactor, update: update, read: read}
+}
+
+fn create_stream_in(width: int, height: int, stride: int, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t) -> stream_in {
+    stream_in{ width: width, height: height, stride: stride, pFactor: pFactor, update: update, read: read}
+}
+
+fn img_to_stream_out(img: Img, pFactor: int, update: fn(int) -> (), write : fn(int, pixel_t) -> ()) -> stream_out {
+    stream_out{ width: img.width, height: img.height, stride: img.stride, pFactor: pFactor, update: update, write: write}
+}
+
+fn create_stream_out(width: int, height: int, stride: int, pFactor: int, update: fn(int) -> (), write : fn(int, pixel_t) -> ()) -> stream_out {
+    stream_out{ width: width, height: height, stride: stride, pFactor: pFactor, update: update, write : write}
+}
+
 // Global memory read/write functions
-fn @get_global_stream_vec1(data: &[i8]) -> stream_in {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { value = bitcast[&[1][pixel_t]](data)(idx); }
-    fn @read(idx: int) -> pixel_t { value }
-    stream_in { update : update, read : read, pFactor : 1}
-}
-fn @get_global_stream_vec2(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 2 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 2 }
-}
-fn @get_global_stream_vec4(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 4 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 4 }
-}
-fn @get_global_stream_vec8(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 8 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 8 }
-}
-fn @get_global_stream_vec16(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 16 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 16 }
-}
-fn @get_global_stream_vec32(data: &[i8]) -> stream_in {
-    let mut value = [ 0 as pixel_t, .. 32 ];
-    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t * 32]]](bitcast[&[1][pixel_t]](data))(idx); }
-    fn @read(idx: int) -> pixel_t { value(idx) }
-    stream_in { update : update, read : read, pFactor : 32 }
-}
-fn @get_global_stream_from_img(img: Img, pFactor: int) -> stream_in {
+fn @get_stream_from_global_img(img: Img, pFactor: int) -> stream_in {
     match pFactor {
-         1 => get_global_stream_vec1 (img.buf.data),
-         2 => get_global_stream_vec2 (img.buf.data),
-         4 => get_global_stream_vec4 (img.buf.data),
-         8 => get_global_stream_vec8 (img.buf.data),
-        16 => get_global_stream_vec16(img.buf.data),
-        32 => get_global_stream_vec32(img.buf.data),
+         1 => get_global_stream_vec1 (img),
+         2 => get_global_stream_vec2 (img),
+         4 => get_global_stream_vec4 (img),
+         8 => get_global_stream_vec8 (img),
+        16 => get_global_stream_vec16(img),
+        32 => get_global_stream_vec32(img),
          _ => undef[stream_in]()
     }
 }
 
-fn @set_global_stream_vec1(data: &[i8]) -> stream_out {
-    let mut value = 0 as pixel_t;
-    fn @update(idx: int) -> () { bitcast[&mut[1][pixel_t]](data)(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value = din; }
-    stream_out { update : update, write : write, pFactor : 1 }
-}
-fn @set_global_stream_vec2(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 2 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 2 }
-}
-fn @set_global_stream_vec4(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 4 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 4 }
-}
-fn @set_global_stream_vec8(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 8 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 8 }
-}
-fn @set_global_stream_vec16(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 16 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 16 }
-}
-fn @set_global_stream_vec32(data: &[i8]) -> stream_out {
-    let mut value = [ 0 as pixel_t, .. 32 ];
-    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t * 32]]](bitcast[&[1][pixel_t]](data))(idx) = value; }
-    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    stream_out { update : update, write : write, pFactor : 32 }
-}
-fn @set_global_stream_from_img(img: Img, pFactor: int) -> stream_out {
+fn @set_stream_from_global_img(img: Img, pFactor: int) -> stream_out {
     match pFactor {
-         1 => set_global_stream_vec1(img.buf.data),
-         2 => set_global_stream_vec2(img.buf.data),
-         4 => set_global_stream_vec4(img.buf.data),
-         8 => set_global_stream_vec8(img.buf.data),
-        16 => set_global_stream_vec16(img.buf.data),
-        32 => set_global_stream_vec32(img.buf.data),
+         1 => set_global_stream_vec1 (img),
+         2 => set_global_stream_vec2 (img),
+         4 => set_global_stream_vec4 (img),
+         8 => set_global_stream_vec8 (img),
+        16 => set_global_stream_vec16(img),
+        32 => set_global_stream_vec32(img),
          _ => undef[stream_out]()
     }
+}
+
+fn @get_global_stream_vec1(img: Img) -> stream_in {
+    let mut value = 0 as pixel_t;
+    fn @update(idx: int) -> () { value = bitcast[&[1][pixel_t]](img.buf.data)(idx); }
+    fn @read(idx: int) -> pixel_t { value }
+    img_to_stream_in(img, 1, update, read)
+}
+fn @get_global_stream_vec2(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 2 ];
+    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](img.buf.data))(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 2, update, read)
+}
+fn @get_global_stream_vec4(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 4 ];
+    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](img.buf.data))(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 4, update, read)
+}
+fn @get_global_stream_vec8(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 8 ];
+    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](img.buf.data))(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 8, update, read)
+}
+fn @get_global_stream_vec16(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 16 ];
+    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](img.buf.data))(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 16, update, read)
+}
+fn @get_global_stream_vec32(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 32 ];
+    fn @update(idx: int) -> () { value = bitcast[&[1][[pixel_t * 32]]](bitcast[&[1][pixel_t]](img.buf.data))(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 32, update, read)
+}
+
+fn @set_global_stream_vec1(img: Img) -> stream_out {
+    let mut value = 0 as pixel_t;
+    fn @update(idx: int) -> () { bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = value; }
+    fn @write(idx: int, din: pixel_t) -> () { value = din; }
+    img_to_stream_out(img, 1, update, write)
+}
+fn @set_global_stream_vec2(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 2 ];
+    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](img.buf.data))(idx) = value; }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 2, update, write)
+}
+fn @set_global_stream_vec4(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 4 ];
+    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](img.buf.data))(idx) = value; }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 4, update, write)
+}
+fn @set_global_stream_vec8(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 8 ];
+    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](img.buf.data))(idx) = value; }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 8, update, write)
+}
+fn @set_global_stream_vec16(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 16 ];
+    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](img.buf.data))(idx) = value; }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 16, update, write)
+}
+fn @set_global_stream_vec32(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 32 ];
+    fn @update(idx: int) -> () { bitcast[&mut[1][[pixel_t * 32]]](bitcast[&[1][pixel_t]](img.buf.data))(idx) = value; }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 32, update, write)
 }
 
 // Shared memory read/write functions
@@ -188,53 +200,45 @@ fn @new_shared_line_vec1(in_s: stream_in, width: int) -> stream_in {
     let mut value = 0 as pixel_t;
     let lbuf = reserve_shared[pixel_t](width);
 
+    fn @read(idx: int) -> pixel_t { value }
     fn @shift(col: int) -> () {
         value     = lbuf(col);
         lbuf(col) = in_s.read(0);
     }
 
-    stream_in {
-        read   : @|v| value,
-        update : shift,
-        pFactor : 1
-    }
+    create_stream_in(width, 1, width, 1, shift, read)
 }
 fn @new_shared_line_vec2(in_s: stream_in, width: int) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 2 ];
     let lbuf = reserve_shared[[pixel_t * 2]](width);
 
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0), in_s.read(1)];
         lbuf(col) = dlbin;
     }
 
-    stream_in {
-        read   : @|v| value(v),
-        update : shift,
-        pFactor : 2
-    }
+    create_stream_in(width, 1, width, 2, shift, read)
 }
 fn @new_shared_line_vec4(in_s: stream_in, width: int) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 4 ];
     let lbuf = reserve_shared[[pixel_t * 4]](width);
 
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0), in_s.read(1), in_s.read(2), in_s.read(3)];
         lbuf(col) = dlbin;
     }
 
-    stream_in {
-        read   : @|v| value(v),
-        update : shift,
-        pFactor : 4
-    }
+    create_stream_in(width, 1, width, 4, shift, read)
 }
 fn @new_shared_line_vec8(in_s: stream_in, width: int) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 8 ];
     let lbuf = reserve_shared[[pixel_t * 8]](width);
 
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0), in_s.read(1), in_s.read(2), in_s.read(3),
@@ -242,16 +246,13 @@ fn @new_shared_line_vec8(in_s: stream_in, width: int) -> stream_in {
         lbuf(col) = dlbin;
     }
 
-    stream_in {
-        read   : @|v| value(v),
-        update : shift,
-        pFactor : 8
-    }
+    create_stream_in(width, 1, width, 8, shift, read)
 }
 fn @new_shared_line_vec16(in_s: stream_in, width: int) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 16 ];
     let lbuf = reserve_shared[[pixel_t * 16]](width);
 
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0), in_s.read(1), in_s.read(2), in_s.read(3),
@@ -261,16 +262,13 @@ fn @new_shared_line_vec16(in_s: stream_in, width: int) -> stream_in {
         lbuf(col) = dlbin;
     }
 
-    stream_in {
-        read   : @|v| value(v),
-        update : shift,
-        pFactor : 16
-    }
+    create_stream_in(width, 1, width, 16, shift, read)
 }
 fn @new_shared_line_vec32(in_s: stream_in, width: int) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 32 ];
     let lbuf = reserve_shared[[pixel_t * 32]](width);
 
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0),  in_s.read(1),  in_s.read(2),  in_s.read(3),
@@ -284,52 +282,18 @@ fn @new_shared_line_vec32(in_s: stream_in, width: int) -> stream_in {
         lbuf(col) = dlbin;
     }
 
-    stream_in {
-        read   : @|v| value(v),
-        update : shift,
-        pFactor : 32
-    }
+    create_stream_in(width, 1, width, 32, shift, read)
 }
 fn @new_shared_line(in_s: stream_in, width: int) -> stream_in {
     match in_s.pFactor {
-         1 => new_shared_line_vec1(in_s, width),
-         2 => new_shared_line_vec2(in_s, width),
-         4 => new_shared_line_vec4(in_s, width),
-         8 => new_shared_line_vec8(in_s, width),
+         1 => new_shared_line_vec1 (in_s, width),
+         2 => new_shared_line_vec2 (in_s, width),
+         4 => new_shared_line_vec4 (in_s, width),
+         8 => new_shared_line_vec8 (in_s, width),
         16 => new_shared_line_vec16(in_s, width),
         32 => new_shared_line_vec32(in_s, width),
          _ => undef[stream_in]()
     }
-}
-
-// Create stream images
-fn @get_stream_from_global_img(img: Img, pFactor: int) -> stream_in_img {
-    let stream_in = match pFactor {
-         1 => get_global_stream_vec1 (img.buf.data),
-         2 => get_global_stream_vec2 (img.buf.data),
-         4 => get_global_stream_vec4 (img.buf.data),
-         8 => get_global_stream_vec8 (img.buf.data),
-        16 => get_global_stream_vec16(img.buf.data),
-        32 => get_global_stream_vec32(img.buf.data),
-         _ => undef[stream_in]()
-    };
-    let width  = img.width;
-    let stride = img.stride;
-    stream_in_img { stream_in: stream_in, width: width, height: img.height, stride: stride }
-}
-fn @set_stream_from_global_img(img: Img, pFactor: int) -> stream_out_img {
-    let stream_out = match pFactor {
-         1 => set_global_stream_vec1(img.buf.data),
-         2 => set_global_stream_vec2(img.buf.data),
-         4 => set_global_stream_vec4(img.buf.data),
-         8 => set_global_stream_vec8(img.buf.data),
-        16 => set_global_stream_vec16(img.buf.data),
-        32 => set_global_stream_vec32(img.buf.data),
-         _ => undef[stream_out]()
-    };
-    let width  = img.width;
-    let stride = img.stride;
-    stream_out_img { stream_out: stream_out, width: width, height: img.height, stride: stride }
 }
 
 // -------------------------- Array of Registers -------------------------------
@@ -823,18 +787,15 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
 
 
 //  ------------------- Stencil Processing ----------------------
-fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out: stream_out_img, arr: stream_in_img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: stream_out, in_s: stream_in, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let radius_y = mask.size_y >> 1;
     let radius_x = mask.size_x >> 1;
     let win_lat = round_up(radius_x, pFactor) / pFactor;
-    let crsn_width  = (arr.width - 1) / pFactor + 1;
-    let crsn_stride = (arr.stride -1) / pFactor + 1;
-
-    let in_s = arr.stream_in;
-    let out_s = out.stream_out;
+    let crsn_width  = (in_s.width - 1) / pFactor + 1;
+    let crsn_stride = (in_s.stride -1) / pFactor + 1;
 
     let coarsening = coarsening_fun(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
-    let process_time  = crsn_width * arr.height;
+    let process_time  = crsn_width * in_s.height;
     let initial_delay = crsn_width * radius_y + win_lat - 1;
     let life_time     = initial_delay + process_time + 1;
 
@@ -924,11 +885,11 @@ fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, 
 
             // output image
             let out_stride = (arr.stride - 1) / pFactor + 1;
-            let out_s      = set_global_stream_from_img(out_dev, pFactor);
+            let out_s      = set_stream_from_global_img(out_dev, pFactor);
             let out_s_pad  = crop_out_stream(out_s, mask);
 
             // input image
-            let in_s      = get_global_stream_from_img(arr_dev, pFactor);
+            let in_s      = get_stream_from_global_img(arr_dev, pFactor);
             // padding
             let in_s_pad  = pad_in_stream(in_s, mask);
             let crsn_stride = (arr.stride + mask.size_x - 2) / pFactor + 1;
@@ -994,17 +955,15 @@ fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, 
 // ---------------------------------------------------------------------------
 // ------------------------ Point Operators ----------------------------------
 // ---------------------------------------------------------------------------
-fn @iter_point_body(pFactor: i32, out: stream_out_img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
-    let out_s = out.stream_out;
-
-    for y in range(0, out.height) {
-        for x in range(0, out.stride) {
+fn @iter_point_body(pFactor: i32, out_s: stream_out, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    for y in range(0, out_s.height) {
+        for x in range(0, out_s.stride) {
             hls_pragma_pipeline();
             for v in unroll(0, pFactor) {
                 let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(v, data) };
                 @@body(math, x + v, y, out_acc);
             }
-            out_s.update(y * out.stride + x);
+            out_s.update(y * out_s.stride + x);
         }
     }
 }

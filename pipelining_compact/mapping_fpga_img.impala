@@ -65,7 +65,7 @@ fn @release_device_copy(img: Img) -> () {
 }
 
 // ---------------------------- streaming --------------------------------------
-fn @get_stream(img: Img, pFactor: int) -> stream_in_img {
+fn @get_stream(img: Img, pFactor: int) -> stream_in {
     if img.virtual == false {
         let real_img = new_img(img.width, img.height, img.stride, img.buf);
         get_stream_from_global_img(real_img, pFactor)
@@ -73,12 +73,11 @@ fn @get_stream(img: Img, pFactor: int) -> stream_in_img {
         let mut value = 0 as pixel_t;
         fn @update(idx: int) -> () { value = read_channel(img.fifo); }
         fn @read(idx: int) -> pixel_t { value }
-        let in_s = stream_in { update : update, read : read, pFactor : pFactor};
-        stream_in_img { stream_in: in_s, width: img.width, stride: img.stride, height: img.height }
+        img_to_stream_in(img, pFactor, update, read)
     }
 }
 
-fn @set_stream(img: Img, pFactor: int) -> stream_out_img {
+fn @set_stream(img: Img, pFactor: int) -> stream_out {
     if img.virtual == false {
         let real_img = new_img(img.width, img.height, img.stride, img.buf);
         set_stream_from_global_img(real_img, pFactor)
@@ -86,8 +85,7 @@ fn @set_stream(img: Img, pFactor: int) -> stream_out_img {
         let mut value = 0 as pixel_t;
         fn @update(idx: int) -> () { write_channel(img.fifo, value); }
         fn @write(idx: int, din: pixel_t) -> () { value = din; }
-        let out_s = stream_out { update : update, write : write, pFactor : pFactor};
-        stream_out_img { stream_out: out_s, width: img.width, stride: img.stride, height: img.height }
+        img_to_stream_out(img, pFactor, update, write)
     }
 }
 

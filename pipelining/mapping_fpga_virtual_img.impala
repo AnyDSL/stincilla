@@ -17,20 +17,18 @@ fn @create_virtual_img(width: i32, height: i32, buf: &mut channel) -> VirtualImg
 }
 
 // ---------------------------- streaming --------------------------------------
-fn @get_stream_from_virtual_img(img: VirtualImg, pFactor: int) -> stream_in_img {
+fn @get_stream_from_virtual_img(img: VirtualImg, pFactor: int) -> stream_in {
     let mut value = 0 as pixel_t;
     fn @update(idx: int) -> () { value = read_channel(img.buf); }
     fn @read(idx: int) -> pixel_t { value }
-    let in_s = stream_in { update : update, read : read, pFactor : pFactor};
-    stream_in_img { stream_in: in_s, width: img.width, stride: img.stride, height: img.height }
+    create_stream_in(img.width, img.height, img.stride, pFactor, update, read)
 }
 
-fn @set_stream_from_virtual_img(img: VirtualImg, pFactor: int) -> stream_out_img {
+fn @set_stream_from_virtual_img(img: VirtualImg, pFactor: int) -> stream_out {
     let mut value = 0 as pixel_t;
     fn @update(idx: int) -> () { write_channel(img.buf, value); }
     fn @write(idx: int, din: pixel_t) -> () { value = din; }
-    let out_s = stream_out { update : update, write : write, pFactor : pFactor};
-    stream_out_img { stream_out: out_s, width: img.width, stride: img.stride, height: img.height }
+    create_stream_out(img.width, img.height, img.stride, pFactor, update, write)
 }
 
 // --------------------- memory copy functions --------------------------------
