@@ -913,10 +913,10 @@ fn @crop_out_stream(out_s: stream_out, mask: Mask) -> padded_stream_out {
 
 fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
-    let arr_gpu = alloc_img(arr, acc.alloc);
-    let out_gpu = alloc_img(out, acc.alloc);
+    let arr_dev = alloc_img(arr, acc.alloc);
+    let out_dev = alloc_img(out, acc.alloc);
 
-    copy_img(arr, arr_gpu);
+    copy_img(arr, arr_dev);
     for benchmark_fpga(acc) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let radius_y = mask.size_y >> 1;
@@ -924,11 +924,11 @@ fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, 
 
             // output image
             let out_stride = (arr.stride - 1) / pFactor + 1;
-            let out_s      = set_global_stream_from_img(out_gpu, pFactor);
+            let out_s      = set_global_stream_from_img(out_dev, pFactor);
             let out_s_pad  = crop_out_stream(out_s, mask);
 
             // input image
-            let in_s      = get_global_stream_from_img(arr_gpu, pFactor);
+            let in_s      = get_global_stream_from_img(arr_dev, pFactor);
             // padding
             let in_s_pad  = pad_in_stream(in_s, mask);
             let crsn_stride = (arr.stride + mask.size_x - 2) / pFactor + 1;
@@ -987,7 +987,7 @@ fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, 
         }
         //acc.sync();
     }
-    copy_img(out_gpu, out);
+    copy_img(out_dev, out);
 }
 
 
