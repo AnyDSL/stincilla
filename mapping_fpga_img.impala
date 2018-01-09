@@ -25,17 +25,18 @@ fn @release_device_copy(img: Img) -> () {
 // note that image stride was the factor of 64 at the time this mapping is developed (create_img)
 fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
+    let pFactor = get_vector_length();
+
     let arr_dev = get_device_copy(arr);
     let out_dev = get_device_copy(out);
-
     for benchmark_fpga(acc) {
+        let in_s_fn  = get_stream_from_global_img(arr_dev, pFactor);
+        let out_s_fn = set_stream_from_global_img(out_dev, pFactor);
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = get_vector_length();
             //let coarsening_fun = FetchAndCalc;
             let coarsening_fun = CalcAndPack;
 
-            let in_s  = get_stream_from_global_img(arr_dev, pFactor);
-            let out_s = set_stream_from_global_img(out_dev, pFactor);
+            let (in_s, out_s) = (in_s_fn(), out_s_fn());
             iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
         }
     }
@@ -45,12 +46,13 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
 // ------------------------ Point Operators ----------------------------------
 fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
     let acc = accelerator(device_id);
-    let out_dev = get_device_copy(out);
+    let pFactor = get_vector_length();
 
+    let out_dev = get_device_copy(out);
     for benchmark_fpga(acc) {
+        let out_s_fn = set_stream_from_global_img(out_dev, pFactor);
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let pFactor = get_vector_length();
-            let out_s = set_stream_from_global_img(out_dev, pFactor);
+            let out_s = out_s_fn();
             iter_point_body(pFactor, out_s, body);
         }
     }
