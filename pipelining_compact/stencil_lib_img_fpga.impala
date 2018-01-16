@@ -37,10 +37,17 @@ fn @create_virtual_img(width: i32, height: i32, fifo: &mut pipe) -> Img {
 }
 
 // ------------------------- hackish
-fn @get_acc_virtual(set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
+//fn @get_acc_virtual(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
+//    let in_s = get_stream(img);
+//    Acc {
+//        read  : @|x, y|    { if x == 0 {in_s.update(0)}; in_s.read(x) },
+//        write : @|x, y, v| { set_pixel(0, v) }
+//    }
+//}
+fn @get_acc_virtual(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
     Acc {
-        read  : @|x, y|    { get_pixel(0) },
-        write : @|x, y, v| { set_pixel(0, v) }
+        read  : @|x, y|    { get_pixel(x) },
+        write : @|x, y, v| { set_pixel(x, v) }
     }
 }
 
@@ -49,7 +56,7 @@ fn @get_acc(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> p
         let real_img = new_img(img.width, img.height, img.stride, img.buf);
         get_acc_offset(real_img, set_pixel, get_pixel, 0, 0)
     } else {
-        get_acc_virtual(set_pixel, get_pixel)
+        get_acc_virtual(img, set_pixel, get_pixel)
     }
 }
 
@@ -58,7 +65,7 @@ fn @get_acc_bh(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -
         let real_img = new_img(img.width, img.height, img.stride, img.buf);
         get_acc_bh_offset(real_img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
     } else {
-        get_acc_virtual(set_pixel, get_pixel)
+        get_acc_virtual(img, set_pixel, get_pixel)
     }
 }
 

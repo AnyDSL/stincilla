@@ -668,7 +668,7 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
             let out_acc = Acc { read : |x, y| 0 as pixel_t,          write : @|x, y, data| out_s.write(v, data) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
         }
     }
@@ -737,7 +737,7 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
             let out_acc = Acc { read : @|x, y| 0 as pixel_t, write : pack(v) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //vec_pix_out_acc.write(0, 0, in_acc.read(radius_x, radius_y));
         }
     }
@@ -776,7 +776,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
             let out_acc = Acc { read : @|x, y| 0 as pixel_t,        write : @|x, y, data| out_s.write(v, data) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
         }
     }
@@ -847,7 +847,7 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
             //let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
             let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
             let out_acc = Acc { read : @|x, y| 0 as pixel_t, write : pack(v) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //vec_pix_out_acc.write(0, 0, in_acc.read(radius_x, radius_y));
         }
     }
@@ -874,7 +874,7 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
     let mut col_ridx = 0; let mut row_ridx = 0;
     let mut col_widx = 0; let mut row_widx = 0;
     for clock_tick in range(0, life_time) {
-        hls_pragma_pipeline();
+        pragma_pipeline();
 
         // read new pix
         if clock_tick < process_time {
@@ -1031,14 +1031,15 @@ fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, 
 // ------------------------ Point Operators ----------------------------------
 // ---------------------------------------------------------------------------
 fn @iter_point_body(pFactor: i32, out_s: stream_out, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(x, data) };
+    let crsn_stride = out_s.stride / pFactor;
     for y in range(0, out_s.height) {
-        for x in range(0, out_s.stride) {
-            hls_pragma_pipeline();
+        for x in range(0, crsn_stride) {
+            pragma_pipeline();
             for v in unroll(0, pFactor) {
-                let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(v, data) };
-                @@body(math, x + v, y, out_acc);
+                @@body(math, v, y, out_acc);
             }
-            out_s.update(y * out_s.stride + x);
+            out_s.update(y * crsn_stride + x);
         }
     }
 }
