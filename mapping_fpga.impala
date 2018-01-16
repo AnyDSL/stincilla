@@ -972,14 +972,15 @@ fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, 
 // ------------------------ Point Operators ----------------------------------
 // ---------------------------------------------------------------------------
 fn @iter_point_body(pFactor: i32, out_s: stream_out, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
+    let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(x, data) };
+    let crsn_stride = out_s.stride / pFactor;
     for y in range(0, out_s.height) {
-        for x in range(0, out_s.stride) {
+        for x in range(0, crsn_stride) {
             hls_pragma_pipeline();
             for v in unroll(0, pFactor) {
-                let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(v, data) };
-                @@body(math, x + v, y, out_acc);
+                @@body(math, v, y, out_acc);
             }
-            out_s.update(y * out_s.stride + x);
+            out_s.update(y * crsn_stride + x);
         }
     }
 }

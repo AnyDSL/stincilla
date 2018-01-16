@@ -133,13 +133,5 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
         }
     }
 
-    //release(harris.buf);
-    //release(dx.buf);
-    //release(dy.buf);
-    //release(dxx.buf);
-    //release(dxy.buf);
-    //release(dyy.buf);
-    //release(gxx.buf);
-    //release(gxy.buf);
-    //release(gyy.buf);
+    release(harris.buf);
 }
