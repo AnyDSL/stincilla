@@ -818,7 +818,7 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
     let mut col_ridx = 0; let mut row_ridx = 0;
     let mut col_widx = 0; let mut row_widx = 0;
     for clock_tick in range(0, life_time) {
-        hls_pragma_pipeline();
+        pragma_pipeline();
 
         // read new pix
         if clock_tick < process_time {
@@ -976,7 +976,7 @@ fn @iter_point_body(pFactor: i32, out_s: stream_out, body: fn(Intrinsics, i32, i
     let crsn_stride = out_s.stride / pFactor;
     for y in range(0, out_s.height) {
         for x in range(0, crsn_stride) {
-            hls_pragma_pipeline();
+            pragma_pipeline();
             for v in unroll(0, pFactor) {
                 @@body(math, v, y, out_acc);
             }
