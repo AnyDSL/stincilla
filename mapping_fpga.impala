@@ -612,7 +612,7 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
             let out_acc = Acc { read : |x, y| 0 as pixel_t,          write : @|x, y, data| out_s.write(v, data) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
         }
     }
@@ -681,7 +681,7 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
             let out_acc = Acc { read : @|x, y| 0 as pixel_t, write : pack(v) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //vec_pix_out_acc.write(0, 0, in_acc.read(radius_x, radius_y));
         }
     }
@@ -720,7 +720,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
             let out_acc = Acc { read : @|x, y| 0 as pixel_t,        write : @|x, y, data| out_s.write(v, data) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
         }
     }
@@ -791,7 +791,7 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
             //let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
             let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
             let out_acc = Acc { read : @|x, y| 0 as pixel_t, write : pack(v) };
-            body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //vec_pix_out_acc.write(0, 0, in_acc.read(radius_x, radius_y));
         }
     }
