@@ -34,9 +34,9 @@ fn @iterate_field(out: Field, arr: Field, stencil: [f32 * 3],
     for y in range(0, out.rows) {
         for region in unroll(0, 3) {
             let arr_acc = Accessor {
-                cols  : || arr.cols, rows : || arr.rows,
-                read  : |x, y|    { get_elem(arr, y*arr.cols + apply_bh(x, bh_lower, bh_upper, 0, arr.cols)) },
-                write : |x, y, v| { set_elem(arr, y*arr.cols + x, v) }
+                cols  : @|| arr.cols, rows : @|| arr.rows,
+                read  : @|x, y|    { get_elem(arr, y*arr.cols + apply_bh(x, bh_lower, bh_upper, 0, arr.cols)) },
+                write : @|x, y, v| { set_elem(arr, y*arr.cols + x, v) }
             };
 
             for x in range(lb(region), ub(region)) {
