@@ -951,8 +951,6 @@ fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, 
 
     copy_img(arr, arr_dev);
     for benchmark_fpga(acc) {
-        let in_s  = get_stream_from_global_img(arr_dev, pFactor);
-        let out_s = set_stream_from_global_img(out_dev, pFactor);
         let in_s_fn  = get_stream_from_global_img(arr_dev, pFactor);
         let out_s_fn = set_stream_from_global_img(out_dev, pFactor);
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
