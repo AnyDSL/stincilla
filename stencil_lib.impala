@@ -53,7 +53,7 @@ fn @apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> pixel_t {
         }
     }
 
-    if mask.sum != 1 as pixel_t {
+    if (mask.sum != 1 as pixel_t) || (mask.sum != 0 as pixel_t) {
         sum /= mask.sum;
     }
 
@@ -77,7 +77,7 @@ fn @apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> pix
         }
     }
 
-    if mask.sum != 1 as pixel_t {
+    if (mask.sum != 1 as pixel_t) || (mask.sum != 0 as pixel_t) {
         sum /= mask.sum;
     }
 
