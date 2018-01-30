@@ -4,7 +4,8 @@
 
 #include "pnm_image.h"
 
-extern "C" void harris_corner(float*, float*, int, int);
+typedef STINCILLA_DATA_TYPE pixel_t;
+extern "C" void harris_corner(pixel_t*, pixel_t*, int, int);
 
 /*************************************************************************
  * Main function                                                         *
@@ -16,8 +17,8 @@ int main(int argc, const char **argv) {
 
     // host memory for image of width x height pixels
     // use anydsl::Array from AnyDSL runtime for memory allocation
-    anydsl::Array<float>  input(width * height);
-    anydsl::Array<float> output(width * height);
+    anydsl::Array<pixel_t>  input(width * height);
+    anydsl::Array<pixel_t> output(width * height);
 
     // initialize data
     for (size_t i=0; i<width*height; ++i) input[i] = image[i];
