@@ -1,16 +1,13 @@
 fn main() -> i32 {
     let width  = 2048;
     let height = 2048;
-    let a      = 0.2f;
-    let b      = 1.0f - 4.0f * a;
     let arr    = create_img(width, height, alloc_cpu);
     let out    = create_img(width, height, alloc_cpu);
-    init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
-    init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
-
-    let stencil = get_mask3([[0.0f, b, 0.0f],
-                             [   b, a, b   ],
-                             [0.0f, b, 0.0f]]);
+    init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
+    let stencil = get_mask3([[0 as pixel_t, jacobi_b, 0 as pixel_t],
+                             [    jacobi_b, jacobi_a, jacobi_b           ],
+                             [0 as pixel_t, jacobi_b, 0 as pixel_t]]);
 
     let lower = clamp_lower;
     let upper = clamp_upper;
@@ -26,14 +23,14 @@ fn main() -> i32 {
 
     fn reference() -> i32 {
         let mut passed = 0;
-        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
-        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
+        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
+        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
         for y in range(0, out.height) {
             for x in range(0, out.width) {
                 let ref = apply_stencil(x, y, arr_acc, stencil);
                 let mut diff = ref - out_acc.read(x, y);
-                if diff < 0.0f  { diff = -diff; }
-                if diff > 0.01f { passed = 42; }
+                if diff < 0 as pixel_t  { diff = -diff; }
+                if diff > diff_treshold { passed = 42; }
             }
         }
         if passed == 0 {
