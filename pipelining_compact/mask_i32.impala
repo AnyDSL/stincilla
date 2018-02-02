@@ -10,7 +10,8 @@ static gauss_mask3 = [[ 1, 2, 1],
                       [ 2, 4, 2],
                       [ 1, 2, 1]];
 
-static threshold = 0;
-static k = 0;
+static threshold = 100000;
+static k = 4;
+static k_den = 100;
 static markHigh = 255;
 static markLow  = 0;

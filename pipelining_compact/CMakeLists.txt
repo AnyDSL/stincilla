@@ -16,6 +16,7 @@ anydsl_runtime_wrap(HARRIS_CORNER_PIP_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_TYPE_FILES} mask_${PIXEL_TYPE}.impala harris_corner_pip.impala)
+add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 add_executable(harris_corner_pip main.cpp ${HARRIS_CORNER_PIP_PROGRAM})
 target_link_libraries(harris_corner_pip ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(harris_corner_pip PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)

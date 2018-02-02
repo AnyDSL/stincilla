@@ -112,7 +112,7 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
         let xy = gxy_acc.read(x, y);
         let det   = xx * yy - xy * xy;
         let trace = xx + yy;
-        out.write(x, y, det - k * trace * trace);
+        out.write(x, y, det - trace * trace * k / k_den);
     }
     release_device_copy(gxx_dev);
     release_device_copy(gyy_dev);
