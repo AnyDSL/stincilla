@@ -7,19 +7,19 @@
  */
 
 extern
-fn harris_corner(img_data: &[f32], out_data: &mut[f32]) -> () {
+fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     let width  = 2048;
     let height = 2048;
     let input  = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](img_data) }, width : width, height : height, stride : width };
     let harris = create_img(width, height, alloc_cpu);
-    let dx     = create_img(width, height, &mut dx_c );
-    let dy     = create_img(width, height, &mut dy_c );
-    let dxx    = create_img(width, height, &mut dxx_c);
-    let dxy    = create_img(width, height, &mut dxy_c);
-    let dyy    = create_img(width, height, &mut dyy_c);
-    let gxx    = create_img(width, height, &mut gxx_c);
-    let gxy    = create_img(width, height, &mut gxy_c);
-    let gyy    = create_img(width, height, &mut gyy_c);
+    let dx     = create_img(width, height, alloc_cpu);
+    let dy     = create_img(width, height, alloc_cpu);
+    let dxx    = create_img(width, height, alloc_cpu);
+    let dxy    = create_img(width, height, alloc_cpu);
+    let dyy    = create_img(width, height, alloc_cpu);
+    let gxx    = create_img(width, height, alloc_cpu);
+    let gxy    = create_img(width, height, alloc_cpu);
+    let gyy    = create_img(width, height, alloc_cpu);
 
     // compute the first derivative using the Sobel operator
     let mdx = get_mask3(sobel_mask3_x);
@@ -84,7 +84,7 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32]) -> () {
         let gxy     = gxy_acc.read(x, y);
         let det     = gxx * gyy - gxy * gxy;
         let trace   = gxx + gyy;
-        out.write(x, y, det - k * trace * trace);
+        out.write(x, y, det - trace * trace * k / k_den);
     }
     release_device_copy(gxx_dev);
     release_device_copy(gyy_dev);
@@ -99,18 +99,18 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32]) -> () {
             out_data(y*width + x) = img_data(y*width + x);
         }
     }
+    let harris_acc = get_acc(harris, |idx, val| { bitcast[&mut[pixel_t]](harris.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](harris.buf.data)(idx));
     for y in range(0, height) {
         for x in range(0, width) {
-            let harris_acc = get_acc(harris, |idx, val| { bitcast[&mut[pixel_t]](harris.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](harris.buf.data)(idx));
             if harris_acc.read(x, y) > threshold {
                 for i in range(-5, 5+1) {
                     if x+i >= 0 && x+i < width {
-                        out_data(y*width + x + i) = markHigh;
+                        out_data(y*width + x + i) = mark;
                     }
                 }
                 for i in range(-5, 5+1) {
                     if y+i >= 0 && y+i < height {
-                        out_data((y + i)*width + x) = markLow;
+                        out_data((y + i)*width + x) = mark;
                     }
                 }
             }

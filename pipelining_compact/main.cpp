@@ -33,10 +33,8 @@ void displayFrame(unsigned char* frame, int stride, const int width, const int h
     }
 }
 
-#define din_t  int
-#define dout_t int
-#define mask_t int
-extern "C" void harris_corner(din_t*, dout_t*);
+typedef STINCILLA_DATA_TYPE pixel_t;
+extern "C" void harris_corner(pixel_t*, pixel_t*);
 
 /*************************************************************************
  * Main function                                                         *
@@ -48,14 +46,13 @@ int main(int argc, const char **argv) {
 
     // host memory for image of width x height pixels
     // use anydsl::Array from AnyDSL runtime for memory allocation
-    anydsl::Array<din_t>  input(width * height);
-    anydsl::Array<dout_t> output(width * height);
+    anydsl::Array<pixel_t>  input(width * height);
+    anydsl::Array<pixel_t> output(width * height);
 
     // initialize data
     for (size_t j = 0; j < height; ++j) {
         for (size_t i = 0; i < width; ++i) {
-            //input[j * stride + i] = static_cast <din_t> (((((i%8)>=4) & ((j%8)<4)) | (((i%8)<4) & ((j%8)>=4))) ==0 ? 255 : 0);
-            input[j * stride + i] = static_cast <din_t> ( ((((i%16)>=8) & ((j%16)<8)) | (((i%16)<8) & ((j%16)>=8))) ==0 ? 255.0f : 0.0f);
+            input[j * stride + i] = static_cast <uint8_t> ( ((((i%16)>=8) & ((j%16)<8)) | (((i%16)<8) & ((j%16)>=8))) ==0 ? 255 : 0);
         }
     }
 
@@ -69,4 +66,3 @@ int main(int argc, const char **argv) {
 
     return EXIT_SUCCESS;
 }
-

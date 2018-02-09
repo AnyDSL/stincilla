@@ -16,5 +16,6 @@ fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
 fn @has_ldg() -> bool { false }
 
-fn @get_vector_length() -> i32 { 2 }
+// Note that "pipelining" suppots only crsn=1
+fn @get_vector_length() -> i32 { 1 }
 fn @get_alignment() -> i32 { round_up(sizeof[pixel_t](), get_vector_length()) }

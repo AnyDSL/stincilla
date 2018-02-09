@@ -502,10 +502,10 @@ fn @new_sliding_win(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int) -> 
 }
 
 // sliding window with row selection
-fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int, row_sel_fun: row_sel_fun_type) -> swin_acc {
+// todo: reduce the parameter list
+fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, radius_x: int, radius_y: int, pFactor: int, row_sel_fun: row_sel_fun_type) -> swin_acc {
     let swin = new_regs2d((0, 0), (swin_x, swin_y));
-    let out_width = 4 + pFactor;
-    let radius_y = 2;
+    let out_width = 2 * radius_x + pFactor;
     let get_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
 
     fn @read_fun(y: int, v: int) -> pixel_t { lbufs.read(v, y) }
@@ -651,11 +651,11 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
 
     // border handling row selection
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
+    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height}, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
-    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
+    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun);
 
     // border handling col selection
     let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
@@ -686,11 +686,11 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 
     // Border_handling
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
+    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
-    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
+    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun);
 
     // Constants for Packing
     let delay_width = (pFactor + ((pFactor - radius_x) % pFactor)) % pFactor;
