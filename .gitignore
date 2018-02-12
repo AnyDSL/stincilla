@@ -1,3 +1,10 @@
 build
-*.ll
-*.bc
+build_cl/
+build_cpu/
+build_cuda/
+build_hls/
+benchmarks_repo/
+delete/
+experiments
+evaluation
+benchmark_repo

@@ -88,18 +88,6 @@ fn img_to_stream_in(img: Img, pFactor: int, update: fn(int) -> (), read: fn(int)
     stream_in{ width: img.width, height: img.height, stride: img.stride, pFactor: pFactor, update: update, read: read}
 }
 
-fn @get_stream_from_global_img(img: Img, pFactor: int) -> fn() -> stream_in {
-    match pFactor {
-         1 => get_global_stream_vec1 (img),
-         2 => get_global_stream_vec2 (img),
-         4 => get_global_stream_vec4 (img),
-         8 => get_global_stream_vec8 (img),
-        16 => get_global_stream_vec16(img),
-        32 => get_global_stream_vec32(img),
-         _ => undef[fn() -> stream_in]()
-    }
-}
-
 fn @new_shared_line(in_s: stream_in, width: int) -> stream_in {
     match in_s.pFactor {
          1 => new_shared_line_vec1 (in_s, width),
@@ -120,158 +108,6 @@ fn img_to_stream_out(img: Img, pFactor: int, update: fn(int) -> (), write : fn(i
     stream_out{ width: img.width, height: img.height, stride: img.stride, pFactor: pFactor, update: update, write: write}
 }
 
-fn @set_stream_from_global_img(img: Img, pFactor: int) -> fn() -> stream_out {
-    match pFactor {
-         1 => set_global_stream_vec1 (img),
-         2 => set_global_stream_vec2 (img),
-         4 => set_global_stream_vec4 (img),
-         8 => set_global_stream_vec8 (img),
-        16 => set_global_stream_vec16(img),
-        32 => set_global_stream_vec32(img),
-         _ => undef[fn() -> stream_out]()
-    }
-}
-
-// global
-fn @get_global_stream_vec1(img: Img) -> fn() -> stream_in {
-    let ptr = bitcast[&[1][pixel_t]](img.buf.data);
-    @|| {
-        let mut value = 0 as pixel_t;
-        fn @update(idx: int) -> () { value = ptr(idx); }
-        fn @read(idx: int) -> pixel_t { value }
-        img_to_stream_in(img, 1, update, read)
-    }
-}
-
-fn @get_global_stream_vec2(img: Img) -> fn() -> stream_in {
-    let ptr = bitcast[&[1][[pixel_t * 2]]](
-        bitcast[&[1][i8]](
-            bitcast[&[1][[pixel_t * 2]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 2 ];
-        fn @update(idx: int) -> () { value = ptr(idx); }
-        fn @read(idx: int) -> pixel_t { value(idx) }
-        img_to_stream_in(img, 2, update, read)
-    }
-}
-
-fn @get_global_stream_vec4(img: Img) -> fn() -> stream_in {
-    let ptr = bitcast[&[1][[pixel_t * 4]]](
-        bitcast[&[1][i8]](
-            bitcast[&[1][[pixel_t * 4]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 4 ];
-        fn @update(idx: int) -> () { value = ptr(idx); }
-        fn @read(idx: int) -> pixel_t { value(idx) }
-        img_to_stream_in(img, 4, update, read)
-    }
-}
-
-fn @get_global_stream_vec8(img: Img) -> fn() -> stream_in {
-    let ptr = bitcast[&[1][[pixel_t * 8]]](
-        bitcast[&[1][i8]](
-            bitcast[&[1][[pixel_t * 8]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 8 ];
-        fn @update(idx: int) -> () { value = ptr(idx); }
-        fn @read(idx: int) -> pixel_t { value(idx) }
-        img_to_stream_in(img, 8, update, read)
-    }
-}
-
-fn @get_global_stream_vec16(img: Img) -> fn() -> stream_in {
-    let ptr = bitcast[&[1][[pixel_t * 16]]](
-        bitcast[&[1][i8]](
-            bitcast[&[1][[pixel_t * 16]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 16 ];
-        fn @update(idx: int) -> () { value = ptr(idx); }
-        fn @read(idx: int) -> pixel_t { value(idx) }
-        img_to_stream_in(img, 16, update, read)
-    }
-}
-
-fn @get_global_stream_vec32(img: Img) -> fn() -> stream_in {
-    let ptr = bitcast[&[1][[pixel_t * 32]]](
-        bitcast[&[1][i8]](
-            bitcast[&[1][[pixel_t * 32]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 32 ];
-        fn @update(idx: int) -> () { value = ptr(idx); }
-        fn @read(idx: int) -> pixel_t { value(idx) }
-        img_to_stream_in(img, 32, update, read)
-    }
-}
-
-fn @set_global_stream_vec1(img: Img) -> fn() -> stream_out {
-    let ptr = bitcast[&mut[1][pixel_t]](img.buf.data);
-    @|| {
-        let mut value = 0 as pixel_t;
-        fn @update(idx: int) -> () { ptr(idx) = value; }
-        fn @write(idx: int, din: pixel_t) -> () { value = din; }
-        img_to_stream_out(img, 1, update, write)
-    }
-}
-
-fn @set_global_stream_vec2(img: Img) -> fn() -> stream_out {
-    let ptr = bitcast[&mut[1][[pixel_t * 2]]](
-        bitcast[&mut[1][i8]](
-            bitcast[&mut[1][[pixel_t * 2]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 2 ];
-        fn @update(idx: int) -> () { ptr(idx) = value; }
-        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-        img_to_stream_out(img, 2, update, write)
-    }
-}
-
-fn @set_global_stream_vec4(img: Img) -> fn() -> stream_out {
-    let ptr = bitcast[&mut[1][[pixel_t * 4]]](
-        bitcast[&mut[1][i8]](
-            bitcast[&mut[1][[pixel_t * 4]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 4 ];
-        fn @update(idx: int) -> () { ptr(idx) = value; }
-        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-        img_to_stream_out(img, 4, update, write)
-    }
-}
-
-fn @set_global_stream_vec8(img: Img) -> fn() -> stream_out {
-    let ptr = bitcast[&mut[1][[pixel_t * 8]]](
-        bitcast[&mut[1][i8]](
-            bitcast[&mut[1][[pixel_t * 8]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 8 ];
-        fn @update(idx: int) -> () { ptr(idx) = value; }
-        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-        img_to_stream_out(img, 8, update, write)
-    }
-}
-
-fn @set_global_stream_vec16(img: Img) -> fn() -> stream_out {
-    let ptr = bitcast[&mut[1][[pixel_t * 16]]](
-        bitcast[&mut[1][i8]](
-            bitcast[&mut[1][[pixel_t * 16]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 16 ];
-        fn @update(idx: int) -> () { ptr(idx) = value; }
-        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-        img_to_stream_out(img, 16, update, write)
-    }
-}
-
-fn @set_global_stream_vec32(img: Img) -> fn() -> stream_out {
-    let ptr = bitcast[&mut[1][[pixel_t * 32]]](
-        bitcast[&mut[1][i8]](
-            bitcast[&mut[1][[pixel_t * 32]]](img.buf.data)));
-    @|| {
-        let mut value = [ 0 as pixel_t, .. 32 ];
-        fn @update(idx: int) -> () { ptr(idx) = value; }
-        fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-        img_to_stream_out(img, 32, update, write)
-    }
-}
 
 // shared
 fn @new_shared_line_vec1(in_s: stream_in, width: int) -> stream_in {
@@ -898,131 +734,131 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
     }
 }
 
-//  ------------------------ Padding (WIP) -----------------------------------
-struct padded_stream_in{
-   stream : stream_in,
-   update : fn(int, int, int) -> ()
-}
-struct padded_stream_out{
-   stream : stream_out,
-   update : fn(int, int, int) -> ()
-}
-fn amirror_lower(idx: i32, lower: i32, upper: i32) -> int{
-    if idx < lower { lower + (lower - idx-1) } else { idx }
-}
-fn amirror_upper(idx: i32, lower: i32, upper: i32) -> int{
-    if idx >= upper { upper - (idx+1 - upper) } else { idx }
-}
-fn @pad_in_stream(in_s: stream_in, mask: Mask) -> padded_stream_in {
-    fn @update(col_idx: int, row_idx: int, stride : int) -> () {
-        let col = col_idx - (mask.size_x >> 1);
-        let row = row_idx - (mask.size_y >> 1);
-        let col_bh = amirror_upper(amirror_lower(col, 0, 0), 0, 1024);
-        let row_bh = amirror_upper(amirror_lower(row, 0, 0), 0, 1024);
-        //if col >= 0 && row >= 0 {
-            in_s.update(row_bh * stride + col_bh);
-        //}
-    }
-
-    padded_stream_in{
-        stream : in_s,
-        update : update
-    }
-}
-fn @crop_out_stream(out_s: stream_out, mask: Mask) -> padded_stream_out {
-    fn @update(col_idx: int, row_idx: int, stride : int) -> (){
-        let col = col_idx - (mask.size_x - 1);
-        let row = row_idx - (mask.size_y - 1);
-        if col >= 0 && row >= 0 {
-            out_s.update(row * stride + col);
-        }
-    }
-
-    padded_stream_out{
-        stream : out_s,
-        update : update
-    }
-}
-
-fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let acc = accelerator(device_id);
-    let arr_dev = alloc_img(arr, acc.alloc);
-    let out_dev = alloc_img(out, acc.alloc);
-
-    copy_img(arr, arr_dev);
-    for benchmark_fpga(acc) {
-        let in_s_fn  = get_stream_from_global_img(arr_dev, pFactor);
-        let out_s_fn = set_stream_from_global_img(out_dev, pFactor);
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-            let radius_y = mask.size_y >> 1;
-            let radius_x = mask.size_x >> 1;
-
-            let (in_s, out_s) = (in_s_fn(), out_s_fn());
-            // output image
-            let out_stride = (arr.stride - 1) / pFactor + 1;
-            let out_s_pad  = crop_out_stream(out_s, mask);
-
-            // input image
-            // padding
-            let in_s_pad  = pad_in_stream(in_s, mask);
-            let crsn_stride = (arr.stride + mask.size_x - 2) / pFactor + 1;
-            let crsn_width  = (arr.width + mask.size_x - 2) / pFactor + 1;
-            let crsn_height = arr.height + 2 * radius_y;
-
-            let init_lat_x  = 2 * radius_x - 1;
-            let init_lat_y  = 2 * radius_y - 1;
-
-            let initial_delay = crsn_width * (init_lat_y + 1) + init_lat_x;
-            let process_time  = crsn_width * crsn_height;
-            let life_time     = initial_delay + process_time - 1;
-
-            let coarsening = FetchAndCalc_nobh(math, in_s_pad.stream, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
-
-            let mut col_ridx = 0; let mut row_ridx = 0;
-            let mut col_widx = 0; let mut row_widx = 0;
-            for clock_tick in range(0, life_time) {
-                // read new pix
-                if clock_tick < process_time {
-                    in_s_pad.update(col_ridx, row_ridx, arr.stride);
-                }
-
-                // shift on chip mem
-                coarsening.process(col_ridx, row_ridx);
-                //for v in unroll(0, pFactor) { out_s.write(v, in_s.read(v)); }
-
-                // write output
-                // // 1.
-                // out_s_pad.update(col_ridx, row_ridx, out.stride);
-                // if (col_ridx >= 2 * radius_x) && (row_ridx >= 2 * radius_y) {
-                // // 2.
-                //   let col = col_ridx - 2 * radius_x;
-                //   let row = row_ridx - 2 * radius_y;
-                //   out_s.update(row * arr.stride + col);
-                // // 3.
-                //   if (col_ridx < arr.width + 2 * radius_x) && (col_ridx > radius_x - 1) {
-                //       out_s.update(row_widx * out.stride + col_widx);
-                //       col_widx++;
-                //   }
-                // }
-                // 4.
-                //if (row_ridx > init_lat_y) {
-                if clock_tick > initial_delay {
-                    if (col_ridx > init_lat_x) {
-                        out_s.update(col_widx + row_widx * out_stride);
-                        col_widx++;
-                    }
-                }
-
-                // update image indexes
-                col_ridx++;
-                if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
-                if col_widx == arr.width  { col_widx = 0; row_widx++; }
-            }
-        }
-        //acc.sync();
-    }
-    copy_img(out_dev, out);
-}
+// //  ------------------------ Padding (WIP) -----------------------------------
+// struct padded_stream_in{
+//    stream : stream_in,
+//    update : fn(int, int, int) -> ()
+// }
+// struct padded_stream_out{
+//    stream : stream_out,
+//    update : fn(int, int, int) -> ()
+// }
+// fn amirror_lower(idx: i32, lower: i32, upper: i32) -> int{
+//     if idx < lower { lower + (lower - idx-1) } else { idx }
+// }
+// fn amirror_upper(idx: i32, lower: i32, upper: i32) -> int{
+//     if idx >= upper { upper - (idx+1 - upper) } else { idx }
+// }
+// fn @pad_in_stream(in_s: stream_in, mask: Mask) -> padded_stream_in {
+//     fn @update(col_idx: int, row_idx: int, stride : int) -> () {
+//         let col = col_idx - (mask.size_x >> 1);
+//         let row = row_idx - (mask.size_y >> 1);
+//         let col_bh = amirror_upper(amirror_lower(col, 0, 0), 0, 1024);
+//         let row_bh = amirror_upper(amirror_lower(row, 0, 0), 0, 1024);
+//         //if col >= 0 && row >= 0 {
+//             in_s.update(row_bh * stride + col_bh);
+//         //}
+//     }
+// 
+//     padded_stream_in{
+//         stream : in_s,
+//         update : update
+//     }
+// }
+// fn @crop_out_stream(out_s: stream_out, mask: Mask) -> padded_stream_out {
+//     fn @update(col_idx: int, row_idx: int, stride : int) -> (){
+//         let col = col_idx - (mask.size_x - 1);
+//         let row = row_idx - (mask.size_y - 1);
+//         if col >= 0 && row >= 0 {
+//             out_s.update(row * stride + col);
+//         }
+//     }
+// 
+//     padded_stream_out{
+//         stream : out_s,
+//         update : update
+//     }
+// }
+// 
+// fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+//     let acc = accelerator(device_id);
+//     let arr_dev = alloc_img(arr, acc.alloc);
+//     let out_dev = alloc_img(out, acc.alloc);
+// 
+//     copy_img(arr, arr_dev);
+//     for benchmark_fpga(acc) {
+//         let in_s_fn  = get_stream_from_global_img(arr_dev, pFactor);
+//         let out_s_fn = set_stream_from_global_img(out_dev, pFactor);
+//         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+//             let radius_y = mask.size_y >> 1;
+//             let radius_x = mask.size_x >> 1;
+// 
+//             let (in_s, out_s) = (in_s_fn(), out_s_fn());
+//             // output image
+//             let out_stride = (arr.stride - 1) / pFactor + 1;
+//             let out_s_pad  = crop_out_stream(out_s, mask);
+// 
+//             // input image
+//             // padding
+//             let in_s_pad  = pad_in_stream(in_s, mask);
+//             let crsn_stride = (arr.stride + mask.size_x - 2) / pFactor + 1;
+//             let crsn_width  = (arr.width + mask.size_x - 2) / pFactor + 1;
+//             let crsn_height = arr.height + 2 * radius_y;
+// 
+//             let init_lat_x  = 2 * radius_x - 1;
+//             let init_lat_y  = 2 * radius_y - 1;
+// 
+//             let initial_delay = crsn_width * (init_lat_y + 1) + init_lat_x;
+//             let process_time  = crsn_width * crsn_height;
+//             let life_time     = initial_delay + process_time - 1;
+// 
+//             let coarsening = FetchAndCalc_nobh(math, in_s_pad.stream, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
+// 
+//             let mut col_ridx = 0; let mut row_ridx = 0;
+//             let mut col_widx = 0; let mut row_widx = 0;
+//             for clock_tick in range(0, life_time) {
+//                 // read new pix
+//                 if clock_tick < process_time {
+//                     in_s_pad.update(col_ridx, row_ridx, arr.stride);
+//                 }
+// 
+//                 // shift on chip mem
+//                 coarsening.process(col_ridx, row_ridx);
+//                 //for v in unroll(0, pFactor) { out_s.write(v, in_s.read(v)); }
+// 
+//                 // write output
+//                 // // 1.
+//                 // out_s_pad.update(col_ridx, row_ridx, out.stride);
+//                 // if (col_ridx >= 2 * radius_x) && (row_ridx >= 2 * radius_y) {
+//                 // // 2.
+//                 //   let col = col_ridx - 2 * radius_x;
+//                 //   let row = row_ridx - 2 * radius_y;
+//                 //   out_s.update(row * arr.stride + col);
+//                 // // 3.
+//                 //   if (col_ridx < arr.width + 2 * radius_x) && (col_ridx > radius_x - 1) {
+//                 //       out_s.update(row_widx * out.stride + col_widx);
+//                 //       col_widx++;
+//                 //   }
+//                 // }
+//                 // 4.
+//                 //if (row_ridx > init_lat_y) {
+//                 if clock_tick > initial_delay {
+//                     if (col_ridx > init_lat_x) {
+//                         out_s.update(col_widx + row_widx * out_stride);
+//                         col_widx++;
+//                     }
+//                 }
+// 
+//                 // update image indexes
+//                 col_ridx++;
+//                 if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
+//                 if col_widx == arr.width  { col_widx = 0; row_widx++; }
+//             }
+//         }
+//         //acc.sync();
+//     }
+//     copy_img(out_dev, out);
+// }
 
 
 // ---------------------------------------------------------------------------
