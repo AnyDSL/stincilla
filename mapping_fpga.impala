@@ -108,7 +108,6 @@ fn img_to_stream_out(img: Img, pFactor: int, update: fn(int) -> (), write : fn(i
     stream_out{ width: img.width, height: img.height, stride: img.stride, pFactor: pFactor, update: update, write: write}
 }
 
-
 // shared
 fn @new_shared_line_vec1(in_s: stream_in, width: int) -> stream_in {
     let mut value = 0 as pixel_t;
@@ -787,18 +786,17 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 // 
 //     copy_img(arr, arr_dev);
 //     for benchmark_fpga(acc) {
-//         let in_s_fn  = get_stream_from_global_img(arr_dev, pFactor);
-//         let out_s_fn = set_stream_from_global_img(out_dev, pFactor);
 //         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
 //             let radius_y = mask.size_y >> 1;
 //             let radius_x = mask.size_x >> 1;
 // 
-//             let (in_s, out_s) = (in_s_fn(), out_s_fn());
 //             // output image
 //             let out_stride = (arr.stride - 1) / pFactor + 1;
+//             let out_s      = set_stream_from_global_img(out_dev, pFactor);
 //             let out_s_pad  = crop_out_stream(out_s, mask);
 // 
 //             // input image
+//             let in_s      = get_stream_from_global_img(arr_dev, pFactor);
 //             // padding
 //             let in_s_pad  = pad_in_stream(in_s, mask);
 //             let crsn_stride = (arr.stride + mask.size_x - 2) / pFactor + 1;
