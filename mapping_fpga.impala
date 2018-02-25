@@ -874,7 +874,8 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
     let mut col_ridx = 0; let mut row_ridx = 0;
     let mut col_widx = 0; let mut row_widx = 0;
     for clock_tick in range(0, life_time) {
-        pragma_pipeline();
+        if is_hls() { print_pragma("#pragma ii 1"); }
+        if is_opencl() { print_pragma("#pragma HLS pipeline II=1"); }
 
         // read new pix
         if clock_tick < process_time {
@@ -1033,7 +1034,8 @@ fn @iter_point_body(pFactor: i32, out_s: stream_out, body: fn(Intrinsics, i32, i
     let crsn_stride = out_s.stride / pFactor;
     for y in range(0, out_s.height) {
         for x in range(0, crsn_stride) {
-            pragma_pipeline();
+            if is_hls() { print_pragma("#pragma ii 1"); }
+            if is_opencl() { print_pragma("#pragma HLS pipeline II=1"); }
             for v in unroll(0, pFactor) {
                 @@body(math, v, y, out_acc);
             }
