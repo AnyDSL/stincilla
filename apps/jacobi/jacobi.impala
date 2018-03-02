@@ -1,27 +1,25 @@
 fn main() -> i32 {
     let width  = 1024;
     let height = 1024;
-    let arr    = create_img(width, height, alloc_cpu);
-    let out    = create_img(width, height, alloc_cpu);
+    let arr    = create_host_img(width, height);
+    let out    = create_host_img(width, height);
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
     let stencil = get_mask3([[0 as pixel_t, jacobi_b, 0 as pixel_t],
-                             [    jacobi_b, jacobi_a, jacobi_b    ],
+                             [    jacobi_b, jacobi_a, jacobi_b           ],
                              [0 as pixel_t, jacobi_b, 0 as pixel_t]]);
 
-    let lower = clamp_lower;
-    let upper = clamp_upper;
-    //let lower = nobh_center;
-    //let upper = nobh_center;
-    //let lower = mirror_lower;
-    //let upper = mirror_upper;
-    //let lower = wrap_const_fun(const_lower, 0 as pixel_t);
-    //let upper = wrap_const_fun(const_upper, 0 as pixel_t);
+    let lower = nobh_center;
+    let upper = nobh_center;
+    //let lower = clamp_lower;
+    //let upper = clamp_upper;
+    let enable_offset = 1;
 
     let iteration_fun = iteration;                  // SS
     //let iteration_fun = iteration_bounds;           // SS + BH
     //let iteration_fun = iteration_advanced;         // SS + SM
 
+    let num_host_iter = 5i;
     for math, x, y, out_acc, arr_acc, stencil in iteration_fun(math, out, arr, stencil, lower, upper) {
         out_acc.write(x, y, apply_stencil(x, y, arr_acc, stencil));
     }
@@ -31,8 +29,9 @@ fn main() -> i32 {
         let mut passed = 0;
         let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
-        let offset_x = 1;
-        let offset_y = 1;
+
+        let offset_x = enable_offset * 1;
+        let offset_y = enable_offset * 1;
         for y in range(0, out.height) {
             for x in range(0, out.width) {
                 if y > offset_y - 1 && y < out.height - offset_y && x > offset_x -1 && x < out.width - offset_x {

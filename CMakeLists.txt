@@ -27,8 +27,8 @@ else()
     set(STINCILLA_DATA_TYPE float)
 endif()
 
-set(BACKEND_FILE backend_${BACKEND}.impala)
-set(PIXEL_TYPE_FILES pixel_${PIXEL_TYPE}.impala)
+set(BACKEND_FILE ${CMAKE_CURRENT_SOURCE_DIR}/backend_${BACKEND}.impala)
+set(PIXEL_TYPE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/pixel_${PIXEL_TYPE}.impala)
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
@@ -52,64 +52,23 @@ set(IMPALA_FLAGS --log-level info)
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
-add_subdirectory(aobench)
-add_subdirectory(bilateral_grid)
-add_subdirectory(halide)
-add_subdirectory(harris_corner)
-add_subdirectory(apps)
+#add_subdirectory(aobench)
+#add_subdirectory(bilateral_grid)
+#add_subdirectory(halide)
 add_subdirectory(test)
-add_subdirectory(image_sharpening)
-add_subdirectory(sorting_networks)
-add_subdirectory(vcycle)
+#add_subdirectory(image_sharpening)
+#add_subdirectory(sorting_networks)
+#add_subdirectory(vcycle)
+add_subdirectory(apps)
+add_subdirectory(harris_corner)
 
 set(DSL_TYPE_FILES utils.impala stencil_lib.impala stencil_lib_img_proc.impala)
 
-# simple CPU-based examples
-anydsl_runtime_wrap(MATMUL_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala matmul.impala)
-add_executable(matmul ${MATMUL_PROGRAM})
-target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("matmul" matmul)
-
-# examples based on the "mapping"
-anydsl_runtime_wrap(GAUSSIAN_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_FILES} gaussian.impala)
-add_executable(gaussian ${GAUSSIAN_PROGRAM})
-target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("gaussian" gaussian)
-
-anydsl_runtime_wrap(GAUSSIAN_DEBUG_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_FILES} gaussian_debug.impala)
-add_executable(gaussian_debug ${GAUSSIAN_DEBUG_PROGRAM})
-target_link_libraries(gaussian_debug ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("gaussian_debug" gaussian_debug)
-
-anydsl_runtime_wrap(FILTER_CHAIN_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_FILES} filter_chain.impala)
-add_executable(filter_chain ${FILTER_CHAIN_PROGRAM})
-target_link_libraries(filter_chain ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("filter_chain" filter_chain)
-
-anydsl_runtime_wrap(BILATERAL_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_FILES} bilateral.impala)
-add_executable(bilateral ${BILATERAL_PROGRAM})
-target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("bilateral" bilateral)
-
-anydsl_runtime_wrap(JACOBI_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILES} ${DSL_TYPE_FILES} ${MAPPING_FILES} jacobi.impala)
-add_executable(jacobi ${JACOBI_PROGRAM})
-target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("jacobi" jacobi)
+# #simple CPU-based examples
+# anydsl_runtime_wrap(MATMUL_PROGRAM
+#     CLANG_FLAGS ${CLANG_FLAGS}
+#     IMPALA_FLAGS ${IMPALA_FLAGS}
+#     FILES ${BACKEND_FILE} utils.impala matmul.impala)
+# add_executable(matmul ${MATMUL_PROGRAM})
+# target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+# add_test("matmul" matmul)

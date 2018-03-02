@@ -1,8 +1,6 @@
 #include <iostream>
-
 #include <anydsl_runtime.hpp>
 
-#include "pnm_image.h"
 
 void displayFrame(float* frame, int stride, const int width, const int height,
                   const int offset_x=0, const int offset_y=0){

@@ -40,9 +40,13 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     let mdx = get_mask3(sobel_mask3_x);
     let mdy = get_mask3(sobel_mask3_y);
 
-    let lower = clamp_lower;
-    let upper = clamp_upper;
-    let iteration_fun = iteration;
+    //let lower = clamp_lower;
+    //let upper = clamp_upper;
+    let lower = nobh_center;
+    let upper = nobh_center;
+    //let lower = clamp_lower;
+    //let upper = clamp_upper;
+    let enable_offset = 1;
 
     for math, x, y, out, arr, mask in iteration(math, dx, input, mdx, lower, upper) {
         out.write(x, y, apply_stencil(x, y, arr, mask));

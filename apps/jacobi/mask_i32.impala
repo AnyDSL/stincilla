@@ -1,0 +1,3 @@
+static jacobi_a = 2;
+static jacobi_b = 10 - 4 * jacobi_a;
+static diff_treshold = 0;

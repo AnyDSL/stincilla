@@ -49,8 +49,8 @@ fn main() -> i32 {
     let height  = 1024;
     let sigma_r = 5.0f;
     let c_r     = 1.0f / (2.0f * sigma_r*sigma_r);
-    let arr     = create_img(width, height, alloc_cpu);
-    let out     = create_img(width, height, alloc_cpu);
+    let arr     = create_host_img(width, height);
+    let out     = create_host_img(width, height);
 
     let mask = get_mask5([[0.018316f, 0.082085f, 0.135335f, 0.082085f, 0.018316f],
                           [0.082085f, 0.367879f, 0.606531f, 0.367879f, 0.082085f],
@@ -87,6 +87,7 @@ fn main() -> i32 {
 
     let lower = clamp_lower;
     let upper = clamp_upper;
+    let enable_offset = 0;
 
     let iteration_fun = iteration;                  // SS
     //let iteration_fun = iteration_bounds;           // SS + BH
@@ -95,8 +96,10 @@ fn main() -> i32 {
     //let bilateral_fun = bilateral_filter;
     let bilateral_fun = bilateral_filter_mask;
 
-    for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out, arr, mask, lower, upper) {
-        out_acc.write(x, y, bilateral_fun(math, x, y, arr_acc, mask, sigma_d, c_d, c_r));
+    for benchmark_host(num_host_iter) {
+        for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out, arr, mask, lower, upper) {
+            out_acc.write(x, y, bilateral_fun(math, x, y, arr_acc, mask, sigma_d, c_d, c_r));
+        }
     }
     print_total_timing();
 
