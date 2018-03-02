@@ -51,6 +51,10 @@ set(HARRIS_CORNER_FILES ${HARRIS_CORNER_DIR}/mask_${PIXEL_TYPE}.impala ${HARRIS_
 # for optional config files
 set(APPS_CONFIG_FILES "")
 
+
+add_subdirectory(harris_corner_proc)
+add_subdirectory(filter_chain_proc)
+
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
@@ -100,21 +104,3 @@ add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 add_executable(harris_corner_pipe "${HARRIS_CORNER_DIR}/main.cpp" ${HARRIS_CORNER_PIPE_PROGRAM})
 target_link_libraries(harris_corner_pipe ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(harris_corner_pipe PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
-
-anydsl_runtime_wrap(FILTER_CHAIN_PROC_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${APPS_CONFIG_FILES} ${COMMON_DISABLE_PIPELINE_FILES} ${FILTER_CHAIN_FILES})
-add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
-add_executable(filter_chain_proc ${FILTER_CHAIN_PROC_PROGRAM})
-target_link_libraries(filter_chain_proc ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-set_target_properties(filter_chain_proc PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
-
-anydsl_runtime_wrap(HARRIS_CORNER_PROC_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${APPS_CONFIG_FILES} ${COMMON_DISABLE_PIPELINE_FILES} ${HARRIS_CORNER_FILES})
-add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
-add_executable(harris_corner_proc "${HARRIS_CORNER_DIR}/main.cpp" ${HARRIS_CORNER_PROC_PROGRAM})
-target_link_libraries(harris_corner_proc ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-set_target_properties(harris_corner_proc PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
