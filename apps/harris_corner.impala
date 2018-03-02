@@ -46,11 +46,6 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
 
     //let lower = clamp_lower;
     //let upper = clamp_upper;
-    let lower = nobh_center;
-    let upper = nobh_center;
-    //let lower = clamp_lower;
-    //let upper = clamp_upper;
-    let enable_offset = 1;
 
     for benchmark_host(num_host_iter) {
         for math, x, y, out, arr, mask in iteration(math, dx, input, mdx, lower, upper) {
