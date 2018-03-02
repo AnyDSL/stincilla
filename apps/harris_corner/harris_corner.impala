@@ -20,6 +20,10 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     static mut gxx_c : pipe;
     static mut gxy_c : pipe;
     static mut gyy_c : pipe;
+    static mut dx_c0 : pipe;
+    static mut dx_c1 : pipe;
+    static mut dy_c0 : pipe;
+    static mut dy_c1 : pipe;
     //         -- ix -|-- ixx -- sxx -
     //       /         \              \
     // in --            > ixy -- sxy --> hc -- out
@@ -48,80 +52,77 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     //let upper = clamp_upper;
     let enable_offset = 1;
 
-    for math, x, y, out, arr, mask in iteration(math, dx, input, mdx, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
-    }
-    for math, x, y, out, arr, mask in iteration(math, dy, input, mdy, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
-    }
+    for benchmark_host(num_host_iter) {
+        for math, x, y, out, arr, mask in iteration(math, dx, input, mdx, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
+        for math, x, y, out, arr, mask in iteration(math, dy, input, mdy, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
 
-    // Replicate virtual images for multiple reads
-    static mut dx_c0 : pipe;
-    static mut dx_c1 : pipe;
-    static mut dy_c0 : pipe;
-    static mut dy_c1 : pipe;
-    let (dx0, dx1) = split_image(math, dx, &mut dx_c0, &mut dx_c1);
-    let (dy0, dy1) = split_image(math, dy, &mut dy_c0, &mut dy_c1);
+        // Replicate virtual images for multiple reads
+        let (dx0, dx1) = split_image(math, dx, &mut dx_c0, &mut dx_c1);
+        let (dy0, dy1) = split_image(math, dy, &mut dy_c0, &mut dy_c1);
 
-    // compute dxx, dyy, dxy
-    let dx0_dev = get_device_copy(dx0);
-    let dx1_dev = get_device_copy(dx1);
-    let dy0_dev = get_device_copy(dy0);
-    let dy1_dev = get_device_copy(dy1);
-    for math, x, y, out in iteration_point(math, dxx) {
-        let dx_acc = get_acc(dx0_dev, set_pixel_fn(dx0_dev), get_pixel_fn(dx0_dev));
-        let dx = dx_acc.read(x, y);
-        out.write(x, y, dx * dx);
-    }
-    for math, x, y, out in iteration_point(math, dyy) {
-        let dy_acc = get_acc(dy0_dev, set_pixel_fn(dy0_dev), get_pixel_fn(dy0_dev));
-        let dy = dy_acc.read(x, y);
-        out.write(x, y, dy * dy);
-    }
-    for math, x, y, out in iteration_point(math, dxy) {
-        let dx_acc = get_acc(dx1_dev, set_pixel_fn(dx1_dev), get_pixel_fn(dx1_dev));
-        let dy_acc = get_acc(dy1_dev, set_pixel_fn(dy1_dev), get_pixel_fn(dy1_dev));
-        let dx = dx_acc.read(x, y);
-        let dy = dy_acc.read(x, y);
-        out.write(x, y, dx * dy);
-    }
-    release_device_copy(dx0_dev);
-    release_device_copy(dx1_dev);
-    release_device_copy(dy0_dev);
-    release_device_copy(dy1_dev);
+        // compute dxx, dyy, dxy
+        let dx0_dev = get_device_copy(dx0);
+        let dx1_dev = get_device_copy(dx1);
+        let dy0_dev = get_device_copy(dy0);
+        let dy1_dev = get_device_copy(dy1);
+        for math, x, y, out in iteration_point(math, dxx) {
+            let dx_acc = get_acc(dx0_dev, set_pixel_fn(dx0_dev), get_pixel_fn(dx0_dev));
+            let dx = dx_acc.read(x, y);
+            out.write(x, y, dx * dx);
+        }
+        for math, x, y, out in iteration_point(math, dyy) {
+            let dy_acc = get_acc(dy0_dev, set_pixel_fn(dy0_dev), get_pixel_fn(dy0_dev));
+            let dy = dy_acc.read(x, y);
+            out.write(x, y, dy * dy);
+        }
+        for math, x, y, out in iteration_point(math, dxy) {
+            let dx_acc = get_acc(dx1_dev, set_pixel_fn(dx1_dev), get_pixel_fn(dx1_dev));
+            let dy_acc = get_acc(dy1_dev, set_pixel_fn(dy1_dev), get_pixel_fn(dy1_dev));
+            let dx = dx_acc.read(x, y);
+            let dy = dy_acc.read(x, y);
+            out.write(x, y, dx * dy);
+        }
+        release_device_copy(dx0_dev);
+        release_device_copy(dx1_dev);
+        release_device_copy(dy0_dev);
+        release_device_copy(dy1_dev);
 
-    // compute gxx, gyy, gxy using Gaussian blur
-    let mg = get_mask3(gauss_mask3);
+        // compute gxx, gyy, gxy using Gaussian blur
+        let mg = get_mask3(gauss_mask3);
 
-    for math, x, y, out, arr, mask in iteration(math, gxx, dxx, mg, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
-    }
-    for math, x, y, out, arr, mask in iteration(math, gyy, dyy, mg, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
-    }
-    for math, x, y, out, arr, mask in iteration(math, gxy, dxy, mg, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
-    }
+        for math, x, y, out, arr, mask in iteration(math, gxx, dxx, mg, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
+        for math, x, y, out, arr, mask in iteration(math, gyy, dyy, mg, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
+        for math, x, y, out, arr, mask in iteration(math, gxy, dxy, mg, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
 
-    // compute score for Harris corner
-    let gxx_dev = get_device_copy(gxx);
-    let gyy_dev = get_device_copy(gyy);
-    let gxy_dev = get_device_copy(gxy);
-    for math, x, y, out in iteration_point(math, harris) {
-        let gxx_acc = get_acc(gxx_dev, set_pixel_fn(gxx_dev), get_pixel_fn(gxx_dev));
-        let gyy_acc = get_acc(gyy_dev, set_pixel_fn(gyy_dev), get_pixel_fn(gyy_dev));
-        let gxy_acc = get_acc(gxy_dev, set_pixel_fn(gxy_dev), get_pixel_fn(gxy_dev));
-        let xx = gxx_acc.read(x, y);
-        let yy = gyy_acc.read(x, y);
-        let xy = gxy_acc.read(x, y);
-        let det   = xx * yy - xy * xy;
-        let trace = xx + yy;
-        out.write(x, y, det - trace * trace * k / k_den);
+        // compute score for Harris corner
+        let gxx_dev = get_device_copy(gxx);
+        let gyy_dev = get_device_copy(gyy);
+        let gxy_dev = get_device_copy(gxy);
+        for math, x, y, out in iteration_point(math, harris) {
+            let gxx_acc = get_acc(gxx_dev, set_pixel_fn(gxx_dev), get_pixel_fn(gxx_dev));
+            let gyy_acc = get_acc(gyy_dev, set_pixel_fn(gyy_dev), get_pixel_fn(gyy_dev));
+            let gxy_acc = get_acc(gxy_dev, set_pixel_fn(gxy_dev), get_pixel_fn(gxy_dev));
+            let xx = gxx_acc.read(x, y);
+            let yy = gyy_acc.read(x, y);
+            let xy = gxy_acc.read(x, y);
+            let det   = xx * yy - xy * xy;
+            let trace = xx + yy;
+            out.write(x, y, det - trace * trace * k / k_den);
+        }
+        release_device_copy(gxx_dev);
+        release_device_copy(gyy_dev);
+        release_device_copy(gxy_dev);
     }
-    release_device_copy(gxx_dev);
-    release_device_copy(gyy_dev);
-    release_device_copy(gxy_dev);
-
     print_total_timing();
 
     // post-processing: mark corners

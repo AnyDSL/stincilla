@@ -123,7 +123,7 @@ fn @channel_to_stream_out_vec1(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec2(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 2 ];
     let pFactor = 2;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); }}
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 2, update, write)
 }
@@ -131,7 +131,7 @@ fn @channel_to_stream_out_vec2(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec4(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 4 ];
     let pFactor = 4;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u);} }
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v));} }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 4, update, write)
 }
@@ -139,7 +139,7 @@ fn @channel_to_stream_out_vec4(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec8(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 8 ];
     let pFactor = 8;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v));}}
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 8, update, write)
 }
@@ -147,7 +147,7 @@ fn @channel_to_stream_out_vec8(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec16(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 16 ];
     let pFactor = 16;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v));}}
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 16, update, write)
 }
@@ -155,7 +155,7 @@ fn @channel_to_stream_out_vec16(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec32(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 32 ];
     let pFactor = 32;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v));}}
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 32, update, write)
 }
@@ -170,7 +170,7 @@ fn @channel_to_stream_in_vec1(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec2(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 2 ];
     let pFactor = 2;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo);}}
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 2, update, read)
 }
@@ -178,7 +178,7 @@ fn @channel_to_stream_in_vec2(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec4(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 4 ];
     let pFactor = 4;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo);}}
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 4, update, read)
 }
@@ -186,7 +186,7 @@ fn @channel_to_stream_in_vec4(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec8(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 8 ];
     let pFactor = 8;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo);}}
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 8, update, read)
 }
@@ -194,7 +194,7 @@ fn @channel_to_stream_in_vec8(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec16(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 16 ];
     let pFactor = 16;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo);}}
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 16, update, read)
 }
@@ -202,7 +202,7 @@ fn @channel_to_stream_in_vec16(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec32(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 32 ];
     let pFactor = 32;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo);}}
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 32, update, read)
 }
@@ -379,12 +379,13 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
     let arr_dev = get_device_copy(arr);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga(acc) {
+    for benchmark_fpga(||) {
         let in_s_fn  = get_stream(arr_dev);
         let out_s_fn = set_stream(out_dev);
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
-            let coarsening_fun = FetchAndCalc;
+            //FetchAndCalc, CalcAndPack, FetchAndCalc_nobh, CalcAndPack_nobh
+            let coarsening_fun = coarsening_policy;
 
             let (in_s, out_s) = (in_s_fn(), out_s_fn());
             iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
@@ -397,7 +398,7 @@ fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, A
     let acc = accelerator(device_id);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga(acc) {
+    for benchmark_fpga(||) {
         let out_s_fn = set_stream(out_dev);
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
@@ -415,7 +416,7 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
 
     let pFactor = get_vector_length();
     let image_size = (arr.height * (arr.stride / pFactor) );
-    for benchmark_fpga(acc) {
+    for benchmark_fpga(||) {
         let   in_s_fn = get_stream(arr);
         let out0_s_fn = set_stream(out0);
         let out1_s_fn = set_stream(out1);
@@ -441,7 +442,7 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
 //     let acc = accelerator(device_id);
 //     let pFactor = get_vector_length();
 //     let image_size = (arr.height * (arr.stride / pFactor) );
-//     for benchmark_fpga(acc) {
+//     for benchmark_fpga(||) {
 //         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
 //             //for idx in range(0, image_size) {
 //             for y in range(0, arr.height) {
