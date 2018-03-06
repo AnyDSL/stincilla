@@ -395,7 +395,7 @@ fn @read_pixel_bh(xw: int, read: fn(int) -> pixel_t, boundary: Boundary, lower_h
         }
 }
 
-fn @bh_type0(imx: int, wacc: win_acc, boundary: Boundary, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> () {
+fn @(?imx)bh_type0(imx: int, wacc: win_acc, boundary: Boundary, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> () {
     // roi @ image
     let lower_arr   = roi.o_x;
     let upper_arr   = roi.o_x + roi.width;
@@ -441,7 +441,7 @@ fn @bh_type0(imx: int, wacc: win_acc, boundary: Boundary, pFactor: int, roi: RoI
 }
 
 fn @get_type0_row_sel(pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> row_sel_fun_type {
-    @|idx, wacc| {
+    @(?idx)|idx, wacc| {
         for boundary in iterate1d_border() {
             let bh_type0_fun = bh_type0(idx, wacc, boundary, pFactor, roi, get_bounds_fun, bh_lower, bh_upper);
         }
