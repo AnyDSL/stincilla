@@ -4,5 +4,5 @@ anydsl_runtime_wrap(HARRIS_CORNER_PROC_PROGRAM
     FILES ${APPS_CONFIG_FILES} ${COMMON_DISABLE_PIPELINE_FILES} ${HARRIS_CORNER_FILES})
 add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 add_executable(harris_corner_proc "${HARRIS_CORNER_DIR}/main.cpp" ${HARRIS_CORNER_PROC_PROGRAM})
-target_link_libraries(harris_corner_proc ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(harris_corner_proc ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(harris_corner_proc PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)

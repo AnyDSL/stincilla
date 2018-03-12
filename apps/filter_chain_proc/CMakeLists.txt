@@ -5,5 +5,5 @@ anydsl_runtime_wrap(FILTER_CHAIN_PROC_PROGRAM
     FILES ${APPS_CONFIG_FILES} ${COMMON_DISABLE_PIPELINE_FILES} ${FILTER_CHAIN_FILES})
 add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 add_executable(filter_chain_proc ${FILTER_CHAIN_PROC_PROGRAM})
-target_link_libraries(filter_chain_proc ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(filter_chain_proc ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(filter_chain_proc PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)

@@ -3,9 +3,8 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(STINCILLA CXX)
 enable_testing()
 
-find_package(AnyDSL-runtime REQUIRED)
-include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
-include_directories(${ANYDSL_RUNTIME_DIR}/src)
+find_package(AnyDSL_runtime REQUIRED)
+include_directories(${AnyDSL_runtime_INCLUDE_DIRS})
 
 set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU, AOCL, HLS")
 if(NOT BACKEND)
@@ -48,6 +47,7 @@ endif()
 
 set(CLANG_FLAGS -march=native)
 set(IMPALA_FLAGS --log-level info)
+set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
@@ -70,5 +70,5 @@ set(DSL_TYPE_FILES utils.impala stencil_lib.impala stencil_lib_img_proc.impala)
 #     IMPALA_FLAGS ${IMPALA_FLAGS}
 #     FILES ${BACKEND_FILE} utils.impala matmul.impala)
 # add_executable(matmul ${MATMUL_PROGRAM})
-# target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+# target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARIES})
 # add_test("matmul" matmul)
