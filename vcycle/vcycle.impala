@@ -13,8 +13,8 @@ fn @deriv2D(RHS: Img, img: Img) -> () {
 static omega = 0.8f;
 static jacobi_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.00f, 0.25f, 0.00f],
-                                      [0.25f, 0.00f, 0.25f],
-                                      [0.00f, 0.25f, 0.00f]](y)(x) },
+                                       [0.25f, 0.00f, 0.25f],
+                                       [0.00f, 0.25f, 0.00f]](y)(x) },
     size_x : 3, size_y : 3
 };
 // Dirichlet boundary handling -> 0
@@ -41,8 +41,8 @@ fn @jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
 // Residual
 static residual_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.0f,  1.0f, 0.0f],
-                                      [1.0f, -4.0f, 1.0f],
-                                      [0.0f,  1.0f, 0.0f]](y)(x) },
+                                       [1.0f, -4.0f, 1.0f],
+                                       [0.0f,  1.0f, 0.0f]](y)(x) },
     size_x : 3, size_y : 3
 };
 fn @residual_fun(math: Intrinsics, x: i32, y: i32, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
@@ -63,8 +63,8 @@ fn @residual(math: Intrinsics, Res: Img, Sol: Img, RHS: Img) -> () {
 // coarse = Stencil * fine;
 static restrict_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
-                                      [0.50f, 1.00f, 0.50f],
-                                      [0.25f, 0.50f, 0.25f]](y)(x) },
+                                       [0.50f, 1.00f, 0.50f],
+                                       [0.25f, 0.50f, 0.25f]](y)(x) },
     size_x : 3, size_y : 3
 };
 fn @restrict_fun(math: Intrinsics, x: i32, y: i32, RHS: Acc, Res: Acc, mask: Mask) -> () {
@@ -90,8 +90,8 @@ fn @restrict(math: Intrinsics, RHS: Img, Res: Img) -> () {
 // fine += Stencil * coarse:
 static interpolate_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
-                                      [0.50f, 1.00f, 0.50f],
-                                      [0.25f, 0.50f, 0.25f]](y)(x) },
+                                       [0.50f, 1.00f, 0.50f],
+                                       [0.25f, 0.50f, 0.25f]](y)(x) },
     size_x : 3, size_y : 3
 };
 fn @interpolate_fun(math: Intrinsics, x: i32, y: i32, SolF: Acc, SolC: Acc, mask: Mask) -> () {
