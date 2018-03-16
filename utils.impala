@@ -1,10 +1,3 @@
-fn @(?lower & ?upper) range_times_two(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
-    if lower < upper {
-        @@body(lower);
-        range_times_two(lower*2, upper, body)
-    }
-}
-
 fn init_zero(arr: &mut[f32], width: i32, height: i32) -> () {
     for i in range(0, width*height) {
         arr(i) = 0.0f;
