@@ -1,12 +1,3 @@
-// conditional swap using pointers
-fn @swap_if(a: &mut i16, b: &mut i16) -> () {
-    if *a > *b {
-        let tmp = *a;
-        *a = *b;
-        *b = tmp;
-    }
-}
-
 fn @qcod(x: i32, y: i32, map: Acc, img: Acci16) -> () {
     let mut arr: [i16 * 25];
     for y in unroll(0, 5) {
