@@ -190,7 +190,7 @@ fn @read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> p
 }
 
 // &   [pixel_t] on CPU/AVX
-// &[3][pixel_t] on CUDA/NVVM & OpenCL
+// &[3][pixel_t] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acc_bh_memory(set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, width: i32, height: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset_memory(set_pixel, get_pixel, width, height, 0, 0, region, bh_lower, bh_upper)
 }

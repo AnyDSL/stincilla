@@ -71,7 +71,7 @@ fn @get_acc_bh(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -
 
 // ------------------------- old
 // &   [pixel_t] on CPU/AVX
-// &[1][pixel_t] on CUDA/NVVM & OpenCL
+// &[1][pixel_t] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acc_bh_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     Acc {
         read  : @|x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, @|x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
