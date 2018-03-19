@@ -118,7 +118,7 @@ fn @new_shared_line_vec1(in_s: stream_in, width: int) -> stream_in {
     let lbuf = reserve_shared[pixel_t](width);
 
     fn @read(idx: int) -> pixel_t { value }
-    fn @shift(col: int) -> () {
+    fn @(?col) shift(col: int) -> () {
         value     = lbuf(col);
         lbuf(col) = in_s.read(0);
     }
@@ -131,7 +131,7 @@ fn @new_shared_line_vec2(in_s: stream_in, width: int) -> stream_in {
     let lbuf = reserve_shared[[pixel_t * 2]](width);
 
     fn @read(idx: int) -> pixel_t { value(idx) }
-    fn @shift(col: int) -> () {
+    fn @(?col) shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0), in_s.read(1)];
         lbuf(col) = dlbin;
@@ -145,7 +145,7 @@ fn @new_shared_line_vec4(in_s: stream_in, width: int) -> stream_in {
     let lbuf = reserve_shared[[pixel_t * 4]](width);
 
     fn @read(idx: int) -> pixel_t { value(idx) }
-    fn @shift(col: int) -> () {
+    fn @(?col) shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0), in_s.read(1), in_s.read(2), in_s.read(3)];
         lbuf(col) = dlbin;
@@ -159,7 +159,7 @@ fn @new_shared_line_vec8(in_s: stream_in, width: int) -> stream_in {
     let lbuf = reserve_shared[[pixel_t * 8]](width);
 
     fn @read(idx: int) -> pixel_t { value(idx) }
-    fn @shift(col: int) -> () {
+    fn @(?col) shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0), in_s.read(1), in_s.read(2), in_s.read(3),
                      in_s.read(4), in_s.read(5), in_s.read(6), in_s.read(7)];
@@ -174,7 +174,7 @@ fn @new_shared_line_vec16(in_s: stream_in, width: int) -> stream_in {
     let lbuf = reserve_shared[[pixel_t * 16]](width);
 
     fn @read(idx: int) -> pixel_t { value(idx) }
-    fn @shift(col: int) -> () {
+    fn @(?col) shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0), in_s.read(1), in_s.read(2), in_s.read(3),
                      in_s.read(4), in_s.read(5), in_s.read(6), in_s.read(7),
@@ -191,7 +191,7 @@ fn @new_shared_line_vec32(in_s: stream_in, width: int) -> stream_in {
     let lbuf = reserve_shared[[pixel_t * 32]](width);
 
     fn @read(idx: int) -> pixel_t { value(idx) }
-    fn @shift(col: int) -> () {
+    fn @(?col) shift(col: int) -> () {
         value     = lbuf(col);
         let dlbin = [in_s.read(0),  in_s.read(1),  in_s.read(2),  in_s.read(3),
                      in_s.read(4),  in_s.read(5),  in_s.read(6),  in_s.read(7),
@@ -299,7 +299,7 @@ fn @new_line_buffer(in_s: stream_in, size_x: int, size_y: int) -> swin_acc {
                     sub_lbuf.read(x, y)
                 }
             },
-            shift  : @|col, row| {
+            shift  : @(?col) |col, row| {
                 shared_s.update(col);
                 sub_lbuf.shift(col, 0)
             },
@@ -354,7 +354,7 @@ fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, radius_x: int,
         }
     }
 
-    fn @shift(col_ridx: int, row_ridx: int) -> () {
+    fn @(?col_ridx & ?row_ridx) shift(col_ridx: int, row_ridx: int) -> () {
         for j in unroll(0, swin_y) {
             for i in unroll(0, swin_x - pFactor) {
                 swin.write(i, j, swin.read(i + pFactor, j));
@@ -365,7 +365,7 @@ fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, radius_x: int,
 
     swin_acc {
         read  : swin.read,
-        shift : @|col_ridx, row_ridx| { lbufs.shift(col_ridx, 0); shift(col_ridx, row_ridx) },
+        shift : @(?col_ridx & ?row_ridx) |col_ridx, row_ridx| { lbufs.shift(col_ridx, 0); shift(col_ridx, row_ridx) },
         size_x : out_width,
         size_y : swin_y
     }
@@ -471,7 +471,7 @@ fn @new_type0_col_selection(swin: swin_acc, pFactor: int, roi: RoI1d, get_bounds
         }
     }
 
-    fn @update(col_ridx: int) -> () {
+    fn @(?col_ridx) update(col_ridx: int) -> () {
         for boundary in iterate1d_atborders() {
             bh_type0(col_ridx, boundary, pFactor, roi, get_bounds_fun, brdr_assigns);
         }
@@ -504,13 +504,13 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
     let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
     let col_sel_type0 = new_type0_col_selection(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
 
-    fn @process(col_ridx: int, row_ridx: int) -> () {
+    fn @(?col_ridx & ?row_ridx) process(col_ridx: int, row_ridx: int) -> () {
         swin.shift(col_ridx, row_ridx);
         col_sel_type0.update(col_ridx);
 
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
-            let out_acc = Acc { read : |x, y| 0 as pixel_t,          write : @|x, y, data| out_s.write(v, data) };
+            let out_acc = Acc { read : |x, y| 0 as pixel_t,          write : @(?x & ?y)|x, y, data| out_s.write(v, data) };
             @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
         }
