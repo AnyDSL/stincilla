@@ -31,32 +31,27 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
     let upper = clamp_upper;
     let iteration_fun = iteration;
 
-    for math, x, y, out, arr, mask in iteration_fun(math, dx, input, mdx, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
+    for math, x, y, out, arrs in iteration_fun(math, dx, make_img_list1(input, (mdx.size_x / 2, mdx.size_y / 2)), lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arrs.get(0), mdx));
     }
-    for math, x, y, out, arr, mask in iteration_fun(math, dy, input, mdy, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
+    for math, x, y, out, arrs in iteration_fun(math, dy, make_img_list1(input, (mdy.size_x / 2, mdy.size_y / 2)), lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arrs.get(0), mdy));
     }
 
 
     // compute dxx, dyy, dxy
-    let dx_dev = get_device_copy(dx);
-    let dy_dev = get_device_copy(dy);
-    for math, x, y, out in iteration_point(math, dxx) {
-        let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
+    for math, x, y, out, arrs in iteration_fun(math, dxx, make_img_list1(dx, (0, 0)), lower, upper) {
+        let dx = arrs.get(0);
         out.write(x, y, dx.read(x, y) * dx.read(x, y));
     }
-    for math, x, y, out in iteration_point(math, dyy) {
-        let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
+    for math, x, y, out, arrs in iteration_fun(math, dyy, make_img_list1(dy, (0, 0)), lower, upper) {
+        let dy = arrs.get(0);
         out.write(x, y, dy.read(x, y) * dy.read(x, y));
     }
-    for math, x, y, out in iteration_point(math, dxy) {
-        let dx = get_acc(dx_dev, set_pixel_fn(dx_dev), get_pixel_fn(dx_dev));
-        let dy = get_acc(dy_dev, set_pixel_fn(dy_dev), get_pixel_fn(dy_dev));
+    for math, x, y, out, arrs in iteration_fun(math, dxy, make_img_list2(dx, (0, 0), dy, (0, 0)), lower, upper) {
+        let (dx, dy) = (arrs.get(0), arrs.get(1));
         out.write(x, y, dx.read(x, y) * dy.read(x, y));
     }
-    release_device_copy(dx_dev);
-    release_device_copy(dy_dev);
 
 
     // compute gxx, gyy, gxy using Gaussian blur
@@ -64,25 +59,20 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
                         [ 0.124758f, 0.272496f, 0.124758f ],
                         [ 0.057118f, 0.124758f, 0.057118f ]]);
 
-    for math, x, y, out, arr, mask in iteration_fun(math, gxx, dxx, mg, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
+    for math, x, y, out, arrs in iteration_fun(math, gxx, make_img_list1(dxx, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
     }
-    for math, x, y, out, arr, mask in iteration_fun(math, gyy, dyy, mg, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
+    for math, x, y, out, arrs in iteration_fun(math, gyy, make_img_list1(dyy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
     }
-    for math, x, y, out, arr, mask in iteration_fun(math, gxy, dxy, mg, lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arr, mask));
+    for math, x, y, out, arrs in iteration_fun(math, gxy, make_img_list1(dxy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
+        out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
     }
 
 
     // compute score for Harris corner
-    let gxx_dev = get_device_copy(gxx);
-    let gyy_dev = get_device_copy(gyy);
-    let gxy_dev = get_device_copy(gxy);
-    for math, x, y, out in iteration_point(math, harris) {
-        let gxx_acc = get_acc(gxx_dev, set_pixel_fn(gxx_dev), get_pixel_fn(gxx_dev));
-        let gyy_acc = get_acc(gyy_dev, set_pixel_fn(gyy_dev), get_pixel_fn(gyy_dev));
-        let gxy_acc = get_acc(gxy_dev, set_pixel_fn(gxy_dev), get_pixel_fn(gxy_dev));
+    for math, x, y, out, arrs in iteration_fun(math, harris, make_img_list3(gxx, (0, 0), gyy, (0, 0), gxy, (0, 0)), lower, upper) {
+        let (gxx_acc, gyy_acc, gxy_acc) = (arrs.get(0), arrs.get(1), arrs.get(2));
         let gxx     = gxx_acc.read(x, y);
         let gyy     = gyy_acc.read(x, y);
         let gxy     = gxy_acc.read(x, y);
@@ -90,9 +80,6 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
         let trace   = gxx + gyy;
         out.write(x, y, det - 0.04f * trace * trace);
     }
-    release_device_copy(gxx_dev);
-    release_device_copy(gyy_dev);
-    release_device_copy(gxy_dev);
 
     print_total_timing();
 
