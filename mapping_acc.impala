@@ -19,17 +19,6 @@ fn @compute_config(range_mask: (i32, i32), coarsening_factor: i32) -> ((i32, i32
     ((threads_x, threads_y, 1), (blocks_x, blocks_y))
 }
 
-fn @get_device_copy(img: Img) -> Img {
-    let acc = accelerator(device_id);
-    let img_gpu = alloc_img(img, acc.alloc);
-    copy_img(img, img_gpu);
-    img_gpu
-}
-
-fn @release_device_copy(img: Img) -> () {
-    release(img.buf)
-}
-
 fn @get_ldg_fn() -> fn(&[1]f32) -> f32 { if is_nvvm() { nvvm_ldg_f32 } else { cuda_ldg_f32 } }
 fn @set_pixel_fn(img: Img) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut[1][f32]](img.buf.data)(idx) = val }
 fn @get_pixel_fn(img: Img) -> fn(i32) -> f32 { @|idx| bitcast[&[1][f32]](img.buf.data)(idx) }
