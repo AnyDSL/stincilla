@@ -293,7 +293,7 @@ fn @new_line_buffer(in_s: stream_in, size_x: int, size_y: int) -> swin_acc {
         let sub_lbuf = new_line_buffer(shared_s, size_x, size_y - 1);
         swin_acc {
             read   : @|x, y| {
-                if y == size_y {
+                if y == size_y - 1 {
                     in_s.read(x)
                 } else {
                     sub_lbuf.read(x, y)
@@ -493,7 +493,7 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
     let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height}, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
+    let lbufs = new_line_buffer(in_s, img_stride, swin_y);
     let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun);
 
     // border handling col selection
@@ -528,7 +528,7 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
     let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
+    let lbufs = new_line_buffer(in_s, img_stride, swin_y);
     let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun);
 
     // Constants for Packing
@@ -600,7 +600,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
     //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
+    let lbufs = new_line_buffer(in_s, img_stride, swin_y);
     //let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
     let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
 
@@ -636,7 +636,7 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
     //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y - 1);
+    let lbufs = new_line_buffer(in_s, img_stride, swin_y);
     //let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
     let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
 
