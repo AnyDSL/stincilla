@@ -71,7 +71,7 @@ fn @read_pixeli16(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -
 }
 
 // &   [i16] on CPU/AVX
-// &[1][i16] on CUDA/NVVM & OpenCL
+// &[1][i16] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acci16_bh(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, region: Region, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
     get_acci16_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 }

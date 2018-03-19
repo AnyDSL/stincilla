@@ -187,7 +187,7 @@ fn @read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> f
 }
 
 // &   [f32] on CPU/AVX
-// &[1][f32] on CUDA/NVVM & OpenCL
+// &[1][f32] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acc_bh(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 }
@@ -208,7 +208,7 @@ fn @get_acc_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -
 }
 
 // &   [f32] on CPU/AVX
-// &[3][f32] on CUDA/NVVM & OpenCL
+// &[3][f32] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acc_bh_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset_memory(set_pixel, get_pixel, width, height, 0, 0, region, bh_lower, bh_upper)
 }
