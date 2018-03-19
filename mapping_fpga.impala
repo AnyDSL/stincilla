@@ -7,9 +7,9 @@ fn @pragma_pipeline() -> () {
 type Bounds = (int, int);
 type get_bounds_fun_type = fn(Boundary) -> Bounds;
 type pixel_read_type  = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pixel_t;
-type row_sel_fun_type = fn(int, win_acc) -> ();
+type row_sel_fun_type = fn(int, brdr_assigns_type) -> ();
 type crsn_type = fn(Intrinsics, stream_in, stream_out, int, Mask, int, BoundaryFn, BoundaryFn, StencilFn) -> coarsening_type;
-
+type brdr_assigns_type = fn(int, Boundary, int, int) -> ();
 // ---------------------------- structs ----------------------------------------
 // Stream types for data movements
 struct stream_in {
@@ -342,21 +342,25 @@ fn @new_sliding_win(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int) -> 
 
 // sliding window with row selection
 // todo: reduce the parameter list
-fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, radius_x: int, radius_y: int, pFactor: int, row_sel_fun: row_sel_fun_type) -> swin_acc {
+fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, radius_x: int, radius_y: int, pFactor: int, row_sel_fun: row_sel_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> swin_acc {
     let swin = new_regs2d((0, 0), (swin_x, swin_y));
     let out_width = 2 * radius_x + pFactor;
-    let get_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
 
-    fn @read_fun(y: int, v: int) -> pixel_t { lbufs.read(v, y) }
-    fn @write_fun(y: int, v: int, din: pixel_t) { swin.write(v + swin_x - pFactor, y, din) }
-    let wacc = win_acc{ read: read_fun, write: write_fun, size_x: 0, size_y: pFactor };
+    fn @brdr_assigns(yw: int, boundary: Boundary, lower_high: int, upper_low: int) -> () {
+        for xw in unroll(0, pFactor) {
+            fn @read_fun(i: int) -> pixel_t { lbufs.read(xw, i) };
+            let pix_bh = read_pixel_bh(yw, read_fun, boundary, lower_high, upper_low, bh_lower, bh_upper);
+            swin.write(xw + swin_x - pFactor, yw, pix_bh)
+        }
+    }
+
     fn @shift(col_ridx: int, row_ridx: int) -> () {
         for j in unroll(0, swin_y) {
             for i in unroll(0, swin_x - pFactor) {
                 swin.write(i, j, swin.read(i + pFactor, j));
             }
         }
-        row_sel_fun(row_ridx, wacc);
+        row_sel_fun(row_ridx, brdr_assigns);
     }
 
     swin_acc {
@@ -395,7 +399,7 @@ fn @read_pixel_bh(xw: int, read: fn(int) -> pixel_t, boundary: Boundary, lower_h
         }
 }
 
-fn @(?imx)bh_type0(imx: int, wacc: win_acc, boundary: Boundary, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> () {
+fn @(?imx)bh_type0(imx: int, boundary: Boundary, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, brdr_assigns: brdr_assigns_type) -> () {
     // roi @ image
     let lower_arr   = roi.o_x;
     let upper_arr   = roi.o_x + roi.width;
@@ -403,36 +407,28 @@ fn @(?imx)bh_type0(imx: int, wacc: win_acc, boundary: Boundary, pFactor: int, ro
     let (lower_w, upper_w) = get_bounds_fun(boundary);
     let radius = upper_w - lower_w;
 
-    for xw in unroll(lower_w, upper_w) {
-        for yw in unroll(0, wacc.size_y) {
-            wacc.write(xw, yw, wacc.read(xw, yw));
-        }
+    fn @for_the_bound(boundary: Boundary, lower_high: int, upper_low: int) -> () {
+        for xw in unroll(lower_w, upper_w) {
+            @@brdr_assigns(xw, boundary, lower_high, upper_low);
+        };
     };
+
+    @@for_the_bound(Boundary::Center, 0, 0);
 
     match boundary {
         Boundary::Lower => {
             for x in unroll_step(0, radius, pFactor) {
+                let lower_high = upper_w - x;
                 if imx == lower_arr + x / pFactor {
-                    let lower_high = upper_w - x;
-                    for xw in unroll(lower_w, upper_w) {
-                        for yw in unroll(0, wacc.size_y) {
-                            fn @get_fun(i: int) -> pixel_t { wacc.read(i, yw) };
-                            wacc.write(xw, yw, read_pixel_bh(xw, get_fun, boundary, lower_high, 0, bh_lower, bh_upper));
-                        }
-                    }
+                    @@for_the_bound(boundary, lower_high, 0);
                 }
             }
         },
         Boundary::Upper => {
             for x in unroll_step(0, radius, pFactor) {
+                let upper_low = lower_w + x;
                 if imx == upper_arr - 1 - x / pFactor {
-                    let upper_low = lower_w + x;
-                    for xw in unroll(lower_w, upper_w) {
-                        for yw in unroll(0, wacc.size_y) {
-                            fn @get_fun(i: int) -> pixel_t { wacc.read(i, yw) };
-                            wacc.write(xw, yw, read_pixel_bh(xw, get_fun, boundary, 0, upper_low, bh_lower, bh_upper));
-                        }
-                    }
+                    @@for_the_bound(boundary, 0, upper_low);
                 }
             }
         },
@@ -440,10 +436,11 @@ fn @(?imx)bh_type0(imx: int, wacc: win_acc, boundary: Boundary, pFactor: int, ro
     };
 }
 
-fn @get_type0_row_sel(pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> row_sel_fun_type {
-    @(?idx)|idx, wacc| {
+
+fn @get_type0_row_sel(pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type) -> row_sel_fun_type {
+    @(?idx)|idx, brdr_assigns| {
         for boundary in iterate1d_border() {
-            let bh_type0_fun = bh_type0(idx, wacc, boundary, pFactor, roi, get_bounds_fun, bh_lower, bh_upper);
+            let bh_type0_fun = bh_type0(idx, boundary, pFactor, roi, get_bounds_fun, brdr_assigns);
         }
     }
 }
@@ -466,10 +463,17 @@ fn @new_type0_col_selection(swin: swin_acc, pFactor: int, roi: RoI1d, get_bounds
         else {}
     }
 
-    let wacc = win_acc{read: swin.read, write: write_fun, size_x: 0, size_y: swin.size_y};
+    fn @brdr_assigns(xw: int, boundary: Boundary, lower_high: int, upper_low: int) -> () {
+        for yw in unroll(0, swin.size_y) {
+            fn @get_fun(i: int) -> pixel_t { swin.read(i, yw) };
+            let pix_bh = read_pixel_bh(xw, get_fun, boundary, lower_high, upper_low, bh_lower, bh_upper);
+            write_fun(xw, yw, pix_bh);
+        }
+    }
+
     fn @update(col_ridx: int) -> () {
         for boundary in iterate1d_atborders() {
-            bh_type0(col_ridx, wacc, boundary, pFactor, roi, get_bounds_fun, bh_lower, bh_upper);
+            bh_type0(col_ridx, boundary, pFactor, roi, get_bounds_fun, brdr_assigns);
         }
     }
 
@@ -490,11 +494,11 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
 
     // border handling row selection
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height}, row_bounds_fun, bh_lower, bh_upper);
+    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height}, row_bounds_fun);
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y);
-    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun);
+    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun, bh_lower, bh_upper);
 
     // border handling col selection
     let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
@@ -525,11 +529,11 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 
     // Border_handling
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
-    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height }, row_bounds_fun, bh_lower, bh_upper);
+    let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height }, row_bounds_fun);
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y);
-    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun);
+    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun, bh_lower, bh_upper);
 
     // Constants for Packing
     let delay_width = (pFactor + ((pFactor - radius_x) % pFactor)) % pFactor;
