@@ -1,0 +1,21 @@
+fn main() -> i32 {
+    let num   = 3;
+    let tasks = ~[num:FlowTask];
+
+    let g = create_graph();
+
+    for t in range(0, num) {
+        tasks(t) = with create_task(g) {
+            print_string("task ");
+            print_i32(t);
+            print_string("\n");
+        };
+        if t > 0 {
+            create_edge(tasks(t-1), tasks(t));
+        }
+    }
+
+    execute_flowgraph(g, tasks(0));
+
+    0
+}
