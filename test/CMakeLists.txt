@@ -6,6 +6,14 @@ add_executable(stencil_dsl ${STENCIL_INT_PROGRAM})
 target_link_libraries(stencil_dsl ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("stencil_dsl" stencil_dsl)
 
+anydsl_runtime_wrap(FLOW_GRAPH_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES flow_graph.impala)
+add_executable(flow_graph ${FLOW_GRAPH_PROGRAM})
+target_link_libraries(flow_graph ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("flow_graph" flow_graph)
+
 if(DEVICE STREQUAL "fpga")
     anydsl_runtime_wrap(FPGA_COPY_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
