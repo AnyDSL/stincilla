@@ -1,12 +1,12 @@
 fn main() -> i32 {
-    let num   = 3;
-    let tasks = ~[num:FlowTask];
+    let num_tasks = 3;
+    let tasks = ~[num_tasks:FlowTask];
 
-    let g = create_graph();
+    let graph = create_graph();
 
-    for t in range(0, num) {
-        tasks(t) = with create_task(g) {
-            print_string("task ");
+    for t in range(0, num_tasks) {
+        tasks(t) = with create_task(graph) {
+            print_string("hello from task #");
             print_i32(t);
             print_string("\n");
         };
@@ -15,7 +15,7 @@ fn main() -> i32 {
         }
     }
 
-    execute_flowgraph(g, tasks(0));
+    execute_flowgraph(graph, tasks(0));
 
     0
 }
