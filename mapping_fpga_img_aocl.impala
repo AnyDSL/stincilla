@@ -6,26 +6,26 @@ type pipe = channel;
 // old
 // --------------------- accessor: mapping dependent functions ----------------
 // images
-fn @get_pixel_real_fn(img: Img) -> fn(i32) -> pixel_t     { |idx|      bitcast[&[1][pixel_t]](img.buf.data)(idx) }
-fn @set_pixel_real_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
-fn @get_pixel_virtual_fn(img: Img) -> fn(i32) -> pixel_t     { |idx| read_channel(img.fifo) }
-fn @set_pixel_virtual_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| write_channel(img.fifo, val) }
-
-fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () {
-    if img.virtual == false {
-        set_pixel_real_fn(img)
-    } else {
-        set_pixel_virtual_fn(img)
-    }
-}
-
-fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t {
-    if img.virtual == false {
-        get_pixel_real_fn(img)
-    } else {
-        get_pixel_virtual_fn(img)
-    }
-}
+//fn @get_pixel_real_fn(img: Img) -> fn(i32) -> pixel_t     { |idx|      bitcast[&[1][pixel_t]](img.buf.data)(idx) }
+//fn @set_pixel_real_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
+//fn @get_pixel_virtual_fn(img: Img) -> fn(i32) -> pixel_t     { |idx| read_channel(img.fifo) }
+//fn @set_pixel_virtual_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| write_channel(img.fifo, val) }
+//
+//fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () {
+//    if img.virtual == false {
+//        set_pixel_real_fn(img)
+//    } else {
+//        set_pixel_virtual_fn(img)
+//    }
+//}
+//
+//fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t {
+//    if img.virtual == false {
+//        get_pixel_real_fn(img)
+//    } else {
+//        get_pixel_virtual_fn(img)
+//    }
+//}
 
 // hack
 fn @copy_img(src: Img, dst: Img) -> () {
@@ -127,7 +127,7 @@ fn @channel_to_stream_out_vec1(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec2(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 2 ];
     let pFactor = 2;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { write_channel2(img.fifo, value); }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 2, update, write)
 }
@@ -135,7 +135,7 @@ fn @channel_to_stream_out_vec2(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec4(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 4 ];
     let pFactor = 4;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u);} }
+    fn @update(idx: int) -> () { write_channel4(img.fifo, value); }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 4, update, write)
 }
@@ -143,7 +143,7 @@ fn @channel_to_stream_out_vec4(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec8(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 8 ];
     let pFactor = 8;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { write_channel8(img.fifo, value); }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 8, update, write)
 }
@@ -151,7 +151,7 @@ fn @channel_to_stream_out_vec8(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec16(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 16 ];
     let pFactor = 16;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { write_channel16(img.fifo, value); }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 16, update, write)
 }
@@ -159,7 +159,7 @@ fn @channel_to_stream_out_vec16(img: Img) -> stream_out {
 fn @channel_to_stream_out_vec32(img: Img) -> stream_out {
     let mut value = [ 0 as pixel_t, .. 32 ];
     let pFactor = 32;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { write_channel(img.fifo, value(v)); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { write_channel32(img.fifo, value); }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
     img_to_stream_out(img, 32, update, write)
 }
@@ -174,7 +174,7 @@ fn @channel_to_stream_in_vec1(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec2(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 2 ];
     let pFactor = 2;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { value = read_channel2(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 2, update, read)
 }
@@ -182,7 +182,7 @@ fn @channel_to_stream_in_vec2(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec4(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 4 ];
     let pFactor = 4;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { value = read_channel4(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 4, update, read)
 }
@@ -190,7 +190,7 @@ fn @channel_to_stream_in_vec4(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec8(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 8 ];
     let pFactor = 8;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { value = read_channel8(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 8, update, read)
 }
@@ -198,7 +198,7 @@ fn @channel_to_stream_in_vec8(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec16(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 16 ];
     let pFactor = 16;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { value = read_channel16(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 16, update, read)
 }
@@ -206,7 +206,7 @@ fn @channel_to_stream_in_vec16(img: Img) -> stream_in {
 fn @channel_to_stream_in_vec32(img: Img) -> stream_in {
     let mut value = [ 0 as pixel_t, .. 32 ];
     let pFactor = 32;
-    fn @update(idx: int) -> () { for v in unroll(0, pFactor) { value(v) = read_channel(img.fifo); opencl_barrier(1u); }}
+    fn @update(idx: int) -> () { value = read_channel32(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
     img_to_stream_in(img, 32, update, read)
 }
@@ -331,7 +331,7 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             //FetchAndCalc, CalcAndPack, FetchAndCalc_nobh, CalcAndPack_nobh
-            let coarsening_fun = FetchAndCalc;
+            let coarsening_fun = coarsening_policy;
 
             let in_s  = get_stream(arr_dev);
             let out_s = set_stream(out_dev);
