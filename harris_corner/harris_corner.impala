@@ -10,7 +10,7 @@ extern
 fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     let width  = 2048;
     let height = 2048;
-    let input  = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](img_data) }, width : width, height : height, stride : width };
+    let input  = Img { buf : Buffer { data : bitcast[&[i8]](img_data), size : (width * height * sizeof[pixel_t]()) as i64, device : 0 }, width : width, height : height, stride : width };
     let harris = create_img(width, height, alloc_cpu);
     let dx     = create_img(width, height, alloc_cpu);
     let dy     = create_img(width, height, alloc_cpu);

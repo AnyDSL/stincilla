@@ -15,7 +15,7 @@ fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
 
     let seed_gpu = acc.alloc(width * height * sizeof[u64]());
     let out_gpu  = acc.alloc(width * height * 3 * sizeof[u8]());
-    copy(seed_buf, seed_gpu, width * height * sizeof[u64]());
+    copy(seed_buf, seed_gpu);
 
     for benchmark_acc(acc) {
         for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
@@ -39,7 +39,7 @@ fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
         }
     }
 
-    copy(out_gpu, out, width * height * 3 * sizeof[u8]());
+    copy(out_gpu, out);
     release(seed_buf);
     release(out_gpu);
 }
