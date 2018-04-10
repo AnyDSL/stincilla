@@ -242,7 +242,7 @@ fn @create_img(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Img {
 }
 
 fn @copy_img(src: Img, dst: Img) -> () {
-    copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[f32]())
+    copy(src.buf, dst.buf)
 }
 
 fn @get_mask3(data : [[f32 * 3] * 3]) -> Mask {
