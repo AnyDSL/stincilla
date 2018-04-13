@@ -473,18 +473,20 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
 
 fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) -> (Img, Img) {
     let acc = accelerator(device_id);
+    let arr_dev = get_device_copy(arr);
     let out0 = new_virtual_img(arr.width, arr.height, arr.stride, pipe0);
     let out1 = new_virtual_img(arr.width, arr.height, arr.stride, pipe1);
 
     let pFactor = get_vector_length();
     let image_size = (arr.height * (arr.stride / pFactor) );
     for benchmark_fpga(||) {
-        let   in_s_fn = get_stream(arr);
+        let   in_s_fn = get_stream(arr_dev);
         let out0_s_fn = set_stream(out0);
         let out1_s_fn = set_stream(out1);
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let (in_s, out0_s, out1_s) = (in_s_fn(), out0_s_fn(), out1_s_fn());
             for idx in range(0, image_size) {
+                pragma_pipeline();
                 in_s.update(idx);
                 for v in unroll(0, pFactor) {
                     let data = in_s.read(v);

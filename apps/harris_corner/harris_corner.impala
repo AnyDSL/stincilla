@@ -12,6 +12,8 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     let height = 1024;
     let stride = 1024;
 
+    static mut in_c0  : pipe;
+    static mut in_c1  : pipe;
     static mut dx_c  : pipe;
     static mut dy_c  : pipe;
     static mut dxx_c : pipe;
@@ -53,6 +55,7 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     let enable_offset = 1;
 
     for benchmark_host(num_host_iter) {
+        let (in0, in1) = split_image(math, input, &mut in_c0, &mut in_c1);
         for math, x, y, out, arr, mask in iteration(math, dx, input, mdx, lower, upper) {
             out.write(x, y, apply_stencil(x, y, arr, mask));
         }
