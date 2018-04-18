@@ -11,7 +11,7 @@ type row_sel_fun_type = fn(int, brdr_assigns_type) -> ();
 type crsn_type = fn(Intrinsics, stream_in, stream_out, int, Mask, int, BoundaryFn, BoundaryFn, StencilFn) -> coarsening_type;
 type brdr_assigns_type = fn(int, Boundary, int, int) -> ();
 // ---------------------------- structs ----------------------------------------
-// Stream types for data movements
+// stream types for data movements
 struct stream_in {
     update: fn(int) -> (),
     read  : fn(int) -> pixel_t,
@@ -28,6 +28,18 @@ struct stream_out {
     stride  : int,
     pFactor : int
 }
+
+// hardware type for pipeline2d
+struct Hardware {
+    at_read   : fn() -> (),
+    at_always : fn() -> (),
+    at_write  : fn() -> (),
+    at_update : fn() -> (),
+    initial_delay : int,
+    read_time : int,
+    life_time : int
+}
+
 
 // register arrays
 struct regs1d {
@@ -702,6 +714,22 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
 
 
 //  ------------------- Stencil Processing ----------------------
+fn @pipeline2d(hw: Hardware) -> () {
+    for clock_tick in range(0, hw.life_time) {
+        // read input
+        if clock_tick < hw.read_time { hw.at_read(); }
+
+        // process data
+        hw.at_always();
+
+        // read input
+        if clock_tick > hw.initial_delay { hw.at_write(); }
+
+        // update indices
+        hw.at_update();
+    }
+}
+
 fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: stream_out, in_s: stream_in, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let radius_y = mask.size_y >> 1;
     let radius_x = mask.size_x >> 1;
@@ -716,29 +744,24 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 
     let mut col_ridx = 0; let mut row_ridx = 0;
     let mut col_widx = 0; let mut row_widx = 0;
-    for clock_tick in range(0, life_time) {
-        pragma_pipeline();
 
-        // read new pix
-        if clock_tick < process_time {
-            in_s.update(row_ridx * crsn_stride + col_ridx);
-        }
-
-        // shift on chip mem
-        coarsening.process(col_ridx, row_ridx);
-        //for v in unroll(0, pFactor) { out_s.write(v, in_s.read(v)); }
-
-        // write output
-        if clock_tick > initial_delay {
-            out_s.update(row_widx * crsn_stride + col_widx);
-            col_widx++;
-        }
-
-        // update image indexes
-        col_ridx++;
-        if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
-        if col_widx == crsn_width { col_widx = 0; row_widx++; }
-    }
+    let my_hardware = Hardware {
+        at_read   : || { in_s.update(row_ridx * crsn_stride + col_ridx); },
+        at_always : || { coarsening.process(col_ridx, row_ridx); },
+        at_write  : || {
+                out_s.update(row_widx * crsn_stride + col_widx);
+                col_widx++;
+            },
+        at_update : || {
+                col_ridx++;
+                if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
+                if col_widx == crsn_width { col_widx = 0; row_widx++; }
+            },
+        initial_delay : initial_delay,
+        read_time : process_time,
+        life_time : life_time
+    };
+    pipeline2d(my_hardware);
 }
 
 // //  ------------------------ Padding (WIP) -----------------------------------
