@@ -716,6 +716,8 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
 //  ------------------- Stencil Processing ----------------------
 fn @pipeline2d(hw: Hardware) -> () {
     for clock_tick in range(0, hw.life_time) {
+        pragma_pipeline();
+
         // read input
         if clock_tick < hw.read_time { hw.at_read(); }
 
