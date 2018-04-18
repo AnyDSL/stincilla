@@ -2,32 +2,7 @@
 // pipe support
 type pipe = channel;
 
-
-// old
 // --------------------- accessor: mapping dependent functions ----------------
-// images
-//fn @get_pixel_real_fn(img: Img) -> fn(i32) -> pixel_t     { |idx|      bitcast[&[1][pixel_t]](img.buf.data)(idx) }
-//fn @set_pixel_real_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
-//fn @get_pixel_virtual_fn(img: Img) -> fn(i32) -> pixel_t     { |idx| read_channel(img.fifo) }
-//fn @set_pixel_virtual_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| write_channel(img.fifo, val) }
-//
-//fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () {
-//    if img.virtual == false {
-//        set_pixel_real_fn(img)
-//    } else {
-//        set_pixel_virtual_fn(img)
-//    }
-//}
-//
-//fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t {
-//    if img.virtual == false {
-//        get_pixel_real_fn(img)
-//    } else {
-//        get_pixel_virtual_fn(img)
-//    }
-//}
-
-// hack
 fn @copy_img(src: Img, dst: Img) -> () {
     copy_real_img(src, dst);
 }
