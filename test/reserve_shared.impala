@@ -4,7 +4,7 @@ fn @iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i
     let out_buf_gpu = acc.alloc(width * height * sizeof[f32]());
     let     arr_gpu = bitcast[&   [1][f32]](arr_buf_gpu.data);
     let     out_gpu = bitcast[&mut[1][f32]](out_buf_gpu.data);
-    copy(arr, arr_buf_gpu, width * height * sizeof[f32]());
+    copy(arr, arr_buf_gpu);
 
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
@@ -26,7 +26,7 @@ fn @iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i
     }
     acc.sync();
 
-    copy(out_buf_gpu, out, width * height * sizeof[f32]());
+    copy(out_buf_gpu, out);
     release(out_buf_gpu);
     release(arr_buf_gpu);
 }

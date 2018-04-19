@@ -3,8 +3,8 @@ fn @deriv2D(RHS: Img, img: Img) -> () {
     let mask = get_mask3([[0.0f,  1.0f, 0.0f],
                           [1.0f, -4.0f, 1.0f],
                           [0.0f,  1.0f, 0.0f]]);
-    for math, x, y, rhs_acc, img_acc, mask in iteration_bounds(math, RHS, img, mask, mirror_lower, mirror_upper) {
-        rhs_acc.write(x, y, apply_stencil(x, y, img_acc, mask));
+    for math, x, y, rhs_acc, accs in iteration_bounds(math, RHS, make_img_list1(img, (mask.size_x / 2, mask.size_y / 2)), mirror_lower, mirror_upper) {
+        rhs_acc.write(x, y, apply_stencil(x, y, accs.get(0), mask));
     }
 }
 
@@ -13,8 +13,8 @@ fn @deriv2D(RHS: Img, img: Img) -> () {
 static omega = 0.8f;
 static jacobi_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.00f, 0.25f, 0.00f],
-                                      [0.25f, 0.00f, 0.25f],
-                                      [0.00f, 0.25f, 0.00f]](y)(x) },
+                                       [0.25f, 0.00f, 0.25f],
+                                       [0.00f, 0.25f, 0.00f]](y)(x) },
     size_x : 3, size_y : 3
 };
 // Dirichlet boundary handling -> 0
@@ -29,10 +29,10 @@ fn @jacobi_solver(math: Intrinsics, x: i32, y: i32, Sol: Acc, Tmp: Acc, RHS: Acc
 }
 
 fn @jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
-    for math, x, y, Sol, Tmp, mask in iteration_bounds(math, Sol, Tmp, jacobi_mask, dirichlet_lower, dirichlet_upper) {
-        let RHS = get_acc(RHS, set_pixel_fn(RHS), get_pixel_fn(RHS));
+    for math, x, y, Sol, accs in iteration_bounds(math, Sol, make_img_list2(Tmp, (jacobi_mask.size_x / 2, jacobi_mask.size_y / 2), RHS, (0, 0)), dirichlet_lower, dirichlet_upper) {
+        let (Tmp, RHS) = (accs.get(0), accs.get(1));
         let val = (1.0f - omega) * Tmp.read(x, y) +
-                  0.25f * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, mask);
+                  0.25f * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, jacobi_mask);
         Sol.write(x, y, val);
     }
 }
@@ -41,8 +41,8 @@ fn @jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
 // Residual
 static residual_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.0f,  1.0f, 0.0f],
-                                      [1.0f, -4.0f, 1.0f],
-                                      [0.0f,  1.0f, 0.0f]](y)(x) },
+                                       [1.0f, -4.0f, 1.0f],
+                                       [0.0f,  1.0f, 0.0f]](y)(x) },
     size_x : 3, size_y : 3
 };
 fn @residual_fun(math: Intrinsics, x: i32, y: i32, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
@@ -51,9 +51,9 @@ fn @residual_fun(math: Intrinsics, x: i32, y: i32, Res: Acc, Sol: Acc, RHS: Acc,
 }
 
 fn @residual(math: Intrinsics, Res: Img, Sol: Img, RHS: Img) -> () {
-    for math, x, y, Res, sol_acc, mask in iteration_bounds(math, Res, Sol, residual_mask, dirichlet_lower, dirichlet_upper) {
-        let RHS = get_acc(RHS, set_pixel_fn(RHS), get_pixel_fn(RHS));
-        let val = RHS.read(x, y) + apply_stencil(x, y, sol_acc, mask);
+    for math, x, y, Res, accs in iteration_bounds(math, Res, make_img_list2(Sol, (residual_mask.size_x / 2, residual_mask.size_y / 2), RHS, (0, 0)), dirichlet_lower, dirichlet_upper) {
+        let (Sol, RHS) = (accs.get(0), accs.get(1));
+        let val = RHS.read(x, y) + apply_stencil(x, y, Sol, residual_mask);
         Res.write(x, y, val);
     }
 }
@@ -63,11 +63,11 @@ fn @residual(math: Intrinsics, Res: Img, Sol: Img, RHS: Img) -> () {
 // coarse = Stencil * fine;
 static restrict_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
-                                      [0.50f, 1.00f, 0.50f],
-                                      [0.25f, 0.50f, 0.25f]](y)(x) },
+                                       [0.50f, 1.00f, 0.50f],
+                                       [0.25f, 0.50f, 0.25f]](y)(x) },
     size_x : 3, size_y : 3
 };
-fn @restrict_fun(math: Intrinsics, x: i32, y: i32, RHS: Acc, Res: Acc, mask: Mask) -> () {
+fn @restrict_fun(math: Intrinsics, x: i32, y: i32, RHS: Acc, Res: Acc) -> () {
     let val = Res.read(2*x,   2*y  ) +
               Res.read(2*x+1, 2*y  ) +
               Res.read(2*x,   2*y+1) +
@@ -76,7 +76,8 @@ fn @restrict_fun(math: Intrinsics, x: i32, y: i32, RHS: Acc, Res: Acc, mask: Mas
 }
 
 fn @restrict(math: Intrinsics, RHS: Img, Res: Img) -> () {
-    for math, x, y, RHS, Res, mask in iteration(math, RHS, Res, restrict_mask, nobh_center, nobh_center) {
+    for math, x, y, RHS, accs in iteration(math, RHS, make_img_list1(Res, (0, 0)), nobh_center, nobh_center) {
+        let Res = accs.get(0);
         let val = Res.read(2*x,   2*y  ) +
                   Res.read(2*x+1, 2*y  ) +
                   Res.read(2*x,   2*y+1) +
@@ -90,11 +91,11 @@ fn @restrict(math: Intrinsics, RHS: Img, Res: Img) -> () {
 // fine += Stencil * coarse:
 static interpolate_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
-                                      [0.50f, 1.00f, 0.50f],
-                                      [0.25f, 0.50f, 0.25f]](y)(x) },
+                                       [0.50f, 1.00f, 0.50f],
+                                       [0.25f, 0.50f, 0.25f]](y)(x) },
     size_x : 3, size_y : 3
 };
-fn @interpolate_fun(math: Intrinsics, x: i32, y: i32, SolF: Acc, SolC: Acc, mask: Mask) -> () {
+fn @interpolate_fun(math: Intrinsics, x: i32, y: i32, SolF: Acc, SolC: Acc) -> () {
     let val = SolC.read(x, y);
     SolF.write(2*x  , 2*y  , SolF.read(2*x  , 2*y  ) + val);
     SolF.write(2*x+1, 2*y  , SolF.read(2*x+1, 2*y  ) + val);
@@ -104,7 +105,8 @@ fn @interpolate_fun(math: Intrinsics, x: i32, y: i32, SolF: Acc, SolC: Acc, mask
 
 fn @interpolate(SolF: Img, SolC: Img) -> () {
     // use iteration space of SolC, compute 4x elements
-    for math, x, y, SolC, SolF, mask in iteration(math, SolC, SolF, interpolate_mask, nobh_center, nobh_center) {
+    for math, x, y, SolC, accs in iteration(math, SolC, make_img_list1(SolF, (0, 0)), nobh_center, nobh_center) {
+        let SolF = accs.get(0);
         let val = SolC.read(x, y);
         SolF.write(2*x  , 2*y  , SolF.read(2*x  , 2*y  ) + val);
         SolF.write(2*x+1, 2*y  , SolF.read(2*x+1, 2*y  ) + val);
@@ -204,8 +206,8 @@ fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
 fn @vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
               solver: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), solver_mask: Mask,
               residual: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask,
-              restrict: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask,
-              interpolate: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), interpolate_mask: Mask
+              restrict: fn(Intrinsics, i32, i32, Acc, Acc) -> (),
+              interpolate: fn(Intrinsics, i32, i32, Acc, Acc) -> ()
              ) -> Img {
     let width  = RHS0.width;
     let height = RHS0.height;
@@ -223,38 +225,37 @@ fn @vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
     }
 
     fn @(?level) vcycle_dsl_intern(level: i32) -> () {
-        let rhs_level = RHS(level);
-        let rhs_level_dev = get_device_copy(rhs_level);
         if level == levels-1 {
             // smooth
             for i in unroll(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for math, x, y, sol_acc, tmp_acc, mask in iteration_bounds(math, Sol(level), Tmp(level), solver_mask, dirichlet_lower, dirichlet_upper) {
-                    let rhs_acc = get_acc(rhs_level_dev, set_pixel_fn(rhs_level_dev), get_pixel_fn(rhs_level_dev));
-                    solver(math, x, y, sol_acc, tmp_acc, rhs_acc, mask);
+                for math, x, y, sol_acc, accs in iteration_bounds(math, Sol(level), make_img_list2(Tmp(level), (solver_mask.size_x / 2, solver_mask.size_y / 2), RHS(level), (0, 0)) , dirichlet_lower, dirichlet_upper) {
+                    let (tmp_acc, rhs_acc) = (accs.get(0), accs.get(1));
+                    solver(math, x, y, sol_acc, tmp_acc, rhs_acc, solver_mask);
                 }
             }
         } else {
             // pre-smooth
             for i in unroll(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for math, x, y, sol_acc, tmp_acc, mask in iteration_bounds(math, Sol(level), Tmp(level), solver_mask, dirichlet_lower, dirichlet_upper) {
-                    let rhs_acc = get_acc(rhs_level_dev, set_pixel_fn(rhs_level_dev), get_pixel_fn(rhs_level_dev));
-                    solver(math, x, y, sol_acc, tmp_acc, rhs_acc, mask);
+                for math, x, y, sol_acc, accs in iteration_bounds(math, Sol(level), make_img_list2(Tmp(level), (solver_mask.size_x / 2, solver_mask.size_y / 2), RHS(level), (0, 0)), dirichlet_lower, dirichlet_upper) {
+                    let (tmp_acc, rhs_acc) = (accs.get(0), accs.get(1));
+                    solver(math, x, y, sol_acc, tmp_acc, rhs_acc, solver_mask);
                 }
             }
 
             let merge = true;
             if merge == true {
-                iteration_merge(math, RHS(level+1), Sol(level), RHS(level), dirichlet_lower, dirichlet_upper, residual, residual_mask, restrict, restrict_mask);
+                iteration_merge(math, RHS(level+1), Sol(level), RHS(level), dirichlet_lower, dirichlet_upper, residual, residual_mask, restrict);
             } else {
-                for math, x, y, res_acc, sol_acc, mask in iteration_bounds(math, Res(level), Sol(level), residual_mask, dirichlet_lower, dirichlet_upper) {
-                    let rhs_acc = get_acc(rhs_level_dev, set_pixel_fn(rhs_level_dev), get_pixel_fn(rhs_level_dev));
-                    residual(math, x, y, res_acc, sol_acc, rhs_acc, mask);
+                for math, x, y, res_acc, accs in iteration_bounds(math, Res(level), make_img_list2(Sol(level), (residual_mask.size_x / 2, residual_mask.size_y / 2), RHS(level), (0, 0)), dirichlet_lower, dirichlet_upper) {
+                    let (sol_acc, rhs_acc) = (accs.get(0), accs.get(1));
+                    residual(math, x, y, res_acc, sol_acc, rhs_acc, residual_mask);
                 }
 
-                for math, x, y, rhs_acc, res_acc, mask in iteration(math, RHS(level+1), Res(level), residual_mask, nobh_center, nobh_center) {
-                    restrict(math, x, y, rhs_acc, res_acc, mask);
+                for math, x, y, rhs_acc, accs in iteration(math, RHS(level+1), make_img_list1(Res(level), (0, 0)), nobh_center, nobh_center) {
+                    let res_acc = accs.get(0);
+                    restrict(math, x, y, rhs_acc, res_acc);
                 }
             }
 
@@ -264,20 +265,20 @@ fn @vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
             vcycle_dsl_intern(level+1);
 
             // use iteration space of SolC, compute 4x elements
-            for math, x, y, solc_acc, solf_acc, mask in iteration(math, Sol(level+1), Sol(level), interpolate_mask, nobh_center, nobh_center) {
-                interpolate(math, x, y, solf_acc, solc_acc, mask);
+            for math, x, y, solc_acc, accs in iteration(math, Sol(level+1), make_img_list1(Sol(level), (0, 0)), nobh_center, nobh_center) {
+                let solf_acc = accs.get(0);
+                interpolate(math, x, y, solf_acc, solc_acc);
             }
 
             // post-smooth
             for i in unroll(0, ssteps) {
                 if i>0 { let tmp = Sol(level); Sol(level) = Tmp(level); Tmp(level) = tmp; }
-                for math, x, y, sol_acc, tmp_acc, mask in iteration_bounds(math, Sol(level), Tmp(level), solver_mask, dirichlet_lower, dirichlet_upper) {
-                    let rhs_acc = get_acc(rhs_level_dev, set_pixel_fn(rhs_level_dev), get_pixel_fn(rhs_level_dev));
-                    solver(math, x, y, sol_acc, tmp_acc, rhs_acc, mask);
+                for math, x, y, sol_acc, accs in iteration_bounds(math, Sol(level), make_img_list2(Tmp(level), (solver_mask.size_x / 2, solver_mask.size_y / 2), RHS(level), (0, 0)), dirichlet_lower, dirichlet_upper) {
+                    let (tmp_acc, rhs_acc) = (accs.get(0), accs.get(1));
+                    solver(math, x, y, sol_acc, tmp_acc, rhs_acc, solver_mask);
                 }
             }
         }
-        release_device_copy(rhs_level_dev);
     }
     for i in unroll(0, vsteps) {
         vcycle_dsl_intern(0);
@@ -305,8 +306,8 @@ fn @vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
 
 extern
 fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
-    let img = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](img_data) }, width : width, height : height, stride : width };
-    let out = Img { buf : Buffer { device : 0, data : bitcast[&[i8]](out_data) }, width : width, height : height, stride : width };
+    let img = Img { buf : Buffer { data : bitcast[&[i8]](img_data), size : (width * height * sizeof[f32]()) as i64, device : 0 }, width : width, height : height, stride : width };
+    let out = Img { buf : Buffer { data : bitcast[&[i8]](out_data), size : (width * height * sizeof[f32]()) as i64, device : 0 }, width : width, height : height, stride : width };
     let RHS = create_img(width, height, alloc_cpu);
 
     deriv2D(RHS, img);
@@ -315,7 +316,7 @@ fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
     let vsteps = 1;
     let ssteps = 2;
 
-    let result = vcycle_dsl(RHS, levels, vsteps, ssteps, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, restrict_mask, interpolate_fun, interpolate_mask);
+    let result = vcycle_dsl(RHS, levels, vsteps, ssteps, jacobi_solver, jacobi_mask, residual_fun, residual_mask, restrict_fun, interpolate_fun);
     //let result = vcycle_reference(RHS, levels, vsteps, ssteps);
     print_total_timing();
 

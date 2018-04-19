@@ -6,7 +6,7 @@ fn @grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i3
 fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32, f32) -> () {
     @|x, y, z, c, v| { bitcast[&mut[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c) = v }
 }
-fn @get_device_copy(host: &[f32], size: i32) -> Buffer { Buffer { device : 0, data : bitcast[&[i8]](host) } }
+fn @get_device_copy(host: &[f32], size: i32) -> Buffer { Buffer { data : bitcast[&[i8]](host), size : size as i64, device : 0 } }
 fn @copy_to_host(host: &[f32], img_gpu: Buffer, size: i32) -> () { }
 fn @release_device_copy(img: Buffer) -> () { }
 

@@ -1,7 +1,7 @@
 fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
                     bh_lower: BoundaryFn, bh_upper: BoundaryFn,
                     residual: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
-                    restrict: fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> (), restrict_mask: Mask       // Res -> RHS(+1)
+                    restrict: fn(Intrinsics, i32, i32, Acc, Acc) -> ()                                  // Res -> RHS(+1)
                    ) -> () {
     let coarsening_factor = 1;
     let step   = 2; // restrict by 2x
@@ -32,7 +32,7 @@ fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
                     let tmp_acc  = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), Sol.stride, step * coarsening_factor);
                     let rhsc_acc = get_acc_offset(RHSC, set_pixel_fn(RHSC), get_pixel_fn(RHSC), 0, y/step + yi);
                     for x in range(0, RHSC.width) {
-                        @@restrict(math, x, yi, rhsc_acc, tmp_acc, restrict_mask);
+                        @@restrict(math, x, yi, rhsc_acc, tmp_acc);
                     }
                 }
             }

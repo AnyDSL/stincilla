@@ -1,7 +1,6 @@
 fn @iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(i32, i32, &mut[1][f32], &[1][f32]) -> ()) -> () {
     let num_dev  = 2;
-    let ids_buf  = alloc_cpu(num_dev * sizeof[f32]());
-    let ids      = bitcast[&mut[i32]](ids_buf.data);
+    let ids      = ~[num_dev:i32];
     let size_gpu = width * height / num_dev * sizeof[f32]();
 
     for dev in range(0, num_dev) {
