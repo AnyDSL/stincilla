@@ -4,7 +4,8 @@
 
 #include "pnm_image.h"
 
-extern "C" void run_halide(int*, int, int);
+typedef STINCILLA_DATA_TYPE pixel_t;
+extern "C" void run_halide(pixel_t*, int, int);
 
 /*************************************************************************
  * Main function                                                         *
@@ -20,17 +21,17 @@ int main(int argc, const char **argv) {
 
     // host memory for image of width x height pixels
     // use anydsl::Array from AnyDSL runtime for memory allocation
-    anydsl::Array<int> int_image(width * height);
+    anydsl::Array<pixel_t> pixel_image(width * height);
 
     // initialize data
     for (size_t i=0; i<width*height; ++i)
-        int_image[i] = image[i];
+        pixel_image[i] = image[i];
 
-    run_halide(int_image.data(), width, height);
+    run_halide(pixel_image.data(), width, height);
 
     // write image
     for (size_t i=0; i<width*height; ++i)
-        image[i] = (uint8_t)int_image[i];
+        image[i] = (uint8_t)pixel_image[i];
     write_pnm_image(image, width, height, out.c_str());
 
     return EXIT_SUCCESS;
