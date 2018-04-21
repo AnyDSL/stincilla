@@ -15,7 +15,7 @@ static jacobi_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.00f, 0.25f, 0.00f],
                                        [0.25f, 0.00f, 0.25f],
                                        [0.00f, 0.25f, 0.00f]](y)(x) },
-    size_x : 3, size_y : 3
+    sum : 1.0f, size_x : 3, size_y : 3
 };
 // Dirichlet boundary handling -> 0
 //static dirichlet_lower = wrap_const_fun(const_lower, 0.0f);
@@ -43,7 +43,7 @@ static residual_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.0f,  1.0f, 0.0f],
                                        [1.0f, -4.0f, 1.0f],
                                        [0.0f,  1.0f, 0.0f]](y)(x) },
-    size_x : 3, size_y : 3
+    sum : 0.0f, size_x : 3, size_y : 3
 };
 fn @residual_fun(math: Intrinsics, x: i32, y: i32, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
     let val = RHS.read(x, y) + apply_stencil(x, y, Sol, mask);
@@ -65,7 +65,7 @@ static restrict_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
                                        [0.50f, 1.00f, 0.50f],
                                        [0.25f, 0.50f, 0.25f]](y)(x) },
-    size_x : 3, size_y : 3
+    sum : 4.0f, size_x : 3, size_y : 3
 };
 fn @restrict_fun(math: Intrinsics, x: i32, y: i32, RHS: Acc, Res: Acc) -> () {
     let val = Res.read(2*x,   2*y  ) +
@@ -93,7 +93,7 @@ static interpolate_mask = Mask {
     data : @|x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
                                        [0.50f, 1.00f, 0.50f],
                                        [0.25f, 0.50f, 0.25f]](y)(x) },
-    size_x : 3, size_y : 3
+    sum : 4.0f, size_x : 3, size_y : 3
 };
 fn @interpolate_fun(math: Intrinsics, x: i32, y: i32, SolF: Acc, SolC: Acc) -> () {
     let val = SolC.read(x, y);
