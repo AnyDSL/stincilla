@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
 
 project(STINCILLA CXX)
 enable_testing()
@@ -28,6 +28,9 @@ endif()
 
 set(BACKEND_FILE    ${CMAKE_CURRENT_SOURCE_DIR}/backend_${BACKEND}.impala)
 set(PIXEL_TYPE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/pixel_${PIXEL_TYPE}.impala)
+set(PIXEL_U8_FILE   ${CMAKE_CURRENT_SOURCE_DIR}/pixel_u8.impala)
+set(PIXEL_I32_FILE  ${CMAKE_CURRENT_SOURCE_DIR}/pixel_i32.impala)
+set(PIXEL_F32_FILE  ${CMAKE_CURRENT_SOURCE_DIR}/pixel_f32.impala)
 set(CONFIG_FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE})
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
@@ -69,7 +72,7 @@ set(DSL_TYPE_FILES utils.impala stencil_lib.impala stencil_lib_img_proc.impala)
 anydsl_runtime_wrap(MATMUL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${CONFIG_FILES} utils.impala matmul.impala)
+    FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} utils.impala matmul.impala)
 add_executable(matmul ${MATMUL_PROGRAM})
 target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("matmul" matmul)
