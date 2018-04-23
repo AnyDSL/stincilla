@@ -180,7 +180,7 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     let tmp     = bitcast[&mut[1][i32]](tmp_buf.data);
     let sum_buf = alloc_cpu(sizeof[i32]());
     bitcast[&mut[i32]](sum_buf.data)(0) = 0;
-    copy(sum_buf, tmp_buf, sizeof[i32]());
+    copy(sum_buf, tmp_buf);
 
     let img_gpu = alloc_imgi16(img, acc.alloc);
     copy_imgi16(img, img_gpu);
@@ -219,7 +219,7 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
         }
     }
 
-    copy(tmp_buf, sum_buf, sizeof[i32]());
+    copy(tmp_buf, sum_buf);
     let sum = bitcast[&[i32]](sum_buf.data)(0) / iter_acc;
     release(sum_buf);
     release(tmp_buf);
@@ -393,11 +393,11 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
 }
 fn @find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
     let acc      = accelerator(device_id);
-    let size_buf = Buffer { device : 0, data : bitcast[&[i8]](&mut size) };
+    let size_buf = Buffer { data : bitcast[&[i8]](&mut size), size : (sizeof[i32]()) as i64, device : 0 };
     let pos_buf  = acc.alloc(sizeof[i32]());
     let pos      = bitcast[&mut[1][i32]](pos_buf.data);
     let scan     = bitcast[&   [1][i32]](scan_buf.data);
-    copy(size_buf, pos_buf, sizeof[i32]());
+    copy(size_buf, pos_buf);
 
     let grid  = (size, 1, 1);
     let block = (256, 1, 1);
@@ -412,8 +412,8 @@ fn @find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 
     }
 
     let mut result:i32;
-    let r_buf = Buffer { device : 0, data : bitcast[&[i8]](&mut result) };
-    copy(pos_buf, r_buf, sizeof[i32]());
+    let r_buf = Buffer { data : bitcast[&[i8]](&mut result), size : (sizeof[i32]()) as i64, device : 0 };
+    copy(pos_buf, r_buf);
     release(pos_buf);
     result
 }

@@ -31,7 +31,7 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     // in --            > ixy -- sxy --> hc -- out
     //       \         /              /
     //         -- iy -|-- iyy -- syy -
-    let input  = new_img(width, height, stride, Buffer { device : 0, data : bitcast[&[i8]](img_data) });
+    let input  = new_img(width, height, stride, Buffer { data : bitcast[&[i8]](img_data), size : (width * height * sizeof[pixel_t]()) as i64, device : 0 });
     let harris = create_host_img(width, height);
     let dx  = create_virtual_img(width, height, &mut dx_c );
     let dy  = create_virtual_img(width, height, &mut dy_c );
@@ -56,11 +56,11 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
 
     for benchmark_host(num_host_iter) {
         let (in0, in1) = split_image(math, input, &mut in_c0, &mut in_c1);
-        for math, x, y, out, arr, mask in iteration(math, dx, input, mdx, lower, upper) {
-            out.write(x, y, apply_stencil(x, y, arr, mask));
+        for math, x, y, out, arrs in iteration(math, dx, make_img_list1(input, (mdx.size_x / 2, mdx.size_y / 2)), lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arrs.get(0), mdx));
         }
-        for math, x, y, out, arr, mask in iteration(math, dy, input, mdy, lower, upper) {
-            out.write(x, y, apply_stencil(x, y, arr, mask));
+        for math, x, y, out, arrs in iteration(math, dy, make_img_list1(input, (mdy.size_x / 2, mdy.size_y / 2)), lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arrs.get(0), mdy));
         }
 
         // Replicate virtual images for multiple reads
@@ -68,33 +68,40 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
         let (dy0, dy1) = split_image(math, dy, &mut dy_c0, &mut dy_c1);
 
         // compute dxx, dyy, dxy
-        for math, x, y, out, dx in iteration_point(math, dxx, dx0) {
-            out.write(x, y, dx * dx);
+        for math, x, y, out, arrs in iteration(math, dxx, make_img_list1(dx0, (0, 0)), lower, upper) {
+            let dx = arrs.get(0);
+            out.write(x, y, dx.read(x, y) * dx.read(x, y));
         }
-        for math, x, y, out, dy in iteration_point(math, dyy, dy0) {
-            out.write(x, y, dy * dy);
+        for math, x, y, out, arrs in iteration(math, dyy, make_img_list1(dy0, (0, 0)), lower, upper) {
+            let dy = arrs.get(0);
+            out.write(x, y, dy.read(x, y) * dy.read(x, y));
         }
-        for math, x, y, out, dx, dy in iteration_point2(math, dxy, dx1, dy1) {
-            out.write(x, y, dx * dy);
+        for math, x, y, out, arrs in iteration(math, dxy, make_img_list2(dx1, (0, 0), dy1, (0, 0)), lower, upper) {
+            let (dx, dy) = (arrs.get(0), arrs.get(1));
+            out.write(x, y, dx.read(x, y) * dy.read(x, y));
         }
 
         // compute gxx, gyy, gxy using Gaussian blur
         let mg = get_mask3(gauss_mask3);
 
-        for math, x, y, out, arr, mask in iteration(math, gxx, dxx, mg, lower, upper) {
-            out.write(x, y, apply_stencil(x, y, arr, mask));
+        for math, x, y, out, arrs in iteration(math, gxx, make_img_list1(dxx, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
         }
-        for math, x, y, out, arr, mask in iteration(math, gyy, dyy, mg, lower, upper) {
-            out.write(x, y, apply_stencil(x, y, arr, mask));
+        for math, x, y, out, arrs in iteration(math, gyy, make_img_list1(dyy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
         }
-        for math, x, y, out, arr, mask in iteration(math, gxy, dxy, mg, lower, upper) {
-            out.write(x, y, apply_stencil(x, y, arr, mask));
+        for math, x, y, out, arrs in iteration(math, gxy, make_img_list1(dxy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
         }
 
         // compute score for Harris corner
-        for math, x, y, out, xx, yy, xy in iteration_point3(math, harris, gxx, gyy, gxy) {
-            let det   = xx * yy - xy * xy;
-            let trace = xx + yy;
+        for math, x, y, out, arrs in iteration(math, harris, make_img_list3(gxx, (0, 0), gyy, (0, 0), gxy, (0, 0)), lower, upper) {
+            let (gxx_acc, gyy_acc, gxy_acc) = (arrs.get(0), arrs.get(1), arrs.get(2));
+            let gxx     = gxx_acc.read(x, y);
+            let gyy     = gyy_acc.read(x, y);
+            let gxy     = gxy_acc.read(x, y);
+            let det     = gxx * gyy - gxy * gxy;
+            let trace   = gxx + gyy;
             out.write(x, y, det - trace * trace * k / k_den);
         }
     }

@@ -1,5 +1,5 @@
 type BoundaryFn   = fn(i32, i32, i32) -> BoundaryMode;
-type StencilFn    = fn(Intrinsics, i32, i32, Acc, Acc, Mask) -> ();
+type StencilFn    = fn(Intrinsics, i32, i32, Acc, AccList) -> ();
 type StencilSepFn = fn(Intrinsics, i32, i32, Acc, Acc, MaskSep, bool) -> ();
 type Region       = (Boundary, Boundary);
 
@@ -53,7 +53,7 @@ fn @apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> pixel_t {
         }
     }
 
-    if (mask.sum != 1 as pixel_t) {
+    if mask.sum != 1 as pixel_t && mask.sum != 0 as pixel_t {
         sum /= mask.sum;
     }
 
@@ -77,7 +77,7 @@ fn @apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> pix
         }
     }
 
-    if (mask.sum != 1 as pixel_t) {
+    if mask.sum != 1 as pixel_t && mask.sum != 0 as pixel_t {
         sum /= mask.sum;
     }
 
@@ -190,7 +190,7 @@ fn @read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> p
 }
 
 // &   [pixel_t] on CPU/AVX
-// &[3][pixel_t] on CUDA/NVVM & OpenCL
+// &[3][pixel_t] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acc_bh_memory(set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, width: i32, height: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset_memory(set_pixel, get_pixel, width, height, 0, 0, region, bh_lower, bh_upper)
 }
@@ -253,4 +253,123 @@ fn @get_mask_sep5(data: [pixel_t * 5]) -> MaskSep {
         sum  : sum_mask(5, data),
         size : 5
     }
+}
+
+// image and accessor lists
+
+struct ImgList {
+    get : fn(i32) -> Img,
+    ext : fn(i32) -> (i32, i32),
+    size : i32, id : i32
+}
+
+fn @img_list_empty() -> ImgList {
+    ImgList {
+        get : @|i| undef[Img](),
+        ext : @|i| undef[(i32, i32)](),
+        size : 0, id : 0
+    }
+}
+
+fn @img_list_tail(img: Img, ext: (i32, i32), n: i32) -> ImgList {
+    ImgList {
+        get : @|i| { if i == n - 1 { img } else { undef[Img]() } },
+        ext : @|i| { if i == n - 1 { ext } else { undef[(i32, i32)]() } },
+        size : n, id : n
+    }
+}
+
+fn @img_list_prepend(list: ImgList, img: Img, ext: (i32, i32)) -> ImgList {
+    ImgList {
+        get : @|i| { if i == list.id - 2 { img } else { list.get(i) } },
+        ext : @|i| { if i == list.id - 2 { ext } else { list.ext(i) } },
+        size : list.size, id : list.id - 1
+    }
+}
+
+fn @make_img_list1(img: Img, ext: (i32, i32)) -> ImgList {
+    img_list_tail(img, ext, 1)
+}
+fn @make_img_list2(img1: Img, ext1: (i32, i32), img2: Img, ext2: (i32, i32)) -> ImgList {
+    img_list_prepend(img_list_tail(img2, ext2, 2), img1, ext1)
+}
+fn @make_img_list3(img1: Img, ext1: (i32, i32), img2: Img, ext2: (i32, i32), img3: Img, ext3: (i32, i32)) -> ImgList {
+    img_list_prepend(img_list_prepend(img_list_tail(img3, ext3, 3), img2, ext2), img1, ext1)
+}
+
+fn @img_list_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Img) -> ImgList {
+    fn @map(list: ImgList, i: i32) -> ImgList {
+        if i == 0 {
+            list
+        } else if i == imgs.size {
+            map(img_list_tail(@@body(imgs.get(i - 1), imgs.ext(i - 1)), imgs.ext(i - 1), imgs.size), i - 1)
+        } else {
+            map(img_list_prepend(list, @@body(imgs.get(i - 1), imgs.ext(i - 1)), imgs.ext(i - 1)), i - 1)
+        }
+    }
+
+    map(img_list_empty(), imgs.size)
+}
+
+fn @img_list2acc_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Acc) -> AccList {
+    fn @map(list: AccList, i: i32) -> AccList {
+        if i == 0 {
+            list
+        } else if i == imgs.size {
+            map(acc_list_tail(@@body(imgs.get(i - 1), imgs.ext(i - 1)), imgs.size), i - 1)
+        } else {
+            map(acc_list_prepend(list, @@body(imgs.get(i - 1), imgs.ext(i - 1))), i - 1)
+        }
+    }
+
+    map(acc_list_empty(), imgs.size)
+}
+
+fn @get_max_ext(imgs: ImgList) -> (i32, i32) {
+    fn @max_ext(ext: (i32, i32), i: i32) -> (i32, i32) {
+        if i == 0 {
+            ext
+        } else {
+            max_ext((max(ext(0), imgs.ext(i - 1)(0)), max(ext(1), imgs.ext(i - 1)(1))), i - 1)
+        }
+    }
+
+    max_ext((0, 0), imgs.size)
+}
+
+
+struct AccList {
+    get : fn(i32) -> Acc,
+    size : i32, id : i32
+}
+
+fn @acc_list_empty() -> AccList {
+    AccList {
+        get : @|i| { undef[Acc]() },
+        size : 0, id : 0
+    }
+}
+
+fn @acc_list_tail(acc: Acc, n: i32) -> AccList {
+    AccList {
+        get : @|i| { if i == n - 1 { acc } else { undef[Acc]() } },
+        size : n, id : n
+    }
+}
+
+fn @acc_list_prepend(list: AccList, acc: Acc) -> AccList {
+    AccList {
+        get : @|i| { if i == list.id - 2 { acc } else { list.get(i) } },
+        size : list.size, id : list.id - 1
+    }
+}
+
+fn @make_acc_list1(acc: Acc) -> AccList {
+    acc_list_tail(acc, 1)
+}
+fn @make_acc_list2(acc1: Acc, acc2: Acc) -> AccList {
+    acc_list_prepend(acc_list_tail(acc2, 2), acc1)
+}
+fn @make_acc_list3(acc1: Acc, acc2: Acc, acc3: Acc) -> AccList {
+    acc_list_prepend(acc_list_prepend(acc_list_tail(acc3, 3), acc2), acc1)
 }

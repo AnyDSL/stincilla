@@ -9,14 +9,14 @@ fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i
 fn @get_device_copy(host: &[f32], size: i32) -> Buffer {
     let acc = accelerator(device_id);
     let img_gpu = acc.alloc(size);
-    let img_cpu = Buffer { device : 0, data : bitcast[&[i8]](host) };
-    copy(img_cpu, img_gpu, size);
+    let img_cpu = Buffer { data : bitcast[&[i8]](host), size : size as i64, device : 0 };
+    copy(img_cpu, img_gpu);
     img_gpu
 }
 
 fn @copy_to_host(host: &[f32], img_gpu: Buffer, size: i32) -> () {
-    let img_cpu = Buffer { device : 0, data : bitcast[&[i8]](host) };
-    copy(img_gpu, img_cpu, size);
+    let img_cpu = Buffer { data : bitcast[&[i8]](host), size : size as i64, device : 0 };
+    copy(img_gpu, img_cpu);
 }
 
 fn @release_device_copy(img: Buffer) -> () {

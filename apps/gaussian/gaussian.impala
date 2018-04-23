@@ -45,8 +45,8 @@ fn main() -> i32 {
 
     let iteration_fun = iteration;                  // SS
     for benchmark_host(num_host_iter) {
-        for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, out, arr, mask, lower, upper) {
-            out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+        for math, x, y, out, accs in iteration_fun(math, out, make_img_list1(arr, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
+            out.write(x, y, apply_stencil(x, y, accs.get(0), mask));
         }
     }
     print_total_timing();
@@ -57,8 +57,8 @@ fn main() -> i32 {
     // //let iteration_fun = fac_nobh;
     // let iteration_fun = fac_padding;
     // let pFactor = 1;
-    // for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, pFactor, out, arr, mask, lower, upper) {
-    //     out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+    // for math, x, y, out, accs, mask in iteration_fun(math, pFactor, out, make_img_list1(arr, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
+    //     out.write(x, y, apply_stencil(x, y, accs.get(0), mask));
     // }
 
     fn reference() -> i32 {

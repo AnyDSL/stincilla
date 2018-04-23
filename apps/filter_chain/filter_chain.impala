@@ -46,16 +46,16 @@ fn main() -> i32 {
     let enable_offset = 1;
 
     for benchmark_host(num_host_iter) {
-        for math, x, y, out_acc, arr_acc, mask in iteration(math, out0, arr, mask, lower, upper) {
-            out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+        for math, x, y, out, arrs in iteration(math, out0, make_img_list1(arr, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arrs.get(0), mask));
         }
 
-        for math, x, y, out_acc, arr_acc, mask in iteration(math, out1, out0, mask, lower, upper) {
-            out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+        for math, x, y, out, arrs in iteration(math, out1, make_img_list1(out0, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arrs.get(0), mask));
         }
 
-        for math, x, y, out_acc, arr_acc, mask in iteration(math, out, out1, mask, lower, upper) {
-            out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+        for math, x, y, out, arrs in iteration(math, out, make_img_list1(out1, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arrs.get(0), mask));
         }
     }
     print_total_timing();

@@ -23,11 +23,11 @@ fn @create_img(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Img {
 }
 
 fn @copy_img(src: Img, dst: Img) -> () {
-    copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[pixel_t]())
+    copy(src.buf, dst.buf)
 }
 
 // &   [pixel_t] on CPU/AVX
-// &[1][pixel_t] on CUDA/NVVM & OpenCL
+// &[1][pixel_t] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acc_bh(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
     get_acc_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 }

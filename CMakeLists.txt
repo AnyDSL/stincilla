@@ -3,9 +3,8 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(STINCILLA CXX)
 enable_testing()
 
-find_package(AnyDSL-runtime REQUIRED)
-include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
-include_directories(${ANYDSL_RUNTIME_DIR}/src)
+find_package(AnyDSL_runtime REQUIRED)
+include_directories(${AnyDSL_runtime_INCLUDE_DIRS})
 
 set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU, AOCL, HLS")
 if(NOT BACKEND)
@@ -27,8 +26,9 @@ else()
     set(STINCILLA_DATA_TYPE float)
 endif()
 
-set(BACKEND_FILE ${CMAKE_CURRENT_SOURCE_DIR}/backend_${BACKEND}.impala)
-set(PIXEL_TYPE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/pixel_${PIXEL_TYPE}.impala)
+set(BACKEND_FILE    ${CMAKE_CURRENT_SOURCE_DIR}/backend_${BACKEND}.impala)
+set(PIXEL_TYPE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/pixel_${PIXEL_TYPE}.impala)
+set(CONFIG_FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE})
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
@@ -48,27 +48,28 @@ endif()
 
 set(CLANG_FLAGS -march=native)
 set(IMPALA_FLAGS --log-level info)
+set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
-#add_subdirectory(aobench)
-#add_subdirectory(bilateral_grid)
-#add_subdirectory(halide)
+add_subdirectory(aobench)
+add_subdirectory(bilateral_grid)
+add_subdirectory(halide)
 add_subdirectory(test)
-#add_subdirectory(image_sharpening)
-#add_subdirectory(sorting_networks)
-#add_subdirectory(vcycle)
+add_subdirectory(image_sharpening)
+add_subdirectory(sorting_networks)
+add_subdirectory(vcycle)
 add_subdirectory(apps)
 add_subdirectory(harris_corner)
 
 set(DSL_TYPE_FILES utils.impala stencil_lib.impala stencil_lib_img_proc.impala)
 
-# #simple CPU-based examples
-# anydsl_runtime_wrap(MATMUL_PROGRAM
-#     CLANG_FLAGS ${CLANG_FLAGS}
-#     IMPALA_FLAGS ${IMPALA_FLAGS}
-#     FILES ${BACKEND_FILE} utils.impala matmul.impala)
-# add_executable(matmul ${MATMUL_PROGRAM})
-# target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
-# add_test("matmul" matmul)
+# simple CPU-based examples
+anydsl_runtime_wrap(MATMUL_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ${CONFIG_FILES} utils.impala matmul.impala)
+add_executable(matmul ${MATMUL_PROGRAM})
+target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("matmul" matmul)

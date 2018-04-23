@@ -60,7 +60,7 @@ anydsl_runtime_wrap(BILATERAL_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${APPS_CONFIG_FILES} ${COMMON_FILES_F32} ${BILATERAL_FILES})
 add_executable(bilateral ${BILATERAL_PROGRAM})
-target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
 
 anydsl_runtime_wrap(BOX_FILTER_PROGRAM
@@ -68,7 +68,7 @@ anydsl_runtime_wrap(BOX_FILTER_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${BOX_FILTER_FILES})
 add_executable(box_filter ${BOX_FILTER_PROGRAM})
-target_link_libraries(box_filter ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(box_filter ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("box_filter" box_filter)
 
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
@@ -76,7 +76,7 @@ anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${GAUSSIAN_FILES})
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
-target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
 
 anydsl_runtime_wrap(JACOBI_PROGRAM
@@ -84,7 +84,7 @@ anydsl_runtime_wrap(JACOBI_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${JACOBI_FILES})
 add_executable(jacobi ${JACOBI_PROGRAM})
-target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("jacobi" jacobi)
 
 anydsl_runtime_wrap(FILTER_CHAIN_PIPE_PROGRAM
@@ -93,7 +93,7 @@ anydsl_runtime_wrap(FILTER_CHAIN_PIPE_PROGRAM
     FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${FILTER_CHAIN_FILES})
 add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 add_executable(filter_chain_pipe ${FILTER_CHAIN_PIPE_PROGRAM})
-target_link_libraries(filter_chain_pipe ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(filter_chain_pipe ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(filter_chain_pipe PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 
 anydsl_runtime_wrap(HARRIS_CORNER_PIPE_PROGRAM
@@ -101,6 +101,6 @@ anydsl_runtime_wrap(HARRIS_CORNER_PIPE_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${HARRIS_CORNER_FILES})
 add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
-add_executable(harris_corner_pipe "${HARRIS_CORNER_DIR}/main.cpp" ${HARRIS_CORNER_PIPE_PROGRAM})
-target_link_libraries(harris_corner_pipe ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+add_executable(harris_corner_pipe ${HARRIS_CORNER_DIR}/main.cpp ${HARRIS_CORNER_PIPE_PROGRAM})
+target_link_libraries(harris_corner_pipe ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(harris_corner_pipe PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
