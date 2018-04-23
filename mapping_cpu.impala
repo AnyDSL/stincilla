@@ -3,57 +3,6 @@ fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t { @|idx| bitcast[&[pixel_t]](im
 fn @set_pixel_memory_fn(buf: Buffer) -> fn(i32, pixel_t) -> () { @|idx, val| bitcast[&mut[pixel_t]](buf.data)(idx) = val }
 fn @get_pixel_memory_fn(buf: Buffer) -> fn(i32) -> pixel_t { @|idx| bitcast[&[pixel_t]](buf.data)(idx) }
 
-// TOOD: remove
-fn @iteration_point(math: Intrinsics, out: Img, arr: Img, body: fn(Intrinsics, i32, i32, Acc, pixel_t) -> ()) -> () {
-    let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
-    let arr_acc = get_acc(arr, set_pixel_fn(arr), get_pixel_fn(arr));
-
-    for benchmark_cpu() {
-        for y in outer_loop(0, out.height) {
-            for x in inner_loop(0, out.width) {
-                let arr_pix = arr_acc.read(x, y);
-                @@body(math, x, y, out_acc, arr_pix);
-            }
-        }
-    }
-}
-
-// TOOD: remove
-fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(Intrinsics, i32, i32, Acc, pixel_t, pixel_t) -> ()) -> () {
-    let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
-    let arr0_acc = get_acc(arr0, set_pixel_fn(arr0), get_pixel_fn(arr0));
-    let arr1_acc = get_acc(arr1, set_pixel_fn(arr1), get_pixel_fn(arr1));
-
-    for benchmark_cpu() {
-        for y in outer_loop(0, out.height) {
-            for x in inner_loop(0, out.width) {
-                let arr0_pix = arr0_acc.read(x, y);
-                let arr1_pix = arr1_acc.read(x, y);
-                @@body(math, x, y, out_acc, arr0_pix, arr1_pix);
-            }
-        }
-    }
-}
-
-// TOOD: remove
-fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img, body: fn(Intrinsics, i32, i32, Acc, pixel_t, pixel_t, pixel_t) -> ()) -> () {
-    let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
-    let arr0_acc = get_acc(arr0, set_pixel_fn(arr0), get_pixel_fn(arr0));
-    let arr1_acc = get_acc(arr1, set_pixel_fn(arr1), get_pixel_fn(arr1));
-    let arr2_acc = get_acc(arr2, set_pixel_fn(arr2), get_pixel_fn(arr2));
-
-    for benchmark_cpu() {
-        for y in outer_loop(0, out.height) {
-            for x in inner_loop(0, out.width) {
-                let arr0_pix = arr0_acc.read(x, y);
-                let arr1_pix = arr1_acc.read(x, y);
-                let arr2_pix = arr2_acc.read(x, y);
-                @@body(math, x, y, out_acc, arr0_pix, arr1_pix, arr2_pix);
-            }
-        }
-    }
-}
-
 fn @iteration(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
     let accs = for img, ext in img_list2acc_map(imgs) {
