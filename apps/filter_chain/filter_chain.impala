@@ -30,7 +30,7 @@ fn main() -> i32 {
     let out    = create_host_img(width, height);
     let out0   = create_virtual_img(width, height, &mut out0_buf);
     let out1   = create_virtual_img(width, height, &mut out1_buf);
-    init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
+    init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, arr.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
     let mask     = get_mask5(mask5);
