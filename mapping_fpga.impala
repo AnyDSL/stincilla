@@ -744,21 +744,17 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
     let initial_delay = crsn_width * radius_y + win_lat - 1;
     let life_time     = initial_delay + process_time + 1;
 
-    let mut col_ridx = 0; let mut row_ridx = 0;
-    let mut col_widx = 0; let mut row_widx = 0;
+    let mut col_ridx = 0;
+    let mut row_ridx = 0; // border handling
+    let mut ridx = 0;
 
     let my_hardware = Hardware {
-        at_read   : || { in_s.update(row_ridx * crsn_stride + col_ridx); },
+        at_read   : || { in_s.update(ridx); },
         at_always : || { coarsening.process(col_ridx, row_ridx); },
-        at_write  : || {
-                out_s.update(row_widx * crsn_stride + col_widx);
-                col_widx++;
-            },
-        at_update : || {
-                col_ridx++;
-                if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
-                if col_widx == crsn_width { col_widx = 0; row_widx++; }
-            },
+        at_write  : || { out_s.update(ridx - (initial_delay + 1)); },
+        at_update : || { ridx++;
+                         col_ridx++;
+                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
         initial_delay : initial_delay,
         read_time : process_time,
         life_time : life_time
