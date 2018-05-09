@@ -56,10 +56,10 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
 
     for benchmark_host(num_host_iter) {
         let (in0, in1) = split_image(math, input, &mut in_c0, &mut in_c1);
-        for math, x, y, out, arr, mask in iteration(math, dx, input, mdx, lower, upper) {
+        for math, x, y, out, arr, mask in iteration(math, dx, in0, mdx, lower, upper) {
             out.write(x, y, apply_stencil(x, y, arr, mask));
         }
-        for math, x, y, out, arr, mask in iteration(math, dy, input, mdy, lower, upper) {
+        for math, x, y, out, arr, mask in iteration(math, dy, in1, mdy, lower, upper) {
             out.write(x, y, apply_stencil(x, y, arr, mask));
         }
 
