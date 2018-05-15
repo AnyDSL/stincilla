@@ -8,7 +8,7 @@ type Bounds = (int, int);
 type get_bounds_fun_type = fn(Boundary) -> Bounds;
 type pixel_read_type  = fn(int, int, Boundary, Bounds, fn(int) -> pixel_t) -> pixel_t;
 type row_sel_fun_type = fn(int, brdr_assigns_type) -> ();
-type crsn_type = fn(Intrinsics, stream_in, stream_out, int, Mask, int, BoundaryFn, BoundaryFn, StencilFn) -> coarsening_type;
+type crsn_type = fn(Intrinsics, stream_in, stream_out, int, (i32, i32), int, BoundaryFn, BoundaryFn, StencilFn) -> coarsening_type;
 type brdr_assigns_type = fn(int, Boundary, int, int) -> ();
 // ---------------------------- structs ----------------------------------------
 // stream types for data movements
@@ -496,11 +496,10 @@ fn @new_type0_col_selection(swin: swin_acc, pFactor: int, roi: RoI1d, get_bounds
 }
 
 //  -------------------  Loop Coarsening  ----------------------
-fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
-    let radius_y = mask.size_y >> 1;
-    let radius_x = mask.size_x >> 1;
+fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, ext: (i32, i32), pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+    let (radius_x, radius_y) = ext;
     let win_lat = round_up(radius_x, pFactor) / pFactor;
-    let swin_y = mask.size_y;
+    let swin_y = 2 * radius_y + 1;
     let swin_x = radius_x + (1 + win_lat) * pFactor;
     let swin_x_opt = pFactor + 2 * radius_x;
 
@@ -523,7 +522,7 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
             let out_acc = Acc { read : |x, y| 0 as pixel_t,          write : @(?x & ?y)|x, y, data| out_s.write(v, data) };
-            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, make_acc_list1(win_acc));
             //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
         }
     }
@@ -533,10 +532,9 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
     }
 }
 
-fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
-    let radius_y = mask.size_y >> 1;
-    let radius_x = mask.size_x >> 1;
-    let swin_y = mask.size_y;
+fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, ext: (i32, i32), pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+    let (radius_x, radius_y) = ext;
+    let swin_y = 2 * radius_y + 1;
     let swin_x = pFactor + 2 * radius_x;
 
     // Border_handling
@@ -592,7 +590,7 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
             let out_acc = Acc { read : @|x, y| 0 as pixel_t, write : pack(v) };
-            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, make_acc_list1(win_acc));
             //vec_pix_out_acc.write(0, 0, in_acc.read(radius_x, radius_y));
         }
     }
@@ -603,11 +601,10 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
 }
 
 // coarsening nobh
-fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
-    let radius_y = mask.size_y >> 1;
-    let radius_x = mask.size_x >> 1;
+fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, ext: (i32, i32), pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+    let (radius_x, radius_y) = ext;
     let win_lat = round_up(radius_x, pFactor) / pFactor;
-    let swin_y = mask.size_y;
+    let swin_y = 2 * radius_y + 1;
     let swin_x = radius_x + (1 + win_lat) * pFactor;
     let swin_x_opt = pFactor + 2 * radius_x;
 
@@ -631,7 +628,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
             let out_acc = Acc { read : @|x, y| 0 as pixel_t,        write : @|x, y, data| out_s.write(v, data) };
-            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, make_acc_list1(win_acc));
             //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
         }
     }
@@ -641,10 +638,9 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
     }
 }
 
-fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
-    let radius_y = mask.size_y >> 1;
-    let radius_x = mask.size_x >> 1;
-    let swin_y = mask.size_y;
+fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, ext: (i32, i32), pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+    let (radius_x, radius_y) = ext;
+    let swin_y = 2 * radius_y + 1;
     let swin_x = pFactor + 2 * radius_x;
 
     // Border_handling
@@ -702,7 +698,7 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
             //let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
             let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
             let out_acc = Acc { read : @|x, y| 0 as pixel_t, write : pack(v) };
-            @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
+            @@body(math, radius_x, radius_y, out_acc, make_acc_list1(win_acc));
             //vec_pix_out_acc.write(0, 0, in_acc.read(radius_x, radius_y));
         }
     }
@@ -732,14 +728,13 @@ fn @pipeline2d(hw: Hardware) -> () {
     }
 }
 
-fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: stream_out, in_s: stream_in, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let radius_y = mask.size_y >> 1;
-    let radius_x = mask.size_x >> 1;
+fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: stream_out, in_s: stream_in, ext: (i32, i32), bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+    let (radius_x, radius_y) = ext;
     let win_lat = round_up(radius_x, pFactor) / pFactor;
     let crsn_width  = (in_s.width - 1) / pFactor + 1;
     let crsn_stride = (in_s.stride -1) / pFactor + 1;
 
-    let coarsening = coarsening_fun(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
+    let coarsening = coarsening_fun(math, in_s, out_s, crsn_width, ext, pFactor, bh_lower, bh_upper, body);
     let process_time  = crsn_width * in_s.height;
     let initial_delay = crsn_width * radius_y + win_lat - 1;
     let life_time     = initial_delay + process_time + 1;
@@ -781,10 +776,10 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 // fn amirror_upper(idx: i32, lower: i32, upper: i32) -> int{
 //     if idx >= upper { upper - (idx+1 - upper) } else { idx }
 // }
-// fn @pad_in_stream(in_s: stream_in, mask: Mask) -> padded_stream_in {
+// fn @pad_in_stream(in_s: stream_in, ext: (i32, i32)) -> padded_stream_in {
 //     fn @update(col_idx: int, row_idx: int, stride : int) -> () {
-//         let col = col_idx - (mask.size_x >> 1);
-//         let row = row_idx - (mask.size_y >> 1);
+//         let col = col_idx - ext(0);
+//         let row = row_idx - ext(1);
 //         let col_bh = amirror_upper(amirror_lower(col, 0, 0), 0, 1024);
 //         let row_bh = amirror_upper(amirror_lower(row, 0, 0), 0, 1024);
 //         //if col >= 0 && row >= 0 {
@@ -797,10 +792,10 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //         update : update
 //     }
 // }
-// fn @crop_out_stream(out_s: stream_out, mask: Mask) -> padded_stream_out {
+// fn @crop_out_stream(out_s: stream_out, ext: (i32, i32)) -> padded_stream_out {
 //     fn @update(col_idx: int, row_idx: int, stride : int) -> (){
-//         let col = col_idx - (mask.size_x - 1);
-//         let row = row_idx - (mask.size_y - 1);
+//         let col = col_idx - ext(0);
+//         let row = row_idx - ext(1);
 //         if col >= 0 && row >= 0 {
 //             out_s.update(row * stride + col);
 //         }
@@ -812,7 +807,7 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //     }
 // }
 // 
-// fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+// fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, ext: (i32, i32), bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
 //     let acc = accelerator(device_id);
 //     let arr_dev = alloc_img(arr, acc.alloc);
 //     let out_dev = alloc_img(out, acc.alloc);
@@ -820,20 +815,19 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //     copy_img(arr, arr_dev);
 //     for benchmark_fpga(acc) {
 //         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-//             let radius_y = mask.size_y >> 1;
-//             let radius_x = mask.size_x >> 1;
+//             let (radius_x, radius_y) = ext;
 // 
 //             // output image
 //             let out_stride = (arr.stride - 1) / pFactor + 1;
 //             let out_s      = set_stream_from_global_img(out_dev, pFactor);
-//             let out_s_pad  = crop_out_stream(out_s, mask);
+//             let out_s_pad  = crop_out_stream(out_s, ext);
 // 
 //             // input image
 //             let in_s      = get_stream_from_global_img(arr_dev, pFactor);
 //             // padding
-//             let in_s_pad  = pad_in_stream(in_s, mask);
-//             let crsn_stride = (arr.stride + mask.size_x - 2) / pFactor + 1;
-//             let crsn_width  = (arr.width + mask.size_x - 2) / pFactor + 1;
+//             let in_s_pad  = pad_in_stream(in_s, ext);
+//             let crsn_stride = (arr.stride + 2 * radius_x - 1) / pFactor + 1;
+//             let crsn_width  = (arr.width  + 2 * radius_x - 1) / pFactor + 1;
 //             let crsn_height = arr.height + 2 * radius_y;
 // 
 //             let init_lat_x  = 2 * radius_x - 1;
@@ -843,7 +837,7 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //             let process_time  = crsn_width * crsn_height;
 //             let life_time     = initial_delay + process_time - 1;
 // 
-//             let coarsening = FetchAndCalc_nobh(math, in_s_pad.stream, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
+//             let coarsening = FetchAndCalc_nobh(math, in_s_pad.stream, out_s, crsn_width, ext, pFactor, bh_lower, bh_upper, body);
 // 
 //             let mut col_ridx = 0; let mut row_ridx = 0;
 //             let mut col_widx = 0; let mut row_widx = 0;

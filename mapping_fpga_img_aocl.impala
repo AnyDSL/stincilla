@@ -11,7 +11,7 @@ fn @copy_img(src: Img, dst: Img) -> () {
 // --------------------- memory copy functions --------------------------------
 fn @copy_real_img(src: Img, dst: Img) -> () {
     if src.virtual == false {
-        copy(src.buf, dst.buf);
+        copy(src.buf, dst.buf)
     }
 }
 
@@ -37,7 +37,7 @@ fn @get_aocl_sync(img: Img) -> fn() -> () {
 
 fn @get_host_copy(img_dev: Img, img: Img) -> () {
     if img_dev.virtual == false {
-        copy_real_img(img_dev, img);
+        copy_real_img(img_dev, img)
     } 
 }
 
@@ -297,10 +297,13 @@ fn @set_global_stream_vec32(img: Img) -> stream_out {
 }
 
 //  ------------------- Stencil Processing ----------------------
-fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+fn @iteration(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
-    let arr_dev = get_device_copy(arr);
+    let ext = get_max_ext(imgs);
     let out_dev = get_device_copy(out);
+    let imgs_gpu = for img, ext in img_list_map(imgs) {
+        get_device_copy(img)
+    };
 
     for benchmark_fpga( get_aocl_sync(out) ) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
@@ -308,9 +311,10 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
             //FetchAndCalc, CalcAndPack, FetchAndCalc_nobh, CalcAndPack_nobh
             let coarsening_fun = coarsening_policy;
 
-            let in_s  = get_stream(arr_dev);
+            // TODO: stream list
+            let in_s  = get_stream(imgs_gpu.get(0));
             let out_s = set_stream(out_dev);
-            iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
+            iter_body(math, coarsening_fun, pFactor, out_s, in_s, ext, bh_lower, bh_upper, body);
         }
     }
     get_host_copy(out_dev, out);
