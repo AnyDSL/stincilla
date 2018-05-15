@@ -53,7 +53,7 @@ static iter_gpu  =  7;
 static iter_fpga =  5;
 static num_host_iter = 5;
 fn @benchmark_cpu(                   body: fn() -> ()) -> () { total_cpu_timing  += benchmark(get_micro_time,  iter_cpu,  body, ||) }
-fn @benchmark_acc(acc: Accelerator,  body: fn() -> ()) -> () { total_gpu_timing  += benchmark(get_kernel_time, iter_gpu,  body, acc.sync) }
+fn @benchmark_gpu(gpu: Accelerator,  body: fn() -> ()) -> () { total_gpu_timing  += benchmark(get_kernel_time, iter_gpu,  body, gpu.sync) }
 fn @benchmark_fpga(sync: fn() -> (), body: fn() -> ()) -> () {
     let start = get_micro_time();
     body();

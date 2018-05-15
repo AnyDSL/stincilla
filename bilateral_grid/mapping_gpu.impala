@@ -7,8 +7,8 @@ fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i
     @|x, y, z, c, v| { bitcast[&mut[1][f32]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c) = v }
 }
 fn @get_device_copy(host: &[f32], size: i32) -> Buffer {
-    let acc = accelerator(device_id);
-    let img_gpu = acc.alloc(size);
+    let gpu = accelerator(device_id);
+    let img_gpu = gpu.alloc(size);
     let img_cpu = Buffer { data : bitcast[&[i8]](host), size : size as i64, device : 0 };
     copy(img_cpu, img_gpu);
     img_gpu
@@ -24,18 +24,18 @@ fn @release_device_copy(img: Buffer) -> () {
 }
 
 fn @alloc_grid(size: i32) -> Buffer {
-    let acc = accelerator(device_id);
-    acc.alloc(size)
+    let gpu = accelerator(device_id);
+    gpu.alloc(size)
 }
 
 fn @iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
-    let acc = accelerator(device_id);
+    let gpu = accelerator(device_id);
     let coarsening_factor = 1;
     let grid  = (bgrid.width(), bgrid.height() / coarsening_factor, 1);
     let block = (32, 4, 1);
 
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -56,13 +56,13 @@ fn @iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
 }
 
 fn @iteration_space(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
-    let acc = accelerator(device_id);
+    let gpu = accelerator(device_id);
     let coarsening_factor = 1;
     let grid  = (width, height / coarsening_factor, 1);
     let block = (32, 4, 1);
 
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;

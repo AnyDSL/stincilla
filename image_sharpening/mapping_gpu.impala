@@ -18,16 +18,16 @@ fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
                   body: fn(i32, i32, Acc, Acci16) -> ()
                  ) -> () {
     let coarsening_factor = 1;
-    let acc   = accelerator(device_id);
+    let gpu   = accelerator(device_id);
     let grid  = (out.width, out.height / coarsening_factor, 1);
     let block = (32, 4, 1);
 
-    let out_gpu = alloc_img   (out, acc.alloc);
-    let arr_gpu = alloc_imgi16(arr, acc.alloc);
+    let out_gpu = alloc_img   (out, gpu.alloc);
+    let arr_gpu = alloc_imgi16(arr, gpu.alloc);
     copy_imgi16(arr, arr_gpu);
 
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -56,16 +56,16 @@ fn @iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bou
                 body: fn(i32, i32, Acci16, Acci16) -> ()
                ) -> () {
     let coarsening_factor = 1;
-    let acc   = accelerator(device_id);
+    let gpu   = accelerator(device_id);
     let grid  = (out.width, out.height / coarsening_factor, 1);
     let block = (32, 4, 1);
 
-    let out_gpu = alloc_imgi16(out, acc.alloc);
-    let arr_gpu = alloc_imgi16(arr, acc.alloc);
+    let out_gpu = alloc_imgi16(out, gpu.alloc);
+    let arr_gpu = alloc_imgi16(arr, gpu.alloc);
     copy_imgi16(arr, arr_gpu);
 
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -94,18 +94,18 @@ fn @iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, b
                   body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
                  ) -> () {
     let coarsening_factor = 1;
-    let acc   = accelerator(device_id);
+    let gpu   = accelerator(device_id);
     let grid  = (out.width, out.height / coarsening_factor, 1);
     let block = (32, 4, 1);
 
-    let out_gpu = alloc_imgi16(out, acc.alloc);
-    let img_gpu = alloc_imgi16(img, acc.alloc);
-    let map_gpu = alloc_img   (map, acc.alloc);
+    let out_gpu = alloc_imgi16(out, gpu.alloc);
+    let img_gpu = alloc_imgi16(img, gpu.alloc);
+    let map_gpu = alloc_img   (map, gpu.alloc);
     copy_imgi16(img, img_gpu);
     copy_img   (map, map_gpu);
 
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -136,18 +136,18 @@ fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
                 body: fn(i32, i32, Acci16, Acci16, Acci16) -> ()
                ) -> () {
     let coarsening_factor = 1;
-    let acc   = accelerator(device_id);
+    let gpu   = accelerator(device_id);
     let grid  = (out.width, out.height / coarsening_factor, 1);
     let block = (32, 4, 1);
 
-    let out_gpu = alloc_imgi16(out, acc.alloc);
-    let img_gpu = alloc_imgi16(img, acc.alloc);
-    let tmp_gpu = alloc_imgi16(tmp, acc.alloc);
+    let out_gpu = alloc_imgi16(out, gpu.alloc);
+    let img_gpu = alloc_imgi16(img, gpu.alloc);
+    let tmp_gpu = alloc_imgi16(tmp, gpu.alloc);
     copy_imgi16(img, img_gpu);
     copy_imgi16(tmp, tmp_gpu);
 
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -175,20 +175,20 @@ fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     release(tmp_gpu.buf);
 }
 fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
-    let acc = accelerator(device_id);
-    let tmp_buf = acc.alloc(sizeof[i32]());
+    let gpu = accelerator(device_id);
+    let tmp_buf = gpu.alloc(sizeof[i32]());
     let tmp     = bitcast[&mut[1][i32]](tmp_buf.data);
     let sum_buf = alloc_cpu(sizeof[i32]());
     bitcast[&mut[i32]](sum_buf.data)(0) = 0;
     copy(sum_buf, tmp_buf);
 
-    let img_gpu = alloc_imgi16(img, acc.alloc);
+    let img_gpu = alloc_imgi16(img, gpu.alloc);
     copy_imgi16(img, img_gpu);
 
     let grid  = (img_gpu.width, 1, 1);
     let block = (128, 1, 1);
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -205,13 +205,13 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
             sm_sum(tid_x) = sum;
 
             for o in for_shift_down(128 >> 1, 0) {
-                acc.barrier();
+                gpu.barrier();
                 if tid_x < o {
                     sm_sum(tid_x) += sm_sum(tid_x + o);
                 }
             }
 
-            acc.barrier();
+            gpu.barrier();
 
             if tid_x == 0 {
                 atomic_add_global(&mut tmp(0), sm_sum(0));
@@ -227,22 +227,22 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     sum
 }
 fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
-    let acc      = accelerator(device_id);
-    let hist_buf = acc.alloc(256 * sizeof[i32]());
+    let gpu      = accelerator(device_id);
+    let hist_buf = gpu.alloc(256 * sizeof[i32]());
     let     hist = bitcast[&mut[1][i32]](hist_buf.data);
 
-    let img_gpu = alloc_img(img, acc.alloc);
+    let img_gpu = alloc_img(img, gpu.alloc);
     copy_img(img, img_gpu);
 
     let grid  = (img.width, 1, 1);
     let block = (256, 1, 1);
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((256, 1, 1), (64, 1, 1)) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec((256, 1, 1), (64, 1, 1)) {
             let (gidx,  _,  _) = gid;
             let gid_x = gidx();
             hist(gid_x) = 0;
         }
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -263,22 +263,22 @@ fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     hist_buf
 }
 fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
-    let acc = accelerator(device_id);
-    let scan_buf = acc.alloc(size * sizeof[i32]());
+    let gpu = accelerator(device_id);
+    let scan_buf = gpu.alloc(size * sizeof[i32]());
     let     scan = bitcast[&mut[1][i32]](scan_buf.data);
     let     hist = bitcast[&   [1][i32]](hist_buf.data);
 
     // perform scan per block in shared memory first
     let block_size = if size <= 256 { 128 } else { 256 };
     let num_blocks = size / (2 * block_size);
-    let tmp_buf = acc.alloc(num_blocks * sizeof[i32]());
+    let tmp_buf = gpu.alloc(num_blocks * sizeof[i32]());
     let     tmp = bitcast[&mut[1][i32]](tmp_buf.data);
 
     let grid  = (size / 2, 1, 1);
     let block = (block_size, 1, 1);
 
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (tidx,  tidy,  _) = tid;
             let (bidx,  bidy,  _) = bid;
             let (bdimx, bdimy, _) = bdim;
@@ -295,7 +295,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
 
             let mut offset = 1;
             for d in for_shift_down(sm_size >> 1, 0) { // build sum in place up the tree
-                acc.barrier();
+                gpu.barrier();
                 if tid_x < d {
                     let ai = offset * (2 * tid_x + 1) - 1;
                     let bi = offset * (2 * tid_x + 2) - 1;
@@ -310,7 +310,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
             // traverse down tree & build scan
             for d in for_shift_up(1, sm_size) {
                 offset >>= 1;
-                acc.barrier();
+                gpu.barrier();
                 if tid_x < d {
                     let ai = offset * (2 * tid_x + 1) - 1;
                     let bi = offset * (2 * tid_x + 2) - 1;
@@ -320,7 +320,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
                 }
             }
 
-            acc.barrier();
+            gpu.barrier();
 
             // write results to device memory
             if tid_x == 0 {
@@ -335,8 +335,8 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
         // perform scan on block scan results
         let grid1  = (num_blocks, 1, 1);
         let block1 = (num_blocks, 1, 1);
-        for benchmark_acc(acc) {
-            for tid, bid, bdim, gdim, gid in acc.exec(grid1, block1) {
+        for benchmark_gpu(gpu) {
+            for tid, bid, bdim, gdim, gid in gpu.exec(grid1, block1) {
                 let (tidx, _,  _) = tid;
                 let tid_x = tidx();
                 let sm_size = num_blocks;
@@ -345,7 +345,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
                 // load input into shared memory
                 sm_tmp(tid_x) = tmp(tid_x);
 
-                acc.barrier();
+                gpu.barrier();
 
                 if tid_x == 0 {
                     let mut sum = sm_tmp(0);
@@ -355,7 +355,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
                     }
                 }
 
-                acc.barrier();
+                gpu.barrier();
 
                 // write results to device memory
                 tmp(tid_x) = sm_tmp(tid_x);
@@ -365,8 +365,8 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
         // add block scan results to array
         let grid2  = ((num_blocks-1) * block_size, 1, 1);
         let block2 = (block_size, 1, 1);
-        for benchmark_acc(acc) {
-            for tid, bid, bdim, gdim, gid in acc.exec(grid2, block2) {
+        for benchmark_gpu(gpu) {
+            for tid, bid, bdim, gdim, gid in gpu.exec(grid2, block2) {
                 let (tidx,  tidy,  _) = tid;
                 let (bidx,  bidy,  _) = bid;
                 let (bdimx, bdimy, _) = bdim;
@@ -380,7 +380,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
                     sm_tmp(0) = tmp(bid_x);
                 }
 
-                acc.barrier();
+                gpu.barrier();
 
                 // write results to device memory
                 scan(gid_x) += sm_tmp(0); // TODO: compensate for iter_gpu
@@ -392,17 +392,17 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     scan_buf
 }
 fn @find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
-    let acc      = accelerator(device_id);
+    let gpu      = accelerator(device_id);
     let size_buf = Buffer { data : bitcast[&[i8]](&mut size), size : (sizeof[i32]()) as i64, device : 0 };
-    let pos_buf  = acc.alloc(sizeof[i32]());
+    let pos_buf  = gpu.alloc(sizeof[i32]());
     let pos      = bitcast[&mut[1][i32]](pos_buf.data);
     let scan     = bitcast[&   [1][i32]](scan_buf.data);
     copy(size_buf, pos_buf);
 
     let grid  = (size, 1, 1);
     let block = (256, 1, 1);
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (gidx, _, _) = gid;
             let gid_x = gidx();
             if @@body(scan(gid_x)) != 0 {

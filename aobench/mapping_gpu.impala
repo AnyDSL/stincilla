@@ -1,7 +1,7 @@
 fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
               body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
              ) -> () {
-    let acc   = accelerator(device_id);
+    let gpu   = accelerator(device_id);
     let grid  = (width, height, 1);
     let block = (32, 4, 1);
 
@@ -13,12 +13,12 @@ fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
         seed(i) = random_val_u64();
     }
 
-    let seed_gpu = acc.alloc(width * height * sizeof[u64]());
-    let out_gpu  = acc.alloc(width * height * 3 * sizeof[u8]());
+    let seed_gpu = gpu.alloc(width * height * sizeof[u64]());
+    let out_gpu  = gpu.alloc(width * height * 3 * sizeof[u8]());
     copy(seed_buf, seed_gpu);
 
-    for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for benchmark_gpu(gpu) {
+        for tid, bid, bdim, gdim, gid in gpu.exec(grid, block) {
             let (gidx,  gidy,  _) = gid;
             let gid_x = gidx();
             let gid_y = gidy();
