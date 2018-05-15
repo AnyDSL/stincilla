@@ -23,7 +23,7 @@ if(DEVICE STREQUAL "fpga")
     anydsl_runtime_wrap(FPGA_COPY_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
-        FILES ${CONFIG_FILES} ../utils.impala copy_fpga.impala)
+        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} ../utils.impala copy_fpga.impala)
     add_executable(copy_fpga ${FPGA_COPY_PROGRAM})
     target_link_libraries(copy_fpga ${ANYDSL_RUNTIME_LIBRARIES})
     add_test("copy_fpga" copy_fpga)

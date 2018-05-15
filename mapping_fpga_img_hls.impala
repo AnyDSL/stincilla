@@ -5,10 +5,10 @@ type pipe = channel;
 // old
 // --------------------- accessor: mapping dependent functions ----------------
 // images
-//fn @get_pixel_real_fn(img: Img) -> fn(i32) -> pixel_t     { |idx|      bitcast[&[1][pixel_t]](img.buf.data)(idx) }
-//fn @set_pixel_real_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
-//fn @get_pixel_virtual_fn(img: Img) -> fn(i32) -> pixel_t     { |idx| read_channel(img.fifo) }
-//fn @set_pixel_virtual_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| write_channel(img.fifo, val) }
+//fn @get_pixel_real_fn(img: Img) -> fn(i32) -> pixel_t     { @|idx|      bitcast[&[1][pixel_t]](img.buf.data)(idx) }
+//fn @set_pixel_real_fn(img: Img) -> fn(i32, pixel_t) -> () { @|idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
+//fn @get_pixel_virtual_fn(img: Img) -> fn(i32) -> pixel_t     { @|idx| read_channel(img.fifo) }
+//fn @set_pixel_virtual_fn(img: Img) -> fn(i32, pixel_t) -> () { @|idx, val| write_channel(img.fifo, val) }
 //
 //fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () {
 //    if img.virtual == false {
@@ -55,7 +55,7 @@ fn @get_host_copy(img_dev: Img, img: Img) -> () {
         let acc = accelerator(device_id);
         acc.sync();
         copy_real_img(img_dev, img);
-    } 
+    }
 }
 
 fn @release_device_copy(img: Img) -> () {
@@ -373,6 +373,7 @@ fn @set_global_stream_vec32(img: Img) -> fn() -> stream_out {
         img_to_stream_out(img, 32, update, write)
     }
 }
+
 //  ------------------- Stencil Processing ----------------------
 fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);

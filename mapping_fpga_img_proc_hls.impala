@@ -167,8 +167,8 @@ fn @set_global_stream_vec32(img: Img) -> fn() -> stream_out {
 
 // --------------------- accessor: mapping dependent functions ----------------
 // images
-fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t     { |idx| bitcast[&[1][pixel_t]](img.buf.data)(idx) }
-fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { |idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
+fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t     { @|idx| bitcast[&[1][pixel_t]](img.buf.data)(idx) }
+fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () { @|idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
 
 fn @get_device_copy(img: Img) -> Img {
     let acc = accelerator(device_id);

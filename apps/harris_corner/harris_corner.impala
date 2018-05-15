@@ -12,8 +12,8 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     let height = 1024;
     let stride = 1024;
 
-    static mut in_c0  : pipe;
-    static mut in_c1  : pipe;
+    static mut in_c0 : pipe;
+    static mut in_c1 : pipe;
     static mut dx_c  : pipe;
     static mut dy_c  : pipe;
     static mut dxx_c : pipe;
@@ -50,8 +50,6 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     //let upper = clamp_upper;
     let lower = nobh_center;
     let upper = nobh_center;
-    //let lower = clamp_lower;
-    //let upper = clamp_upper;
     let enable_offset = 1;
 
     for benchmark_host(num_host_iter) {
@@ -63,7 +61,7 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
             out.write(x, y, apply_stencil(x, y, arrs.get(0), mdy));
         }
 
-        // Replicate virtual images for multiple reads
+        // replicate virtual images for multiple reads
         let (dx0, dx1) = split_image(math, dx, &mut dx_c0, &mut dx_c1);
         let (dy0, dy1) = split_image(math, dy, &mut dy_c0, &mut dy_c1);
 

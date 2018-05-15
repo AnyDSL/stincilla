@@ -1,3 +1,4 @@
+static FetchAndCalc = 1; // dummy for compilation
 fn @iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let grid  = (1, 1, 1);
     let block = (1, 1, 1);

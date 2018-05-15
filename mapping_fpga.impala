@@ -1,6 +1,6 @@
 fn @pragma_pipeline() -> () {
-   if is_opencl() { print_pragma("#pragma ii 1"); };
-   if is_hls() { print_pragma("#pragma HLS pipeline II=1"); };
+   if is_opencl() { print_pragma("#pragma ii 1"); }
+   if is_hls() { print_pragma("#pragma HLS pipeline II=1"); }
 }
 // ---------------------------- types ------------------------------------------
 // border handling
@@ -13,16 +13,17 @@ type brdr_assigns_type = fn(int, Boundary, int, int) -> ();
 // ---------------------------- structs ----------------------------------------
 // stream types for data movements
 struct stream_in {
-    update: fn(int) -> (),
-    read  : fn(int) -> pixel_t,
+    update  : fn(int) -> (),
+    read    : fn(int) -> pixel_t,
     width   : int,
     height  : int,
     stride  : int,
     pFactor : int
 }
+
 struct stream_out {
-    update: fn(int) -> (),
-    write : fn(int, pixel_t) -> (),
+    update  : fn(int) -> (),
+    write   : fn(int, pixel_t) -> (),
     width   : int,
     height  : int,
     stride  : int,
@@ -39,7 +40,6 @@ struct Hardware {
     read_time : int,
     life_time : int
 }
-
 
 // register arrays
 struct regs1d {
@@ -97,11 +97,11 @@ fn @iterate1d_atborders(body: fn(Boundary) -> ()) -> () {
 
 // ---------------------------- streaming --------------------------------------
 fn create_stream_in(width: int, height: int, stride: int, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t) -> stream_in {
-    stream_in{ width: width, height: height, stride: stride, pFactor: pFactor, update: update, read: read}
+    stream_in { width : width, height : height, stride : stride, pFactor : pFactor, update : update, read : read }
 }
 
 fn img_to_stream_in(img: Img, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t) -> stream_in {
-    stream_in{ width: img.width, height: img.height, stride: img.stride, pFactor: pFactor, update: update, read: read}
+    stream_in { width : img.width, height : img.height, stride : img.stride, pFactor : pFactor, update : update, read : read }
 }
 
 fn @new_shared_line(in_s: stream_in, width: int) -> stream_in {
@@ -117,11 +117,11 @@ fn @new_shared_line(in_s: stream_in, width: int) -> stream_in {
 }
 
 fn create_stream_out(width: int, height: int, stride: int, pFactor: int, update: fn(int) -> (), write : fn(int, pixel_t) -> ()) -> stream_out {
-    stream_out{ width: width, height: height, stride: stride, pFactor: pFactor, update: update, write : write}
+    stream_out { width : width, height : height, stride : stride, pFactor : pFactor, update : update, write : write }
 }
 
 fn img_to_stream_out(img: Img, pFactor: int, update: fn(int) -> (), write : fn(int, pixel_t) -> ()) -> stream_out {
-    stream_out{ width: img.width, height: img.height, stride: img.stride, pFactor: pFactor, update: update, write: write}
+    stream_out { width : img.width, height : img.height, stride : img.stride, pFactor : pFactor, update : update, write : write }
 }
 
 // shared
@@ -325,14 +325,14 @@ fn @new_sliding_win(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int) -> 
     let swin = new_regs2d((0, 0), (swin_x, swin_y));
 
     fn @shift() -> () {
-        // Shift sliding window
+        // shift sliding window
         for j in unroll(0, swin_y) {
             for i in unroll(0, swin_x - pFactor) {
                 swin.write(i, j, swin.read(i + pFactor, j));
             }
         }
 
-        // Read new col
+        // read new col
         for j in unroll(0, swin_y) {
             for v in unroll(0, pFactor) {
                 swin.write((v + swin_x - pFactor), j, lbufs.read(v, j));
@@ -340,13 +340,8 @@ fn @new_sliding_win(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int) -> 
         }
     }
     swin_acc {
-        read  : @|x, y| {
-            swin.read(x, y)
-        },
-        shift : @|col_ridx, row_ridx| {
-            lbufs.shift(col_ridx, 0);
-            shift()
-        },
+        read  : @|x, y| swin.read(x, y),
+        shift : @|col_ridx, row_ridx| { lbufs.shift(col_ridx, 0); shift() },
         size_x : swin_x,
         size_y : swin_y
     }
@@ -360,7 +355,7 @@ fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, radius_x: int,
 
     fn @brdr_assigns(yw: int, boundary: Boundary, lower_high: int, upper_low: int) -> () {
         for xw in unroll(0, pFactor) {
-            fn @read_fun(i: int) -> pixel_t { lbufs.read(xw, i) };
+            fn @read_fun(i: int) -> pixel_t { lbufs.read(xw, i) }
             let pix_bh = read_pixel_bh(yw, read_fun, boundary, lower_high, upper_low, bh_lower, bh_upper);
             swin.write(xw + swin_x - pFactor, yw, pix_bh)
         }
@@ -397,24 +392,24 @@ fn @new_bounds(lower: i32, lower_bh_pixels: i32, upper_bh_pixels: i32, upper: i3
 }
 
 fn @read_pixel_bh(xw: int, read: fn(int) -> pixel_t, boundary: Boundary, lower_high: int, upper_low: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> pixel_t {
-        let mode_x = match boundary {
-            Boundary::Lower   => bh_lower(xw, lower_high, 0),
-            Boundary::Center  => BoundaryMode::Index(xw),
-            Boundary::Upper   => bh_upper(xw, 0, upper_low),
-            Boundary::Unknown => undef()
-        };
+    let mode_x = match boundary {
+        Boundary::Lower   => bh_lower(xw, lower_high, 0),
+        Boundary::Center  => BoundaryMode::Index(xw),
+        Boundary::Upper   => bh_upper(xw, 0, upper_low),
+        Boundary::Unknown => undef()
+    };
 
-        match mode_x {
-            BoundaryMode::Index(idx) => read(idx),
-            BoundaryMode::Const(c)   => c,
-            _ => undef()
-        }
+    match mode_x {
+        BoundaryMode::Index(idx) => read(idx),
+        BoundaryMode::Const(c)   => c,
+        _ => undef()
+    }
 }
 
 fn @(?imx)bh_type0(imx: int, boundary: Boundary, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, brdr_assigns: brdr_assigns_type) -> () {
     // roi @ image
-    let lower_arr   = roi.o_x;
-    let upper_arr   = roi.o_x + roi.width;
+    let lower_arr = roi.o_x;
+    let upper_arr = roi.o_x + roi.width;
     // bounds @ win
     let (lower_w, upper_w) = get_bounds_fun(boundary);
     let radius = upper_w - lower_w;
@@ -422,8 +417,8 @@ fn @(?imx)bh_type0(imx: int, boundary: Boundary, pFactor: int, roi: RoI1d, get_b
     fn @for_the_bound(boundary: Boundary, lower_high: int, upper_low: int) -> () {
         for xw in unroll(lower_w, upper_w) {
             @@brdr_assigns(xw, boundary, lower_high, upper_low);
-        };
-    };
+        }
+    }
 
     @@for_the_bound(Boundary::Center, 0, 0);
 
@@ -445,7 +440,7 @@ fn @(?imx)bh_type0(imx: int, boundary: Boundary, pFactor: int, roi: RoI1d, get_b
             }
         },
         _ => {}
-    };
+    }
 }
 
 
@@ -464,7 +459,7 @@ fn @new_type0_col_selection(swin: swin_acc, pFactor: int, roi: RoI1d, get_bounds
     let upper_regs = new_regs2d((upper_low, 0), (upper_high, swin.size_y));
 
     fn @read_fun(x: int, y: int) -> pixel_t {
-             if x > upper_low - 1 && x < upper_high { upper_regs.read(x, y) }
+        if      x > upper_low - 1 && x < upper_high { upper_regs.read(x, y) }
         else if x > lower_low - 1 && x < lower_high { lower_regs.read(x, y) }
         else { swin.read(x, y) }
     }
@@ -477,7 +472,7 @@ fn @new_type0_col_selection(swin: swin_acc, pFactor: int, roi: RoI1d, get_bounds
 
     fn @brdr_assigns(xw: int, boundary: Boundary, lower_high: int, upper_low: int) -> () {
         for yw in unroll(0, swin.size_y) {
-            fn @get_fun(i: int) -> pixel_t { swin.read(i, yw) };
+            fn @get_fun(i: int) -> pixel_t { swin.read(i, yw) }
             let pix_bh = read_pixel_bh(xw, get_fun, boundary, lower_high, upper_low, bh_lower, bh_upper);
             write_fun(xw, yw, pix_bh);
         }
@@ -501,13 +496,13 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
     let win_lat = round_up(radius_x, pFactor) / pFactor;
     let swin_y = 2 * radius_y + 1;
     let swin_x = radius_x + (1 + win_lat) * pFactor;
-    let swin_x_opt = pFactor + 2 * radius_x;
+    let swin_x_opt = 2 * radius_x + pFactor;
 
     // border handling row selection
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
     let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height}, row_bounds_fun);
 
-    // On Chip Memory Architecture
+    // on chip memory architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y);
     let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun, bh_lower, bh_upper);
 
@@ -535,17 +530,17 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
 fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, ext: (i32, i32), pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
     let (radius_x, radius_y) = ext;
     let swin_y = 2 * radius_y + 1;
-    let swin_x = pFactor + 2 * radius_x;
+    let swin_x = 2 * radius_x + pFactor;
 
-    // Border_handling
+    // border handling
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
     let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height }, row_bounds_fun);
 
-    // On Chip Memory Architecture
+    // on chip memory architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y);
     let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun, bh_lower, bh_upper);
 
-    // Constants for Packing
+    // constants for packing
     let delay_width = (pFactor + ((pFactor - radius_x) % pFactor)) % pFactor;
     let pack_offset = pFactor - delay_width;
     let vec_delayed = new_databeat(delay_width);
@@ -606,13 +601,13 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
     let win_lat = round_up(radius_x, pFactor) / pFactor;
     let swin_y = 2 * radius_y + 1;
     let swin_x = radius_x + (1 + win_lat) * pFactor;
-    let swin_x_opt = pFactor + 2 * radius_x;
+    let swin_x_opt = 2 * radius_x + pFactor;
 
     // border handling row selection
     //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
     //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
-    // On Chip Memory Architecture
+    // on chip memory architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y);
     //let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
     let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
@@ -641,18 +636,18 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
 fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, ext: (i32, i32), pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
     let (radius_x, radius_y) = ext;
     let swin_y = 2 * radius_y + 1;
-    let swin_x = pFactor + 2 * radius_x;
+    let swin_x = 2 * radius_x + pFactor;
 
-    // Border_handling
+    // border handling
     //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
     //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
-    // On Chip Memory Architecture
+    // on chip memory architecture
     let lbufs = new_line_buffer(in_s, img_stride, swin_y);
     //let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
     let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
 
-    // Constants for Packing
+    // constants for packing
     let delay_width = (pFactor + ((pFactor - radius_x) % pFactor)) % pFactor;
     let pack_offset = pFactor - delay_width;
     let vec_delayed = new_databeat(delay_width);
@@ -743,17 +738,17 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
     let mut col_widx = 0; let mut row_widx = 0;
 
     let my_hardware = Hardware {
-        at_read   : || { in_s.update(row_ridx * crsn_stride + col_ridx); },
-        at_always : || { coarsening.process(col_ridx, row_ridx); },
-        at_write  : || {
-                out_s.update(row_widx * crsn_stride + col_widx);
-                col_widx++;
-            },
-        at_update : || {
-                col_ridx++;
-                if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
-                if col_widx == crsn_width { col_widx = 0; row_widx++; }
-            },
+        at_read   : @|| { in_s.update(row_ridx * crsn_stride + col_ridx); },
+        at_always : @|| { coarsening.process(col_ridx, row_ridx); },
+        at_write  : @|| {
+            out_s.update(row_widx * crsn_stride + col_widx);
+            col_widx++;
+        },
+        at_update : @|| {
+            col_ridx++;
+            if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
+            if col_widx == crsn_width { col_widx = 0; row_widx++; }
+        },
         initial_delay : initial_delay,
         read_time : process_time,
         life_time : life_time
@@ -786,7 +781,7 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //             in_s.update(row_bh * stride + col_bh);
 //         //}
 //     }
-// 
+//
 //     padded_stream_in{
 //         stream : in_s,
 //         update : update
@@ -800,28 +795,28 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //             out_s.update(row * stride + col);
 //         }
 //     }
-// 
+//
 //     padded_stream_out{
 //         stream : out_s,
 //         update : update
 //     }
 // }
-// 
+//
 // fn @fac_padding(math: Intrinsics, pFactor: int, out: Img, arr: Img, ext: (i32, i32), bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
 //     let acc = accelerator(device_id);
 //     let arr_dev = alloc_img(arr, acc.alloc);
 //     let out_dev = alloc_img(out, acc.alloc);
-// 
+//
 //     copy_img(arr, arr_dev);
 //     for benchmark_fpga(acc) {
 //         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
 //             let (radius_x, radius_y) = ext;
-// 
+//
 //             // output image
 //             let out_stride = (arr.stride - 1) / pFactor + 1;
 //             let out_s      = set_stream_from_global_img(out_dev, pFactor);
 //             let out_s_pad  = crop_out_stream(out_s, ext);
-// 
+//
 //             // input image
 //             let in_s      = get_stream_from_global_img(arr_dev, pFactor);
 //             // padding
@@ -829,16 +824,16 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //             let crsn_stride = (arr.stride + 2 * radius_x - 1) / pFactor + 1;
 //             let crsn_width  = (arr.width  + 2 * radius_x - 1) / pFactor + 1;
 //             let crsn_height = arr.height + 2 * radius_y;
-// 
+//
 //             let init_lat_x  = 2 * radius_x - 1;
 //             let init_lat_y  = 2 * radius_y - 1;
-// 
+//
 //             let initial_delay = crsn_width * (init_lat_y + 1) + init_lat_x;
 //             let process_time  = crsn_width * crsn_height;
 //             let life_time     = initial_delay + process_time - 1;
-// 
+//
 //             let coarsening = FetchAndCalc_nobh(math, in_s_pad.stream, out_s, crsn_width, ext, pFactor, bh_lower, bh_upper, body);
-// 
+//
 //             let mut col_ridx = 0; let mut row_ridx = 0;
 //             let mut col_widx = 0; let mut row_widx = 0;
 //             for clock_tick in range(0, life_time) {
@@ -846,11 +841,11 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //                 if clock_tick < process_time {
 //                     in_s_pad.update(col_ridx, row_ridx, arr.stride);
 //                 }
-// 
+//
 //                 // shift on chip mem
 //                 coarsening.process(col_ridx, row_ridx);
 //                 //for v in unroll(0, pFactor) { out_s.write(v, in_s.read(v)); }
-// 
+//
 //                 // write output
 //                 // // 1.
 //                 // out_s_pad.update(col_ridx, row_ridx, out.stride);
@@ -873,7 +868,7 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //                         col_widx++;
 //                     }
 //                 }
-// 
+//
 //                 // update image indexes
 //                 col_ridx++;
 //                 if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }

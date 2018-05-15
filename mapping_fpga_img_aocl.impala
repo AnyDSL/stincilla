@@ -38,7 +38,7 @@ fn @get_aocl_sync(img: Img) -> fn() -> () {
 fn @get_host_copy(img_dev: Img, img: Img) -> () {
     if img_dev.virtual == false {
         copy_real_img(img_dev, img)
-    } 
+    }
 }
 
 fn @release_device_copy(img: Img) -> () {
@@ -305,7 +305,7 @@ fn @iteration(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, b
         get_device_copy(img)
     };
 
-    for benchmark_fpga( get_aocl_sync(out) ) {
+    for benchmark_fpga(get_aocl_sync(out)) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             //FetchAndCalc, CalcAndPack, FetchAndCalc_nobh, CalcAndPack_nobh
@@ -325,7 +325,7 @@ fn @iteration_point(math: Intrinsics, out: Img, arr: Img, body: fn(Intrinsics, i
     let arr_dev = get_device_copy(arr);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga( get_aocl_sync(out) ) {
+    for benchmark_fpga(get_aocl_sync(out)) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             let out_s = set_stream(out_dev);
@@ -343,7 +343,7 @@ fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(
     let arr1_dev = get_device_copy(arr1);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga( get_aocl_sync(out) ) {
+    for benchmark_fpga(get_aocl_sync(out)) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             let out_s = set_stream(out_dev);
@@ -363,7 +363,7 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
     let arr2_dev = get_device_copy(arr2);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga( get_aocl_sync(out) ) {
+    for benchmark_fpga(get_aocl_sync(out)) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             let out_s = set_stream(out_dev);
@@ -385,7 +385,7 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
 
     let pFactor = get_vector_length();
     let image_size = (arr.height * (arr.stride / pFactor) );
-    for benchmark_fpga( get_aocl_sync( out0 ) ) {
+    for benchmark_fpga(get_aocl_sync(out0)) {
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let in_s   = get_stream(arr_dev);
             let out0_s = set_stream(out0);
