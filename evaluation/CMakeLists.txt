@@ -25,7 +25,7 @@ if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
 elseif(BACKEND STREQUAL "aocl" OR BACKEND STREQUAL "hls")
     set(DEVICE "fpga")
 else()
-    set(DEVICE "acc")
+    set(DEVICE "gpu")
 endif()
 
 set(DSL_TYPE_FILES ../utils.impala ../stencil_lib.impala)

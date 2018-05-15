@@ -44,7 +44,7 @@ elseif(BACKEND STREQUAL "aocl" OR BACKEND STREQUAL "hls")
         set(MAPPING_FILES ${CMAKE_CURRENT_SOURCE_DIR}/mapping_${DEVICE}.impala ${CMAKE_CURRENT_SOURCE_DIR}/mapping_fpga_img_proc_aocl.impala)
     endif()
 else()
-    set(DEVICE "acc")
+    set(DEVICE "gpu")
     set(MAPPING_FILES ${CMAKE_CURRENT_SOURCE_DIR}/mapping_${DEVICE}.impala)
 endif()
 
@@ -56,23 +56,23 @@ set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
 
-add_subdirectory(aobench)
-add_subdirectory(bilateral_grid)
-add_subdirectory(halide)
-add_subdirectory(test)
-add_subdirectory(image_sharpening)
-add_subdirectory(sorting_networks)
-add_subdirectory(vcycle)
 add_subdirectory(apps)
-add_subdirectory(harris_corner)
-
-set(DSL_TYPE_FILES utils.impala stencil_lib.impala stencil_lib_img_proc.impala)
+add_subdirectory(test)
+if(NOT DEVICE STREQUAL "fpga")
+    add_subdirectory(aobench)
+    add_subdirectory(bilateral_grid)
+    add_subdirectory(halide)
+    add_subdirectory(image_sharpening)
+    add_subdirectory(sorting_networks)
+    add_subdirectory(vcycle)
+    add_subdirectory(harris_corner)
+endif()
 
 # simple CPU-based examples
 anydsl_runtime_wrap(MATMUL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} utils.impala matmul.impala)
+    FILES ${PIXEL_F32_FILE} utils.impala matmul.impala)
 add_executable(matmul ${MATMUL_PROGRAM})
 target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("matmul" matmul)

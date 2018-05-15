@@ -23,21 +23,13 @@ if(DEVICE STREQUAL "fpga")
     anydsl_runtime_wrap(FPGA_COPY_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
-        FILES ${CONFIG_FILES} ../utils.impala fpga_copy.impala)
-    add_executable(fpga_copy ${FPGA_COPY_PROGRAM})
-    target_link_libraries(fpga_copy ${ANYDSL_RUNTIME_LIBRARIES})
-    add_test("fpga_copy" fpga_copy)
+        FILES ${CONFIG_FILES} ../utils.impala copy_fpga.impala)
+    add_executable(copy_fpga ${FPGA_COPY_PROGRAM})
+    target_link_libraries(copy_fpga ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test("copy_fpga" copy_fpga)
 endif()
 
-if(DEVICE STREQUAL "acc")
-    anydsl_runtime_wrap(MULTI_GPU_PROGRAM
-        CLANG_FLAGS ${CLANG_FLAGS}
-        IMPALA_FLAGS ${IMPALA_FLAGS}
-        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} ../utils.impala multi_gpu.impala)
-    add_executable(multi_gpu ${MULTI_GPU_PROGRAM})
-    target_link_libraries(multi_gpu ${ANYDSL_RUNTIME_LIBRARIES})
-    add_test("multi_gpu" multi_gpu)
-
+if(DEVICE STREQUAL "gpu")
     anydsl_runtime_wrap(ALLOC_GPU_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
@@ -49,18 +41,26 @@ if(DEVICE STREQUAL "acc")
     anydsl_runtime_wrap(ALLOC_GPU_UNIFIED_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
-        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} alloc_gpu_unified.impala)
-    add_executable(alloc_gpu_unified ${ALLOC_GPU_UNIFIED_PROGRAM})
-    target_link_libraries(alloc_gpu_unified ${ANYDSL_RUNTIME_LIBRARIES})
-    add_test("alloc_gpu_unified" alloc_gpu_unified)
+        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} alloc_unified_gpu.impala)
+    add_executable(alloc_unified_gpu ${ALLOC_GPU_UNIFIED_PROGRAM})
+    target_link_libraries(alloc_unified_gpu ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test("alloc_unified_gpu" alloc_unified_gpu)
 
     anydsl_runtime_wrap(RESERVE_SHARED_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
-        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} reserve_shared.impala)
-    add_executable(reserve_shared ${RESERVE_SHARED_PROGRAM})
-    target_link_libraries(reserve_shared ${ANYDSL_RUNTIME_LIBRARIES})
-    add_test("reserve_shared" reserve_shared)
+        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} reserve_shared_gpu.impala)
+    add_executable(reserve_shared_gpu ${RESERVE_SHARED_PROGRAM})
+    target_link_libraries(reserve_shared_gpu ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test("reserve_shared_gpu" reserve_shared_gpu)
+
+    anydsl_runtime_wrap(MULTI_GPU_PROGRAM
+        CLANG_FLAGS ${CLANG_FLAGS}
+        IMPALA_FLAGS ${IMPALA_FLAGS}
+        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} ../utils.impala multi_gpu.impala)
+    add_executable(multi_gpu ${MULTI_GPU_PROGRAM})
+    target_link_libraries(multi_gpu ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test("multi_gpu" multi_gpu)
 
     if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
         anydsl_runtime_wrap(HALF_FLOAT_GPU_PROGRAM
