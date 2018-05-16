@@ -24,7 +24,7 @@ static mut total_gpu_timing = 0i64;
 static mut total_fpga_timing = 0i64;
 static mut total_host_timing = 0i64;
 
-fn @benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn() -> ()) -> i64 {
+fn @benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn() -> (), bench_type: &[u8]) -> i64 {
     let times_buf = alloc_cpu(num_iter * sizeof[i64]());
     let times = bitcast[&mut[i64]](times_buf.data);
     for i in range(0, num_iter) {
@@ -34,78 +34,49 @@ fn @benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn()
         times(i) = get_time() - start;
     }
     sort_i64(num_iter, times);
-    print_string("Timing: ");
-    print_f64(times(num_iter/2) as f64 / 1000.0);
-    print_string(" | ");
-    print_f64(times(0) as f64 / 1000.0);
-    print_string(" | ");
-    print_f64(times(num_iter-1) as f64 / 1000.0);
-    print_string(" (median(");
-    print_i32(num_iter);
-    print_string(") | minimum | maximum) ms\n");
     let median = times(num_iter/2);
+    print_string(bench_type);
+    print_string(" timing: ");
+    print_f64(median as f64 / 1000.0);
+    if num_iter > 1 {
+        print_string(" | ");
+        print_f64(times(0) as f64 / 1000.0);
+        print_string(" | ");
+        print_f64(times(num_iter-1) as f64 / 1000.0);
+        print_string(" (median(");
+        print_i32(num_iter);
+        print_string(") | minimum | maximum) ms\n");
+    } else {
+        print_string(" ms\n");
+    }
     release(times_buf);
     median
 }
 
-static iter_cpu  = 27;
-static iter_gpu  =  7;
-static iter_fpga =  5;
-static num_host_iter = 5;
-fn @benchmark_cpu(                   body: fn() -> ()) -> () { total_cpu_timing  += benchmark(get_micro_time,  iter_cpu,  body, ||) }
-fn @benchmark_gpu(gpu: Accelerator,  body: fn() -> ()) -> () { total_gpu_timing  += benchmark(get_kernel_time, iter_gpu,  body, gpu.sync) }
-fn @benchmark_fpga(sync: fn() -> (), body: fn() -> ()) -> () {
-    let start = get_micro_time();
-    body();
-    sync();
-    let kernel_time = get_micro_time() - start;
-    total_fpga_timing += kernel_time;
-}
-fn @benchmark_host(num_iter: i32, body: fn() -> ()) -> () {
-    // sum of kernel times
-    let total_times_buf = alloc_cpu((num_iter + 1) * sizeof[i64]());
-    let total_times = bitcast[&mut[i64]](total_times_buf.data);
-    // total host time
-    let times_buf = alloc_cpu((num_iter + 1) * sizeof[i64]());
-    let times = bitcast[&mut[i64]](times_buf.data);
-    for i in range(0, num_iter + 1) {
-        total_fpga_timing = 0i64;
-        let start = get_micro_time();
-        body();
-        times(i) = get_micro_time() - start;
-        total_times(i) = total_fpga_timing;
-    }
-    // sum of kernel times
-    sort_i64(num_iter + 1, times);
-    print_string("Timing: ");
-    print_f64(total_times(1 + num_iter/2) as f64 / 1000.0);
-    print_string(" | ");
-    print_f64(total_times(1) as f64 / 1000.0);
-    print_string(" | ");
-    print_f64(total_times(num_iter-1) as f64 / 1000.0);
-    print_string(" (median(");
-    print_i32(num_iter);
-    print_string(") | minimum | maximum) ms\n");
-    release(total_times_buf);
-    // total host time
-    sort_i64(num_iter + 1, times);
-    print_string("End-to-End Host Time: ");
-    print_f64(times(1 + num_iter/2) as f64 / 1000.0);
-    print_string(" | ");
-    print_f64(times(1) as f64 / 1000.0);
-    print_string(" | ");
-    print_f64(times(num_iter-1) as f64 / 1000.0);
-    print_string(" (median(");
-    print_i32(num_iter);
-    print_string(") | minimum | maximum) ms\n");
-    release(times_buf);
-    total_fpga_timing = total_times(1 + num_iter/2);
-}
+static mut num_iter_cpu  = 27;
+static mut num_iter_gpu  =  7;
+static mut num_iter_fpga =  1;
+static     num_iter_host =  5;
 
-
+fn @benchmark_cpu(                   body: fn() -> ()) -> () { total_cpu_timing  += benchmark(get_micro_time,  num_iter_cpu,  body, ||(), "CPU") }
+fn @benchmark_gpu(gpu: Accelerator,  body: fn() -> ()) -> () { total_gpu_timing  += benchmark(get_kernel_time, num_iter_gpu,  body, gpu.sync, "GPU") }
+fn @benchmark_fpga(sync: fn() -> (), body: fn() -> ()) -> () { total_fpga_timing += benchmark(get_micro_time,  num_iter_fpga, body, sync, "FPGA") }
+fn @benchmark_host(                  body: fn() -> ()) -> () {
+    let (num_iter_cpu_old, num_iter_gpu_old, num_iter_fpga_old) = (num_iter_cpu, num_iter_gpu, num_iter_fpga);
+    let (total_cpu_timing_old, total_gpu_timing_old, total_fpga_timing_old) = (total_cpu_timing, total_gpu_timing, total_fpga_timing);
+    num_iter_cpu = 1; num_iter_gpu = 1; num_iter_fpga = 1;
+    total_cpu_timing = 0i64; total_gpu_timing = 0i64; total_fpga_timing = 0i64;
+    total_host_timing += benchmark(get_micro_time,  num_iter_host, body, ||(), "End-to-End");
+    num_iter_cpu = num_iter_cpu_old; num_iter_gpu = num_iter_gpu_old; num_iter_fpga = num_iter_fpga_old;
+    total_cpu_timing = total_cpu_timing_old + total_cpu_timing / num_iter_host as i64;
+    total_gpu_timing = total_gpu_timing_old + total_gpu_timing / num_iter_host as i64;
+    total_fpga_timing = total_fpga_timing_old + total_fpga_timing / num_iter_host as i64;
+}
 
 fn print_total_timing() -> () {
-    print_string("Total timing for cpu / gpu / fpga: ");
+    print_string("Total timing for host / cpu / gpu / fpga: ");
+    print_f64(total_host_timing as f64 / 1000.0);
+    print_string(" / ");
     print_f64(total_cpu_timing as f64 / 1000.0);
     print_string(" / ");
     print_f64(total_gpu_timing as f64 / 1000.0);

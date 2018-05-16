@@ -52,7 +52,7 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     let upper = nobh_center;
     let enable_offset = 1;
 
-    for benchmark_host(num_host_iter) {
+    for benchmark_host() {
         let (in0, in1) = split_image(math, input, &mut in_c0, &mut in_c1);
         for math, x, y, out, arrs in iteration(math, dx, make_img_list1(input, (mdx.size_x / 2, mdx.size_y / 2)), lower, upper) {
             out.write(x, y, apply_stencil(x, y, arrs.get(0), mdx));

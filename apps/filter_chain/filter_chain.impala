@@ -45,7 +45,7 @@ fn main() -> i32 {
     //let upper = mirror_upper;
     let enable_offset = 1;
 
-    for benchmark_host(num_host_iter) {
+    for benchmark_host() {
         for math, x, y, out, arrs in iteration(math, out0, make_img_list1(arr, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
             out.write(x, y, apply_stencil(x, y, arrs.get(0), mask));
         }

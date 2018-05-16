@@ -44,7 +44,7 @@ fn main() -> i32 {
 
 
     let iteration_fun = iteration;                  // SS
-    for benchmark_host(num_host_iter) {
+    for benchmark_host() {
         for math, x, y, out, accs in iteration_fun(math, out, make_img_list1(arr, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
             out.write(x, y, apply_stencil(x, y, accs.get(0), mask));
         }
