@@ -301,7 +301,7 @@ fn @iteration(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, b
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
     let out_dev = get_device_copy(out);
-    let imgs_gpu = for img, ext in img_list_map(imgs) {
+    let imgs_dev = for img, ext in img_list_map(imgs) {
         get_device_copy(img)
     };
 
@@ -312,7 +312,7 @@ fn @iteration(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, b
             let coarsening_fun = coarsening_policy;
 
             // TODO: stream list
-            let in_s  = get_stream(imgs_gpu.get(0));
+            let in_s  = get_stream(imgs_dev.get(0));
             let out_s = set_stream(out_dev);
             iter_body(math, coarsening_fun, pFactor, out_s, in_s, ext, bh_lower, bh_upper, body);
         }

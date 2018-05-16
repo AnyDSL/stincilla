@@ -2,31 +2,7 @@
 // pipe support
 type pipe = channel;
 
-// old
 // --------------------- accessor: mapping dependent functions ----------------
-// images
-//fn @get_pixel_real_fn(img: Img) -> fn(i32) -> pixel_t     { @|idx|      bitcast[&[1][pixel_t]](img.buf.data)(idx) }
-//fn @set_pixel_real_fn(img: Img) -> fn(i32, pixel_t) -> () { @|idx, val| bitcast[&mut[1][pixel_t]](img.buf.data)(idx) = val }
-//fn @get_pixel_virtual_fn(img: Img) -> fn(i32) -> pixel_t     { @|idx| read_channel(img.fifo) }
-//fn @set_pixel_virtual_fn(img: Img) -> fn(i32, pixel_t) -> () { @|idx, val| write_channel(img.fifo, val) }
-//
-//fn @set_pixel_fn(img: Img) -> fn(i32, pixel_t) -> () {
-//    if img.virtual == false {
-//        set_pixel_real_fn(img)
-//    } else {
-//        set_pixel_virtual_fn(img)
-//    }
-//}
-//
-//fn @get_pixel_fn(img: Img) -> fn(i32) -> pixel_t {
-//    if img.virtual == false {
-//        get_pixel_real_fn(img)
-//    } else {
-//        get_pixel_virtual_fn(img)
-//    }
-//}
-
-// hack
 fn @copy_img(src: Img, dst: Img) -> () {
     copy_real_img(src, dst);
 }
@@ -35,7 +11,7 @@ fn @copy_img(src: Img, dst: Img) -> () {
 // --------------------- memory copy functions --------------------------------
 fn @copy_real_img(src: Img, dst: Img) -> () {
     if src.virtual == false {
-        copy(src.buf, dst.buf);
+        copy(src.buf, dst.buf)
     }
 }
 
@@ -207,7 +183,6 @@ fn @channel_to_stream_in_vec32(img: Img) -> stream_in {
     img_to_stream_in(img, 32, update, read)
 }
 
-
 // global
 fn @get_stream_from_global_img(img: Img, pFactor: int) -> fn() -> stream_in {
     match pFactor {
@@ -375,46 +350,36 @@ fn @set_global_stream_vec32(img: Img) -> fn() -> stream_out {
 }
 
 //  ------------------- Stencil Processing ----------------------
-fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
+fn @iteration(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
-    let arr_dev = get_device_copy(arr);
+    let ext = get_max_ext(imgs);
     let out_dev = get_device_copy(out);
+    let imgs_dev = for img, ext in img_list_map(imgs) {
+        get_device_copy(img)
+    };
 
     for benchmark_fpga(||) {
-        let in_s_fn  = get_stream(arr_dev);
+        let in_s_fn  = get_stream(imgs_dev.get(0));
         let out_s_fn = set_stream(out_dev);
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             //FetchAndCalc, CalcAndPack, FetchAndCalc_nobh, CalcAndPack_nobh
             let coarsening_fun = coarsening_policy;
 
+            // TODO: stream list
             let (in_s, out_s) = (in_s_fn(), out_s_fn());
-            iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
+            iter_body(math, coarsening_fun, pFactor, out_s, in_s, ext, bh_lower, bh_upper, body);
         }
     }
     get_host_copy(out_dev, out);
 }
 
-//fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
-//    let acc = accelerator(device_id);
-//    let out_dev = get_device_copy(out);
-//
-//    for benchmark_fpga(||) {
-//        let out_s_fn = set_stream(out_dev);
-//        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
-//            let pFactor = get_vector_length();
-//            let out_s = out_s_fn();
-//            iter_point_body(pFactor, out_s, body);
-//        }
-//    }
-//    get_host_copy(out_dev, out);
-//}
 fn @iteration_point(math: Intrinsics, out: Img, arr: Img, body: fn(Intrinsics, i32, i32, Acc, pixel_t) -> ()) -> () {
     let acc = accelerator(device_id);
     let arr_dev = get_device_copy(arr);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga( || ) {
+    for benchmark_fpga(||) {
         let out_s_fn = set_stream(out_dev);
         let in_s_fn = get_stream(arr_dev);
         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
@@ -433,7 +398,7 @@ fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(
     let arr1_dev = get_device_copy(arr1);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga( || ) {
+    for benchmark_fpga(||) {
         let out_s_fn = set_stream(out_dev);
         let in0_s_fn = get_stream(arr0_dev);
         let in1_s_fn = get_stream(arr1_dev);
@@ -442,6 +407,7 @@ fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(
             let out_s = out_s_fn();
             let in0_s = in0_s_fn();
             let in1_s = in1_s_fn();
+
             iter_point2_body(math, pFactor, out_s, in0_s, in1_s, body);
         }
     }
@@ -455,7 +421,7 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
     let arr2_dev = get_device_copy(arr2);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga( || ) {
+    for benchmark_fpga(||) {
         let out_s_fn = set_stream(out_dev);
         let in0_s_fn = get_stream(arr0_dev);
         let in1_s_fn = get_stream(arr1_dev);
@@ -466,6 +432,7 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
             let in0_s = in0_s_fn();
             let in1_s = in1_s_fn();
             let in2_s = in2_s_fn();
+
             iter_point3_body(math, pFactor, out_s, in0_s, in1_s, in2_s, body);
         }
     }
