@@ -14,7 +14,7 @@ fn @clip(i: i32, a: i32, b: i32) -> i32 { min(max(i, a), b) }
 fn @access(img: Img, x: i32, y: i32) -> i32 { img.data(clip(y, 0, img.height-1) * img.width + clip(x, 0, img.width-1)) }
 
 static cuda_dev = 0;
-fn @benchmark_cuda(body: fn() -> ()) -> () { total_gpu_timing += benchmark(get_kernel_time, iter_gpu, body, || synchronize_cuda(cuda_dev)) }
+fn @benchmark_cuda(body: fn() -> ()) -> () { total_gpu_timing += benchmark(get_kernel_time, num_iter_gpu, body, || synchronize_cuda(cuda_dev), "GPU") }
 
 fn combine_xy(loop_x: Loop, loop_y: Loop) -> Loop_xy {
     |x_lower, y_lower, x_upper, y_upper, body: fn(i32, i32)->()|

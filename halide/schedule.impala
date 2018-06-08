@@ -299,7 +299,7 @@ fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Sc
 
 static cuda_dev = 0;
 fn @benchmark_cuda(body: fn() -> ()) -> () {
-    total_gpu_timing += benchmark(get_kernel_time, iter_gpu, body, || synchronize_cuda(cuda_dev))
+    total_gpu_timing += benchmark(get_kernel_time, num_iter_gpu, body, || synchronize_cuda(cuda_dev), "GPU")
 }
 
 fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
