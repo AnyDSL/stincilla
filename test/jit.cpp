@@ -13,6 +13,8 @@ int main(int argc, const char **argv) {
         "extern fn get_42() -> i32 {"
         "   let (platform, device, codegen) = (2, 1, opencl);"
         "   /*let (platform, device, codegen) = (1, 1, cuda);*/"
+        "   /*let (platform, device, codegen) = (1, 1, nvvm);*/"
+        "   /*let (platform, device, codegen) = (3, 1, amdgpu);*/"
         "   let size = sizeof[i32]() as i64;"
         "   let dev = 0;"
         "   let dev_cpu  = runtime_device(0, 0);"
