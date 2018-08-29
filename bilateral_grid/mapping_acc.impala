@@ -35,18 +35,10 @@ fn @iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
     let block = (32, 4, 1);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-            let (tidx,  tidy,  _) = tid;
-            let (bidx,  bidy,  _) = bid;
-            let (bdimx, bdimy, _) = bdim;
-            let tid_x  = tidx();
-            let tid_y  = tidy();
-            let bid_x  = bidx();
-            let bid_y  = bidy();
-            let bdim_x = bdimx();
-            let bdim_y = bdimy();
-            let gid_x  = tid_x + bdim_x * bid_x;
-            let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+        for work_item in acc.exec(grid, block) {
+            let bdim_y = work_item.bdimy();
+            let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+            let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
             for i in unroll(0, coarsening_factor) {
                 @@body(gid_x, gid_y + i * bdim_y);
@@ -62,18 +54,10 @@ fn @iteration_space(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let block = (32, 4, 1);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-            let (tidx,  tidy,  _) = tid;
-            let (bidx,  bidy,  _) = bid;
-            let (bdimx, bdimy, _) = bdim;
-            let tid_x  = tidx();
-            let tid_y  = tidy();
-            let bid_x  = bidx();
-            let bid_y  = bidy();
-            let bdim_x = bdimx();
-            let bdim_y = bdimy();
-            let gid_x  = tid_x + bdim_x * bid_x;
-            let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+        for work_item in acc.exec(grid, block) {
+            let bdim_y = work_item.bdimy();
+            let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+            let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
             for i in unroll(0, coarsening_factor) {
                 @@body(gid_x, gid_y + i * bdim_y);
