@@ -46,7 +46,7 @@ fn tile_cuda(tile_x: i32, tile_y: i32) -> Loop_xy {
 }
 
 fn vec(vector_length: i32) -> Loop {
-    |lower, upper, body| vectorize(vector_length, 32, lower, upper, body)
+    |lower, upper, body| range_step(lower, upper, vector_length, |i| vectorize(vector_length, |j| body(i + j)))
 }
 
 fn unr(factor: i32) -> Loop {
