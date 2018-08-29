@@ -152,7 +152,7 @@ fn @vec(vector_length: i32) -> Loop {
         @|lower, upper, body| {
             let peel_begin = round_down(upper, vector_length);
             for i in range_step(lower, peel_begin, vector_length) {
-                vectorize(vector_length, 32, 0, vector_length, |j| body(i + j))
+                vectorize(vector_length, |j| body(i + j))
             }
             // peel remaining iterations
             for i in range(peel_begin, upper) {
