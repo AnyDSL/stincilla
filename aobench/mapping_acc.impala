@@ -18,10 +18,9 @@ fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
     copy(seed_buf, seed_gpu);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-            let (gidx,  gidy,  _) = gid;
-            let gid_x = gidx();
-            let gid_y = gidy();
+        for work_item in acc.exec(grid, block) {
+            let gid_x = work_item.gidx();
+            let gid_y = work_item.gidy();
             let seed  = bitcast[&[1][u64]](seed_gpu.data);
             let mut state = seed(gid_y * width + gid_x);
             fn @rand() -> f64 {
@@ -35,7 +34,7 @@ fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
                 out(3 * (gid_y * width + gid_x) + 1) = g;
                 out(3 * (gid_y * width + gid_x) + 2) = b;
             }
-            body(math, gid_x, gid_y, out_fun, rand);
+            @@body(math, gid_x, gid_y, out_fun, rand);
         }
     }
 
