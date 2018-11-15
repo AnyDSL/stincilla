@@ -41,18 +41,10 @@ fn @iteration(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, b
     let grid       = (out.width, out.height / coarsening_factor, 1);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-            let (tidx,  tidy,  _) = tid;
-            let (bidx,  bidy,  _) = bid;
-            let (bdimx, bdimy, _) = bdim;
-            let tid_x  = tidx();
-            let tid_y  = tidy();
-            let bid_x  = bidx();
-            let bid_y  = bidy();
-            let bdim_x = bdimx();
-            let bdim_y = bdimy();
-            let gid_x  = tid_x + bdim_x * bid_x;
-            let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+        for work_item in acc.exec(grid, block) {
+            let bdim_y = work_item.bdimy();
+            let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+            let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
             let accs = for img, ext in img_list2acc_map(imgs_gpu) {
@@ -97,21 +89,14 @@ fn @iteration_bounds(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: Bounda
         let grid = (out.width, out.height / coarsening_factor, 1);
 
         for benchmark_acc(acc) {
-            for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-                let (tidx,  tidy,  _) = tid;
-                let (bidx,  bidy,  _) = bid;
-                let (bdimx, bdimy, _) = bdim;
-                let (gdimx, gdimy, _) = gdim;
-                let tid_x  = tidx();
-                let tid_y  = tidy();
-                let bid_x  = bidx();
-                let bid_y  = bidy();
-                let bdim_x = bdimx();
-                let bdim_y = bdimy();
-                let gdim_x = gdimx();
-                let gdim_y = gdimy();
-                let gid_x  = tid_x + bdim_x * bid_x;
-                let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+            for work_item in acc.exec(grid, block) {
+                let bdim_y  = work_item.bdimy();
+                let bid_x   = work_item.bidx();
+                let bid_y   = work_item.bidy();
+                let gid_x   = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+                let gid_y   = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
+                let nblk_x  = work_item.nblkx();
+                let nblk_y  = work_item.nblky();
                 let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
                 fn @get_accs_region(region: Region) -> AccList {
@@ -128,7 +113,7 @@ fn @iteration_bounds(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: Bounda
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, get_accs_region((Boundary::Lower, Boundary::Lower)));
                     }
-                } else if bid_x >= gdim_x - bx && bid_y < by {           // top-right
+                } else if bid_x >= nblk_x - bx && bid_y < by {           // top-right
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, get_accs_region((Boundary::Upper, Boundary::Lower)));
                     }
@@ -136,19 +121,19 @@ fn @iteration_bounds(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: Bounda
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, get_accs_region((Boundary::Center, Boundary::Lower)));
                     }
-                } else if bid_y >= gdim_y - by && bid_x < bx {           // bottom-left
+                } else if bid_y >= nblk_y - by && bid_x < bx {           // bottom-left
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, get_accs_region((Boundary::Lower, Boundary::Upper)));
                     }
-                } else if bid_y >= gdim_y - by && bid_x >= gdim_x - bx { // bottom-right
+                } else if bid_y >= nblk_y - by && bid_x >= nblk_x - bx { // bottom-right
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, get_accs_region((Boundary::Upper, Boundary::Upper)));
                     }
-                } else if bid_y >= gdim_y - by {                         // bottom
+                } else if bid_y >= nblk_y - by {                         // bottom
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, get_accs_region((Boundary::Center, Boundary::Upper)));
                     }
-                } else if bid_x >= gdim_x - bx {                         // right
+                } else if bid_x >= nblk_x - bx {                         // right
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, get_accs_region((Boundary::Upper, Boundary::Center)));
                     }
@@ -178,18 +163,10 @@ fn @iteration_bounds(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: Bounda
             };
 
             for benchmark_acc(acc) {
-                for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-                    let (tidx,  tidy,  _) = tid;
-                    let (bidx,  bidy,  _) = bid;
-                    let (bdimx, bdimy, _) = bdim;
-                    let tid_x  = tidx();
-                    let tid_y  = tidy();
-                    let bid_x  = bidx();
-                    let bid_y  = bidy();
-                    let bdim_x = bdimx();
-                    let bdim_y = bdimy();
-                    let gid_x = bounds_row(0)                     + tid_x + bdim_x * bid_x;
-                    let gid_y = bounds_col(0) * coarsening_factor + tid_y + bdim_y * bid_y * coarsening_factor;
+                for work_item in acc.exec(grid, block) {
+                    let bdim_y = work_item.bdimy();
+                    let gid_x  = bounds_row(0)                     + work_item.tidx() + work_item.bdimx() * work_item.bidx();
+                    let gid_y  = bounds_col(0) * coarsening_factor + work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, accs);
@@ -221,18 +198,15 @@ fn @iteration_advanced(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: Boun
     let grid       = (out.width, out.height / coarsening_factor, 1);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-            let (tidx,  tidy,  _) = tid;
-            let (bidx,  bidy,  _) = bid;
-            let (bdimx, bdimy, _) = bdim;
-            let tid_x  = tidx();
-            let tid_y  = tidy();
-            let bid_x  = bidx();
-            let bid_y  = bidy();
-            let bdim_x = bdimx();
-            let bdim_y = bdimy();
-            let gid_x  = tid_x + bdim_x * bid_x;
-            let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+        for work_item in acc.exec(grid, block) {
+            let tid_x  = work_item.tidx();
+            let tid_y  = work_item.tidy();
+            let bid_x  = work_item.bidx();
+            let bid_y  = work_item.bidy();
+            let bdim_x = work_item.bdimx();
+            let bdim_y = work_item.bdimy();
+            let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+            let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
             // quick hack: lists have at max 3 images
             let mut spms : [&mut[3][pixel_t] * 3];
@@ -259,7 +233,7 @@ fn @iteration_advanced(math: Intrinsics, out: Img, imgs: ImgList, bh_lower: Boun
                         let lid_y = tid_y          + y*bdim_y;
                         let idx_y = gid_y - ext(1) + y*bdim_y;
                         for x in unroll(0, steps_x) {
-                            let lid_x = tid_x             + x*bdim_x;
+                            let lid_x = tid_x          + x*bdim_x;
                             let idx_x = gid_x - ext(0) + x*bdim_x;
 
                             if lid_x < spm_stride && lid_y < spm_height {
@@ -311,18 +285,10 @@ fn @iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_
     let (block_col, _) = compute_config((1, mask_col.size / 2), coarsening_factor);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block_col) {
-            let (tidx,  tidy,  _) = tid;
-            let (bidx,  bidy,  _) = bid;
-            let (bdimx, bdimy, _) = bdim;
-            let tid_x  = tidx();
-            let tid_y  = tidy();
-            let bid_x  = bidx();
-            let bid_y  = bidy();
-            let bdim_x = bdimx();
-            let bdim_y = bdimy();
-            let gid_x  = tid_x + bdim_x * bid_x;
-            let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+        for work_item in acc.exec(grid, block_col) {
+            let bdim_y = work_item.bdimy();
+            let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+            let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
             let is_row = false;
 
             let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
@@ -334,18 +300,10 @@ fn @iteration_sep(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_
         }
     }
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block_row) {
-            let (tidx,  tidy,  _) = tid;
-            let (bidx,  bidy,  _) = bid;
-            let (bdimx, bdimy, _) = bdim;
-            let tid_x  = tidx();
-            let tid_y  = tidy();
-            let bid_x  = bidx();
-            let bid_y  = bidy();
-            let bdim_x = bdimx();
-            let bdim_y = bdimy();
-            let gid_x  = tid_x + bdim_x * bid_x;
-            let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+        for work_item in acc.exec(grid, block_row) {
+            let bdim_y = work_item.bdimy();
+            let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+            let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
             let is_row = true;
 
             let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
@@ -384,20 +342,13 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
         // column component
         for benchmark_acc(acc) {
             let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
-            for tid, bid, bdim, gdim, gid in acc.exec(grid, block_col) {
-                let (tidx,  tidy,  _) = tid;
-                let (bidx,  bidy,  _) = bid;
-                let (bdimx, bdimy, _) = bdim;
-                let (_,     gdimy, _) = gdim;
-                let tid_x  = tidx();
-                let tid_y  = tidy();
-                let bid_x  = bidx();
-                let bid_y  = bidy();
-                let bdim_x = bdimx();
-                let bdim_y = bdimy();
-                let gdim_y = gdimy();
-                let gid_x  = tid_x + bdim_x * bid_x;
-                let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+            for work_item in acc.exec(grid, block_col) {
+                let bdim_y = work_item.bdimy();
+                let bid_y  = work_item.bidy();
+                let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+                let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
+                let nblk_x = work_item.nblkx();
+                let nblk_y = work_item.nblky();
                 let is_row = false;
 
                 if bid_y < by {                  // top
@@ -405,7 +356,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
-                } else if bid_y >= gdim_y - by { // bottom
+                } else if bid_y >= nblk_y - by { // bottom
                     let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Center, Boundary::Upper), bh_lower, bh_upper);
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
@@ -421,20 +372,13 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
 
         // row component
         for benchmark_acc(acc) {
-            for tid, bid, bdim, gdim, gid in acc.exec(grid, block_row) {
-                let (tidx,  tidy,  _) = tid;
-                let (bidx,  bidy,  _) = bid;
-                let (bdimx, bdimy, _) = bdim;
-                let (gdimx, _,     _) = gdim;
-                let tid_x  = tidx();
-                let tid_y  = tidy();
-                let bid_x  = bidx();
-                let bid_y  = bidy();
-                let bdim_x = bdimx();
-                let bdim_y = bdimy();
-                let gdim_x = gdimx();
-                let gid_x  = tid_x + bdim_x * bid_x;
-                let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+            for work_item in acc.exec(grid, block_row) {
+                let bdim_y  = work_item.bdimy();
+                let bid_x   = work_item.bidx();
+                let gid_x   = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+                let gid_y   = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
+                let nblk_x  = work_item.nblkx();
+                let nblk_y  = work_item.nblky();
                 let is_row  = true;
                 let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
@@ -443,7 +387,7 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
-                } else if bid_x >= gdim_x - bx { // right
+                } else if bid_x >= nblk_x - bx { // right
                     let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Boundary::Upper, Boundary::Center), bh_lower, bh_upper);
                     for i in unroll(0, coarsening_factor) {
                         @@body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
@@ -465,18 +409,10 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
             let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
 
             for benchmark_acc(acc) {
-                for tid, bid, bdim, gdim, gid in acc.exec(grid, block_col) {
-                    let (tidx,  tidy,  _) = tid;
-                    let (bidx,  bidy,  _) = bid;
-                    let (bdimx, bdimy, _) = bdim;
-                    let tid_x  = tidx();
-                    let tid_y  = tidy();
-                    let bid_x  = bidx();
-                    let bid_y  = bidy();
-                    let bdim_x = bdimx();
-                    let bdim_y = bdimy();
-                    let gid_x  =                                 tid_x + bdim_x * bid_x;
-                    let gid_y  = bounds(0) * coarsening_factor + tid_y + bdim_y * bid_y * coarsening_factor;
+                for work_item in acc.exec(grid, block_col) {
+                    let bdim_y = work_item.bdimy();
+                    let gid_x  =                                 work_item.tidx() + work_item.bdimx() * work_item.bidx();
+                    let gid_y  = bounds(0) * coarsening_factor + work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
                     let is_row = false;
 
                     for i in unroll(0, coarsening_factor) {
@@ -494,18 +430,10 @@ fn @iteration_sep_bounds(math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
 
             for benchmark_acc(acc) {
-                for tid, bid, bdim, gdim, gid in acc.exec(grid, block_row) {
-                    let (tidx,  tidy,  _) = tid;
-                    let (bidx,  bidy,  _) = bid;
-                    let (bdimx, bdimy, _) = bdim;
-                    let tid_x  = tidx();
-                    let tid_y  = tidy();
-                    let bid_x  = bidx();
-                    let bid_y  = bidy();
-                    let bdim_x = bdimx();
-                    let bdim_y = bdimy();
-                    let gid_x  = bounds(0) + tid_x + bdim_x * bid_x;
-                    let gid_y  =             tid_y + bdim_y * bid_y * coarsening_factor;
+                for work_item in acc.exec(grid, block_row) {
+                    let bdim_y = work_item.bdimy();
+                    let gid_x  = bounds(0) + work_item.tidx() + work_item.bdimx() * work_item.bidx();
+                    let gid_y  =             work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
                     let is_row = true;
 
                     for i in unroll(0, coarsening_factor) {
@@ -540,18 +468,15 @@ fn @iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskS
     let steps_y   = coarsening_factor + (mask_col.size-1) / block(1) + offset_y;
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-            let (tidx,  tidy,  _) = tid;
-            let (bidx,  bidy,  _) = bid;
-            let (bdimx, bdimy, _) = bdim;
-            let tid_x  = tidx();
-            let tid_y  = tidy();
-            let bid_x  = bidx();
-            let bid_y  = bidy();
-            let bdim_x = bdimx();
-            let bdim_y = bdimy();
-            let gid_x  = tid_x + bdim_x * bid_x;
-            let gid_y  = tid_y + bdim_y * bid_y * coarsening_factor;
+        for work_item in acc.exec(grid, block) {
+            let tid_x  = work_item.tidx();
+            let tid_y  = work_item.tidy();
+            let bid_x  = work_item.bidx();
+            let bid_y  = work_item.bidy();
+            let bdim_x = work_item.bdimx();
+            let bdim_y = work_item.bdimy();
+            let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
+            let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
             let spm_stride     =                     block(0) + 2 * range_row;
             let spm_height_col = coarsening_factor * block(1) + 2 * range_col;

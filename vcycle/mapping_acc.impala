@@ -15,16 +15,13 @@ fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
     let block = (64, step, 1);
 
     for benchmark_acc(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-            let (tidx,  tidy,  _) = tid;
-            let (bidx,  bidy,  _) = bid;
-            let (bdimx, bdimy, _) = bdim;
-            let tid_x  = tidx();
-            let tid_y  = tidy();
-            let bid_x  = bidx();
-            let bid_y  = bidy();
-            let bdim_x = bdimx();
-            let bdim_y = bdimy();
+        for work_item in acc.exec(grid, block) {
+            let tid_x  = work_item.tidx();
+            let tid_y  = work_item.tidy();
+            let bid_x  = work_item.bidx();
+            let bid_y  = work_item.bidy();
+            let bdim_x = work_item.bdimx();
+            let bdim_y = work_item.bdimy();
             let gid_y  = tid_y + bdim_y * bid_y;
 
             let spm_stride = block(0);
