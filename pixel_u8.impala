@@ -9,3 +9,8 @@ static gaussian_mask5 = [[ 1u8,  4u8,  6u8,  4u8, 1u8 ],
                          [ 6u8, 24u8, 36u8, 24u8, 6u8 ],
                          [ 4u8, 16u8, 24u8, 16u8, 4u8 ],
                          [ 1u8,  4u8,  6u8,  4u8, 1u8 ]];
+
+static jacobi_a = 2u8;
+static jacobi_b = 10u8 - 4u8 * jacobi_a;
+
+static diff_treshold = 0u8;

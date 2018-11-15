@@ -6,7 +6,7 @@ fn main() -> i32 {
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
     let stencil = get_mask3([[0 as pixel_t, jacobi_b, 0 as pixel_t],
-                             [    jacobi_b, jacobi_a, jacobi_b           ],
+                             [    jacobi_b, jacobi_a, jacobi_b    ],
                              [0 as pixel_t, jacobi_b, 0 as pixel_t]]);
 
     let lower = clamp_lower;
