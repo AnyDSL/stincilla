@@ -1,3 +1,4 @@
+static coarsening_policy = FetchAndCalc;// FetchAndCalc, FetchAndCalc_nobh, CalcAndPack, CalcAndPack_nobh;
 fn @pragma_pipeline() -> () {
    if is_opencl() { print_pragma("#pragma ii 1"); };
    if is_hls() { print_pragma("#pragma HLS pipeline II=1"); };
@@ -13,16 +14,16 @@ type brdr_assigns_type = fn(int, Boundary, int, int) -> ();
 // ---------------------------- structs ----------------------------------------
 // stream types for data movements
 struct stream_in {
-    update: fn(int) -> (),
-    read  : fn(int) -> pixel_t,
+    update  : fn(int) -> (),
+    read    : fn(int) -> pixel_t,
     width   : int,
     height  : int,
     stride  : int,
     pFactor : int
 }
 struct stream_out {
-    update: fn(int) -> (),
-    write : fn(int, pixel_t) -> (),
+    update  : fn(int) -> (),
+    write   : fn(int, pixel_t) -> (),
     width   : int,
     height  : int,
     stride  : int,
@@ -815,7 +816,7 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 // 
 //     copy_img(arr, arr_dev);
 //     for benchmark_fpga(acc) {
-//         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+//         for work_item in acc.exec((1,1,1), (1,1,1)) {
 //             let radius_y = mask.size_y >> 1;
 //             let radius_x = mask.size_x >> 1;
 // 

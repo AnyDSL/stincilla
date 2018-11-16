@@ -382,7 +382,7 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
     for benchmark_fpga(||) {
         let in_s_fn  = get_stream(arr_dev);
         let out_s_fn = set_stream(out_dev);
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             //FetchAndCalc, CalcAndPack, FetchAndCalc_nobh, CalcAndPack_nobh
             let coarsening_fun = coarsening_policy;
@@ -400,7 +400,7 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
 //
 //    for benchmark_fpga(||) {
 //        let out_s_fn = set_stream(out_dev);
-//        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+//        for work_item in acc.exec((1,1,1), (1,1,1)) {
 //            let pFactor = get_vector_length();
 //            let out_s = out_s_fn();
 //            iter_point_body(pFactor, out_s, body);
@@ -416,7 +416,7 @@ fn @iteration_point(math: Intrinsics, out: Img, arr: Img, body: fn(Intrinsics, i
     for benchmark_fpga( || ) {
         let out_s_fn = set_stream(out_dev);
         let in_s_fn = get_stream(arr_dev);
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
 
             let (in_s, out_s) = (in_s_fn(), out_s_fn());
@@ -436,7 +436,7 @@ fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(
         let out_s_fn = set_stream(out_dev);
         let in0_s_fn = get_stream(arr0_dev);
         let in1_s_fn = get_stream(arr1_dev);
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             let out_s = out_s_fn();
             let in0_s = in0_s_fn();
@@ -459,7 +459,7 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
         let in0_s_fn = get_stream(arr0_dev);
         let in1_s_fn = get_stream(arr1_dev);
         let in2_s_fn = get_stream(arr2_dev);
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             let out_s = out_s_fn();
             let in0_s = in0_s_fn();
@@ -483,7 +483,7 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
         let   in_s_fn = get_stream(arr_dev);
         let out0_s_fn = set_stream(out0);
         let out1_s_fn = set_stream(out1);
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let (in_s, out0_s, out1_s) = (in_s_fn(), out0_s_fn(), out1_s_fn());
             for idx in range(0, image_size) {
                 pragma_pipeline();
@@ -507,7 +507,7 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
 //     let pFactor = get_vector_length();
 //     let image_size = (arr.height * (arr.stride / pFactor) );
 //     for benchmark_fpga(||) {
-//         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+//         for work_item in acc.exec((1,1,1), (1,1,1)) {
 //             //for idx in range(0, image_size) {
 //             for y in range(0, arr.height) {
 //             for x in range(0, arr.stride / pFactor) {

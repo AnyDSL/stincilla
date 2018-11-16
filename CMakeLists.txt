@@ -64,7 +64,7 @@ add_subdirectory(test)
 #add_subdirectory(sorting_networks)
 #add_subdirectory(vcycle)
 add_subdirectory(apps)
-add_subdirectory(harris_corner)
+#add_subdirectory(harris_corner)
 
 set(DSL_TYPE_FILES utils.impala stencil_lib.impala stencil_lib_img_proc.impala)
 

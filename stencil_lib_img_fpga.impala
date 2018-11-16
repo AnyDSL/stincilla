@@ -2,18 +2,18 @@
 // Everything related with Img in stencil_lib
 // ---------------------------------------------------------------------------
 // ------------------------- new stuff
-struct Img{
-    buf : Buffer,
-    fifo: &mut pipe,
-    virtual: bool,
-    width  : i32,
-    height : i32,
-    stride : i32,
+struct Img {
+    buf     : Buffer,
+    fifo    : &mut pipe,
+    virtual : bool,
+    width   : i32,
+    height  : i32,
+    stride  : i32,
 }
 
 fn @new_img(width: i32, height: i32, stride: i32, buf: Buffer) -> Img {
     static mut dummy: pipe;
-    Img { buf: buf, fifo: &mut dummy, virtual: false, width: width, height: height, stride: stride}
+    Img { buf: buf, fifo: &mut dummy, virtual: false, width: width, height: height, stride: stride }
 }
 
 fn @alloc_img(img: Img, alloc: fn(i32) -> Buffer) -> Img {
@@ -21,18 +21,18 @@ fn @alloc_img(img: Img, alloc: fn(i32) -> Buffer) -> Img {
 }
 
 fn @create_host_img(width: i32, height: i32) -> Img {
-    let stride = round_up(width * sizeof[pixel_t](), get_alignment()) / sizeof[pixel_t]();
-    let buf = alloc_cpu(stride * height * sizeof[pixel_t]()); 
+    let stride = round_up(width * sizeof[pixel_t](), round_up(sizeof[pixel_t](), get_vector_length())) / sizeof[pixel_t]();
+    let buf = alloc_cpu(stride * height * sizeof[pixel_t]());
     new_img(width, height, stride, buf)
 }
 
 fn @new_virtual_img(width: i32, height: i32, stride: i32, fifo: &mut pipe) -> Img {
-    let buf = alloc_cpu(0); 
-    Img { buf: buf, fifo: fifo, virtual: true, width: width, height: height, stride: stride}
+    let buf = alloc_cpu(0);
+    Img { buf: buf, fifo: fifo, virtual: true, width: width, height: height, stride: stride }
 }
 
 fn @create_virtual_img(width: i32, height: i32, fifo: &mut pipe) -> Img {
-    let stride = round_up(width * sizeof[pixel_t](), get_alignment()) / sizeof[pixel_t]();
+    let stride = round_up(width * sizeof[pixel_t](), round_up(sizeof[pixel_t](), get_vector_length())) / sizeof[pixel_t]();
     new_virtual_img(width, height, stride, fifo)
 }
 

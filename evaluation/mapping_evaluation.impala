@@ -6,7 +6,7 @@ fn @iteration_with_policy(math: Intrinsics, coarsening_fun: crsn_type, pFactor: 
 
     copy_img(arr, arr_gpu);
     for benchmark_fpga(acc) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let in_s  = get_stream_from_global_img(arr_gpu, pFactor);
             let out_s = set_stream_from_global_img(out_gpu, pFactor);
             iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
@@ -42,7 +42,7 @@ fn @copy_crsn(math: Intrinsics, pFactor: i32, out: Img, arr : Img) -> () {
     for benchmark_fpga(acc) {
         let crsn_stride = (arr.stride -1) / pFactor + 1;
         let crsn_width  = (arr.width - 1) / pFactor + 1;
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             for y in range(0, out.height) {
                 for x in range(0, crsn_width) {
                     let idx = y * crsn_stride + x;

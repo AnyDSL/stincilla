@@ -15,5 +15,3 @@ fn @is_sse() -> bool { false }
 fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
 fn @has_ldg() -> bool { false }
-
-fn @get_alignment() -> i32 { 64 }

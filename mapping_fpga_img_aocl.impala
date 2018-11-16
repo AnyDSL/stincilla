@@ -11,7 +11,7 @@ fn @copy_img(src: Img, dst: Img) -> () {
 // --------------------- memory copy functions --------------------------------
 fn @copy_real_img(src: Img, dst: Img) -> () {
     if src.virtual == false {
-        copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[pixel_t]());
+        copy(src.buf, dst.buf);
     }
 }
 
@@ -303,7 +303,7 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
     let out_dev = get_device_copy(out);
 
     for benchmark_fpga( get_aocl_sync(out) ) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             //FetchAndCalc, CalcAndPack, FetchAndCalc_nobh, CalcAndPack_nobh
             let coarsening_fun = coarsening_policy;
@@ -322,7 +322,7 @@ fn @iteration_point(math: Intrinsics, out: Img, arr: Img, body: fn(Intrinsics, i
     let out_dev = get_device_copy(out);
 
     for benchmark_fpga( get_aocl_sync(out) ) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             let out_s = set_stream(out_dev);
             let in_s = get_stream(arr_dev);
@@ -340,7 +340,7 @@ fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(
     let out_dev = get_device_copy(out);
 
     for benchmark_fpga( get_aocl_sync(out) ) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             let out_s = set_stream(out_dev);
             let in0_s = get_stream(arr0_dev);
@@ -360,7 +360,7 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
     let out_dev = get_device_copy(out);
 
     for benchmark_fpga( get_aocl_sync(out) ) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let pFactor = get_vector_length();
             let out_s = set_stream(out_dev);
             let in0_s = get_stream(arr0_dev);
@@ -382,7 +382,7 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
     let pFactor = get_vector_length();
     let image_size = (arr.height * (arr.stride / pFactor) );
     for benchmark_fpga( get_aocl_sync( out0 ) ) {
-        for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
             let in_s   = get_stream(arr_dev);
             let out0_s = set_stream(out0);
             let out1_s = set_stream(out1);
@@ -409,7 +409,7 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
 //     let pFactor = get_vector_length();
 //     let image_size = (arr.height * (arr.stride / pFactor) );
 //     for benchmark_fpga(acc) {
-//         for tid, bid, bdim, gdim, gid in acc.exec((1,1,1), (1,1,1)) {
+//         for work_item in acc.exec((1,1,1), (1,1,1)) {
 //             //for idx in range(0, image_size) {
 //             for y in range(0, arr.height) {
 //             for x in range(0, arr.stride / pFactor) {

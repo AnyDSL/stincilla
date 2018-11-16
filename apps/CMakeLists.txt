@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
 
 set(DSL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(APPS_DIR ${CMAKE_CURRENT_SOURCE_DIR})

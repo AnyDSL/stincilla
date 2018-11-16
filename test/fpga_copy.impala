@@ -1,7 +1,7 @@
 fn @iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
     let grid  = (1, 1, 1);
     let block = (1, 1, 1);
-    for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
+    for work_item in acc.exec(grid, block) {
         for x in range(0, width) {
             for y in range(0, height) {
                 @@body(x, y);
