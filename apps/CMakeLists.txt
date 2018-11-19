@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
-
 set(DSL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(APPS_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -91,16 +89,16 @@ anydsl_runtime_wrap(FILTER_CHAIN_PIPE_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${FILTER_CHAIN_FILES})
-add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 add_executable(filter_chain_pipe ${FILTER_CHAIN_PIPE_PROGRAM})
 target_link_libraries(filter_chain_pipe ${ANYDSL_RUNTIME_LIBRARIES})
+set_target_properties(filter_chain_pipe PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 set_target_properties(filter_chain_pipe PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 
 anydsl_runtime_wrap(HARRIS_CORNER_PIPE_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${HARRIS_CORNER_FILES})
-add_definitions(-DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 add_executable(harris_corner_pipe "${HARRIS_CORNER_DIR}/main.cpp" ${HARRIS_CORNER_PIPE_PROGRAM})
 target_link_libraries(harris_corner_pipe ${ANYDSL_RUNTIME_LIBRARIES})
+set_target_properties(harris_corner_pipe PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 set_target_properties(harris_corner_pipe PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
