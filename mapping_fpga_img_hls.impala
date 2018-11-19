@@ -413,7 +413,7 @@ fn @iteration_point(math: Intrinsics, out: Img, arr: Img, body: fn(Intrinsics, i
     let arr_dev = get_device_copy(arr);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga( || ) {
+    for benchmark_fpga(||) {
         let out_s_fn = set_stream(out_dev);
         let in_s_fn = get_stream(arr_dev);
         for work_item in acc.exec((1,1,1), (1,1,1)) {
@@ -432,7 +432,7 @@ fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(
     let arr1_dev = get_device_copy(arr1);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga( || ) {
+    for benchmark_fpga(||) {
         let out_s_fn = set_stream(out_dev);
         let in0_s_fn = get_stream(arr0_dev);
         let in1_s_fn = get_stream(arr1_dev);
@@ -454,7 +454,7 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
     let arr2_dev = get_device_copy(arr2);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga( || ) {
+    for benchmark_fpga(||) {
         let out_s_fn = set_stream(out_dev);
         let in0_s_fn = get_stream(arr0_dev);
         let in1_s_fn = get_stream(arr1_dev);

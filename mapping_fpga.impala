@@ -815,7 +815,7 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 //     let out_dev = alloc_img(out, acc.alloc);
 // 
 //     copy_img(arr, arr_dev);
-//     for benchmark_fpga(acc) {
+//     for benchmark_fpga(||) {
 //         for work_item in acc.exec((1,1,1), (1,1,1)) {
 //             let radius_y = mask.size_y >> 1;
 //             let radius_x = mask.size_x >> 1;

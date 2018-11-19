@@ -196,7 +196,7 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
 
     let arr_dev = get_device_copy(arr);
     let out_dev = get_device_copy(out);
-    for benchmark_fpga(acc) {
+    for benchmark_fpga(||) {
         let in_s_fn  = get_stream_from_global_img(arr_dev, pFactor);
         let out_s_fn = set_stream_from_global_img(out_dev, pFactor);
         for work_item in acc.exec((1,1,1), (1,1,1)) {
@@ -216,7 +216,7 @@ fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, A
     let pFactor = get_vector_length();
 
     let out_dev = get_device_copy(out);
-    for benchmark_fpga(acc) {
+    for benchmark_fpga(||) {
         let out_s_fn = set_stream_from_global_img(out_dev, pFactor);
         for work_item in acc.exec((1,1,1), (1,1,1)) {
             let out_s = out_s_fn();
