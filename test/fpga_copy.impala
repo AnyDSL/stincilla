@@ -19,6 +19,8 @@ fn main() -> i32 {
     let acc     = accelerator(device_id);
     let arr     = alloc_cpu(width * height * sizeof[f32]());
     let out     = alloc_cpu(width * height * sizeof[f32]());
+    let arr_fpga = acc.alloc(width * height * sizeof[f32]());
+    let out_fpga = acc.alloc(width * height * sizeof[f32]());
     for i in range(0, width*height) {
         let arr_ptr = bitcast[&mut[f32]](arr.data);
         let out_ptr = bitcast[&mut[f32]](out.data);
@@ -26,10 +28,14 @@ fn main() -> i32 {
         out_ptr(i) = 0.0f;
     }
 
+    copy(arr, arr_fpga);
+
     for x, y in iteration(acc, width, height) {
         let idx = y*width + x;
-        write(out, idx, read(arr, idx));
+        write(out_fpga, idx, read(arr_fpga, idx));
     }
+
+    copy(out_fpga, out);
 
     let mut passed = 0;
     for i in range(0, width*height) {
@@ -41,6 +47,8 @@ fn main() -> i32 {
         print_string("Test FAILED!\n");
     }
 
+    release(out_fpga);
+    release(arr_fpga);
     release(arr);
     release(out);
 
