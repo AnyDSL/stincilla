@@ -453,7 +453,7 @@ fn @bh_type0(imx: int, boundary: Boundary, pFactor: int, roi: RoI1d, get_bounds_
 fn @get_type0_row_sel(pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type) -> row_sel_fun_type {
     @|idx, brdr_assigns| {
         for boundary in iterate1d_border() {
-            let bh_type0_fun = bh_type0(idx, boundary, pFactor, roi, get_bounds_fun, brdr_assigns);
+            let bh_type0_fun = bh_type0($idx, boundary, pFactor, roi, get_bounds_fun, brdr_assigns);
         }
     }
 }
@@ -486,7 +486,7 @@ fn @new_type0_col_selection(swin: swin_acc, pFactor: int, roi: RoI1d, get_bounds
 
     fn @update(col_ridx: int) -> () {
         for boundary in iterate1d_atborders() {
-            bh_type0(col_ridx, boundary, pFactor, roi, get_bounds_fun, brdr_assigns);
+            bh_type0($col_ridx, boundary, pFactor, roi, get_bounds_fun, brdr_assigns);
         }
     }
 
