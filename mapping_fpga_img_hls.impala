@@ -35,7 +35,7 @@ fn @copy_img(src: Img, dst: Img) -> () {
 // --------------------- memory copy functions --------------------------------
 fn @copy_real_img(src: Img, dst: Img) -> () {
     if src.virtual == false {
-        copy(src.buf, dst.buf, dst.stride * dst.height * sizeof[pixel_t]());
+        copy(src.buf, dst.buf);
     }
 }
 
