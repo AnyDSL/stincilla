@@ -338,7 +338,7 @@ fn @make_img_list3(img1: Img, ext1: (i32, i32), img2: Img, ext2: (i32, i32), img
 }
 
 fn @img_list_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Img) -> ImgList {
-    fn @map(list: ImgList, i: i32) -> ImgList {
+    fn @(?i)map(list: ImgList, i: i32) -> ImgList {
         if i == 0 {
             list
         } else if i == imgs.size {
@@ -352,7 +352,7 @@ fn @img_list_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Img) -> ImgList {
 }
 
 fn @img_list2acc_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Acc) -> AccList {
-    fn @map(list: AccList, i: i32) -> AccList {
+    fn @(?i)map(list: AccList, i: i32) -> AccList {
         if i == 0 {
             list
         } else if i == imgs.size {
@@ -366,7 +366,7 @@ fn @img_list2acc_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Acc) -> AccList
 }
 
 fn @get_max_ext(imgs: ImgList) -> (i32, i32) {
-    fn @max_ext(ext: (i32, i32), i: i32) -> (i32, i32) {
+    fn @(?i)max_ext(ext: (i32, i32), i: i32) -> (i32, i32) {
         if i == 0 {
             ext
         } else {
