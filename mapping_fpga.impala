@@ -96,6 +96,50 @@ fn @iterate1d_atborders(body: fn(Boundary) -> ()) -> () {
     @@body(Boundary::Upper);
 }
 
+// --------------------- memory copy functions --------------------------------
+fn @copy_img(src: Img, dst: Img) -> () {
+    copy_real_img(src, dst);
+}
+
+fn @copy_real_img(src: Img, dst: Img) -> () {
+    if src.virtual == false {
+        copy(src.buf, dst.buf);
+    }
+}
+
+fn @get_device_copy(img: Img) -> Img {
+    if img.virtual == false {
+        let acc = accelerator(device_id);
+        let img_dev = alloc_img(img, acc.alloc);
+        copy_real_img(img, img_dev);
+        img_dev
+    } else {
+        img
+    }
+}
+
+fn @get_host_copy(img_dev: Img, img: Img) -> () {
+    if img_dev.virtual == false {
+        copy_real_img(img_dev, img);
+    } 
+}
+
+fn @release_device_copy(img: Img) -> () {
+    if img.virtual == false {
+        release(img.buf)
+    }
+}
+
+fn @get_device_sync(img: Img) -> fn() -> () {
+    if img.virtual == false {
+      let acc = accelerator(device_id);
+      acc.sync
+    } else {
+        ||()
+    }
+}
+
+
 // ---------------------------- streaming --------------------------------------
 fn @new_shared_line(in_s: stream_in, width: int) -> stream_in {
     match in_s.pFactor {

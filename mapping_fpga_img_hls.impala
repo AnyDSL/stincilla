@@ -2,11 +2,6 @@
 // pipe support
 type pipe = channel;
 
-// --------------------- accessor: mapping dependent functions ----------------
-fn @copy_img(src: Img, dst: Img) -> () {
-    copy_real_img(src, dst);
-}
-
 // ---------------------------- streaming --------------------------------------
 fn @get_stream(img: Img) -> fn() -> stream_in {
     let pFactor = get_vector_length();
@@ -221,13 +216,14 @@ fn @set_global_stream_vec32(img: Img) -> fn() -> stream_out {
         img_to_stream_out(img, 32, update, write)
     }
 }
+
 //  ------------------- Stencil Processing ----------------------
 fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
     let acc = accelerator(device_id);
     let arr_dev = get_device_copy(arr);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga(||) {
+    for benchmark_fpga(get_device_sync(out)) {
         let in_s_fn  = get_stream(arr_dev);
         let out_s_fn = set_stream(out_dev);
         for work_item in acc.exec((1,1,1), (1,1,1)) {
@@ -242,26 +238,12 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
     get_host_copy(out_dev, out);
 }
 
-//fn @iteration_point(math: Intrinsics, out: Img, body: fn(Intrinsics, i32, i32, Acc) -> ()) -> () {
-//    let acc = accelerator(device_id);
-//    let out_dev = get_device_copy(out);
-//
-//    for benchmark_fpga(||) {
-//        let out_s_fn = set_stream(out_dev);
-//        for work_item in acc.exec((1,1,1), (1,1,1)) {
-//            let pFactor = get_vector_length();
-//            let out_s = out_s_fn();
-//            iter_point_body(pFactor, out_s, body);
-//        }
-//    }
-//    get_host_copy(out_dev, out);
-//}
 fn @iteration_point(math: Intrinsics, out: Img, arr: Img, body: fn(Intrinsics, i32, i32, Acc, pixel_t) -> ()) -> () {
     let acc = accelerator(device_id);
     let arr_dev = get_device_copy(arr);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga(||) {
+    for benchmark_fpga(get_device_sync(out)) {
         let out_s_fn = set_stream(out_dev);
         let in_s_fn = get_stream(arr_dev);
         for work_item in acc.exec((1,1,1), (1,1,1)) {
@@ -280,7 +262,7 @@ fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(
     let arr1_dev = get_device_copy(arr1);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga(||) {
+    for benchmark_fpga(get_device_sync(out)) {
         let out_s_fn = set_stream(out_dev);
         let in0_s_fn = get_stream(arr0_dev);
         let in1_s_fn = get_stream(arr1_dev);
@@ -302,7 +284,7 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
     let arr2_dev = get_device_copy(arr2);
     let out_dev = get_device_copy(out);
 
-    for benchmark_fpga(||) {
+    for benchmark_fpga(get_device_sync(out)) {
         let out_s_fn = set_stream(out_dev);
         let in0_s_fn = get_stream(arr0_dev);
         let in1_s_fn = get_stream(arr1_dev);
@@ -327,7 +309,7 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
 
     let pFactor = get_vector_length();
     let image_size = (arr.height * (arr.stride / pFactor) );
-    for benchmark_fpga(||) {
+    for benchmark_fpga(get_device_sync(out0)) {
         let   in_s_fn = get_stream(arr_dev);
         let out0_s_fn = set_stream(out0);
         let out1_s_fn = set_stream(out1);
