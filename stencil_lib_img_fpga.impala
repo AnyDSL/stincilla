@@ -4,7 +4,7 @@
 // pipe support
 type pipe = channel;
 
-// ------------------------- new stuff
+// FPGA dataflow construction with virtual images
 struct Img {
     buf     : Buffer,
     fifo    : &mut pipe,
@@ -39,14 +39,6 @@ fn @create_virtual_img(width: i32, height: i32, fifo: &mut pipe) -> Img {
     new_virtual_img(width, height, stride, fifo)
 }
 
-// ------------------------- hackish
-//fn @get_acc_virtual(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
-//    let in_s = get_stream(img);
-//    Acc {
-//        read  : @|x, y|    { if x == 0 {in_s.update(0)}; in_s.read(x) },
-//        write : @|x, y, v| { set_pixel(0, v) }
-//    }
-//}
 fn @get_acc_virtual(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
     Acc {
         read  : @|x, y|    { get_pixel(x) },
@@ -72,7 +64,7 @@ fn @get_acc_bh(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -
     }
 }
 
-// ------------------------- old
+// region of interest is not supported yet
 // &   [pixel_t] on CPU/AVX
 // &[1][pixel_t] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acc_bh_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
@@ -89,8 +81,7 @@ fn @get_acc_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i3
     }
 }
 
-
-// ---------------------------- streaming --------------------------------------
+// ---------------------------- memory access --------------------------------------
 fn create_stream_in(width: int, height: int, stride: int, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t) -> stream_in {
     stream_in{ width: width, height: height, stride: stride, pFactor: pFactor, update: update, read: read}
 }
@@ -128,31 +119,7 @@ fn @set_stream(img: Img) -> stream_out {
     }
 }
 
-fn @channel_to_stream_in(img: Img, pFactor: int) -> stream_in {
-    match pFactor {
-         1 => channel_to_stream_in_vec1 (img),
-         2 => channel_to_stream_in_vec2 (img),
-         4 => channel_to_stream_in_vec4 (img),
-         8 => channel_to_stream_in_vec8 (img),
-        16 => channel_to_stream_in_vec16(img),
-        32 => channel_to_stream_in_vec32(img),
-         _ => undef[stream_in]()
-    }
-}
 
-fn @channel_to_stream_out(img: Img, pFactor: int) -> stream_out {
-    match pFactor {
-         1 => channel_to_stream_out_vec1 (img),
-         2 => channel_to_stream_out_vec2 (img),
-         4 => channel_to_stream_out_vec4 (img),
-         8 => channel_to_stream_out_vec8 (img),
-        16 => channel_to_stream_out_vec16(img),
-        32 => channel_to_stream_out_vec32(img),
-         _ => undef[stream_out]()
-    }
-}
-
-// global
 fn @get_stream_from_global_img(img: Img, pFactor: int) -> stream_in {
     match pFactor {
          1 => get_global_stream_vec1 (img),
@@ -177,6 +144,126 @@ fn @set_stream_from_global_img(img: Img, pFactor: int) -> stream_out {
     }
 }
 
+fn @channel_to_stream_in(img: Img, pFactor: int) -> stream_in {
+    match pFactor {
+         1 => channel_to_stream_in_vec1 (img),
+         2 => channel_to_stream_in_vec2 (img),
+         4 => channel_to_stream_in_vec4 (img),
+         8 => channel_to_stream_in_vec8 (img),
+        16 => channel_to_stream_in_vec16(img),
+        32 => channel_to_stream_in_vec32(img),
+         _ => undef[stream_in]()
+    }
+}
+
+fn @channel_to_stream_out(img: Img, pFactor: int) -> stream_out {
+    match pFactor {
+         1 => channel_to_stream_out_vec1 (img),
+         2 => channel_to_stream_out_vec2 (img),
+         4 => channel_to_stream_out_vec4 (img),
+         8 => channel_to_stream_out_vec8 (img),
+        16 => channel_to_stream_out_vec16(img),
+        32 => channel_to_stream_out_vec32(img),
+         _ => undef[stream_out]()
+    }
+}
+
+
+fn @get_global_stream_vec1(img: Img) -> stream_in {
+    let mut value = 0 as pixel_t;
+    let global_read_fn = get_global_read_vec1(img);
+    fn @update(idx: int) -> () { value = global_read_fn(idx); }
+    fn @read(idx: int) -> pixel_t { value }
+    img_to_stream_in(img, 1, update, read)
+}
+
+fn @get_global_stream_vec2(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 2 ];
+    let global_read_fn = get_global_read_vec2(img);
+    fn @update(idx: int) -> () { value = global_read_fn(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 2, update, read)
+}
+
+fn @get_global_stream_vec4(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 4 ];
+    let global_read_fn = get_global_read_vec4(img);
+    fn @update(idx: int) -> () { value = global_read_fn(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 4, update, read)
+}
+
+fn @get_global_stream_vec8(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 8 ];
+    let global_read_fn = get_global_read_vec8(img);
+    fn @update(idx: int) -> () { value = global_read_fn(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 8, update, read)
+}
+
+fn @get_global_stream_vec16(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 16 ];
+    let global_read_fn = get_global_read_vec16(img);
+    fn @update(idx: int) -> () { value = global_read_fn(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 16, update, read)
+}
+
+fn @get_global_stream_vec32(img: Img) -> stream_in {
+    let mut value = [ 0 as pixel_t, .. 32 ];
+    let global_read_fn = get_global_read_vec32(img);
+    fn @update(idx: int) -> () { value = global_read_fn(idx); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    img_to_stream_in(img, 32, update, read)
+}
+
+fn @set_global_stream_vec1(img: Img) -> stream_out {
+    let mut value = 0 as pixel_t;
+    let global_write_fn = get_global_write_vec1(img);
+    fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @write(idx: int, din: pixel_t) -> () { value = din; }
+    img_to_stream_out(img, 1, update, write)
+}
+
+fn @set_global_stream_vec2(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 2 ];
+    let global_write_fn = get_global_write_vec2(img);
+    fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 2, update, write)
+}
+
+fn @set_global_stream_vec4(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 4 ];
+    let global_write_fn = get_global_write_vec4(img);
+    fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 4, update, write)
+}
+
+fn @set_global_stream_vec8(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 8 ];
+    let global_write_fn = get_global_write_vec8(img);
+    fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 8, update, write)
+}
+
+fn @set_global_stream_vec16(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 16 ];
+    let global_write_fn = get_global_write_vec16(img);
+    fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 16, update, write)
+}
+
+fn @set_global_stream_vec32(img: Img) -> stream_out {
+    let mut value = [ 0 as pixel_t, .. 32 ];
+    let global_write_fn = get_global_write_vec32(img);
+    fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    img_to_stream_out(img, 32, update, write)
+}
 
 
 fn @channel_to_stream_out_vec1(img: Img) -> stream_out {
