@@ -313,8 +313,8 @@ fn @new_line_buffer(in_s: stream_in, size_x: int, size_y: int) -> swin_acc {
                 }
             },
             shift  : @|col, row| {
-                shared_s.update(col);
-                sub_lbuf.shift(col, 0)
+                shared_s.update($col);
+                sub_lbuf.shift($col, 0)
             },
             size_x : size_x,
             size_y : size_y
@@ -345,7 +345,7 @@ fn @new_sliding_win(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int) -> 
             swin.read(x, y)
         },
         shift : @|col_ridx, row_ridx| {
-            lbufs.shift(col_ridx, 0);
+            lbufs.shift($col_ridx, 0);
             shift()
         },
         size_x : swin_x,
@@ -373,12 +373,12 @@ fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, radius_x: int,
                 swin.write(i, j, swin.read(i + pFactor, j));
             }
         }
-        row_sel_fun(row_ridx, brdr_assigns);
+        row_sel_fun($row_ridx, brdr_assigns);
     }
 
     swin_acc {
         read  : swin.read,
-        shift : @|col_ridx, row_ridx| { lbufs.shift(col_ridx, 0); shift(col_ridx, row_ridx) },
+        shift : @|col_ridx, row_ridx| { lbufs.shift($col_ridx, 0); shift($col_ridx, $row_ridx) },
         size_x : out_width,
         size_y : swin_y
     }
@@ -518,8 +518,8 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
     let col_sel_type0 = new_type0_col_selection(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift(col_ridx, row_ridx);
-        col_sel_type0.update(col_ridx);
+        swin.shift($col_ridx, $row_ridx);
+        col_sel_type0.update($col_ridx);
 
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
@@ -587,8 +587,8 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
     }
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift(col_ridx, row_ridx);
-        col_sel_type0.update(col_ridx);
+        swin.shift($col_ridx, $row_ridx);
+        col_sel_type0.update($col_ridx);
 
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : col_sel_type0.get_read_fn(v), write : @|x, y, v| {} };
@@ -626,7 +626,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
     // let col_sel_type0 = new_type0_col_selection(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift(col_ridx, row_ridx);
+        swin.shift($col_ridx, $row_ridx);
         //col_sel_type0.update(col_ridx);
 
         for v in unroll(0, pFactor) {
@@ -696,7 +696,7 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
     }
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift(col_ridx, row_ridx);
+        swin.shift($col_ridx, $row_ridx);
         //col_sel_type0.update(col_ridx);
 
         for v in unroll(0, pFactor) {
@@ -751,7 +751,7 @@ fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: 
 
     let my_hardware = Hardware {
         at_read   : || { in_s.update(ridx); },
-        at_always : || { coarsening.process(col_ridx, row_ridx); },
+        at_always : || { coarsening.process($col_ridx, $row_ridx); },
         at_write  : || { out_s.update(ridx - (initial_delay + 1)); },
         at_update : || { ridx++;
                          col_ridx++;
@@ -898,14 +898,14 @@ fn @iter_point_body(math: Intrinsics, pFactor: i32, out_s: stream_out, in_s: str
         for x in range(0, crsn_stride) {
             pragma_pipeline();
             let rwidx = y * crsn_stride + x;
-            in_s.update(rwidx);
+            in_s.update($rwidx);
 
             for v in unroll(0, pFactor) {
                 let in0 = in_s.read(v);
                 let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(v, data) };
                 @@body(math, v, y, out_acc, in0);
             }
-            out_s.update(rwidx);
+            out_s.update($rwidx);
         }
     }
 }
@@ -916,8 +916,8 @@ fn @iter_point2_body(math: Intrinsics, pFactor: i32, out_s: stream_out, in0_s: s
         for x in range(0, crsn_stride) {
             pragma_pipeline();
             let rwidx = y * crsn_stride + x;
-            in0_s.update(rwidx);
-            in1_s.update(rwidx);
+            in0_s.update($rwidx);
+            in1_s.update($rwidx);
 
             for v in unroll(0, pFactor) {
                 let in0 = in0_s.read(v);
@@ -925,7 +925,7 @@ fn @iter_point2_body(math: Intrinsics, pFactor: i32, out_s: stream_out, in0_s: s
                 let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(v, data) };
                 @@body(math, v, y, out_acc, in0, in1);
             }
-            out_s.update(rwidx);
+            out_s.update($rwidx);
         }
     }
 }
@@ -936,9 +936,9 @@ fn @iter_point3_body(math: Intrinsics, pFactor: i32, out_s: stream_out, in0_s: s
         for x in range(0, crsn_stride) {
             pragma_pipeline();
             let rwidx = y * crsn_stride + x;
-            in0_s.update(rwidx);
-            in1_s.update(rwidx);
-            in2_s.update(rwidx);
+            in0_s.update($rwidx);
+            in1_s.update($rwidx);
+            in2_s.update($rwidx);
 
             for v in unroll(0, pFactor) {
                 let in0 = in0_s.read(v);
@@ -947,7 +947,7 @@ fn @iter_point3_body(math: Intrinsics, pFactor: i32, out_s: stream_out, in0_s: s
                 let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(v, data) };
                 @@body(math, v, y, out_acc, in0, in1, in2);
             }
-            out_s.update(rwidx);
+            out_s.update($rwidx);
         }
     }
 }
