@@ -12,6 +12,7 @@ type row_sel_fun_type = fn(int, brdr_assigns_type) -> ();
 type crsn_type = fn(Intrinsics, Mem2D, Mem2D, int, Mask, int, BoundaryFn, BoundaryFn, StencilFn) -> coarsening_type;
 type brdr_assigns_type = fn(int, Boundary, int, int) -> ();
 // ---------------------------- structs ----------------------------------------
+// memory access
 struct Mem2D {
     read    : fn(int) -> pixel_t,
     write   : fn(int, pixel_t) -> (),
@@ -48,20 +49,14 @@ struct regs2d {
 }
 
 // on-chip memory
-struct swin_acc {
+struct Win2D {
     read   : fn(int, int) -> pixel_t,
-    shift  : fn(int, int) -> (),
+    update : fn(int, int) -> (),
     size_x : int,
     size_y : int
 }
 
 // border handling
-struct win_acc {
-    read   : fn(int, int) -> pixel_t,
-    write  : fn(int, int, pixel_t) -> (),
-    size_x : int,
-    size_y : int
-}
 struct RoI1d {
     o_x : i32,
     width : i32,
@@ -312,18 +307,18 @@ fn @new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
 // ------------------------ Stencil Codes ------------------------------------
 // ---------------------------------------------------------------------------
 //  ---- Instances of On Chip Memory: Line Buffers and Sliding Window  --------
-fn @new_line_buffer(in_s: Mem2D, size_x: int, size_y: int) -> swin_acc {
+fn @new_line_buffer(in_s: Mem2D, size_x: int, size_y: int) -> Win2D {
     if size_y == 0 {
-        swin_acc {
+        Win2D {
             read   : @|x, y| in_s.read(x),
-            shift  : @|_, _| (),
+            update : @|_, _| (),
             size_x : size_x,
             size_y : size_y
         }
     } else {
         let shared_s = new_shared_line(in_s, size_x);
         let sub_lbuf = new_line_buffer(shared_s, size_x, size_y - 1);
-        swin_acc {
+        Win2D {
             read   : @|x, y| {
                 if y == size_y - 1 {
                     in_s.read(x)
@@ -331,9 +326,9 @@ fn @new_line_buffer(in_s: Mem2D, size_x: int, size_y: int) -> swin_acc {
                     sub_lbuf.read(x, y)
                 }
             },
-            shift  : @|col, row| {
+            update : @|col, row| {
                 shared_s.update($col);
-                sub_lbuf.shift($col, 0)
+                sub_lbuf.update($col, 0)
             },
             size_x : size_x,
             size_y : size_y
@@ -341,7 +336,7 @@ fn @new_line_buffer(in_s: Mem2D, size_x: int, size_y: int) -> swin_acc {
     }
 }
 
-fn @new_sliding_win(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int) -> swin_acc {
+fn @new_sliding_win(lbufs: Win2D, swin_x: int, swin_y: int, pFactor: int) -> Win2D {
     let swin = new_regs2d((0, 0), (swin_x, swin_y));
 
     fn @shift() -> () {
@@ -359,12 +354,12 @@ fn @new_sliding_win(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int) -> 
             }
         }
     }
-    swin_acc {
+    Win2D {
         read  : @|x, y| {
             swin.read(x, y)
         },
-        shift : @|col_ridx, row_ridx| {
-            lbufs.shift($col_ridx, 0);
+        update : @|col_ridx, row_ridx| {
+            lbufs.update($col_ridx, 0);
             shift()
         },
         size_x : swin_x,
@@ -374,7 +369,7 @@ fn @new_sliding_win(lbufs: swin_acc, swin_x: int, swin_y: int, pFactor: int) -> 
 
 // sliding window with row selection
 // todo: reduce the parameter list
-fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, radius_x: int, radius_y: int, pFactor: int, row_sel_fun: row_sel_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> swin_acc {
+fn @new_sliding_win_bh(lbufs: Win2D, swin_x: int, swin_y: int, radius_x: int, radius_y: int, pFactor: int, row_sel_fun: row_sel_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Win2D {
     let swin = new_regs2d((0, 0), (swin_x, swin_y));
     let out_width = 2 * radius_x + pFactor;
 
@@ -395,9 +390,9 @@ fn @new_sliding_win_bh(lbufs: swin_acc, swin_x: int, swin_y: int, radius_x: int,
         row_sel_fun($row_ridx, brdr_assigns);
     }
 
-    swin_acc {
+    Win2D {
         read  : swin.read,
-        shift : @|col_ridx, row_ridx| { lbufs.shift($col_ridx, 0); shift($col_ridx, $row_ridx) },
+        update : @|col_ridx, row_ridx| { lbufs.update($col_ridx, 0); shift($col_ridx, $row_ridx) },
         size_x : out_width,
         size_y : swin_y
     }
@@ -477,7 +472,7 @@ fn @get_type0_row_sel(pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_t
     }
 }
 
-fn @new_type0_col_selection(swin: swin_acc, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> col_selection {
+fn @new_type0_col_selection(swin: Win2D, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> col_selection {
     let (lower_low, lower_high) = get_bounds_fun(Boundary::Lower);
     let (upper_low, upper_high) = get_bounds_fun(Boundary::Upper);
     let lower_regs = new_regs2d((lower_low, 0), (lower_high, swin.size_y));
@@ -540,7 +535,7 @@ fn @FetchAndCalc(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, mask
     let col_sel_type0 = new_type0_col_selection(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift($col_ridx, $row_ridx);
+        swin.update($col_ridx, $row_ridx);
         col_sel_type0.update($col_ridx);
 
         for v in unroll(0, pFactor) {
@@ -628,7 +623,7 @@ fn @CalcAndPack(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, mask:
     }
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift($col_ridx, $row_ridx);
+        swin.update($col_ridx, $row_ridx);
         col_sel_type0.update($col_ridx);
 
         for v in unroll(0, pFactor) {
@@ -688,7 +683,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D,
     // let col_sel_type0 = new_type0_col_selection(swin, pFactor, RoI1d { o_x: win_lat, width: 0 }, get_bounds_fun, bh_lower, bh_upper);
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift($col_ridx, $row_ridx);
+        swin.update($col_ridx, $row_ridx);
         //col_sel_type0.update(col_ridx);
 
         for v in unroll(0, pFactor) {
@@ -777,7 +772,7 @@ fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, 
     }
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
-        swin.shift($col_ridx, $row_ridx);
+        swin.update($col_ridx, $row_ridx);
         //col_sel_type0.update(col_ridx);
 
         for v in unroll(0, pFactor) {
