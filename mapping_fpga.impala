@@ -525,7 +525,7 @@ fn @new_type0_col_selection(swin: swin_acc, pFactor: int, roi: RoI1d, get_bounds
 }
 
 //  -------------------  Loop Coarsening  ----------------------
-fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+fn @FetchAndCalc(math: Intrinsics, pFactor: int, in_s: stream_in, out_s: stream_out, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> Hardware {
     let radius_y = mask.size_y >> 1;
     let radius_x = mask.size_x >> 1;
     let win_lat = round_up(radius_x, pFactor) / pFactor;
@@ -533,12 +533,15 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
     let swin_x = radius_x + (1 + win_lat) * pFactor;
     let swin_x_opt = pFactor + 2 * radius_x;
 
+    let crsn_width  = (in_s.width - 1) / pFactor + 1;
+    let crsn_stride = (in_s.stride -1) / pFactor + 1;
+
     // border handling row selection
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
     let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height}, row_bounds_fun);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y);
+    let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
     let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun, bh_lower, bh_upper);
 
     // border handling col selection
@@ -555,25 +558,44 @@ fn @FetchAndCalc(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_strid
             @@body(math, radius_x, radius_y, out_acc, win_acc, mask);
             //out_acc.write(0, 0, win_acc.read(radius_x, radius_y));
         }
-    }
+    };
 
-    coarsening_type {
-        process : process
+    let process_time  = crsn_width * in_s.height;
+    let initial_delay = crsn_width * radius_y + win_lat - 1;
+    let life_time     = initial_delay + process_time + 1;
+
+    let mut col_ridx = 0;
+    let mut row_ridx = 0; // border handling
+    let mut ridx = 0;
+
+    Hardware {
+        at_read   : || { in_s.update($ridx); },
+        at_always : || { process($col_ridx, $row_ridx); },
+        at_write  : || { out_s.update($ridx - (initial_delay + 1)); },
+        at_update : || { ridx++;
+                         col_ridx++;
+                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
+        initial_delay : initial_delay,
+        read_time : process_time,
+        life_time : life_time
     }
 }
 
-fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+fn @CalcAndPack(math: Intrinsics, pFactor: int, in_s: stream_in, out_s: stream_out, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> Hardware {
     let radius_y = mask.size_y >> 1;
     let radius_x = mask.size_x >> 1;
     let swin_y = mask.size_y;
     let swin_x = pFactor + 2 * radius_x;
+
+    let crsn_width  = (in_s.width - 1) / pFactor + 1;
+    let crsn_stride = (in_s.stride -1) / pFactor + 1;
 
     // Border_handling
     let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
     let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height }, row_bounds_fun);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y);
+    let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
     let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun, bh_lower, bh_upper);
 
     // Constants for Packing
@@ -626,13 +648,31 @@ fn @CalcAndPack(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride
         }
     }
 
-    coarsening_type {
-        process : process
+    let win_lat = round_up(radius_x, pFactor) / pFactor;
+    let process_time  = crsn_width * in_s.height;
+    let initial_delay = crsn_width * radius_y + win_lat - 1;
+    let life_time     = initial_delay + process_time + 1;
+
+    let mut col_ridx = 0;
+    let mut row_ridx = 0; // border handling
+    let mut ridx = 0;
+
+    Hardware {
+        at_read   : || { in_s.update($ridx); },
+        at_always : || { process($col_ridx, $row_ridx); },
+        at_write  : || { out_s.update($ridx - (initial_delay + 1)); },
+        at_update : || { ridx++;
+                         col_ridx++;
+                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
+        initial_delay : initial_delay,
+        read_time : process_time,
+        life_time : life_time
     }
 }
 
+
 // coarsening nobh
-fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+fn @FetchAndCalc_nobh(math: Intrinsics, pFactor: int, in_s: stream_in, out_s: stream_out, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> Hardware {
     let radius_y = mask.size_y >> 1;
     let radius_x = mask.size_x >> 1;
     let win_lat = round_up(radius_x, pFactor) / pFactor;
@@ -640,12 +680,15 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
     let swin_x = radius_x + (1 + win_lat) * pFactor;
     let swin_x_opt = pFactor + 2 * radius_x;
 
+    let crsn_width  = (in_s.width - 1) / pFactor + 1;
+    let crsn_stride = (in_s.stride -1) / pFactor + 1;
+
     // border handling row selection
     //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
     //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y);
+    let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
     //let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
     let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
 
@@ -665,23 +708,42 @@ fn @FetchAndCalc_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_
         }
     }
 
-    coarsening_type {
-        process : process
+    let process_time  = crsn_width * in_s.height;
+    let initial_delay = crsn_width * radius_y + win_lat - 1;
+    let life_time     = initial_delay + process_time + 1;
+
+    let mut col_ridx = 0;
+    let mut row_ridx = 0; // border handling
+    let mut ridx = 0;
+
+    Hardware {
+        at_read   : || { in_s.update($ridx); },
+        at_always : || { process($col_ridx, $row_ridx); },
+        at_write  : || { out_s.update($ridx - (initial_delay + 1)); },
+        at_update : || { ridx++;
+                         col_ridx++;
+                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
+        initial_delay : initial_delay,
+        read_time : process_time,
+        life_time : life_time
     }
 }
 
-fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_stride: int, mask: Mask, pFactor: int, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> coarsening_type {
+fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: stream_in, out_s: stream_out, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> Hardware {
     let radius_y = mask.size_y >> 1;
     let radius_x = mask.size_x >> 1;
     let swin_y = mask.size_y;
     let swin_x = pFactor + 2 * radius_x;
+
+    let crsn_width  = (in_s.width - 1) / pFactor + 1;
+    let crsn_stride = (in_s.stride -1) / pFactor + 1;
 
     // Border_handling
     //let row_bounds_fun = new_bounds(0, radius_y, radius_y + 1, 1 + 2 * radius_y);
     //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, img_stride, swin_y);
+    let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
     //let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
     let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
 
@@ -736,8 +798,25 @@ fn @CalcAndPack_nobh(math: Intrinsics, in_s: stream_in, out_s: stream_out, img_s
         }
     }
 
-    coarsening_type {
-        process : process
+    let win_lat = round_up(radius_x, pFactor) / pFactor;
+    let process_time  = crsn_width * in_s.height;
+    let initial_delay = crsn_width * radius_y + win_lat - 1;
+    let life_time     = initial_delay + process_time + 1;
+
+    let mut col_ridx = 0;
+    let mut row_ridx = 0; // border handling
+    let mut ridx = 0;
+
+    Hardware {
+        at_read   : || { in_s.update($ridx); },
+        at_always : || { process($col_ridx, $row_ridx); },
+        at_write  : || { out_s.update($ridx - (initial_delay + 1)); },
+        at_update : || { ridx++;
+                         col_ridx++;
+                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
+        initial_delay : initial_delay,
+        read_time : process_time,
+        life_time : life_time
     }
 }
 
@@ -759,36 +838,6 @@ fn @pipeline2d(hw: Hardware) -> () {
         // update indices
         hw.at_update();
     }
-}
-
-fn @iter_body(math: Intrinsics, coarsening_fun: crsn_type, pFactor: int, out_s: stream_out, in_s: stream_in, mask: Mask, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn) -> () {
-    let radius_y = mask.size_y >> 1;
-    let radius_x = mask.size_x >> 1;
-    let win_lat = round_up(radius_x, pFactor) / pFactor;
-    let crsn_width  = (in_s.width - 1) / pFactor + 1;
-    let crsn_stride = (in_s.stride -1) / pFactor + 1;
-
-    let coarsening = coarsening_fun(math, in_s, out_s, crsn_width, mask, pFactor, bh_lower, bh_upper, body);
-    let process_time  = crsn_width * in_s.height;
-    let initial_delay = crsn_width * radius_y + win_lat - 1;
-    let life_time     = initial_delay + process_time + 1;
-
-    let mut col_ridx = 0;
-    let mut row_ridx = 0; // border handling
-    let mut ridx = 0;
-
-    let my_hardware = Hardware {
-        at_read   : || { in_s.update(ridx); },
-        at_always : || { coarsening.process($col_ridx, $row_ridx); },
-        at_write  : || { out_s.update(ridx - (initial_delay + 1)); },
-        at_update : || { ridx++;
-                         col_ridx++;
-                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
-        initial_delay : initial_delay,
-        read_time : process_time,
-        life_time : life_time
-    };
-    pipeline2d(my_hardware);
 }
 
 
@@ -870,7 +919,8 @@ fn @iteration(math: Intrinsics, out: Img, arr: Img, mask: Mask, bh_lower: Bounda
 
             let in_s  = get_stream(arr_dev);
             let out_s = set_stream(out_dev);
-            iter_body(math, coarsening_fun, pFactor, out_s, in_s, mask, bh_lower, bh_upper, body);
+            let my_hardware = coarsening_fun(math, pFactor, in_s, out_s, mask, bh_lower, bh_upper, body);
+            pipeline2d(my_hardware);
         }
     }
     get_host_copy(out_dev, out);
