@@ -5,7 +5,6 @@ set(APPS_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 if(BACKEND STREQUAL "aocl" OR BACKEND STREQUAL "hls")
     set(DEVICE "fpga")
     set(DEVICE_SPECIFIC_FILES ${DSL_SOURCE_DIR}/mapping_fpga_img_${BACKEND}.impala ${DSL_SOURCE_DIR}/stencil_lib_img_fpga.impala)
-    set(DISABLE_PIPELINE_DEVICE_SPECIFIC_FILES ${DSL_SOURCE_DIR}/mapping_fpga_img_proc_${BACKEND}.impala ${DSL_SOURCE_DIR}/mapping_proc_img.impala ${DSL_SOURCE_DIR}/stencil_lib_img_proc.impala)
 else()
     if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
         set(DEVICE "cpu")
@@ -13,7 +12,6 @@ else()
         set(DEVICE "acc")
     endif()
     set(DEVICE_SPECIFIC_FILES ${DSL_SOURCE_DIR}/mapping_proc_img.impala ${DSL_SOURCE_DIR}/stencil_lib_img_proc.impala)
-    set(DISABLE_PIPELINE_DEVICE_SPECIFIC_FILES ${DEVICE_SPECIFIC_FILES})
 endif()
 
 #set(BACKEND_FILE ${DSL_SOURCE_DIR}/backend_${BACKEND}.impala)
@@ -24,11 +22,9 @@ set(PIXEL_TYPE_FLOAT_FILE ${DSL_SOURCE_DIR}/pixel_f32.impala)
 set(PIXEL_TYPE_UCHAR_FILE ${DSL_SOURCE_DIR}/pixel_u8.impala)
 
 # common DSL files for all applications applications
-set(COMMON_FILES ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ${MAPPING_FILE})
+set(COMMON_FILES     ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_FILE}       ${MAPPING_FILE})
 set(COMMON_FILES_F32 ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_FLOAT_FILE} ${MAPPING_FILE})
 set(COMMON_FILES_U8  ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_UCHAR_FILE} ${MAPPING_FILE})
-set(COMMON_DISABLE_PIPELINE_FILES_F32 ${DSL_FILES} ${DISABLE_PIPELINE_DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_FLOAT_FILE} ${MAPPING_FILE})
-set(COMMON_DISABLE_PIPELINE_FILES     ${DSL_FILES} ${DISABLE_PIPELINE_DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ${MAPPING_FILE})
 
 # application sources and benchmarks 
 set (GAUSSIAN_DIR       ${APPS_DIR}/gaussian)
@@ -50,10 +46,6 @@ set(HARRIS_CORNER_FILES ${HARRIS_CORNER_DIR}/mask_${PIXEL_TYPE}.impala ${HARRIS_
 
 # for optional config files
 set(APPS_CONFIG_FILES "")
-
-
-add_subdirectory(harris_corner_proc)
-add_subdirectory(filter_chain_proc)
 
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
@@ -95,14 +87,14 @@ add_executable(square ${SQUARE_PROGRAM})
 target_link_libraries(square ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("jacobi" square)
 
-anydsl_runtime_wrap(FILTER_CHAIN_PIPE_PROGRAM
+anydsl_runtime_wrap(FILTER_CHAIN_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${FILTER_CHAIN_FILES})
-add_executable(filter_chain_pipe ${FILTER_CHAIN_PIPE_PROGRAM})
-target_link_libraries(filter_chain_pipe ${ANYDSL_RUNTIME_LIBRARIES})
-set_target_properties(filter_chain_pipe PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
-set_target_properties(filter_chain_pipe PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+add_executable(filter_chain ${FILTER_CHAIN_PROGRAM})
+target_link_libraries(filter_chain ${ANYDSL_RUNTIME_LIBRARIES})
+set_target_properties(filter_chain PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
+set_target_properties(filter_chain PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 
 anydsl_runtime_wrap(HARRIS_CORNER_PIPE_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}

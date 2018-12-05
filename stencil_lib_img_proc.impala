@@ -17,7 +17,7 @@ fn @alloc_img(img: Img, alloc: fn(i32) -> Buffer) -> Img {
 }
 
 fn @create_img(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Img {
-    let stride = round_up(width * sizeof[pixel_t](), round_up(sizeof[pixel_t], get_vector_length())) / sizeof[pixel_t]();
+    let stride = round_up(width, get_vector_length());
     new_img(width, height, stride, alloc(stride * height * sizeof[pixel_t]()))
 }
 
