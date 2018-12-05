@@ -49,11 +49,20 @@ struct regs2d {
 }
 
 // on-chip memory
+//struct Win2D {
+//    read   : fn(int, int) -> pixel_t,
+//    update : fn(int, int) -> (),
+//    size_x : int,
+//    size_y : int
+//}
 struct Win2D {
     read   : fn(int, int) -> pixel_t,
+    write  : fn(int, int, pixel_t) -> (),
     update : fn(int, int) -> (),
-    size_x : int,
-    size_y : int
+    height  : int,
+    width   : int,
+    stride  : int,
+    pFactor : int
 }
 
 // border handling
@@ -307,83 +316,90 @@ fn @new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
 // ------------------------ Stencil Codes ------------------------------------
 // ---------------------------------------------------------------------------
 //  ---- Instances of On Chip Memory: Line Buffers and Sliding Window  --------
-fn @new_line_buffer(in_s: Mem2D, size_x: int, size_y: int) -> Win2D {
-    if size_y == 0 {
+fn @new_line_buffer(in_s: Mem2D, width: int, height: int) -> Win2D {
+    let stride = (width - 1) / in_s.pFactor + 1;
+    if height == 0 {
         Win2D {
             read   : @|x, y| in_s.read(x),
+            write  : @|_, _, _| (),
             update : @|_, _| (),
-            size_x : size_x,
-            size_y : size_y
+            height : height,
+            width  : width,
+            stride : stride,
+            pFactor: in_s.pFactor
         }
     } else {
-        let shared_s = new_shared_line(in_s, size_x);
-        let sub_lbuf = new_line_buffer(shared_s, size_x, size_y - 1);
+        let shared_s = new_shared_line(in_s, width);
+        let sub_lbuf = new_line_buffer(shared_s, width, height - 1);
         Win2D {
             read   : @|x, y| {
-                if y == size_y - 1 {
+                if y == height - 1 {
                     in_s.read(x)
                 } else {
                     sub_lbuf.read(x, y)
                 }
             },
+            write  : @|_, _, _| (),
             update : @|col, row| {
                 shared_s.update($col);
                 sub_lbuf.update($col, 0)
             },
-            size_x : size_x,
-            size_y : size_y
+            height : height,
+            width  : width,
+            stride : stride,
+            pFactor: in_s.pFactor
         }
     }
 }
 
-fn @new_sliding_win(lbufs: Win2D, swin_x: int, swin_y: int, pFactor: int) -> Win2D {
-    let swin = new_regs2d((0, 0), (swin_x, swin_y));
+fn @new_sliding_win(lbufs: Win2D, stride: int, height: int) -> Win2D {
+    let swin = new_regs2d((0, 0), (stride, height));
+    let pFactor = lbufs.pFactor;
 
     fn @shift() -> () {
         // Shift sliding window
-        for j in unroll(0, swin_y) {
-            for i in unroll(0, swin_x - pFactor) {
+        for j in unroll(0, height) {
+            for i in unroll(0, stride - pFactor) {
                 swin.write(i, j, swin.read(i + pFactor, j));
             }
         }
 
         // Read new col
-        for j in unroll(0, swin_y) {
+        for j in unroll(0, height) {
             for v in unroll(0, pFactor) {
-                swin.write((v + swin_x - pFactor), j, lbufs.read(v, j));
+                swin.write((v + stride - pFactor), j, lbufs.read(v, j));
             }
         }
     }
     Win2D {
-        read  : @|x, y| {
-            swin.read(x, y)
-        },
-        update : @|col_ridx, row_ridx| {
-            lbufs.update($col_ridx, 0);
-            shift()
-        },
-        size_x : swin_x,
-        size_y : swin_y
+        read   : swin.read,
+        write  : @|_, _, _| (),
+        update : @|col_ridx, row_ridx| { lbufs.update($col_ridx, 0);
+                                         shift() },
+        height : height,
+        width  : stride,
+        stride : stride,
+        pFactor: pFactor
     }
 }
 
 // sliding window with row selection
 // todo: reduce the parameter list
-fn @new_sliding_win_bh(lbufs: Win2D, swin_x: int, swin_y: int, radius_x: int, radius_y: int, pFactor: int, row_sel_fun: row_sel_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Win2D {
-    let swin = new_regs2d((0, 0), (swin_x, swin_y));
-    let out_width = 2 * radius_x + pFactor;
+fn @new_sliding_win_bh(lbufs: Win2D, stride: int, height: int, radius_x: int, row_sel_fun: row_sel_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Win2D {
+    let swin = new_regs2d((0, 0), (stride, height));
+    let pFactor = lbufs.pFactor;
 
     fn @brdr_assigns(yw: int, boundary: Boundary, lower_high: int, upper_low: int) -> () {
         for xw in unroll(0, pFactor) {
             fn @read_fun(i: int) -> pixel_t { lbufs.read(xw, i) };
             let pix_bh = read_pixel_bh(yw, read_fun, boundary, lower_high, upper_low, bh_lower, bh_upper);
-            swin.write(xw + swin_x - pFactor, yw, pix_bh)
+            swin.write(xw + stride - pFactor, yw, pix_bh)
         }
     }
 
     fn @shift(col_ridx: int, row_ridx: int) -> () {
-        for j in unroll(0, swin_y) {
-            for i in unroll(0, swin_x - pFactor) {
+        for j in unroll(0, height) {
+            for i in unroll(0, stride - pFactor) {
                 swin.write(i, j, swin.read(i + pFactor, j));
             }
         }
@@ -391,10 +407,14 @@ fn @new_sliding_win_bh(lbufs: Win2D, swin_x: int, swin_y: int, radius_x: int, ra
     }
 
     Win2D {
-        read  : swin.read,
-        update : @|col_ridx, row_ridx| { lbufs.update($col_ridx, 0); shift($col_ridx, $row_ridx) },
-        size_x : out_width,
-        size_y : swin_y
+        read   : swin.read,
+        write  : @|_, _, _| (),
+        update : @|col_ridx, row_ridx| { lbufs.update($col_ridx, 0);
+                                         shift($col_ridx, $row_ridx) },
+        height : height,
+        width  : 2 * radius_x + pFactor,
+        stride : stride,
+        pFactor: pFactor
     }
 }
 
@@ -475,8 +495,8 @@ fn @get_type0_row_sel(pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_t
 fn @new_type0_col_selection(swin: Win2D, pFactor: int, roi: RoI1d, get_bounds_fun: get_bounds_fun_type, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> col_selection {
     let (lower_low, lower_high) = get_bounds_fun(Boundary::Lower);
     let (upper_low, upper_high) = get_bounds_fun(Boundary::Upper);
-    let lower_regs = new_regs2d((lower_low, 0), (lower_high, swin.size_y));
-    let upper_regs = new_regs2d((upper_low, 0), (upper_high, swin.size_y));
+    let lower_regs = new_regs2d((lower_low, 0), (lower_high, swin.height));
+    let upper_regs = new_regs2d((upper_low, 0), (upper_high, swin.height));
 
     fn @read_fun(x: int, y: int) -> pixel_t {
              if x > upper_low - 1 && x < upper_high { upper_regs.read(x, y) }
@@ -491,7 +511,7 @@ fn @new_type0_col_selection(swin: Win2D, pFactor: int, roi: RoI1d, get_bounds_fu
     }
 
     fn @brdr_assigns(xw: int, boundary: Boundary, lower_high: int, upper_low: int) -> () {
-        for yw in unroll(0, swin.size_y) {
+        for yw in unroll(0, swin.height) {
             fn @get_fun(i: int) -> pixel_t { swin.read(i, yw) };
             let pix_bh = read_pixel_bh(xw, get_fun, boundary, lower_high, upper_low, bh_lower, bh_upper);
             write_fun(xw, yw, pix_bh);
@@ -528,7 +548,7 @@ fn @FetchAndCalc(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, mask
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
-    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun, bh_lower, bh_upper);
+    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, row_sel_fun, bh_lower, bh_upper);
 
     // border handling col selection
     let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
@@ -582,7 +602,7 @@ fn @CalcAndPack(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, mask:
 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
-    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, radius_y, pFactor, row_sel_fun, bh_lower, bh_upper);
+    let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, row_sel_fun, bh_lower, bh_upper);
 
     // Constants for Packing
     let delay_width = (pFactor + ((pFactor - radius_x) % pFactor)) % pFactor;
@@ -676,7 +696,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D,
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
     //let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
-    let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
+    let swin = new_sliding_win(lbufs, swin_x, swin_y);
 
     // border handling col selection
     // let get_bounds_fun = new_bounds(0, radius_x, radius_x + pFactor, swin_x_opt);
@@ -731,7 +751,7 @@ fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, 
     // On Chip Memory Architecture
     let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
     //let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
-    let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor);
+    let swin = new_sliding_win(lbufs, swin_x, swin_y);
 
     // Constants for Packing
     let delay_width = (pFactor + ((pFactor - radius_x) % pFactor)) % pFactor;
