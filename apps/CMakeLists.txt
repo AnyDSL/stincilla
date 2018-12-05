@@ -11,7 +11,7 @@ else()
     else()
         set(DEVICE "acc")
     endif()
-    set(DEVICE_SPECIFIC_FILES ${DSL_SOURCE_DIR}/mapping_proc_img.impala ${DSL_SOURCE_DIR}/stencil_lib_img_proc.impala)
+    set(DEVICE_SPECIFIC_FILES ${DSL_SOURCE_DIR}/stencil_lib_img_proc.impala)
 endif()
 
 #set(BACKEND_FILE ${DSL_SOURCE_DIR}/backend_${BACKEND}.impala)
