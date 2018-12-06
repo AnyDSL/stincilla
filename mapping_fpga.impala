@@ -25,10 +25,10 @@ struct Mem2D {
 
 // hardware type for pipeline2d
 struct Hardware {
-    at_read   : fn() -> (),
-    at_always : fn() -> (),
-    at_write  : fn() -> (),
-    at_update : fn() -> (),
+    at_read   : fn(int) -> (),
+    at_always : fn(int) -> (),
+    at_write  : fn(int) -> (),
+    at_update : fn(int) -> (),
     initial_delay : int,
     read_time : int,
     life_time : int
@@ -579,15 +579,15 @@ fn @FetchAndCalc(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, mask
 
     let mut col_ridx = 0;
     let mut row_ridx = 0; // border handling
-    let mut ridx = 0;
 
     Hardware {
-        at_read   : || { in_s.update($ridx); },
-        at_always : || { process($col_ridx, $row_ridx); },
-        at_write  : || { out_s.update($ridx - initial_delay); },
-        at_update : || { ridx++;
-                         col_ridx++;
-                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
+        at_read   : |ridx| { in_s.update($ridx); },
+        at_always : |ridx| { process($col_ridx, $row_ridx); },
+        at_write  : |ridx| { out_s.update($ridx - initial_delay); },
+        at_update : |ridx| {
+            col_ridx++;
+            if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}
+        },
         initial_delay : initial_delay,
         read_time : process_time,
         life_time : life_time
@@ -668,15 +668,15 @@ fn @CalcAndPack(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, mask:
 
     let mut col_ridx = 0;
     let mut row_ridx = 0; // border handling
-    let mut ridx = 0;
 
     Hardware {
-        at_read   : || { in_s.update($ridx); },
-        at_always : || { process($col_ridx, $row_ridx); },
-        at_write  : || { out_s.update($ridx - initial_delay); },
-        at_update : || { ridx++;
-                         col_ridx++;
-                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
+        at_read   : |ridx| { in_s.update($ridx); },
+        at_always : |ridx| { process($col_ridx, $row_ridx); },
+        at_write  : |ridx| { out_s.update($ridx - initial_delay); },
+        at_update : |ridx| {
+            col_ridx++;
+            if col_ridx == crsn_width { col_ridx = 0; row_ridx++; }
+        },
         initial_delay : initial_delay,
         read_time : process_time,
         life_time : life_time
@@ -727,15 +727,15 @@ fn @FetchAndCalc_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D,
 
     let mut col_ridx = 0;
     let mut row_ridx = 0; // border handling
-    let mut ridx = 0;
 
     Hardware {
-        at_read   : || { in_s.update($ridx); },
-        at_always : || { process($col_ridx, $row_ridx); },
-        at_write  : || { out_s.update($ridx - (initial_delay + 1)); },
-        at_update : || { ridx++;
-                         col_ridx++;
-                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
+        at_read   : |ridx| { in_s.update($ridx); },
+        at_always : |ridx| { process($col_ridx, $row_ridx); },
+        at_write  : |ridx| { out_s.update($ridx - (initial_delay + 1)); },
+        at_update : |ridx| {
+            col_ridx++;
+            if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}
+        },
         initial_delay : initial_delay,
         read_time : process_time,
         life_time : life_time
@@ -819,15 +819,15 @@ fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, 
 
     let mut col_ridx = 0;
     let mut row_ridx = 0; // border handling
-    let mut ridx = 0;
 
     Hardware {
-        at_read   : || { in_s.update($ridx); },
-        at_always : || { process($col_ridx, $row_ridx); },
-        at_write  : || { out_s.update($ridx - (initial_delay + 1)); },
-        at_update : || { ridx++;
-                         col_ridx++;
-                         if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}},
+        at_read   : |ridx| { in_s.update($ridx); },
+        at_always : |ridx| { process($col_ridx, $row_ridx); },
+        at_write  : |ridx| { out_s.update($ridx - (initial_delay + 1)); },
+        at_update : |ridx| {
+            col_ridx++;
+            if col_ridx == crsn_width { col_ridx = 0; row_ridx++;}
+        },
         initial_delay : initial_delay,
         read_time : process_time,
         life_time : life_time
@@ -837,20 +837,41 @@ fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, 
 
 //  ------------------- Stencil Processing ----------------------
 fn @pipeline2d(hw: Hardware) -> () {
+    // Optimize away the read condition if not needed
+    let at_read_ = @|idx|{
+        if(hw.read_time == hw.life_time) { 
+            hw.at_read($idx) 
+        } else { 
+            if idx < hw.read_time { hw.at_read($idx); }
+        }
+    };
+
+    // Optimize away the write condition if not needed
+    let at_write_ = @|idx|{
+        if(hw.initial_delay == 0) { 
+            hw.at_write($idx) 
+        } else { 
+            if idx > (hw.initial_delay - 1) { hw.at_write($idx); }
+        }
+    };
+
+    // execution loop
     for clock_tick in range(0, hw.life_time) {
         pragma_pipeline();
 
-        // read input
-        if clock_tick < hw.read_time { hw.at_read(); }
+        // read input  (clock_tick < hw.read_time)
+        at_read_(clock_tick);
+        //if clock_tick < hw.read_time { hw.at_read(); }
 
         // process data
-        hw.at_always();
+        hw.at_always(clock_tick);
 
-        // read input
-        if clock_tick > (hw.initial_delay - 1) { hw.at_write(); }
+        // write output (clock_tick >= hw.initial_delay)
+        at_write_(clock_tick);
+        //if clock_tick > (hw.initial_delay - 1) { hw.at_write(); }
 
         // update indices
-        hw.at_update();
+        hw.at_update(clock_tick);
     }
 }
 
@@ -890,17 +911,16 @@ fn @iteration_point(math: Intrinsics, out: Img, arr: Img, body: fn(Intrinsics, i
             let in_s = Img_to_Mem2D_read(arr_dev);
 
             let life_time  = out_s.stride * out_s.height;
-            let mut ridx = 0;
             let my_hardware = Hardware {
-                at_read   : || { in_s.update($ridx); },
-                at_write  : || { out_s.update($ridx); },
-                at_always : || {
+                at_read   : |ridx| { in_s.update($ridx); },
+                at_write  : |ridx| { out_s.update($ridx); },
+                at_always : |ridx| {
                     for v in unroll(0, pFactor) {
                         let out_acc = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out_s.write(v, data) };
                         @@body(math, 0, 0, out_acc, in_s.read(v));
                     }
                 },
-                at_update : || { ridx++; },
+                at_update : |_| (),
                 initial_delay : 0,
                 read_time : life_time,
                 life_time : life_time
@@ -925,14 +945,13 @@ fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(
             let in1_s = Img_to_Mem2D_read(arr1_dev);
 
             let life_time  = out_s.stride * out_s.height;
-            let mut ridx = 0;
             let my_hardware = Hardware {
-                at_read   : || {
+                at_read   : |ridx| {
                     in0_s.update($ridx);
                     in1_s.update($ridx);
                 },
-                at_write  : || { out_s.update($ridx); },
-                at_always : || {
+                at_write  : |ridx| { out_s.update($ridx); },
+                at_always : |ridx| {
                     for v in unroll(0, pFactor) {
                         let in0 = in0_s.read(v);
                         let in1 = in1_s.read(v);
@@ -940,7 +959,7 @@ fn @iteration_point2(math: Intrinsics, out: Img, arr0: Img, arr1: Img, body: fn(
                         @@body(math, 0, 0, out_acc, in0, in1);
                     }
                 },
-                at_update : || { ridx++; },
+                at_update : |_| (),
                 initial_delay : 0,
                 read_time : life_time,
                 life_time : life_time
@@ -967,15 +986,14 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
             let in2_s = Img_to_Mem2D_read(arr2_dev);
 
             let life_time  = out_s.stride * out_s.height;
-            let mut ridx = 0;
             let my_hardware = Hardware {
-                at_read   : || {
+                at_read   : |ridx| {
                     in0_s.update($ridx);
                     in1_s.update($ridx);
                     in2_s.update($ridx);
                 },
-                at_write  : || { out_s.update($ridx); },
-                at_always : || {
+                at_write  : |ridx| { out_s.update($ridx); },
+                at_always : |ridx| {
                     for v in unroll(0, pFactor) {
                         let in0 = in0_s.read(v);
                         let in1 = in1_s.read(v);
@@ -984,7 +1002,7 @@ fn @iteration_point3(math: Intrinsics, out: Img, arr0: Img, arr1: Img, arr2: Img
                         @@body(math, 0, 0, out_acc, in0, in1, in2);
                     }
                 },
-                at_update : || { ridx++; },
+                at_update : |_|(),
                 initial_delay : 0,
                 read_time : life_time,
                 life_time : life_time
@@ -1009,16 +1027,15 @@ fn @iteration_point1to2(math: Intrinsics, out0: Img, out1: Img, arr: Img, body: 
             let in_s = Img_to_Mem2D_read(arr_dev);
 
             let life_time  = out0_s.stride * out0_s.height;
-            let mut ridx = 0;
             let my_hardware = Hardware {
-                at_read   : || {
+                at_read   : |ridx| {
                     in_s.update($ridx);
                 },
-                at_write  : || {
+                at_write  : |ridx| {
                     out0_s.update($ridx);
                     out1_s.update($ridx);
                 },
-                at_always : || {
+                at_always : |ridx| {
                     for v in unroll(0, pFactor) {
                         let din = in_s.read(v);
                         let out_acc0 = Acc { read : |x, y| 0 as pixel_t, write : @|x, y, data| out0_s.write(v, data) };
@@ -1026,7 +1043,7 @@ fn @iteration_point1to2(math: Intrinsics, out0: Img, out1: Img, arr: Img, body: 
                         @@body(math, 0, 0, din, out_acc0, out_acc1);
                     }
                 },
-                at_update : || { ridx++; },
+                at_update : |_| (),
                 initial_delay : 0,
                 read_time : life_time,
                 life_time : life_time
