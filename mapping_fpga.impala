@@ -1,4 +1,4 @@
-static coarsening_policy = FetchAndCalc;// FetchAndCalc, FetchAndCalc_nobh, CalcAndPack, CalcAndPack_nobh;
+static coarsening_policy = FetchAndCalc; // FetchAndCalc, FetchAndCalc_nobh, CalcAndPack, CalcAndPack_nobh;
 fn @pragma_pipeline() -> () {
    if is_opencl() { print_pragma("#pragma ii 1"); };
    if is_hls() { print_pragma("#pragma HLS pipeline II=1"); };
@@ -49,12 +49,6 @@ struct regs2d {
 }
 
 // on-chip memory
-//struct Win2D {
-//    read   : fn(int, int) -> pixel_t,
-//    update : fn(int, int) -> (),
-//    size_x : int,
-//    size_y : int
-//}
 struct Win2D {
     read   : fn(int, int) -> pixel_t,
     write  : fn(int, int, pixel_t) -> (),
@@ -143,20 +137,20 @@ fn @get_device_sync2(img0: Img, img1: Img) -> fn() -> () {
 
 
 // ---------------------------- streaming --------------------------------------
-fn @new_shared_line(in_s: Mem2D, width: int) -> Mem2D {
+fn @create_line_buffer(in_s: Mem2D, width: int) -> Mem2D {
     match in_s.pFactor {
-         1 => new_shared_line_vec1 (in_s, width),
-         2 => new_shared_line_vec2 (in_s, width),
-         4 => new_shared_line_vec4 (in_s, width),
-         8 => new_shared_line_vec8 (in_s, width),
-        16 => new_shared_line_vec16(in_s, width),
-        32 => new_shared_line_vec32(in_s, width),
+         1 => create_line_buffer_vec1 (in_s, width),
+         2 => create_line_buffer_vec2 (in_s, width),
+         4 => create_line_buffer_vec4 (in_s, width),
+         8 => create_line_buffer_vec8 (in_s, width),
+        16 => create_line_buffer_vec16(in_s, width),
+        32 => create_line_buffer_vec32(in_s, width),
          _ => undef[Mem2D]()
     }
 }
 
 // shared
-fn @new_shared_line_vec1(in_s: Mem2D, width: int) -> Mem2D {
+fn @create_line_buffer_vec1(in_s: Mem2D, width: int) -> Mem2D {
     let mut value = 0 as pixel_t;
     let lbuf = reserve_shared[pixel_t](width);
 
@@ -169,7 +163,7 @@ fn @new_shared_line_vec1(in_s: Mem2D, width: int) -> Mem2D {
     create_Mem2D_read(width, 1, 1, shift, read)
 }
 
-fn @new_shared_line_vec2(in_s: Mem2D, width: int) -> Mem2D {
+fn @create_line_buffer_vec2(in_s: Mem2D, width: int) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 2 ];
     let lbuf = reserve_shared[[pixel_t * 2]](width);
 
@@ -183,7 +177,7 @@ fn @new_shared_line_vec2(in_s: Mem2D, width: int) -> Mem2D {
     create_Mem2D_read(width, 1, 2, shift, read)
 }
 
-fn @new_shared_line_vec4(in_s: Mem2D, width: int) -> Mem2D {
+fn @create_line_buffer_vec4(in_s: Mem2D, width: int) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 4 ];
     let lbuf = reserve_shared[[pixel_t * 4]](width);
 
@@ -197,7 +191,7 @@ fn @new_shared_line_vec4(in_s: Mem2D, width: int) -> Mem2D {
     create_Mem2D_read(width, 1, 4, shift, read)
 }
 
-fn @new_shared_line_vec8(in_s: Mem2D, width: int) -> Mem2D {
+fn @create_line_buffer_vec8(in_s: Mem2D, width: int) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 8 ];
     let lbuf = reserve_shared[[pixel_t * 8]](width);
 
@@ -212,7 +206,7 @@ fn @new_shared_line_vec8(in_s: Mem2D, width: int) -> Mem2D {
     create_Mem2D_read(width, 1, 8, shift, read)
 }
 
-fn @new_shared_line_vec16(in_s: Mem2D, width: int) -> Mem2D {
+fn @create_line_buffer_vec16(in_s: Mem2D, width: int) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 16 ];
     let lbuf = reserve_shared[[pixel_t * 16]](width);
 
@@ -229,7 +223,7 @@ fn @new_shared_line_vec16(in_s: Mem2D, width: int) -> Mem2D {
     create_Mem2D_read(width, 1, 16, shift, read)
 }
 
-fn @new_shared_line_vec32(in_s: Mem2D, width: int) -> Mem2D {
+fn @create_line_buffer_vec32(in_s: Mem2D, width: int) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 32 ];
     let lbuf = reserve_shared[[pixel_t * 32]](width);
 
@@ -323,7 +317,7 @@ fn @new_regs2d(begin: (int, int), end: (int, int)) -> regs2d {
 // ------------------------ Stencil Codes ------------------------------------
 // ---------------------------------------------------------------------------
 //  ---- Instances of On Chip Memory: Line Buffers and Sliding Window  --------
-fn @new_line_buffer(in_s: Mem2D, width: int, height: int) -> Win2D {
+fn @new_line_buffers(in_s: Mem2D, width: int, height: int) -> Win2D {
     let stride = (width - 1) / in_s.pFactor + 1;
     if height == 0 {
         Win2D {
@@ -336,8 +330,8 @@ fn @new_line_buffer(in_s: Mem2D, width: int, height: int) -> Win2D {
             pFactor: in_s.pFactor
         }
     } else {
-        let shared_s = new_shared_line(in_s, width);
-        let sub_lbuf = new_line_buffer(shared_s, width, height - 1);
+        let shared_s = create_line_buffer(in_s, width);
+        let sub_lbuf = new_line_buffers(shared_s, width, height - 1);
         Win2D {
             read   : @|x, y| {
                 if y == height - 1 {
@@ -554,7 +548,7 @@ fn @FetchAndCalc(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, mask
     let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height}, row_bounds_fun);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
+    let lbufs = new_line_buffers(in_s, crsn_stride, swin_y);
     let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, row_sel_fun, bh_lower, bh_upper);
 
     // border handling col selection
@@ -608,7 +602,7 @@ fn @CalcAndPack(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, mask:
     let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: radius_y, width: in_s.height }, row_bounds_fun);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
+    let lbufs = new_line_buffers(in_s, crsn_stride, swin_y);
     let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, radius_x, row_sel_fun, bh_lower, bh_upper);
 
     // Constants for Packing
@@ -701,7 +695,7 @@ fn @FetchAndCalc_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D,
     //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
+    let lbufs = new_line_buffers(in_s, crsn_stride, swin_y);
     //let swin = new_sliding_win(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
     let swin = new_sliding_win(lbufs, swin_x, swin_y);
 
@@ -757,7 +751,7 @@ fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, 
     //let row_sel_fun = get_type0_row_sel(1, RoI1d { o_x: 2, width: 1024 }, row_bounds_fun, bh_lower, bh_upper);
 
     // On Chip Memory Architecture
-    let lbufs = new_line_buffer(in_s, crsn_stride, swin_y);
+    let lbufs = new_line_buffers(in_s, crsn_stride, swin_y);
     //let swin = new_sliding_win_bh(lbufs, swin_x, swin_y, pFactor, row_sel_fun);
     let swin = new_sliding_win(lbufs, swin_x, swin_y);
 
