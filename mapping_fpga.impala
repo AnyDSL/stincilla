@@ -1,4 +1,4 @@
-static coarsening_policy = FetchAndCalc_nobh; // FetchAndCalc, FetchAndCalc_nobh, CalcAndPack, CalcAndPack_nobh;
+static coarsening_policy = FetchAndCalc; // FetchAndCalc, FetchAndCalc_nobh, CalcAndPack, CalcAndPack_nobh;
 fn @pragma_pipeline() -> () {
    if is_opencl() { print_pragma("#pragma ii 1"); };
    if is_hls() { print_pragma("#pragma HLS pipeline II=1"); };
@@ -743,33 +743,12 @@ fn @FetchAndCalc_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D,
     let swin_stride = mask.lower_x + (1 + win_lat) * pFactor;
     let crsn_stride = round_up(in_s.stride, pFactor) / pFactor;
 
-    // border handling row selection
-    //  let input_row_schedule = LoopCircular {
-    //      interv: Interval1d {start: mask.upper_y,  end: in_s.height + mask.upper_y + 1}, // loop index
-    //      roi  : RoI1d       {  o_x: mask.upper_y, width: in_s.height},                   // image region
-    //      pFactor: 1
-    //  };
-    //  let win_row_bounds = new_bounds(0, mask.lower_y, mask.lower_y + 1, mask.size_y);
-    //  let row_sel_fun = get_type0_row_sel(input_row_schedule, win_row_bounds);
-
     // On Chip Memory Architecture
     let lbufs = new_line_buffers(in_s, crsn_stride, mask.size_y);
     let swin = new_sliding_win(lbufs, swin_stride, mask.size_y);
-    //let swin = new_sliding_win_bh(lbufs, mask.size_y, swin_stride, swin_width, row_sel_fun, bh_lower, bh_upper);
-
-    // border handling col selection
-    // let input_col_schedule = LoopCircular {
-    //     interv: Interval1d { start: 0,           end: in_s.stride }, // loop index
-    //     roi  :      RoI1d { o_x: mask.upper_x, width: in_s.width },  // image region
-    //     pFactor: in_s.pFactor
-    // };
-    // let right_padding = in_s.stride - in_s.width;
-    // let win_col_bounds = new_bounds(0, mask.lower_x, mask.lower_x + pFactor - right_padding, swin_width);
-    // let col_sel_type0 = new_type0_col_selection(swin, input_col_schedule, win_col_bounds, bh_lower, bh_upper);
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
         swin.update($col_ridx, $row_ridx);
-        // col_sel_type0.update($col_ridx);
 
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
@@ -783,14 +762,13 @@ fn @FetchAndCalc_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D,
     let initial_delay = crsn_stride * mask.upper_y + win_lat;
     let life_time     = initial_delay + process_time;
     let mut col_ridx = 0;
-    let mut row_ridx = 0; // border handling
     Hardware {
         at_read   : |ridx| { in_s.update($ridx); },
-        at_always : |ridx| { process($col_ridx, $row_ridx); },
+        at_always : |ridx| { process($col_ridx, 0); },
         at_write  : |ridx| { out_s.update($ridx - initial_delay); },
         at_update : |ridx| {
             col_ridx++;
-            if col_ridx == crsn_stride { col_ridx = 0; row_ridx++;}
+            if col_ridx == crsn_stride { col_ridx = 0; }
         },
         initial_delay : initial_delay,
         read_time : process_time,
@@ -816,41 +794,11 @@ fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, 
     // On Chip Memory Architecture
     let lbufs = new_line_buffers(in_s, crsn_stride, mask.size_y);
     let swin = new_sliding_win(lbufs, swin_width, mask.size_y);
-    // let swin = new_sliding_win_bh(lbufs, mask.size_y, swin_width, swin_width, row_sel_fun, bh_lower, bh_upper);
 
     // Constants for Packing
     let delay_width = (pFactor + ((pFactor - mask.upper_x) % pFactor)) % pFactor;
     let pack_offset = pFactor - delay_width;
     let vec_delayed = new_databeat(delay_width);
-
-    // Border_handling
-    //  let right_padding = in_s.stride - in_s.width;
-    //  let col_sel_type0 = {
-    //      let interv = Interval1d { start: 0, end: in_s.stride };
-    //      if pack_offset == pFactor {
-    //          let input_col_schedule = LoopCircular {
-    //              interv: interv, pFactor: in_s.pFactor,
-    //              roi: RoI1d { o_x: mask.lower_x, width: in_s.width }};
-    //          let win_col_bounds = new_bounds(0, mask.lower_x, mask.lower_x + pFactor - right_padding, swin_width);
-    //          new_type0_col_selection(swin, input_col_schedule, win_col_bounds, bh_lower, bh_upper)
-    //      } else {
-    //          let input_col_schedule1 = LoopCircular {
-    //              interv: interv, pFactor: in_s.pFactor,
-    //              roi: RoI1d { o_x: round_down(mask.lower_x, pFactor), width: in_s.width + pFactor}};
-    //          let input_col_schedule2 = LoopCircular {
-    //              interv: interv, pFactor: in_s.pFactor,
-    //              roi: RoI1d { o_x: round_down(mask.lower_x, pFactor), width: in_s.width}};
-    //          let upper_low  = pack_offset + mask.upper_x;
-    //          let win_upper_col_bounds = new_bounds(0, 0, upper_low - right_padding, upper_low + mask.upper_x);
-    //          let win_lower_col_bounds = new_bounds(upper_low - mask.upper_x, upper_low, swin_width - right_padding, swin_width);
-    //          let upper = new_type0_col_selection(swin, input_col_schedule1, win_upper_col_bounds, bh_lower, bh_upper);
-    //          let lower = new_type0_col_selection(swin, input_col_schedule2, win_lower_col_bounds, bh_lower, bh_upper);
-    //         col_selection {
-    //             get_read_fn : @|v|   { if v < pack_offset { upper.get_read_fn(v) } else { lower.get_read_fn(v) } },
-    //             update      : @|idx| { upper.update(idx); lower.update(idx); }
-    //         }
-    //      }
-    //  };
 
     fn @pack(v: int) -> fn(int, int, pixel_t) -> () {
         @|x, y, data| {
@@ -867,7 +815,6 @@ fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, 
 
     fn @process(col_ridx: int, row_ridx: int) -> () {
         swin.update($col_ridx, $row_ridx);
-        //col_sel_type0.update($col_ridx);
 
         for v in unroll(0, pFactor) {
             let win_acc = Acc { read : @|x, y| swin.read(x + v, y), write : @|x, y, v| {} };
@@ -883,15 +830,13 @@ fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, 
     let life_time     = initial_delay + process_time;
 
     let mut col_ridx = 0;
-    let mut row_ridx = 0; // border handling
-
     Hardware {
         at_read   : |ridx| { in_s.update($ridx); },
-        at_always : |ridx| { process($col_ridx, $row_ridx); },
+        at_always : |ridx| { process($col_ridx, 0); },
         at_write  : |ridx| { out_s.update($ridx - initial_delay); },
         at_update : |ridx| {
             col_ridx++;
-            if col_ridx == crsn_stride { col_ridx = 0; row_ridx++; }
+            if col_ridx == crsn_stride { col_ridx = 0;}
         },
         initial_delay : initial_delay,
         read_time : process_time,
