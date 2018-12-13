@@ -31,12 +31,14 @@ set (GAUSSIAN_DIR       ${APPS_DIR}/gaussian)
 set (JACOBI_DIR         ${APPS_DIR}/jacobi)
 set (BILATERAL_DIR      ${APPS_DIR}/bilateral)
 set (SQUARE_DIR         ${APPS_DIR}/square)
+set (MAXIMUM_DIR        ${APPS_DIR}/reduce_ex)
 set (BOX_FILTER_DIR     ${APPS_DIR}/box_filter)
 set (FILTER_CHAIN_DIR   ${APPS_DIR}/filter_chain)
 set (HARRIS_CORNER_DIR  ${APPS_DIR}/harris_corner)
 
 set(BILATERAL_FILES     ${BILATERAL_DIR}/bilateral.impala)
 set(SQUARE_FILES        ${SQUARE_DIR}/square.impala)
+set(MAXIMUM_FILES       ${MAXIMUM_DIR}/reduce_ex.impala)
 set(BOX_FILTER_FILES    ${BOX_FILTER_DIR}/box_filter.impala)
 set(BOX_FILTER_CONST_FILES ${BOX_FILTER_DIR}/box_filter_const.impala)
 set(GAUSSIAN_FILES      ${GAUSSIAN_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_DIR}/gaussian.impala)
@@ -90,7 +92,15 @@ anydsl_runtime_wrap(SQUARE_PROGRAM
     SYNTHESIS ${SYNTHESIS})
 add_executable(square ${SQUARE_PROGRAM})
 target_link_libraries(square ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("jacobi" square)
+add_test("square" square)
+
+anydsl_runtime_wrap(MAXIMUM_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${MAXIMUM_FILES})
+add_executable(reduce_ex ${MAXIMUM_PROGRAM})
+target_link_libraries(reduce_ex ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("reduce_ex" reduce_ex)
 
 anydsl_runtime_wrap(FILTER_CHAIN_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}

@@ -1,0 +1,86 @@
+fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
+    let width  = 10;
+    let height = 10;
+    let upper_x = roi_x + width;
+    let upper_y = roi_y + height;
+
+    print_string("@(x = ");
+    print_i32(roi_x);
+    print_string(",\t");
+    print_string("y = ");
+    print_i32(roi_y);
+    print_string(")\n");
+    for y in range(roi_y, upper_y) {
+        for x in range(roi_x, upper_x) {
+            let pixel = arr.read(x, y);
+            print_pixel(pixel);
+            print_string("\t\t");
+        }
+        print_string("\n");
+    }
+}
+
+fn main() -> i32 {
+    let width  = 1023;
+    let height = 1024;
+
+    let arr = create_host_img(width, height);
+    let out = create_host_img(1, 1);
+    let max = create_host_img(1, 1);
+    let min = create_host_img(1, 1);
+    let sum = create_host_img(1, 1);
+    init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, arr.height);
+
+    print_total_timing();
+    let num_host_iter = 1i;
+    for math, left, right in iteration_reduce(math, max, arr, 0) {
+        if (left > right) { left } else { right }
+    };
+
+    for math, left, right in iteration_reduce(math, min, arr, 2048) {
+        if (left < right) { left } else { right }
+    };
+
+    for math, left, right in iteration_reduce(math, sum, arr, 0) {
+        left + right
+    };
+
+    for math, x, y, out, dmax, dmin, dsum in iteration_point3(math, out, max, min, sum) {
+        out.write(0, 0, dmin + dmax + dsum);
+    };
+
+    fn reference() -> i32 {
+        let mut passed = 0;
+        let mut max_ref = 0;
+        let mut min_ref = 1024;
+        let mut sum_ref = 0;
+        let arr_acc = get_acc(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx));
+        let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+
+        for y in range(0, arr.height) {
+            for x in range(0, arr.width) {
+                let new = arr_acc.read(x, y);
+                 max_ref = if (new > max_ref) { new } else { max_ref };
+                 min_ref = if (new < min_ref) { new } else { min_ref };
+                 sum_ref += new;
+            }
+        }
+        let ref = min_ref + max_ref + sum_ref;
+
+        let res = out_acc.read(0, 0);
+        if !is_same_pixel(res, ref) && passed != 42 { passed = 42; }
+        if passed == 0 {
+            print_string("Test PASSED!\n");
+        } else {
+            print_string("Test FAILED!\n");
+        }
+        print_string("REF vs FPGA : ");
+        print_i32(ref); print_string(", "); print_i32(res); print_string("\n");
+
+        passed
+    }
+
+    let result = reference();
+    release(arr.buf);
+    result
+}

@@ -24,7 +24,7 @@ fn @alloc_img(img: Img, alloc: fn(i32) -> Buffer) -> Img {
 }
 
 fn @create_host_img(width: i32, height: i32) -> Img {
-    let stride = round_up(width * sizeof[pixel_t](), round_up(sizeof[pixel_t](), get_vector_length())) / sizeof[pixel_t]();
+    let stride = round_up(width, get_vector_length());
     let buf = alloc_cpu(stride * height * sizeof[pixel_t]());
     new_img(width, height, stride, buf)
 }
@@ -35,7 +35,7 @@ fn @new_virtual_img(width: i32, height: i32, stride: i32, fifo: &mut pipe) -> Im
 }
 
 fn @create_virtual_img(width: i32, height: i32, fifo: &mut pipe) -> Img {
-    let stride = round_up(width * sizeof[pixel_t](), round_up(sizeof[pixel_t](), get_vector_length())) / sizeof[pixel_t]();
+    let stride = round_up(width, get_vector_length());
     new_virtual_img(width, height, stride, fifo)
 }
 
@@ -97,8 +97,8 @@ fn create_Mem2D_from_img(img: Img, pFactor: int, update: fn(int) -> (), read: fn
 }
 
 
-fn @Img_to_Mem2D_read(img: Img) -> Mem2D {
-    let pFactor = get_vector_length();
+fn @Img_to_Mem2D_read(img: Img, pFactor: int) -> Mem2D {
+    //let pFactor = get_vector_length();
     if img.virtual == false {
         let real_img = new_img(img.width, img.height, img.stride, img.buf);
         global_Img_to_Mem2D_read(real_img, pFactor)
@@ -107,8 +107,8 @@ fn @Img_to_Mem2D_read(img: Img) -> Mem2D {
     }
 }
 
-fn @Img_to_Mem2D_write(img: Img) -> Mem2D {
-    let pFactor = get_vector_length();
+fn @Img_to_Mem2D_write(img: Img, pFactor: int) -> Mem2D {
+    //let pFactor = get_vector_length();
     if img.virtual == false {
         let real_img = new_img(img.width, img.height, img.stride, img.buf);
         global_Img_to_Mem2D_write(real_img, pFactor)
