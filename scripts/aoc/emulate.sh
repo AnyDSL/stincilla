@@ -15,4 +15,4 @@ else
 fi
 aoc -report -march=emulator $APP.cl -o $dir/$APP.aocx
 ln -sf $dir/$APP.aocx ./$APP.aocx
-CL_CONTEXT_EMULATOR_DEVICE_ALTERA=1 ./$APP
+CL_CONTEXT_EMULATOR_DEVICE_INTEL=1 ./$APP
