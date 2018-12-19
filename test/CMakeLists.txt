@@ -23,7 +23,8 @@ if(DEVICE STREQUAL "fpga")
     anydsl_runtime_wrap(FPGA_COPY_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
-        FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ../utils.impala fpga_copy.impala)
+        FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ../utils.impala fpga_copy.impala
+        SYNTHESIS ${SYNTHESIS})
     add_executable(fpga_copy ${FPGA_COPY_PROGRAM})
     target_link_libraries(fpga_copy ${ANYDSL_RUNTIME_LIBRARIES})
     add_test("fpga_copy" fpga_copy)
@@ -33,7 +34,8 @@ if(DEVICE STREQUAL "acc")
     anydsl_runtime_wrap(MULTI_GPU_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
-        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} ../utils.impala multi_gpu.impala)
+        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} ../utils.impala multi_gpu.impala
+        SYNTHESIS ${SYNTHESIS})
     add_executable(multi_gpu ${MULTI_GPU_PROGRAM})
     target_link_libraries(multi_gpu ${ANYDSL_RUNTIME_LIBRARIES})
     add_test("multi_gpu" multi_gpu)

@@ -26,7 +26,7 @@ set(COMMON_FILES     ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIX
 set(COMMON_FILES_F32 ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_FLOAT_FILE} ${MAPPING_FILE})
 set(COMMON_FILES_U8  ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_UCHAR_FILE} ${MAPPING_FILE})
 
-# application sources and benchmarks 
+# application sources and benchmarks
 set (GAUSSIAN_DIR       ${APPS_DIR}/gaussian)
 set (JACOBI_DIR         ${APPS_DIR}/jacobi)
 set (BILATERAL_DIR      ${APPS_DIR}/bilateral)
@@ -50,7 +50,8 @@ set(APPS_CONFIG_FILES "")
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES_F32} ${BILATERAL_FILES})
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES_F32} ${BILATERAL_FILES}
+    SYNTHESIS ${SYNTHESIS})
 add_executable(bilateral ${BILATERAL_PROGRAM})
 target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
@@ -58,7 +59,8 @@ add_test("bilateral" bilateral)
 anydsl_runtime_wrap(BOX_FILTER_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${BOX_FILTER_FILES})
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${BOX_FILTER_FILES}
+    SYNTHESIS ${SYNTHESIS})
 add_executable(box_filter ${BOX_FILTER_PROGRAM})
 target_link_libraries(box_filter ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("box_filter" box_filter)
@@ -66,7 +68,8 @@ add_test("box_filter" box_filter)
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${GAUSSIAN_FILES})
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${GAUSSIAN_FILES}
+    SYNTHESIS ${SYNTHESIS})
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
 target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
@@ -74,7 +77,8 @@ add_test("gaussian" gaussian)
 anydsl_runtime_wrap(JACOBI_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${JACOBI_FILES})
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${JACOBI_FILES}
+    SYNTHESIS ${SYNTHESIS})
 add_executable(jacobi ${JACOBI_PROGRAM})
 target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("jacobi" jacobi)
@@ -82,7 +86,8 @@ add_test("jacobi" jacobi)
 anydsl_runtime_wrap(SQUARE_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${SQUARE_FILES})
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${SQUARE_FILES}
+    SYNTHESIS ${SYNTHESIS})
 add_executable(square ${SQUARE_PROGRAM})
 target_link_libraries(square ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("jacobi" square)
@@ -90,7 +95,8 @@ add_test("jacobi" square)
 anydsl_runtime_wrap(FILTER_CHAIN_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${FILTER_CHAIN_FILES})
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${FILTER_CHAIN_FILES}
+    SYNTHESIS ${SYNTHESIS})
 add_executable(filter_chain ${FILTER_CHAIN_PROGRAM})
 target_link_libraries(filter_chain ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(filter_chain PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
@@ -99,7 +105,8 @@ set_target_properties(filter_chain PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUI
 anydsl_runtime_wrap(HARRIS_CORNER_PIPE_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${HARRIS_CORNER_FILES})
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${HARRIS_CORNER_FILES}
+    SYNTHESIS ${SYNTHESIS})
 add_executable(harris_corner_pipe "${HARRIS_CORNER_DIR}/main.cpp" ${HARRIS_CORNER_PIPE_PROGRAM})
 target_link_libraries(harris_corner_pipe ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(harris_corner_pipe PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
