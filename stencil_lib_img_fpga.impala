@@ -92,12 +92,8 @@ fn create_Mem2D_write(width: int, height: int, pFactor: int, update: fn(int) -> 
     Mem2D{ read: @|x|{ 0 as pixel_t}, write : write, height: height, width: width, stride: stride, pFactor: pFactor, update: update}
 }
 
-fn create_Mem2D_read_from_img(img: Img, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t) -> Mem2D {
-    Mem2D{ read: read, write: @|x, val|{}, height: img.height, width: img.width, stride: img.stride, pFactor: pFactor, update: update}
-}
-
-fn create_Mem2D_write_from_img(img: Img, pFactor: int, update: fn(int) -> (), write : fn(int, pixel_t) -> ()) -> Mem2D {
-    Mem2D{ read: @|x|{ 0 as pixel_t}, write : write, height: img.height, width: img.width, stride: img.stride, pFactor: pFactor, update: update}
+fn create_Mem2D_from_img(img: Img, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t, write: fn(int, pixel_t) -> ()) -> Mem2D {
+    Mem2D{ read: read, write: write, height: img.height, width: img.width, stride: img.stride, pFactor: pFactor, update: update}
 }
 
 
@@ -151,7 +147,8 @@ fn @get_global_stream_vec1(img: Img) -> Mem2D {
     let global_read_fn = get_global_read_vec1(img);
     fn @update(idx: int) -> () { value = global_read_fn(idx); }
     fn @read(idx: int) -> pixel_t { value }
-    create_Mem2D_read_from_img(img, 1, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value = din; }
+    create_Mem2D_from_img(img, 1, update, read, write)
 }
 
 fn @get_global_stream_vec2(img: Img) -> Mem2D {
@@ -159,7 +156,8 @@ fn @get_global_stream_vec2(img: Img) -> Mem2D {
     let global_read_fn = get_global_read_vec2(img);
     fn @update(idx: int) -> () { value = global_read_fn(idx); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 2, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 2, update, read, write)
 }
 
 fn @get_global_stream_vec4(img: Img) -> Mem2D {
@@ -167,7 +165,8 @@ fn @get_global_stream_vec4(img: Img) -> Mem2D {
     let global_read_fn = get_global_read_vec4(img);
     fn @update(idx: int) -> () { value = global_read_fn(idx); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 4, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 4, update, read, write)
 }
 
 fn @get_global_stream_vec8(img: Img) -> Mem2D {
@@ -175,7 +174,8 @@ fn @get_global_stream_vec8(img: Img) -> Mem2D {
     let global_read_fn = get_global_read_vec8(img);
     fn @update(idx: int) -> () { value = global_read_fn(idx); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 8, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 8, update, read, write)
 }
 
 fn @get_global_stream_vec16(img: Img) -> Mem2D {
@@ -183,7 +183,8 @@ fn @get_global_stream_vec16(img: Img) -> Mem2D {
     let global_read_fn = get_global_read_vec16(img);
     fn @update(idx: int) -> () { value = global_read_fn(idx); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 16, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 16, update, read, write)
 }
 
 fn @get_global_stream_vec32(img: Img) -> Mem2D {
@@ -191,55 +192,62 @@ fn @get_global_stream_vec32(img: Img) -> Mem2D {
     let global_read_fn = get_global_read_vec32(img);
     fn @update(idx: int) -> () { value = global_read_fn(idx); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 32, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 32, update, read, write)
 }
 
 fn @global_Img_to_Mem2D_write_vec1(img: Img) -> Mem2D {
     let mut value = 0 as pixel_t;
     let global_write_fn = get_global_write_vec1(img);
     fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @read(idx: int) -> pixel_t { value }
     fn @write(idx: int, din: pixel_t) -> () { value = din; }
-    create_Mem2D_write_from_img(img, 1, update, write)
+    create_Mem2D_from_img(img, 1, update, read, write)
 }
 
 fn @global_Img_to_Mem2D_write_vec2(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 2 ];
     let global_write_fn = get_global_write_vec2(img);
     fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 2, update, write)
+    create_Mem2D_from_img(img, 2, update, read, write)
 }
 
 fn @global_Img_to_Mem2D_write_vec4(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 4 ];
     let global_write_fn = get_global_write_vec4(img);
     fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 4, update, write)
+    create_Mem2D_from_img(img, 4, update, read, write)
 }
 
 fn @global_Img_to_Mem2D_write_vec8(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 8 ];
     let global_write_fn = get_global_write_vec8(img);
     fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 8, update, write)
+    create_Mem2D_from_img(img, 8, update, read, write)
 }
 
 fn @global_Img_to_Mem2D_write_vec16(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 16 ];
     let global_write_fn = get_global_write_vec16(img);
     fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 16, update, write)
+    create_Mem2D_from_img(img, 16, update, read, write)
 }
 
 fn @global_Img_to_Mem2D_write_vec32(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 32 ];
     let global_write_fn = get_global_write_vec32(img);
     fn @update(idx: int) -> () { global_write_fn(idx, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 32, update, write)
+    create_Mem2D_from_img(img, 32, update, read, write)
 }
 
 fn @channel_to_Mem2D_read(img: Img, pFactor: int) -> Mem2D {
@@ -269,55 +277,62 @@ fn @channel_to_Mem2D_write(img: Img, pFactor: int) -> Mem2D {
 fn @channel_to_Mem2D_write_vec1(img: Img) -> Mem2D {
     let mut value = 0 as pixel_t;
     fn @update(idx: int) -> () { write_channel(img.fifo, value); }
+    fn @read(idx: int) -> pixel_t { value }
     fn @write(idx: int, din: pixel_t) -> () { value = din; }
-    create_Mem2D_write_from_img(img, 1, update, write)
+    create_Mem2D_from_img(img, 1, update, read, write)
 }
 
 fn @channel_to_Mem2D_write_vec2(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 2 ];
     let pFactor = 2;
     fn @update(idx: int) -> () { write_channel2(img.fifo, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 2, update, write)
+    create_Mem2D_from_img(img, 2, update, read, write)
 }
 
 fn @channel_to_Mem2D_write_vec4(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 4 ];
     let pFactor = 4;
     fn @update(idx: int) -> () { write_channel4(img.fifo, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 4, update, write)
+    create_Mem2D_from_img(img, 4, update, read, write)
 }
 
 fn @channel_to_Mem2D_write_vec8(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 8 ];
     let pFactor = 8;
     fn @update(idx: int) -> () { write_channel8(img.fifo, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 8, update, write)
+    create_Mem2D_from_img(img, 8, update, read, write)
 }
 
 fn @channel_to_Mem2D_write_vec16(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 16 ];
     let pFactor = 16;
     fn @update(idx: int) -> () { write_channel16(img.fifo, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 16, update, write)
+    create_Mem2D_from_img(img, 16, update, read, write)
 }
 
 fn @channel_to_Mem2D_write_vec32(img: Img) -> Mem2D {
     let mut value = [ 0 as pixel_t, .. 32 ];
     let pFactor = 32;
     fn @update(idx: int) -> () { write_channel32(img.fifo, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
     fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
-    create_Mem2D_write_from_img(img, 32, update, write)
+    create_Mem2D_from_img(img, 32, update, read, write)
 }
 
 fn @channel_to_Mem2D_read_vec1(img: Img) -> Mem2D {
     let mut value = 0 as pixel_t;
     fn @update(idx: int) -> () { value = read_channel(img.fifo); }
     fn @read(idx: int) -> pixel_t { value }
-    create_Mem2D_read_from_img(img, 1, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value = din; }
+    create_Mem2D_from_img(img, 1, update, read, write)
 }
 
 fn @channel_to_Mem2D_read_vec2(img: Img) -> Mem2D {
@@ -325,7 +340,8 @@ fn @channel_to_Mem2D_read_vec2(img: Img) -> Mem2D {
     let pFactor = 2;
     fn @update(idx: int) -> () { value = read_channel2(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 2, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 2, update, read, write)
 }
 
 fn @channel_to_Mem2D_read_vec4(img: Img) -> Mem2D {
@@ -333,7 +349,8 @@ fn @channel_to_Mem2D_read_vec4(img: Img) -> Mem2D {
     let pFactor = 4;
     fn @update(idx: int) -> () { value = read_channel4(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 4, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 4, update, read, write)
 }
 
 fn @channel_to_Mem2D_read_vec8(img: Img) -> Mem2D {
@@ -341,7 +358,8 @@ fn @channel_to_Mem2D_read_vec8(img: Img) -> Mem2D {
     let pFactor = 8;
     fn @update(idx: int) -> () { value = read_channel8(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 8, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 8, update, read, write)
 }
 
 fn @channel_to_Mem2D_read_vec16(img: Img) -> Mem2D {
@@ -349,7 +367,8 @@ fn @channel_to_Mem2D_read_vec16(img: Img) -> Mem2D {
     let pFactor = 16;
     fn @update(idx: int) -> () { value = read_channel16(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 16, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 16, update, read, write)
 }
 
 fn @channel_to_Mem2D_read_vec32(img: Img) -> Mem2D {
@@ -357,5 +376,6 @@ fn @channel_to_Mem2D_read_vec32(img: Img) -> Mem2D {
     let pFactor = 32;
     fn @update(idx: int) -> () { value = read_channel32(img.fifo); }
     fn @read(idx: int) -> pixel_t { value(idx) }
-    create_Mem2D_read_from_img(img, 32, update, read)
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 32, update, read, write)
 }
