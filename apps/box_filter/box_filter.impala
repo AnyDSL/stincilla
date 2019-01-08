@@ -1,25 +1,3 @@
-fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
-    let width  = 10;
-    let height = 10;
-    let upper_x = roi_x + width;
-    let upper_y = roi_y + height;
-
-    print_string("@(x = ");
-    print_i32(roi_x);
-    print_string(",\t");
-    print_string("y = ");
-    print_i32(roi_y);
-    print_string(")\n");
-    for y in range(roi_y, upper_y) {
-        for x in range(roi_x, upper_x) {
-            let pixel = arr.read(x, y);
-            print_pixel(pixel);
-            print_string("\t\t");
-        }
-        print_string("\n");
-    }
-}
-
 
 fn main() -> i32 {
     let width  = 1024;
