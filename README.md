@@ -7,7 +7,8 @@ Stincilla requires a working AnyDSL installation. A script to build the [impala]
 ## Building ##
 The setup.sh configures Stincilla and sets all required paths. The backend for code generation will be set to ```cpu```. This can be changed via CMake:
 * ```BACKEND``` : defines the backend to generate code for (supported values:```cpu```,```avx``` ```aocl```, ```hls```)
-* ```SYNTHESIS```:  Turn ```on``` HDL generation and logic synthesis, or turn ```off``` for a quick software simulation.( for HLS backend )  
+* ```SYNTHESIS```: On HLS backend, turn *SYNTHESIS* ```on``` for HDL generation and logic synthesis, or turn ```off``` for a quick software simulation.( for HLS backend )
+* ```FPGA_PART```: On HLS backend, specify FPGA part.
 Example:
 ```bash
 cd anydsl/stincilla/build
