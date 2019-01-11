@@ -3,8 +3,8 @@
 FILE=.ctags
 if [ $(dpkg-query -W -f='${Status}' exuberant-ctags 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
-    apt-get install exuberant-ctags;
-    grep -q -x -F 'set tags=./tags;' ~/.vimrc || echo 'set tags=./tags;' >> ~/.vimrc
+  apt-get install exuberant-ctags;
+  grep -q -x -F 'set tags=./tags;' ~/.vimrc || echo 'set tags=./tags;' >> ~/.vimrc
     if [ -f ~/$FILE ]; then
         echo '--langdef=impala' >> ~/$FILE
         echo '--langmap=impala:.impala' >> ~/$FILE
