@@ -6,7 +6,7 @@ fn main() -> i32 {
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
-    let mask_sep = get_mask_sep5(gaussian_mask_sep5);
+    //let mask_sep = get_mask_sep5(gaussian_mask_sep5);
     let mask     = get_mask5(gaussian_mask5);
 
     //let lower = nobh_center;

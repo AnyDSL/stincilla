@@ -1,0 +1,7 @@
+//optimal high/low level logic modules
+fn (?sel) mux2(sel: bool, in0: fn() -> (), in1: fn() -> ()) -> () {
+    in1()->();
+    if sel {
+        in2()->();
+    }
+}

@@ -24,8 +24,7 @@ if(DEVICE STREQUAL "fpga")
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
         FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ../utils.impala fpga_copy.impala
-        SYNTHESIS ${SYNTHESIS}
-        FPGA_PART ${FPGA_PART})
+        HLS_FLAGS ${HLS_FLAGS})
     add_executable(fpga_copy ${FPGA_COPY_PROGRAM})
     target_link_libraries(fpga_copy ${ANYDSL_RUNTIME_LIBRARIES})
     add_test("fpga_copy" fpga_copy)
