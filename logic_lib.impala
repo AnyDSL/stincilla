@@ -1,7 +1,58 @@
 //optimal high/low level logic modules
-fn (?sel) mux2(sel: bool, in0: fn() -> (), in1: fn() -> ()) -> () {
-    in1()->();
-    if sel {
-        in2()->();
+//------------- non-recursive MUX generation---------------------
+struct mux_in {
+    size : u8,
+    in0: fn() -> (),
+    in1: fn() -> (),
+    in2: fn() -> (),
+    in3: fn() -> ()
+} 
+
+fn create_mux(size: u8)-> mux_in {
+    mux_in {
+        size : size,
+        in0: @||(),
+        in1: @||(),
+        in2: @||(),
+        in3: @||()
     }
 }
+
+fn @(?sel) mux2(sel: bool, in: mux_in -> fn() -> () {
+    in.in0()->();
+    if sel {
+        in.in1()->();
+    }
+}
+
+fn @(?sel) mux3(sel: u8, in: mux_in -> fn() -> () {
+    if sel == 0 {
+        in.in0()->();
+    } else if sel == 1 {
+        in.in1() -> ();
+    } else {
+        in.in2() -> ();
+    }
+}
+
+fn @(?sel) mux4(sel: u8, in: mux_in -> fn() -> () {
+    if sel == 0 {
+        in.in0()->();
+    } esle if sel == 1 {
+        in.in1() -> ();
+    } else if sel == 2 {
+        in.in2() -> ();
+    } else {
+        in.in3() -> ();
+    }
+}
+
+fn mux_config (in: mux_in, sel: u8) -> fn()-> () {
+    match in.size {
+        2 => mux2(sel,in),
+        3 => mux3(sel,in),
+        4 => mux4(sel,in)
+    }
+
+}
+//--------------------------------------------------
