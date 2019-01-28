@@ -1,0 +1,116 @@
+struct Mat {
+    rows  : fn() -> i32,
+    cols  : fn() -> i32,
+    read  : fn(i32, i32) -> f32,
+    write : fn(i32, i32, f32) -> (),
+}
+
+fn @get_mat(buf: Buffer, rows: i32, cols: i32) -> Mat {
+    Mat {
+        rows  : @|| rows,
+        cols  : @|| cols,
+        read  : @|x, y| { bitcast[&[f32]](buf.data)(y * cols + x) },
+        write : @|x, y, v| { bitcast[&mut[f32]](buf.data)(y * cols + x) = v },
+    }
+}
+
+
+fn matmul_golden(C: Mat, A: Mat, B: Mat) -> () {
+    for i in range(0, C.rows()) {
+        for k in range(0, C.cols()) {
+            let mut sum = 0.0f;
+            for j in range(0, A.cols()) {
+                sum += A.read(j, i) * B.read(k, j);
+            }
+            C.write(k, i, sum);
+        }
+    }
+}
+
+
+fn matmul_hand_tiled(C: Mat, A: Mat, B: Mat) -> () {
+    // initialize C with zeros
+    for y in range(0, C.rows()) {
+        for x in range(0, C.cols()) {
+            C.write(x, y, 0.0f);
+        }
+    }
+
+    // tiling parameter
+    let bs = 2;
+
+    for i0 in range_step(0, C.rows(), bs) {
+        for k0 in range_step(0, C.cols(), bs) {
+            for j0 in range_step(0, A.cols(), bs) {
+
+                for i in range(i0, min(i0 + bs, C.rows())) {
+                    for k in range(k0, min(k0 + bs, C.cols())) {
+                        let mut sum = C.read(k, i);
+                        for j in range(j0, min(j0 + bs, A.cols())) {
+                            sum += A.read(j, i) * B.read(k, j);
+                        }
+                        C.write(k, i, sum);
+                    }
+                }
+
+            }
+        }
+    }
+}
+
+
+fn matmul_auto_tiled(C: Mat, A: Mat, B: Mat) -> () {
+    fn tiled_matmul() -> () {
+        fn @get_step(lvl: i32) -> i32 { // size -> 256 -> 64 -> 1
+            if lvl == 0 { 256 } else if lvl == 1 { 64 } else { 1 }
+        }
+
+        fn @(?cur_lvl) tile(cur_lvl: i32, il: i32, iu: i32, kl: i32, ku: i32, jl: i32, ju: i32) -> () {
+            let step = get_step(cur_lvl);
+            pe_info("step size", step);
+
+            if step == 1 {
+                for i in range(il, min(iu, C.rows())) {
+                    for k in range(kl, min(ku, C.cols())) {
+                        let mut sum = C.read(k, i);
+                        for j in range(jl, min(ju, A.cols())) {
+                            sum += A.read(j, i) * B.read(k, j);
+                        }
+                        C.write(k, i, sum);
+                    }
+                }
+            } else {
+                for i in range_step(il, iu, step) {
+                    for k in range_step(kl, ku, step) {
+                        for j in range_step(jl, ju, step) {
+                            tile(cur_lvl + 1, i, i + step, k, k + step, j, j + step);
+                        }
+                    }
+                }
+            }
+        }
+
+        tile(0, 0, C.rows(), 0, C.cols(), 0, A.cols());
+    }
+
+    // initialize C with zeros
+    for y in range(0, C.rows()) {
+        for x in range(0, C.cols()) {
+            C.write(x, y, 0.0f);
+        }
+    }
+
+    tiled_matmul()
+}
+
+fn display_mat(arr : Mat) -> () {
+
+    for i in range(0, arr.rows()) {
+        for j in range(0, arr.cols()) {
+            let element = arr.read(j, i);
+            print_f32(element);
+            print_string("\t\t");
+        }
+        print_string("\n");
+    }
+}
