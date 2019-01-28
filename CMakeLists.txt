@@ -101,7 +101,7 @@ anydsl_runtime_wrap(MATMUL_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     HLS_FLAGS ${HLS_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala matmul.impala ${PIXEL_F32_FILE} )
+    FILES ${BACKEND_FILE} utils.impala matmul.impala ${PIXEL_F32_FILE} mat_lib.impala )
 add_executable(matmul ${MATMUL_PROGRAM})
 target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("matmul" matmul)
