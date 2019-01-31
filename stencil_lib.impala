@@ -276,3 +276,38 @@ fn display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
         print_string("\n");
     }
 }
+
+fn check(in_acc: Acc, out_acc: Acc, ref_acc: Acc, width: i32, height: i32) -> i32 {
+    let mut err_x = 0;
+    let mut err_y = 0;
+    let mut passed = 0;
+    for y in range(0, height) {
+        for x in range(0, width) {
+            let ref = ref_acc.read(x, y);
+            let res = out_acc.read(x, y);
+            if !is_same_pixel(ref, res) && passed != 42 {
+                err_x = x; err_y = y;
+                passed = 42;
+            }
+        }
+    }
+
+    let roi_x = 0; //arr.width - 10;
+    let roi_y = 0; //arr.height - 10;
+    print_string("input image:\n");
+    display_image(in_acc, roi_x, roi_y);
+    print_string("output image:\n");
+    display_image(out_acc, roi_x, roi_y);
+
+    if passed == 0 {
+        print_string("Test PASSED!\n");
+    } else {
+        print_string("ref image:\n");
+        display_image(ref_acc, roi_x, roi_y);
+        print_string("Test FAILED @ (");
+        print_i32(err_x); print_string(", "); print_i32(err_y); print_string(")!\n");
+        print_pixel(ref_acc.read(err_x, err_y)); print_string( " (ref) vs ");
+        print_pixel(out_acc.read(err_x, err_y)); print_string( " (res)\n");
+        }
+        passed
+    }

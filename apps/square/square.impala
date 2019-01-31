@@ -1,4 +1,3 @@
-
 fn main() -> i32 {
     let width  = 1024;
     let height = 1024;
@@ -7,17 +6,19 @@ fn main() -> i32 {
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
-    let num_host_iter = 5i;
+    fn @kernel (pixel: pixel_t) -> pixel_t {
+    //-------Your pointwise operation------
+        pixel * pixel
+    //-------------------------------------
+    }
+
     for math, x, y, out, pin in iteration_point(math, out, arr) {
-        out.write(x, y, pin * pin);
+        out.write(x, y, kernel(pin));
     }
     print_total_timing();
 
     fn reference() -> i32 {
         let ref = create_host_img(width, height);
-        let mut err_x = 0;
-        let mut err_y = 0;
-        let mut passed = 0;
         let arr_acc = get_acc(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx));
         let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
@@ -25,39 +26,16 @@ fn main() -> i32 {
         for y in range(0, out.height) {
             for x in range(0, out.width) {
                 let mut ref = arr_acc.read(x, y);
-                ref = ref * ref;
-                let res = out_acc.read(x, y);
-                if !is_same_pixel(ref, res) && passed != 42 {
-                    err_x = x; err_y = y;
-                    passed = 42;
-                }
+                ref = kernel(ref);
                 ref_acc.write(x, y, ref);
             }
         }
-        let roi_x = 0; //arr.width - 10;
-        let roi_y = 0; //arr.height - 10;
-        print_string("input image:\n");
-        display_image(arr_acc, roi_x, roi_y);
-        print_string("output image:\n");
-        display_image(out_acc, roi_x, roi_y);
-
-        if passed == 0 {
-            print_string("Test PASSED!\n");
-        } else {
-            print_string("ref image:\n");
-            display_image(ref_acc, roi_x, roi_y);
-            print_string("Test FAILED @ (");
-            print_i32(err_x); print_string(", "); print_i32(err_y); print_string(")!\n");
-            print_pixel(ref_acc.read(err_x, err_y)); print_string( " (ref) vs ");
-            print_pixel(out_acc.read(err_x, err_y)); print_string( " (res)\n");
-        }
-        passed
+        check(arr_acc, out_acc, ref_acc, width, height) 
     }
 
     let result = reference();
-
     release(arr.buf);
     release(out.buf);
-
     result
 }
+
