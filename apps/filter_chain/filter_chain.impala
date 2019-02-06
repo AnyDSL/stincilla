@@ -11,7 +11,7 @@ fn main() -> i32 {
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
     let mask     = get_mask5(mask5);
-
+    let kernel   = apply_stencil;
     let lower = nobh_center;
     let upper = nobh_center;
     //let lower = wrap_const_fun(const_lower, 0.0f);
@@ -20,19 +20,19 @@ fn main() -> i32 {
     //let upper = clamp_upper;
     //let lower = mirror_lower;
     //let upper = mirror_upper;
-    let enable_offset = 1;
+    let enable_offset = 3;
 
     for benchmark_host(num_host_iter) {
         for math, x, y, out_acc, arr_acc, mask in iteration(math, out0, arr, mask, lower, upper) {
-            out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+            out_acc.write(x, y, kernel(x, y, arr_acc, mask));
         }
 
         for math, x, y, out_acc, arr_acc, mask in iteration(math, out1, out0, mask, lower, upper) {
-            out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+            out_acc.write(x, y, kernel(x, y, arr_acc, mask));
         }
 
         for math, x, y, out_acc, arr_acc, mask in iteration(math, out, out1, mask, lower, upper) {
-            out_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+            out_acc.write(x, y, kernel(x, y, arr_acc, mask));
         }
     }
     print_total_timing();
@@ -45,66 +45,37 @@ fn main() -> i32 {
         init_zero(bitcast[&mut[pixel_t]](ref0.buf.data), ref.stride, ref.height);
         init_zero(bitcast[&mut[pixel_t]](ref1.buf.data), ref.stride, ref.height);
 
-        let mut passed = 0;
-        let mut err_x = 0;
-        let mut err_y = 0;
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
         let arr_acc  = get_acc_bh(arr, |idx, val|  { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx),   (Boundary::Unknown, Boundary::Unknown), lower, upper);
         let ref0_acc = get_acc_bh(ref0, |idx, val| { bitcast[&mut[pixel_t]](ref0.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref0.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
         let ref1_acc = get_acc_bh(ref1, |idx, val| { bitcast[&mut[pixel_t]](ref1.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref1.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
-
+        let prop = get_RoI(enable_offset, enable_offset , height, width);
         for y in range(0, out.height) {
             for x in range(0, out.width) {
-                ref0_acc.write(x, y, apply_stencil(x, y, arr_acc, mask));
+                ref0_acc.write(x, y, kernel(x, y, arr_acc, mask));
             }
         }
         for y in range(0, out.height) {
             for x in range(0, out.width) {
-                ref1_acc.write(x, y, apply_stencil(x, y, ref0_acc, mask));
+                ref1_acc.write(x, y, kernel(x, y, ref0_acc, mask));
             }
         }
 
-        let offset_x = enable_offset * 3 * 2;
-        let offset_y = enable_offset * 3 * 2;
+        let offset = enable_offset * 2;
         for y in range(0, out.height) {
             for x in range(0, out.width) {
                 let mut ref = 0 as pixel_t;
-                if y > offset_y - 1 && y < out.height - offset_y && x > offset_x -1 && x < out.width - offset_x {
-                    ref = apply_stencil(x, y, ref1_acc, mask);
-                    let res = out_acc.read(x, y);
-                    if !is_same_pixel(ref, res) && passed != 42 {
-                        err_x = x; err_y = y;
-                        passed = 42;
-                    }
+                if y > offset - 1 && y < out.height - offset && x > offset -1 && x < out.width - offset {
+                    ref = kernel(x, y, ref1_acc, mask);
+                    ref_acc.write(x, y, ref);
                 }
-                ref_acc.write(x, y, ref);
             }
         }
-
-        let roi_x = 0; //arr.width - 10;
-        let roi_y = 0; //arr.height - 10;
-        print_string("input image:\n");
-        display_image(arr_acc, roi_x, roi_y);
-        print_string("output image:\n");
-        display_image(out_acc, roi_x, roi_y);
-
-        if passed == 0 {
-            print_string("Test PASSED!\n");
-        } else {
-            print_string("ref image:\n");
-            display_image(ref_acc, roi_x, roi_y);
-            print_string("Test FAILED @ (");
-            print_i32(err_x); print_string(", "); print_i32(err_y); print_string(")!\n");
-            print_pixel(ref_acc.read(err_x, err_y)); print_string( " (ref) vs ");
-            print_pixel(out_acc.read(err_x, err_y)); print_string( " (res)\n");
-        }
-        passed
+        check(arr_acc, out_acc, ref_acc, prop) 
     }
     let result = reference();
-
-    //release(arr.buf);
-    //release(out.buf);
-
+    release(arr.buf);
+    release(out.buf);
     result
 }
