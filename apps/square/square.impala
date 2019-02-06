@@ -18,11 +18,11 @@ fn main() -> i32 {
     print_total_timing();
 
     fn reference() -> i32 {
-        let ref = create_host_img(width, height);
+        let ref     = create_host_img(width, height);
         let arr_acc = get_acc(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx));
         let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
-        let prop = get_RoI(0, 0, height, width);
+        let prop    = get_RoI(0, 0, height, width);
 
         for y in range(0, out.height) {
             for x in range(0, out.width) {

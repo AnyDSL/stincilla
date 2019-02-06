@@ -44,8 +44,8 @@ fn main() -> i32 {
         let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
-        let prop = get_RoI(enable_offset, enable_offset , height, width);
-        let offset = enable_offset * 2;
+        let prop    = get_RoI(enable_offset, enable_offset , height, width);
+        let offset  = enable_offset * 2;
         for y in range(0, out.height) {
             for x in range(0, out.width) {
                 let mut ref = 0 as pixel_t;
