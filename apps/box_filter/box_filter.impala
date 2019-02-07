@@ -6,13 +6,6 @@ fn main() -> i32 {
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
-    // static box_mask_sep5 = [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ];
-    static box_mask5 = [[ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ],
-                        [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ],
-                        [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ],
-                        [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ],
-                        [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ]];
-
     //let mask_sep = get_mask_sep5(box_mask_sep5);
     let mask   = get_mask5(box_mask5);
     let kernel = apply_stencil;
