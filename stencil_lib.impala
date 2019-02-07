@@ -238,6 +238,27 @@ fn @get_mask5(data: [[pixel_t * 5] * 5]) -> Mask {
         size_x : 5, size_y : 5
     }
 }
+
+fn @get_mask9(data: [[pixel_t * 9] * 9]) -> Mask {
+    let size = 9;
+    let data_sum = @|x| -> pixel_t { data(x % size)(x / size) };
+    Mask {
+        data : @|x, y| -> pixel_t { data(y)(x) },
+        sum  : sum_mask(size * size , data_sum),
+        size_x : size, size_y : size
+    }
+}
+
+fn @get_mask13(data: [[pixel_t * 13] * 13]) -> Mask {
+    let size = 13;
+    let data_sum = @|x| -> pixel_t { data(x % size)(x / size) };
+    Mask {
+        data : @|x, y| -> pixel_t { data(y)(x) },
+        sum  : sum_mask(size * size , data_sum),
+        size_x : size, size_y : size
+    }
+}
+
 fn @get_mask_sep3(data: [pixel_t * 3]) -> MaskSep {
     let data = @|x| -> pixel_t { data(x) };
     MaskSep {
