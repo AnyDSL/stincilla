@@ -1,0 +1,53 @@
+fn @iteration(acc: Accelerator, size: i32,  body: fn(i32) -> ()) -> () {
+    let grid  = (1, 1, 1);
+    let block = (1, 1, 1);
+    for work_item in acc.exec(grid, block) {
+        for x in pipeline(1, 0, size) {
+            @@body(1);
+        }
+    }
+}
+
+fn @read(buf: Buffer, i: i32) -> f32 { bitcast[&[1][f32]](buf.data)(i) }
+fn @write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&mut[1][f32]](buf.data)(i) = v }
+
+fn main() -> i32 {
+    let size   = 2048;
+    let fpga    = accelerator(device_id);
+    let arr     = alloc_cpu(size * sizeof[f32]());
+    let out     = alloc_cpu(size * sizeof[f32]());
+    let arr_fpga = fpga.alloc(size * sizeof[f32]());
+    let out_fpga = fpga.alloc(size * sizeof[f32]());
+    for i in range(0, size) {
+        let arr_ptr = bitcast[&mut[f32]](arr.data);
+        let out_ptr = bitcast[&mut[f32]](out.data);
+        arr_ptr(i) = i as f32;
+        out_ptr(i) = 0.0f;
+    }
+
+    copy(arr, arr_fpga); //from cpu to fpga
+
+    for x in iteration(fpga, size) {
+        let idx = x;
+        write(out_fpga, idx, read(arr_fpga, idx));
+    }
+
+    copy(out_fpga, out); //from fpga to cpu
+
+    let mut passed = 0;
+    for i in range(0, size) {
+        if bitcast[&[f32]](out.data)(i) != bitcast[&[f32]](arr.data)(i) { passed++; }
+    }
+    if passed == 0 {
+        print_string("Test PASSED!\n");
+    } else {
+        print_string("Test FAILED!\n");
+    }
+
+    release(out_fpga);
+    release(arr_fpga);
+    release(arr);
+    release(out);
+
+    if passed >= 256 { 255 } else { passed }
+}
