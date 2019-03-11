@@ -29,23 +29,23 @@ if(DEVICE STREQUAL "fpga")
     target_link_libraries(fpga_copy ${ANYDSL_RUNTIME_LIBRARIES})
     add_test("fpga_copy" fpga_copy)
 
-    #    anydsl_runtime_wrap(LOOP_PIPELINE_PROGRAM
-    #        CLANG_FLAGS ${CLANG_FLAGS}
-    #        IMPALA_FLAGS ${IMPALA_FLAGS}
-    #        FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ../utils.impala loop_pipeline.impala
-    #        HLS_FLAGS ${HLS_FLAGS})
-    #    add_executable(loop_pipeline ${LOOP_PIPELINE_PROGRAM})
-    #    target_link_libraries(loop_pipeline ${ANYDSL_RUNTIME_LIBRARIES})
-    #    add_test("loop_pipeline" loop_pipeline)
-    #
-    #    anydsl_runtime_wrap(LP_NESTED_PROGRAM
-    #        CLANG_FLAGS ${CLANG_FLAGS}
-    #        IMPALA_FLAGS ${IMPALA_FLAGS}
-    #        FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ../utils.impala lp_nested.impala
-    #        HLS_FLAGS ${HLS_FLAGS})
-    #    add_executable(lp_nested ${LP_NESTED_PROGRAM})
-    #    target_link_libraries(lp_nested ${ANYDSL_RUNTIME_LIBRARIES})
-    #    add_test("lp_nested" lp_nested)
+    anydsl_runtime_wrap(LOOP_PIPELINE_PROGRAM
+        CLANG_FLAGS ${CLANG_FLAGS}
+        IMPALA_FLAGS ${IMPALA_FLAGS}
+        FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ../utils.impala loop_pipeline.impala
+        HLS_FLAGS ${HLS_FLAGS})
+    add_executable(loop_pipeline ${LOOP_PIPELINE_PROGRAM})
+    target_link_libraries(loop_pipeline ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test("loop_pipeline" loop_pipeline)
+
+    anydsl_runtime_wrap(LP_NESTED_PROGRAM
+        CLANG_FLAGS ${CLANG_FLAGS}
+        IMPALA_FLAGS ${IMPALA_FLAGS}
+        FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ../utils.impala lp_nested.impala
+        HLS_FLAGS ${HLS_FLAGS})
+    add_executable(lp_nested ${LP_NESTED_PROGRAM})
+    target_link_libraries(lp_nested ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test("lp_nested" lp_nested)
 endif()
 
 if(DEVICE STREQUAL "acc")

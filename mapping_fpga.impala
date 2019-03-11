@@ -1,7 +1,8 @@
 static coarsening_policy = FetchAndCalc_nobh; // FetchAndCalc, FetchAndCalc_nobh, CalcAndPack, CalcAndPack_nobh;
-fn @pragma_pipeline() -> () {
-   if is_opencl() { print_pragma("#pragma ii 1"); };
-   if is_hls() { print_pragma("#pragma HLS pipeline II=1"); };
+
+fn @inline_directive() -> () {
+   if is_opencl() { print_pragma("#pragma"); };
+   if is_hls() { print_pragma("#pragma"); };
 }
 // ---------------------------- types ------------------------------------------
 // border handling
@@ -98,6 +99,12 @@ fn @iterate1d_atborders(body: fn(Boundary) -> ()) -> () {
     @@body(Boundary::Upper);
 }
 
+//---------------------- HW pipelining -------------------------------------------
+fn @auto_pipeline(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+    let II = 0; // Toggles auto II
+    pipeline(II, lower, upper, body);
+}
+
 // --------------------- memory copy functions --------------------------------
 fn @copy_img(src: Img, dst: Img) -> () {
     copy_real_img(src, dst);
@@ -123,7 +130,7 @@ fn @get_device_copy(img: Img) -> Img {
 fn @get_host_copy(img_dev: Img, img: Img) -> () {
     if img_dev.virtual == false {
         copy_real_img(img_dev, img);
-    } 
+    }
 }
 
 fn @release_device_copy(img: Img) -> () {
@@ -855,29 +862,28 @@ fn @CalcAndPack_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D, 
     }
 }
 
-//  ------------------- Stencil Processing ----------------------
+//  ------------------- Stencil Processing ---------------------
 fn @pipeline2d(hw: Hardware) -> () {
     // Optimize away the read condition if not needed
     let at_read_ = @|idx|{
-        if(hw.read_time == hw.life_time) { 
-            hw.at_read($idx) 
-        } else { 
+        if(hw.read_time == hw.life_time) {
+            hw.at_read($idx)
+        } else {
             if idx < hw.read_time { hw.at_read($idx); }
         }
     };
 
     // Optimize away the write condition if not needed
     let at_write_ = @|idx|{
-        if(hw.initial_delay == 0) { 
-            hw.at_write($idx) 
-        } else { 
+        if(hw.initial_delay == 0) {
+            hw.at_write($idx)
+        } else {
             if idx > (hw.initial_delay - 1) { hw.at_write($idx); }
         }
     };
 
     // execution loop
-    for clock_tick in range(0, hw.life_time) {
-        pragma_pipeline();
+    for clock_tick in auto_pipeline(0, hw.life_time) {
 
         // read input  (clock_tick < hw.read_time)
         at_read_(clock_tick);
@@ -1089,8 +1095,7 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
             let out0_s = Img_to_Mem2D_write(out0, get_vector_length());
             let out1_s = Img_to_Mem2D_write(out1, get_vector_length());
 
-            for idx in range(0, image_size) {
-                pragma_pipeline();
+            for idx in auto_pipeline(0, image_size) {
                 in_s.update(idx);
                 for v in unroll(0, pFactor) {
                     let data = in_s.read(v);

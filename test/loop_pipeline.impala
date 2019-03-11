@@ -2,10 +2,15 @@ fn @iteration(acc: Accelerator, size: i32,  body: fn(i32) -> ()) -> () {
     let grid  = (1, 1, 1);
     let block = (1, 1, 1);
     for work_item in acc.exec(grid, block) {
-        for x in pipeline(1, 0, size) {
-            @@body(1);
+        for x in pipeliner(0, size) {
+            @@body(x);
         }
     }
+}
+
+fn @auto_pipeline(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+    let II = 0; // Auto II
+    pipeline(II, lower, upper, body)
 }
 
 fn @read(buf: Buffer, i: i32) -> f32 { bitcast[&[1][f32]](buf.data)(i) }
@@ -32,6 +37,7 @@ fn main() -> i32 {
         write(out_fpga, idx, read(arr_fpga, idx));
     }
 
+    fpga.sync();
     copy(out_fpga, out); //from fpga to cpu
 
     let mut passed = 0;

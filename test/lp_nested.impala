@@ -2,8 +2,13 @@ fn @iteration(acc: Accelerator, width: i32, height: i32, body: fn(i32, i32) -> (
     let grid  = (1, 1, 1);
     let block = (1, 1, 1);
     for work_item in acc.exec(grid, block) {
-        for x in range(0, width) {
-            for y in pipeline(1, 0, height) {
+     for y in range(0, height) {
+        for x in auto_pipeline(0, width) {
+                @@body(x, y);
+            }
+        }
+        for y in range(0, width) {
+            for x in pipeline(2, 0, height) {
                 @@body(x, y);
             }
         }
@@ -34,7 +39,7 @@ fn main() -> i32 {
         let idx = y*width + x;
         write(out_fpga, idx, read(arr_fpga, idx));
     }
-
+    fpga.sync();
     copy(out_fpga, out);
 
     let mut passed = 0;
