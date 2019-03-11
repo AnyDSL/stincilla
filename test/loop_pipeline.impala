@@ -2,7 +2,7 @@ fn @iteration(acc: Accelerator, size: i32,  body: fn(i32) -> ()) -> () {
     let grid  = (1, 1, 1);
     let block = (1, 1, 1);
     for work_item in acc.exec(grid, block) {
-        for x in pipeliner(0, size) {
+        for x in auto_pipeline(0, size) {
             @@body(x);
         }
     }
