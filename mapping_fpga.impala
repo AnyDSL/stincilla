@@ -1,9 +1,5 @@
 static coarsening_policy = FetchAndCalc_nobh; // FetchAndCalc, FetchAndCalc_nobh, CalcAndPack, CalcAndPack_nobh;
 
-fn @inline_directive() -> () {
-   if is_opencl() { print_pragma("#pragma"); };
-   if is_hls() { print_pragma("#pragma"); };
-}
 // ---------------------------- types ------------------------------------------
 // border handling
 type Bounds = (int, int);
