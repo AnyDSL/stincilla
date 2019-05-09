@@ -34,7 +34,7 @@ fn @bitonic_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) -
     fn @(?lo & ?n) merge(lo: i32, n: i32, dir: bool) -> () {
         if n > 1 {
             let m = greatest_power_of_two_less_than(n);
-            for i in range(lo, lo+n-m) {
+            for i in unroll(lo, lo+n-m) {
                 compare_and_swap(i, i+m, dir);
             }
             merge(lo, m, dir);
@@ -80,7 +80,7 @@ fn @bitonic_sort_i16(length: i32, read: fn(i32) -> i16, write: fn(i32, i16) -> (
     fn @(?lo & ?n) merge(lo: i32, n: i32, dir: bool) -> () {
         if n > 1 {
             let m = greatest_power_of_two_less_than(n);
-            for i in range(lo, lo+n-m) {
+            for i in unroll(lo, lo+n-m) {
                 compare_and_swap(i, i+m, dir);
             }
             merge(lo, m, dir);

@@ -1,8 +1,7 @@
 // odd-even merge sort works only for power of two
 fn @oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) -> () {
     fn @compare_and_swap(i: i32, j: i32) -> () {
-        //print_i32(i); print_string(", ");
-        //print_i32(j); print_string("\n");
+        //pe_info("compare(i,j)", (i, j));
         if read(i) > read(j) {
             let tmp = read(i);
             write(i, read(j));
@@ -15,7 +14,7 @@ fn @oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) ->
         if m < n {
             oddeven_merge(lo, n, m);        // even subsequence
             oddeven_merge(lo + r, n, m);    // odd subsequence
-            for i in range_step(lo + r, lo + n - r, m) {
+            for i in unroll_step(lo + r, lo + n - r, m) {
                 compare_and_swap(i, i + r);
             }
         } else {
@@ -41,7 +40,7 @@ fn test(input: &[f32]) -> f32 {
 
     fn @median() -> f32 {
         let mut arr: [f32 * 4];
-        for i in range(0, length) {
+        for i in unroll(0, length) {
             arr(i) = input(i);
         }
 
