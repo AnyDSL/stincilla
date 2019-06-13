@@ -1,4 +1,4 @@
-static coarsening_policy = FetchAndCalc_nobh; // FetchAndCalc, FetchAndCalc_nobh, CalcAndPack, CalcAndPack_nobh;
+static coarsening_policy = FetchAndCalc; // FetchAndCalc, FetchAndCalc_nobh, CalcAndPack, CalcAndPack_nobh;
 
 // ---------------------------- types ------------------------------------------
 // border handling
