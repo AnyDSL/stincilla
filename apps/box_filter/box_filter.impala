@@ -9,9 +9,9 @@ fn main() -> i32 {
     //let mask_sep = get_mask_sep5(box_mask_sep5);
     let mask   = get_mask5(box_mask5);
     let kernel = apply_stencil;
-    let lower  = nobh_center;
-    let upper  = nobh_center;
-    let enable_offset = 1;
+    let lower  = clamp_lower;
+    let upper  = clamp_upper;
+    let enable_offset = 0;
     let iteration_fun = iteration;                  // SS
 
     for benchmark_host(num_host_iter) {
@@ -26,18 +26,17 @@ fn main() -> i32 {
         let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
         let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
         let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
-        let prop    = get_RoI(enable_offset, enable_offset , height, width);
-        let offset  = enable_offset * 2;
 
         for y in range(0, out.height) {
             for x in range(0, out.width) {
                 let mut ref = 0 as pixel_t;
-                if y > offset - 1 && y < out.height - offset && x > offset -1 && x < out.width - offset {
-                    ref = kernel(x, y, arr_acc, mask);
-                    ref_acc.write(x, y, ref);
-                }
+                ref = kernel(x, y, arr_acc, mask);
+                ref_acc.write(x, y, ref);
             }
         }
+
+        let offset  = enable_offset * (mask.size_x / 2);
+        let prop    = get_RoI(offset, offset, width - 2 * offset, height - 2 * offset);
         check(arr_acc, out_acc, ref_acc, prop) 
     }
     let result = reference();

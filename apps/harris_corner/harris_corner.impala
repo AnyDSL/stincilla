@@ -46,12 +46,12 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     let mdx = get_mask3(sobel_mask3_x);
     let mdy = get_mask3(sobel_mask3_y);
 
-    //let lower = clamp_lower;
-    //let upper = clamp_upper;
     let lower = nobh_center;
     let upper = nobh_center;
     //let lower = clamp_lower;
     //let upper = clamp_upper;
+    //let lower = mirro_lower;
+    //let upper = mirro_upper;
     let enable_offset = 1;
 
     for benchmark_host(num_host_iter) {
