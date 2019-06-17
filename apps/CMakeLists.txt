@@ -36,7 +36,7 @@ set (BOX_FILTER_DIR     ${APPS_DIR}/box_filter)
 set (FILTER_CHAIN_DIR   ${APPS_DIR}/filter_chain)
 set (HARRIS_CORNER_DIR  ${APPS_DIR}/harris_corner)
 
-set(BILATERAL_FILES     ${BILATERAL_DIR}/mask_${PIXEL_TYPE}.impala ${BILATERAL_DIR}/bilateral.impala)
+set(BILATERAL_FILES     ${BILATERAL_DIR}/mask_f32.impala ${BILATERAL_DIR}/bilateral.impala)
 set(SQUARE_FILES        ${SQUARE_DIR}/square.impala)
 set(MAXIMUM_FILES       ${MAXIMUM_DIR}/reduce_ex.impala)
 set(BOX_FILTER_FILES    ${BOX_FILTER_DIR}/mask_${PIXEL_TYPE}.impala ${BOX_FILTER_DIR}/box_filter.impala)
