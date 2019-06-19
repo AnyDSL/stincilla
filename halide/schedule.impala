@@ -181,7 +181,7 @@ fn @iterate_regions(lower: i32, upper: i32, tile_size: i32, extent: i32, body: f
                 0 => (lower, lower_aligned),
                 1 => (lower_aligned, upper_aligned),
                 2 => (upper_aligned, upper),
-                _ => undef()
+                _ => undef[(i32,i32)]()
             };
             @@body(lower, upper, region);
         }
