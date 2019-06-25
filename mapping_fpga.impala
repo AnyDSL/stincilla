@@ -454,7 +454,7 @@ fn @new_bounds(lower: i32, lower_bh_pixels: i32, upper_bh_pixels: i32, upper: i3
             Boundary::Lower  => (lower, lower_bh_pixels),
             Boundary::Center => (lower_bh_pixels, upper_bh_pixels),
             Boundary::Upper  => (upper_bh_pixels, upper),
-            _                => undef()
+            _                => undef[(int, int)]()
         }
     }
 }
@@ -464,13 +464,13 @@ fn @read_pixel_bh(xw: int, read: fn(int) -> pixel_t, boundary: Boundary, lower_h
             Boundary::Lower   => bh_lower(xw, lower_high, 0),
             Boundary::Center  => BoundaryMode::Index(xw),
             Boundary::Upper   => bh_upper(xw, 0, upper_low),
-            Boundary::Unknown => undef()
+            Boundary::Unknown => undef[(BoundaryMode)]()
         };
 
         match mode_x {
             BoundaryMode::Index(idx) => read(idx),
             BoundaryMode::Const(c)   => c,
-            _ => undef()
+            _ => undef[i32]()
         }
 }
 
