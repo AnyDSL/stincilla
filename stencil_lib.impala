@@ -97,7 +97,7 @@ fn @get_bounds(lower: i32, upper: i32, bh_pixels: i32, boundary: Boundary) -> (i
         Boundary::Lower  => (lower, bh_pixels),
         Boundary::Center => (bh_pixels, upper - bh_pixels),
         Boundary::Upper  => (upper - bh_pixels, upper),
-        _                => undef()
+        _                => undef[(i32,i32)]()
     }
 }
 fn @get_boundary(boundary: i32) -> Boundary {
@@ -105,7 +105,7 @@ fn @get_boundary(boundary: i32) -> Boundary {
         0 => Boundary::Lower,
         1 => Boundary::Center,
         2 => Boundary::Upper,
-        _ => undef()
+        _ => undef[Boundary]()
     }
 }
 fn @iterate_1dregion(lower: i32, upper: i32, tile_size: i32, body: fn((i32, i32), Boundary) -> ()) -> () {
@@ -192,7 +192,7 @@ fn @read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> p
         (BoundaryMode::Index(x), BoundaryMode::Index(y)) => read(x, y),
         (BoundaryMode::Const(c), _) => c,
         (_, BoundaryMode::Const(c)) => c,
-        _ => undef()
+        _ => undef[f32]()
     }
 }
 

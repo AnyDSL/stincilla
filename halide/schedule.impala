@@ -181,7 +181,7 @@ fn @iterate_regions(lower: i32, upper: i32, tile_size: i32, extent: i32, body: f
                 0 => (lower, lower_aligned),
                 1 => (lower_aligned, upper_aligned),
                 2 => (upper_aligned, upper),
-                _ => undef()
+                _ => undef[(i32,i32)]()
             };
             @@body(lower, upper, region);
         }
@@ -326,10 +326,10 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
             let (tid_x, tid_y) = (cuda_threadIdx_x(), cuda_threadIdx_y());
             let (bid_x, bid_y) = (cuda_blockIdx_x(),  cuda_blockIdx_y());
 
-            let gid_x = x_lower + tid_x + block(0) * bid_x - 2 * extents.x * bid_x - extents.x;
-            let gid_y = y_lower + tid_y + block(1) * bid_y - 2 * extents.y * bid_y - extents.y;
+            let gid_x = x_lower + tid_x + tile_width  * bid_x - extents.x;
+            let gid_y = y_lower + tid_y + tile_height * bid_y - extents.y;
 
-            if gid_x >= x_range || gid_y >= y_range {
+            if gid_x >= x_upper + extents.x || gid_y >= y_upper + extents.y {
                 return()
             }
 
@@ -355,9 +355,9 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
 
             cuda_syncthreads();
 
-            if tid_y < tile_height && tid_x < tile_width {
-                let tmp_read = @|i:i32| @|x, y| tmps(i)(tmp_idx_read(x - gid_x + tid_x, y - gid_y + tid_y));
-                write(gid_x, gid_y, consume.op(tmp_read, gid_x, gid_y))
+            if tid_y < tile_height && tid_x < tile_width && gid_x + extents.x < x_upper && gid_y + extents.y < y_upper {
+                let tmp_read = @|i:i32| @|x, y| tmps(i)(tmp_idx_read(x, y));
+                write(gid_x + extents.x, gid_y + extents.y , consume.op(tmp_read, tid_x, tid_y))
             }
         });
     };
