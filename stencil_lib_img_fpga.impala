@@ -82,17 +82,17 @@ fn @get_acc_offset(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i3
 }
 
 // ---------------------------- memory access --------------------------------------
-fn create_Mem2D_read(width: int, height: int, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t) -> Mem2D {
+fn @create_Mem2D_read(width: int, height: int, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t) -> Mem2D {
     let stride = round_up(width, pFactor);
     Mem2D{ read: read, write: @|x, val|{}, height: height, width: width, stride: stride, pFactor: pFactor, update: update}
 }
 
-fn create_Mem2D_write(width: int, height: int, pFactor: int, update: fn(int) -> (), write : fn(int, pixel_t) -> ()) -> Mem2D {
+fn @create_Mem2D_write(width: int, height: int, pFactor: int, update: fn(int) -> (), write : fn(int, pixel_t) -> ()) -> Mem2D {
     let stride = round_up(width, pFactor);
     Mem2D{ read: @|x|{ 0 as pixel_t}, write : write, height: height, width: width, stride: stride, pFactor: pFactor, update: update}
 }
 
-fn create_Mem2D_from_img(img: Img, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t, write: fn(int, pixel_t) -> ()) -> Mem2D {
+fn @create_Mem2D_from_img(img: Img, pFactor: int, update: fn(int) -> (), read: fn(int) -> pixel_t, write: fn(int, pixel_t) -> ()) -> Mem2D {
     Mem2D{ read: read, write: write, height: img.height, width: img.width, stride: img.stride, pFactor: pFactor, update: update}
 }
 

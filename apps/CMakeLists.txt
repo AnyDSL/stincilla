@@ -28,6 +28,7 @@ set(COMMON_FILES_U8  ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIX
 
 # application sources and benchmarks
 set (GAUSSIAN_DIR       ${APPS_DIR}/gaussian)
+set (SOBEL_LUMA_DIR     ${APPS_DIR}/sobel_luma)
 set (JACOBI_DIR         ${APPS_DIR}/jacobi)
 set (BILATERAL_DIR      ${APPS_DIR}/bilateral)
 set (SQUARE_DIR         ${APPS_DIR}/square)
@@ -36,12 +37,13 @@ set (BOX_FILTER_DIR     ${APPS_DIR}/box_filter)
 set (FILTER_CHAIN_DIR   ${APPS_DIR}/filter_chain)
 set (HARRIS_CORNER_DIR  ${APPS_DIR}/harris_corner)
 
-set(BILATERAL_FILES     ${BILATERAL_DIR}/bilateral.impala ${BILATERAL_DIR}/mask_${PIXEL_TYPE}.impala)
+set(BILATERAL_FILES     ${BILATERAL_DIR}/mask_f32.impala ${BILATERAL_DIR}/bilateral.impala)
 set(SQUARE_FILES        ${SQUARE_DIR}/square.impala)
 set(MAXIMUM_FILES       ${MAXIMUM_DIR}/reduce_ex.impala)
 set(BOX_FILTER_FILES    ${BOX_FILTER_DIR}/mask_${PIXEL_TYPE}.impala ${BOX_FILTER_DIR}/box_filter.impala)
 set(BOX_FILTER_CONST_FILES ${BOX_FILTER_DIR}/box_filter_const.impala)
 set(GAUSSIAN_FILES      ${GAUSSIAN_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_DIR}/gaussian.impala)
+set(SOBEL_LUMA_FILES    ${SOBEL_LUMA_DIR}/mask_i32.impala ${SOBEL_LUMA_DIR}/sobel_luma.impala)
 set(JACOBI_FILES        ${JACOBI_DIR}/mask_${PIXEL_TYPE}.impala ${JACOBI_DIR}/jacobi.impala)
 set(FILTER_CHAIN_FILES  ${FILTER_CHAIN_DIR}/mask_${PIXEL_TYPE}.impala ${FILTER_CHAIN_DIR}/filter_chain.impala)
 set(HARRIS_CORNER_FILES ${HARRIS_CORNER_DIR}/mask_${PIXEL_TYPE}.impala ${HARRIS_CORNER_DIR}/harris_corner.impala)
@@ -75,6 +77,15 @@ anydsl_runtime_wrap(GAUSSIAN_PROGRAM
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
 target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
+
+anydsl_runtime_wrap(SOBEL_LUMA_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${SOBEL_LUMA_FILES})
+add_executable(sobel_luma ${SOBEL_LUMA_PROGRAM})
+target_link_libraries(sobel_luma ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("sobel_luma" sobel_luma)
 
 anydsl_runtime_wrap(JACOBI_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}

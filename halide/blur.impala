@@ -86,7 +86,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     // let schedule_cpu = middle_schedule;
 
     let tile_width_cuda = 32; let tile_height_cuda = 8;
-    // let schedule_cuda = tile_cuda(tile_width_cuda, tile_height_cuda, blur_op);
+    // let schedule_cuda = tile_cuda(tile_width_cuda, tile_height_cuda, blur);
     let schedule_cuda = tile_cuda_at(tile_width_cuda, tile_height_cuda, blur_x, blur_y);
 
     if use_cuda {

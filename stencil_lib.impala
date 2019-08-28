@@ -90,7 +90,7 @@ fn @get_bounds(lower: i32, upper: i32, bh_pixels: i32, boundary: Boundary) -> (i
         Boundary::Lower  => (lower, bh_pixels),
         Boundary::Center => (bh_pixels, upper - bh_pixels),
         Boundary::Upper  => (upper - bh_pixels, upper),
-        _                => undef()
+        _                => undef[(i32,i32)]()
     }
 }
 fn @get_boundary(boundary: i32) -> Boundary {
@@ -98,7 +98,7 @@ fn @get_boundary(boundary: i32) -> Boundary {
         0 => Boundary::Lower,
         1 => Boundary::Center,
         2 => Boundary::Upper,
-        _ => undef()
+        _ => undef[Boundary]()
     }
 }
 fn @iterate_1dregion(lower: i32, upper: i32, tile_size: i32, body: fn((i32, i32), Boundary) -> ()) -> () {
@@ -185,7 +185,7 @@ fn @read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> p
         (BoundaryMode::Index(x), BoundaryMode::Index(y)) => read(x, y),
         (BoundaryMode::Const(c), _) => c,
         (_, BoundaryMode::Const(c)) => c,
-        _ => undef()
+        _ => undef[pixel_t]()
     }
 }
 
@@ -298,7 +298,7 @@ fn @display_image(arr : Acc, roi_x : int, roi_y : int) -> () {
     }
 }
 
-fn @get_RoI(height: i32, width: i32, offset_x: i32, offset_y: i32) -> RoI {
+fn @get_RoI(offset_x: i32, offset_y: i32, width: i32, height: i32) -> RoI {
     RoI {
         o_x    : offset_x,
         o_y    : offset_y,
@@ -315,34 +315,34 @@ fn @check(in_acc: Acc, out_acc: Acc, ref_acc: Acc, prop: RoI) -> i32 {
     let offset_x = prop.o_y * 2;
     for y in range(0, prop.height) {
         for x in range(0, prop.width) {
-            if y > offset_y - 1 && y < prop.height - offset_y && x > offset_x -1 && x < prop.width - offset_x {
-            let ref = ref_acc.read(x, y);
-            let res = out_acc.read(x, y);
-            if !is_same_pixel(ref, res) && passed != 42 {
-                err_x = x; err_y = y;
-                passed = 42;
+            if y > prop.o_y - 1 && y < prop.o_y + prop.height &&
+               x > prop.o_x - 1 && x < prop.o_x + prop.width {
+                let ref = ref_acc.read(x, y);
+                let res = out_acc.read(x, y);
+                if !is_same_pixel(ref, res) && passed != 42 {
+                    err_x = x; err_y = y;
+                    passed = 42;
+                }
             }
-
         }
     }
- }
 
- let roi_x = 0; //arr.width - 10;
- let roi_y = 0; //arr.height - 10;
- print_string("input image:\n");
- display_image(in_acc, roi_x, roi_y);
- print_string("output image:\n");
- display_image(out_acc, roi_x, roi_y);
+    let roi_x = 0; //arr.width - 10;
+    let roi_y = 0; //arr.height - 10;
+    print_string("input image:\n");
+    display_image(in_acc, roi_x, roi_y);
+    print_string("output image:\n");
+    display_image(out_acc, roi_x, roi_y);
 
- if passed == 0 {
-     print_string("Test PASSED!\n");
- } else {
-     print_string("ref image:\n");
-     display_image(ref_acc, roi_x, roi_y);
-     print_string("Test FAILED @ (");
-     print_i32(err_x); print_string(", "); print_i32(err_y); print_string(")!\n");
-     print_pixel(ref_acc.read(err_x, err_y)); print_string( " (ref) vs ");
-     print_pixel(out_acc.read(err_x, err_y)); print_string( " (res)\n");
-     }
-     passed
- }
+    if passed == 0 {
+        print_string("Test PASSED!\n");
+    } else {
+        print_string("ref image:\n");
+        display_image(ref_acc, roi_x, roi_y);
+        print_string("Test FAILED @ (");
+        print_i32(err_x); print_string(", "); print_i32(err_y); print_string(")!\n");
+        print_pixel(ref_acc.read(err_x, err_y)); print_string( " (ref) vs ");
+        print_pixel(out_acc.read(err_x, err_y)); print_string( " (res)\n");
+    }
+    passed
+}

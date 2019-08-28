@@ -52,9 +52,7 @@ if(DEVICE STREQUAL "acc")
     anydsl_runtime_wrap(MULTI_GPU_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
-        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} ../utils.impala multi_gpu.impala
-        SYNTHESIS ${SYNTHESIS}
-        FPGA_PART ${FPGA_PART})
+        FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} ../utils.impala multi_gpu.impala)
     add_executable(multi_gpu ${MULTI_GPU_PROGRAM})
     target_link_libraries(multi_gpu ${ANYDSL_RUNTIME_LIBRARIES})
     add_test("multi_gpu" multi_gpu)
