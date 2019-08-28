@@ -775,14 +775,14 @@ fn @FetchAndCalc_nobh(math: Intrinsics, pFactor: int, in_s: Mem2D, out_s: Mem2D,
     let process_time  = crsn_stride * in_s.height;
     let initial_delay = crsn_stride * mask.upper_y + win_lat;
     let life_time     = initial_delay + process_time;
-    let mut col_ridx = 0;
+    //let mut col_ridx = 0;
     Hardware {
         at_read   : |ridx| { in_s.update($ridx); },
-        at_always : |ridx| { process($col_ridx, 0); },
+        at_always : |ridx| { process(/*$col_ridx*/ridx % crsn_stride, 0); },
         at_write  : |ridx| { out_s.update($ridx - initial_delay); },
         at_update : |ridx| {
-            col_ridx++;
-            if col_ridx == crsn_stride { col_ridx = 0; }
+            /*col_ridx++;
+            if col_ridx == crsn_stride { col_ridx = 0; }*/
         },
         initial_delay : initial_delay,
         read_time : process_time,
