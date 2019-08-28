@@ -11,15 +11,15 @@ fn main() -> i32 {
 
     print_total_timing();
     let num_host_iter = 1i;
-    for math, left, right in iteration_reduce(math, max, arr, 0) {
+    for math, left, right in iteration_reduce(math, max, arr, 0 as pixel_t) {
         if (left > right) { left } else { right }
     };
 
-    for math, left, right in iteration_reduce(math, min, arr, 2048) {
+    for math, left, right in iteration_reduce(math, min, arr, 2048 as pixel_t) {
         if (left < right) { left } else { right }
     };
 
-    for math, left, right in iteration_reduce(math, sum, arr, 0) {
+    for math, left, right in iteration_reduce(math, sum, arr, 0 as pixel_t) {
         left + right
     };
 
@@ -29,9 +29,9 @@ fn main() -> i32 {
 
     fn reference() -> i32 {
         let mut passed = 0;
-        let mut max_ref = 0;
-        let mut min_ref = 1024;
-        let mut sum_ref = 0;
+        let mut max_ref = 0 as pixel_t;
+        let mut min_ref = 1024 as pixel_t;
+        let mut sum_ref = 0 as pixel_t;
         let arr_acc = get_acc(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx));
         let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
 
@@ -53,7 +53,7 @@ fn main() -> i32 {
             print_string("Test FAILED!\n");
         }
         print_string("REF vs FPGA : ");
-        print_i32(ref); print_string(", "); print_i32(res); print_string("\n");
+        print_i32(ref as i32); print_string(", "); print_i32(res as i32); print_string("\n");
 
         passed
     }

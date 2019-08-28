@@ -470,7 +470,7 @@ fn @read_pixel_bh(xw: int, read: fn(int) -> pixel_t, boundary: Boundary, lower_h
         match mode_x {
             BoundaryMode::Index(idx) => read(idx),
             BoundaryMode::Const(c)   => c,
-            _ => undef[i32]()
+            _ => undef[pixel_t]()
         }
 }
 
