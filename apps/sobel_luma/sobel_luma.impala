@@ -14,17 +14,11 @@ fn init_data(arr: Img) -> () {
 fn main() -> i32 {
     let width  = 1024;
     let height = 1024;
-    static mut dx_c : pipe;
-    static mut dy_c : pipe;
     static mut luma_c : pipe;
-    static mut luma_c0 : pipe;
-    static mut luma_c1 : pipe;
 
     let arr = create_host_img(width, height);
     let out = create_host_img(width, height);
     let luma = create_virtual_img(width, height, &mut luma_c );
-    let dx   = create_virtual_img(width, height, &mut dx_c );
-    let dy   = create_virtual_img(width, height, &mut dy_c );
     init_data(arr);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
@@ -49,18 +43,10 @@ fn main() -> i32 {
             out.write(x, y, pix_luma);
         }
 
-        let (lum0, lum1) = split_image(math, luma, &mut luma_c0, &mut luma_c1);
-
-        for math, x, y, out, arr, mask in iteration(math, dx, lum0, mask_x, lower, upper) {
-            out.write(x, y, apply_stencil(x, y, arr, mask));
-        }
-
-        for math, x, y, out, arr, mask in iteration(math, dy, lum1, mask_y, lower, upper) {
-            out.write(x, y, apply_stencil(x, y, arr, mask));
-        }
-
-        for math, x, y, out, dx, dy in iteration_point2(math, out, dx, dy) {
-            let val = abs(dx) + abs(dy);
+        for math, x, y, out, arr, mask in iteration(math, out, luma, mask_x, lower, upper) {
+            let pix_dx = apply_stencil(x, y, arr, mask);
+            let pix_dy = apply_stencil(x, y, arr, mask);
+            let val = abs(pix_dx) + abs(pix_dy);
             let mut res = 0;
             if (val > threshold) { res = 255 as pixel_t }
             out.write(x, y, res);
