@@ -14,8 +14,11 @@ else
     echo "synthesizing kernel code in $dir"
 fi
 
-if [[ ! -e $dir/$APP.aocx ]]; then
-aoc -report $APP.cl -o $dir/$APP.aocx
+if [[ ! -e $dir/$APP.aocx ]] && [[ "$2" == "p" ]]; then
+    echo " With profiling instrumentation"
+    aoc -report -profile $APP.cl -o $dir/$APP.aocx
+else
+    aoc -report $APP.cl -o $dir/$APP.aocx
 fi
 
 ln -sf $dir/$APP.aocx ./$APP.aocx
