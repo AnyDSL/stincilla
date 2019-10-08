@@ -1,11 +1,10 @@
-
 #!/bin/bash
 
 if [ -z "$1" ]
- then
-     echo "Error!: No option (application name) were passed."
+then
+    echo "Error!: No option (application name) were passed."
     exit
- fi
+fi
 
 APP="$1"
 dir="anydsl_aocl"
@@ -16,9 +15,7 @@ else
 fi
 
 if [[ -e $dir/$APP.aocx ]]; then
-ACL_PROFILE_TIMER=1
-./$APP
-aocl report $APP.aocx profile.mon $dir/$APP.source
+    ACL_PROFILE_TIMER=1
+    ./$APP
+    aocl report $APP.aocx profile.mon $dir/$APP.source
 fi
-
-
