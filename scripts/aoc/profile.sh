@@ -15,7 +15,9 @@ else
 fi
 
 if [[ -e $dir/$APP.aocx ]]; then
-    ACL_PROFILE_TIMER=1
+    ln -sf $dir/$APP.aocx ./$APP.aocx
+    export ACL_PROFILE_TIMER=1
+    export ANYDSL_PROFILE="full fpga_dynamic"
     ./$APP
     aocl report $APP.aocx profile.mon $dir/$APP.source
 fi
