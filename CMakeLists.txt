@@ -32,7 +32,7 @@ if(BACKEND STREQUAL "hls")
     string(TOLOWER "${SYNTHESIS}" SYNTHESIS)
     message(STATUS "HW Synthesis: ${SYNTHESIS}")
 
-    set(FPGA_PART xc7z020clg484-1 CACHE STRING "Specify FPGA part")
+    set(FPGA_PART xc7z020clg484-1 CACHE STRING "Specify FPGA part or ALVEO model: U50, U200, U250, U280")
     string(TOLOWER "${FPGA_PART}" FPGA_PART)
     message(STATUS "Selected FPGA: ${FPGA_PART}")
 
@@ -41,8 +41,7 @@ if(BACKEND STREQUAL "hls")
         set(ANYDSL_FPGA "None" CACHE INTERNAL "default to benchmark")
     endif()
     message(STATUS "Application type: ${ANYDSL_FPGA}")
-
-    set(SOC OFF CACHE BOOL "ON: SoC integration, OFF: HDL IP generation")
+    set(SOC ON CACHE BOOL "ON: SoC integration, OFF: HDL IP generation")
     string(TOLOWER "${SOC}" SOC)
     message(STATUS "SoC integration: ${SOC}")
 else()
