@@ -13,7 +13,7 @@ if [[ ! -e $dir ]]; then
 else
     echo "Emulating device code in $dir"
 fi
-aoc -report -march=emulator -v -DINTEL_FPGA $APP.cl -o $dir/$APP.aocx
+aoc -report -march=emulator -v $APP.cl -o $dir/$APP.aocx
 ln -sf $dir/$APP.aocx ./$APP.aocx
 
 if [ "$SELECTED_VERSION" == "19.*" ]

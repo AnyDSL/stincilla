@@ -16,9 +16,9 @@ fi
 
 if [[ ! -e $dir/$APP.aocx ]] && [[ "$2" == "p" ]]; then
     echo " With profiling instrumentation"
-    aoc -report -profile -v -DINTEL_FPGA $APP.cl -o $dir/$APP.aocx
+    aoc -report -profile -v $APP.cl -o $dir/$APP.aocx
 else
-    aoc -report -v -DINTEL_FPGA $APP.cl -o $dir/$APP.aocx
+    aoc -report -v $APP.cl -o $dir/$APP.aocx
 fi
 
 ln -sf $dir/$APP.aocx ./$APP.aocx
