@@ -31,7 +31,7 @@ fn main() -> i32 {
                 ref_acc.write(x, y, ref);
             }
         }
-        check(arr_acc, out_acc, ref_acc, prop) 
+        check(arr_acc, out_acc, ref_acc, prop)
     }
 
     let result = reference();
