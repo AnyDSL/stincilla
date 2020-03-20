@@ -1,7 +1,6 @@
 #include <iostream>
 #include <string>
 
-#define RUNTIME_ENABLE_JIT
 #include <anydsl_runtime.h>
 
 typedef int(*exec_cpu_fn)();
