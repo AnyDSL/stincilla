@@ -36,6 +36,16 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     target_link_libraries(alloc_gpu ${ANYDSL_RUNTIME_LIBRARIES})
     add_test("alloc_gpu" alloc_gpu)
 
+    if(BACKEND STREQUAL "cuda" OR BACKEND STREQUAL "nvvm")
+        anydsl_runtime_wrap(PRINT_GPU_PROGRAM
+            CLANG_FLAGS ${CLANG_FLAGS}
+            IMPALA_FLAGS ${IMPALA_FLAGS}
+            FILES ../${BACKEND_FILE} print_gpu.impala)
+        add_executable(print_gpu ${PRINT_GPU_PROGRAM})
+        target_link_libraries(print_gpu ${ANYDSL_RUNTIME_LIBRARIES})
+        add_test("print_gpu" print_gpu)
+    endif()
+
     anydsl_runtime_wrap(ALLOC_GPU_UNIFIED_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
