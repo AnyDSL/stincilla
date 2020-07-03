@@ -21,10 +21,10 @@ fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
     let acc     = accelerator(device_id);
-    let arr     = alloc_cpu(width * height * sizeof[f32]());
-    let out     = alloc_cpu(width * height * sizeof[f32]());
-    let arr_gpu = acc.alloc(width * height * sizeof[f32]());
-    let out_gpu = acc.alloc(width * height * sizeof[f32]());
+    let arr     = alloc_cpu((width * height) as i64 * sizeof[f32]());
+    let out     = alloc_cpu((width * height) as i64 * sizeof[f32]());
+    let arr_gpu = acc.alloc((width * height) as i64 * sizeof[f32]());
+    let out_gpu = acc.alloc((width * height) as i64 * sizeof[f32]());
     for i in range(0, width*height) {
         let arr_ptr = bitcast[&mut[f32]](arr.data);
         let out_ptr = bitcast[&mut[f32]](out.data);

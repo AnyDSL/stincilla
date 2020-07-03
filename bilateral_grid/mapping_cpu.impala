@@ -6,11 +6,11 @@ fn @grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i3
 fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32, f32) -> () {
     @|x, y, z, c, v| { bitcast[&mut[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c) = v }
 }
-fn @get_device_copy(host: &[f32], size: i32) -> Buffer { Buffer { data : bitcast[&[i8]](host), size : size as i64, device : 0 } }
-fn @copy_to_host(host: &[f32], img_gpu: Buffer, size: i32) -> () { }
+fn @get_device_copy(host: &[f32], size: i64) -> Buffer { Buffer { data : bitcast[&[i8]](host), size : size, device : 0 } }
+fn @copy_to_host(host: &[f32], img_gpu: Buffer, size: i64) -> () { }
 fn @release_device_copy(img: Buffer) -> () { }
 
-fn @alloc_grid(size: i32) -> Buffer { alloc_cpu(size) }
+fn @alloc_grid(size: i64) -> Buffer { alloc_cpu(size) }
 fn @iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
     for benchmark_cpu() {
         for y in outer_loop(0, bgrid.height()) {

@@ -65,9 +65,9 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     let schedule_cuda = tile_cuda_ats(tile_width_cuda, tile_height_cuda, @|i| match i { 0 => i_x, _ => i_y }, harris);
 
     if use_cuda {
-        let img_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, width * height * sizeof[pixel_t]()).data as &[pixel_t] };
-        let out_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, width * height * sizeof[pixel_t]()).data as &[pixel_t] };
-        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0i64, runtime_device(1, cuda_dev), img_cuda.data as &[i8], 0i64, (width * height * sizeof[pixel_t]()) as i64);
+        let img_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
+        let out_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
+        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0i64, runtime_device(1, cuda_dev), img_cuda.data as &[i8], 0i64, (width * height) as i64 * sizeof[pixel_t]());
 
         let schedule_cuda = handle_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda, schedule_cuda);
         //let schedule_cuda = dummy_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda);
@@ -76,7 +76,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
             compute(img_cuda, out_cuda, schedule_cuda);
         }
 
-        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0i64, runtime_device(0, 0), out.data as &[i8], 0i64, (width * height * sizeof[pixel_t]()) as i64);
+        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0i64, runtime_device(0, 0), out.data as &[i8], 0i64, (width * height) as i64 * sizeof[pixel_t]());
         runtime_release(runtime_device(1, cuda_dev), img_cuda.data as &[i8]);
         runtime_release(runtime_device(1, cuda_dev), out_cuda.data as &[i8]);
     } else {

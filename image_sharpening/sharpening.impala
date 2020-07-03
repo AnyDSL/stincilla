@@ -72,8 +72,8 @@ fn @sharpen(x: i32, y: i32, out: Acci16, img: Acci16, blur: Acci16) -> () {
 
 extern
 fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
-    let img     = Imgi16 { buf : Buffer { data : bitcast[&[i8]](input),  size : (width * height * sizeof[i16]()) as i64, device : 0 }, width : width, height : height, stride : width };
-    let out     = Imgi16 { buf : Buffer { data : bitcast[&[i8]](output), size : (width * height * sizeof[i16]()) as i64, device : 0 }, width : width, height : height, stride : width };
+    let img     = Imgi16 { buf : Buffer { data : bitcast[&[i8]](input),  size : (width * height) as i64 * sizeof[i16](), device : 0 }, width : width, height : height, stride : width };
+    let out     = Imgi16 { buf : Buffer { data : bitcast[&[i8]](output), size : (width * height) as i64 * sizeof[i16](), device : 0 }, width : width, height : height, stride : width };
     let tmp     = create_imgi16(width, height, alloc_cpu);
     let map     = create_img   (width, height, alloc_cpu);
     let mask    = get_mask5([[1.0f, .. 5], .. 5]);

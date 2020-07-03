@@ -14,7 +14,7 @@ int main(int argc, const char **argv) {
         "   /*let (platform, device, codegen) = (1, 1, cuda);*/"
         "   /*let (platform, device, codegen) = (1, 1, nvvm);*/"
         "   /*let (platform, device, codegen) = (3, 1, amdgpu);*/"
-        "   let size = sizeof[i32]() as i64;"
+        "   let size = sizeof[i32]();"
         "   let dev = 0;"
         "   let dev_cpu  = runtime_device(0, 0);"
         "   let dev_gpu  = runtime_device(platform, device);"

@@ -23,7 +23,7 @@ static mut total_kernel_timing = 0i64;
 static mut total_cpu_timing = 0i64;
 
 fn @benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn() -> ()) -> i64 {
-    let times_buf = alloc_cpu(num_iter * sizeof[i64]());
+    let times_buf = alloc_cpu(num_iter as i64 * sizeof[i64]());
     let times = bitcast[&mut[i64]](times_buf.data);
     for i in range(0, num_iter) {
         let start = get_time();

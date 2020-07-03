@@ -62,7 +62,7 @@ fn bilateral_grid(image: &[f32], width: i32, height: i32) -> () {
     let bins     = (1.0f  / sigma_r) as i32 + 2 * padding;
     let gwidth   = width  / sigma_s;
     let gheight  = height / sigma_s;
-    let grid_buf = alloc_grid(gwidth * gheight * bins * sizeof[[f32*2]]());
+    let grid_buf = alloc_grid((gwidth * gheight * bins) as i64 * sizeof[[f32*2]]());
     let grid = Grid {
         sigma_s : @|| sigma_s,
         sigma_r : @|| sigma_r,
@@ -74,7 +74,7 @@ fn bilateral_grid(image: &[f32], width: i32, height: i32) -> () {
         write   : grid_write_fn(gwidth, bins, padding, grid_buf),
     };
 
-    let gpu_image = get_device_copy(image, width * height * sizeof[f32]());
+    let gpu_image = get_device_copy(image, (width * height) as i64 * sizeof[f32]());
 
     let input    = img_read_fn(gpu_image, width);
     let output   = img_write_fn(gpu_image, width);
@@ -124,7 +124,7 @@ fn bilateral_grid(image: &[f32], width: i32, height: i32) -> () {
         output(x, y, slice_grid(x, y, grid, input, filter));
     }
 
-    copy_to_host(image, gpu_image, width * height * sizeof[f32]());
+    copy_to_host(image, gpu_image, (width * height) as i64 * sizeof[f32]());
     release_device_copy(gpu_image);
 
     release(grid_buf);
