@@ -1,0 +1,227 @@
+fn @set_pixel_fn(img: Img) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut[f32], &[i8]](img.buf.data)(idx) = val }
+fn @get_pixel_fn(img: Img) -> fn(i32) -> f32 { @|idx| bitcast[&[f32], &[i8]](img.buf.data)(idx) }
+fn @set_pixel_memory_fn(buf: Buffer[i8]) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut[f32], &[i8]](buf.data)(idx) = val }
+fn @get_pixel_memory_fn(buf: Buffer[i8]) -> fn(i32) -> f32 { @|idx| bitcast[&[f32], &[i8]](buf.data)(idx) }
+
+fn @iteration(body: StencilFn) =
+    @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+        let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+        let accs = for img, (ext_x, ext_y) in img_list2acc_map(imgs) {
+            if ext_x == 0 && ext_y == 0 {
+                get_acc(img, set_pixel_fn(img), get_pixel_fn(img))
+            } else {
+                get_acc_bh(img, set_pixel_fn(img), get_pixel_fn(img), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper)
+            }
+        };
+
+        for benchmark_cpu() {
+            for y in outer_loop(0, out.height) {
+                for x in inner_loop(0, out.width) {
+                    @@body(math, x, y, out_acc, accs);
+                }
+            }
+        }
+    }
+
+fn @iteration_bounds(body: StencilFn) =
+    @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn, body: StencilFn| {
+        let (ex, ey) = get_max_ext(imgs);
+
+        for benchmark_cpu() {
+            for (bounds_row, bounds_col), region in iterate_2dregion((0, 0), (out.width, out.height), (round_up(ex, get_vector_length()), ey)) {
+                let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+                let accs = for img, (ext_x, ext_y) in img_list2acc_map(imgs) {
+                    if ext_x == 0 && ext_y == 0 {
+                        get_acc(img, set_pixel_fn(img), get_pixel_fn(img))
+                    } else {
+                        get_acc_bh(img, set_pixel_fn(img), get_pixel_fn(img), region, bh_lower, bh_upper)
+                    }
+                };
+                //let outer_loop_fun = if region == Boundary::Center { outer_loop } else { range };
+                // gets slower when computed in parallel
+
+                let (bounds_col_lower, bounds_col_upper) = bounds_col;
+                let (bounds_row_lower, bounds_row_upper) = bounds_row;
+                for y in range(bounds_col_lower, bounds_col_upper) {
+                    for x in inner_loop(bounds_row_lower, bounds_row_upper) {
+                        @@body(math, x, y, out_acc, accs);
+                    }
+                }
+            }
+        }
+    }
+
+fn @tiled_loop(body: fn(i32, i32) -> ()) =
+    @|xl: i32, xu: i32, yl: i32, yu: i32| {
+        fn @get_step(lvl: i32) -> i32 { // size -> 2048 -> 1
+            if lvl == 0 { 2048 } else { 1 }
+        }
+        let x_upper = xu;
+        let x_lower = xl;
+
+        fn @(?cur_lvl) tile(cur_lvl: i32, xl: i32, xu: i32, yl: i32, yu: i32) -> () {
+            let step = get_step(cur_lvl);
+            pe_info[i32]("step size", step);
+
+            if step == 1 {
+                for y in range(yl, yu) {
+                    for x in range(xl, min(xu, x_upper)) {
+                        @@body(x, y);
+                    }
+                }
+            } else {
+                let step = if xl == x_lower { step - xl } else { step };
+                for x in range_step(xl, xu, step) {
+                    tile(cur_lvl + 1, x, x + step, yl, yu);
+                }
+            }
+        }
+
+        tile(0, xl, xu, yl, yu)
+    }
+
+fn @iteration_advanced(body: StencilFn) =
+    @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+        let (ex, ey) = get_max_ext(imgs);
+
+        for benchmark_cpu() {
+            for bounds, region in iterate_2dregion((0, 0), (out.width, out.height), (round_up(ex, get_vector_length()), ey)) {
+                let (bounds_row, bounds_col) = bounds;
+                let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+                let accs = for img, (ext_x, ext_y) in img_list2acc_map(imgs) {
+                    if ext_x == 0 && ext_y == 0 {
+                        get_acc(img, set_pixel_fn(img), get_pixel_fn(img))
+                    } else {
+                        get_acc_bh(img, set_pixel_fn(img), get_pixel_fn(img), region, bh_lower, bh_upper)
+                    }
+                };
+                //let outer_loop_fun = if region == Boundary::Center { outer_loop } else { range };
+                // gets slower when computed in parallel
+
+                let (bounds_col_lower, bounds_col_upper) = bounds_col;
+                let (bounds_row_lower, bounds_row_upper) = bounds_row;
+                match region {
+                    (Boundary::Center, Boundary::Center) => tiled_loop(@|x, y| @@body(math, x, y, out_acc, accs))(bounds_row_lower, bounds_row_upper, bounds_col_lower, bounds_col_upper),
+                    _ =>
+                        for y in range(bounds_col_lower, bounds_col_upper) {
+                            for x in inner_loop(bounds_row_lower, bounds_row_upper) {
+                                @@body(math, x, y, out_acc, accs);
+                            }
+                        }
+                }
+            }
+        }
+    }
+
+fn @iteration_sep(body: StencilSepFn) =
+    @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+        // allocate temporary array
+        let tmp       = alloc_img(out, alloc_cpu);
+        let out_acc   = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+        let tmp_acc_w = get_acc(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp));
+        let tmp_acc_r = get_acc_bh(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
+        let arr_acc   = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
+
+        for benchmark_cpu() {
+            for y in outer_loop(0, out.height) {
+                for x in inner_loop(0, out.width) {
+                    let is_row = false;
+                    @@body(math, x, y, tmp_acc_w, arr_acc, mask_col, is_row);
+                }
+            }
+
+            for y in outer_loop(0, out.height) {
+                for x in inner_loop(0, out.width) {
+                    let is_row = true;
+                    @@body(math, x, y, out_acc, tmp_acc_r, mask_row, is_row);
+                }
+            }
+        }
+
+        release[i8](tmp.buf);
+    }
+
+fn @iteration_sep_bounds(body: StencilSepFn) =
+    @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+        // allocate temporary array
+        let tmp = alloc_img(out, alloc_cpu);
+
+        // compute the number of vector strides for boundary handling
+        let bhy = mask_col.size / 2;
+        let bhx = round_up(mask_row.size / 2, get_vector_length());
+
+        for benchmark_cpu() {
+            for (bounds_lower, bounds_upper), boundary_col in iterate_1dregion(0, out.height, bhy) {
+                let region = (Boundary::Center, boundary_col);
+                let arr_acc = get_acc_bh(arr, set_pixel_fn(arr), get_pixel_fn(arr), region, bh_lower, bh_upper);
+                let tmp_acc = get_acc(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp));
+                let outer_loop_fun = match boundary_col { Boundary::Center => outer_loop, _ => range };
+                for y in outer_loop_fun(bounds_lower, bounds_upper) {
+                    for x in inner_loop(0, out.width) {
+                        let is_row = false;
+                        @@body(math, x, y, tmp_acc, arr_acc, mask_col, is_row);
+                    }
+                }
+            }
+
+            for (bounds_lower, bounds_upper), boundary_row in iterate_1dregion(0, out.width, bhx) {
+                let region = (boundary_row, Boundary::Center);
+                let tmp_acc = get_acc_bh(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp), region, bh_lower, bh_upper);
+                let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
+                let outer_loop_fun = match boundary_row { Boundary::Center => outer_loop, _ => range };
+                for y in outer_loop_fun(0, out.height) {
+                    for x in inner_loop(bounds_lower, bounds_upper) {
+                        let is_row = true;
+                        @@body(math, x, y, out_acc, tmp_acc, mask_row, is_row);
+                    }
+                }
+            }
+        }
+
+        release[i8](tmp.buf);
+    }
+
+fn @iteration_sep_advanced(body: StencilSepFn) =
+    @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+        // compute the number of vector strides for boundary handling
+        let coarsening_factor = 1;
+        let bhy = round_up(mask_col.size / 2, coarsening_factor);
+        let bhx = round_up(mask_row.size / 2, get_vector_length());
+
+        for benchmark_cpu() {
+            for (bounds_col_lower, bounds_col_upper), boundary_col in iterate_1dregion(0, out.height, bhy) {
+                let region_col = (Boundary::Center, boundary_col);
+                let (outer_col, inner_col) = match boundary_col { Boundary::Center => (outer_loop_step, inner_loop), _ => (range_step, range) };
+                for y in outer_col(bounds_col_lower, bounds_col_upper, coarsening_factor) {
+                    // allocate temporary array per thread
+                    let tmp = alloc_cpu((out.width * coarsening_factor) as i64 * sizeof[f32]());
+
+                    for x in inner_col(0, out.width) {
+                        let is_row = false;
+
+                        // index space: cache line
+                        let arr_acc = get_acc_bh_offset(arr, set_pixel_fn(arr), get_pixel_fn(arr), 0, y, region_col, bh_lower, bh_upper);
+                        let tmp_acc = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), out.width, coarsening_factor);
+                        for i in unroll(0, coarsening_factor) {
+                            @@body(math, x, i, tmp_acc, arr_acc, mask_col, is_row);
+                        }
+                    }
+                    for (bounds_row_lower, bounds_row_upper), boundary_row in iterate_1dregion(0, out.width, bhx) {
+                        let region_row = (boundary_row, Boundary::Center);
+                        let inner_row  = match boundary_row { Boundary::Center => inner_loop, _ => range };
+                        for x in inner_row(bounds_row_lower, bounds_row_upper) {
+                            let is_row = true;
+
+                            // index space: cache line
+                            let tmp_acc = get_acc_bh_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), out.width, coarsening_factor, region_row, bh_lower, bh_upper);
+                            let out_acc = get_acc_offset(out, set_pixel_fn(out), get_pixel_fn(out), 0, y);
+                            for i in unroll(0, coarsening_factor) {
+                                @@body(math, x, i, out_acc, tmp_acc, mask_row, is_row);
+                            }
+                        }
+                    }
+                    release[i8](tmp);
+                }
+            }
+        }
+    }

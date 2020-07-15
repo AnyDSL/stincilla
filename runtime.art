@@ -1,0 +1,82 @@
+#[import(cc = "C", name = "anydsl_alloc")]
+fn runtime_alloc(_device: i32, _size: i64) -> &mut [i8];
+#[import(cc = "C", name = "anydsl_release")]
+fn runtime_release(_device: i32, _ptr: &[i8]) -> ();
+#[import(cc = "C", name = "anydsl_copy")]
+fn runtime_copy(
+    _src_device: i32,
+    _src_ptr: &[i8],
+    _src_offset: i64,
+    _dst_device: i32,
+    _dst_ptr: &mut [i8],
+    _dst_offset: i64,
+    _size: i64) -> ();
+
+#[import(cc = "C")] fn print_i32(_: i32) -> ();
+#[import(cc = "C")] fn print_i64(_: i64) -> ();
+#[import(cc = "C")] fn print_f32(_: f32) -> ();
+#[import(cc = "C")] fn print_f64(_: f64) -> ();
+#[import(cc = "C")] fn print_string(_: &[u8]) -> ();
+
+#[import(cc = "C")] fn random_val_f32() -> f32;
+
+#[import(cc = "C", name = "anydsl_get_micro_time")] fn get_micro_time() -> i64;
+#[import(cc = "C", name = "anydsl_get_kernel_time")] fn get_kernel_time() -> i64;
+
+#[import(cc = "builtin")] fn undef[T]() -> T;
+#[import(cc = "builtin")] fn sizeof[_]() -> i64;
+#[import(cc = "builtin")] fn bitcast[T, U](_src: U) -> T;
+#[import(cc = "thorin")] fn pe_info[T](_src: &[u8], _val: T) -> ();
+#[import(cc = "thorin")] fn parallel(_beg: i32, _end: i32, _num_cores: i32, body: fn (i32) -> ()) -> ();
+
+struct Buffer[T] {
+    data: &mut [T],
+    size: i64,
+    device: i32
+}
+
+struct Accelerator {
+    sync: fn () -> ()
+}
+struct Intrinsics {}
+
+static cpu_intrinsics = Intrinsics {};
+
+fn @alloc[T](device: i32, size: i64) = Buffer[T] {
+    data = runtime_alloc(device, size * sizeof[T]()) as &mut [T],
+    size = size,
+    device = device
+}
+
+fn copy[T](src: Buffer[T], dst: Buffer[T]) {
+    runtime_copy(src.device, src.data as &[i8], 0, dst.device, dst.data as &mut [i8], 0, src.size)
+}
+
+fn @release[T](buf: Buffer[T]) {
+    runtime_release(buf.device, buf.data as &[i8])
+}
+
+fn alloc_cpu(size: i64) = alloc[i8](0, size)
+
+fn @range_step(body: fn (i32) -> ()) {
+    fn range_step_inner(beg: i32, end: i32, step: i32) -> () {
+        if beg < end {
+            @@body(beg);
+            range_step_inner(beg + step, end, step)
+        }
+    }
+    range_step_inner
+}
+
+fn @unroll_step(body: fn (i32) -> ()) {
+    fn @(?beg & ?end) unroll_step_inner(beg: i32, end: i32, step: i32) -> () {
+        if beg < end {
+            @@body(beg);
+            unroll_step_inner(beg + step, end, step)
+        }
+    }
+    unroll_step_inner
+}
+
+fn @range(body: fn (i32) -> ()) = @|beg: i32, end: i32| range_step(body)(beg, end, 1)
+fn @unroll(body: fn (i32) -> ()) = @|beg: i32, end: i32| unroll_step(body)(beg, end, 1)

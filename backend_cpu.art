@@ -1,0 +1,21 @@
+static math = cpu_intrinsics;
+fn @is_nvvm() = false
+fn @is_cuda() = false
+fn @is_opencl() = false
+fn @is_amdgpu() = false
+fn @is_x86() = true
+fn @is_sse() = false
+fn @is_avx() = false
+fn @is_avx2() = false
+
+fn @get_vector_length() = 1
+fn @get_thread_count() = 4
+
+fn @outer_loop(body: fn(i32) -> ()) = @|lower: i32, upper: i32| {
+    parallel(get_thread_count(), lower, upper, |i| @body(i));
+}
+fn @outer_loop_step(body: fn(i32) -> ()) = @|lower: i32, upper: i32, step: i32| {
+    parallel(get_thread_count(), 0, (upper - lower) / step, |i| @body(i * step + lower))
+}
+fn @inner_loop(body: fn(i32) -> ()) = range(body)
+fn @inner_loop_step(body: fn(i32) -> ()) = range_step(body)
