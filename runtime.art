@@ -12,13 +12,13 @@ fn runtime_copy(
     _dst_offset: i64,
     _size: i64) -> ();
 
-#[import(cc = "C")] fn print_i32(_: i32) -> ();
-#[import(cc = "C")] fn print_i64(_: i64) -> ();
-#[import(cc = "C")] fn print_f32(_: f32) -> ();
-#[import(cc = "C")] fn print_f64(_: f64) -> ();
-#[import(cc = "C")] fn print_string(_: &[u8]) -> ();
+#[import(cc = "C", name = "anydsl_print_i32")] fn print_i32(_: i32) -> ();
+#[import(cc = "C", name = "anydsl_print_i64")] fn print_i64(_: i64) -> ();
+#[import(cc = "C", name = "anydsl_print_f32")] fn print_f32(_: f32) -> ();
+#[import(cc = "C", name = "anydsl_print_f64")] fn print_f64(_: f64) -> ();
+#[import(cc = "C", name = "anydsl_print_string")] fn print_string(_: &[u8]) -> ();
 
-#[import(cc = "C")] fn random_val_f32() -> f32;
+#[import(cc = "C", name = "anydsl_random_val_f32")] fn random_val_f32() -> f32;
 
 #[import(cc = "C", name = "anydsl_get_micro_time")] fn get_micro_time() -> i64;
 #[import(cc = "C", name = "anydsl_get_kernel_time")] fn get_kernel_time() -> i64;

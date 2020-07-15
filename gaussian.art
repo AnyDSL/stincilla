@@ -6,7 +6,6 @@ fn main() -> i32 {
     let out    = create_img(width, height, alloc_cpu);
     init_rand(bitcast[&mut[f32], &[i8]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[f32], &[i8]](out.buf.data), out.stride, out.height);
-
     let mask_sep = get_mask_sep5([ 0.070766, 0.244460, 0.369546, 0.244460, 0.070766 ]);
     let mask     = get_mask5([[ 0.005008, 0.017300, 0.026151, 0.017300, 0.005008 ],
                               [ 0.017300, 0.059761, 0.090339, 0.059761, 0.017300 ],
