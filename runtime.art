@@ -27,7 +27,7 @@ fn runtime_copy(
 #[import(cc = "builtin")] fn sizeof[_]() -> i64;
 #[import(cc = "builtin")] fn bitcast[T, U](_src: U) -> T;
 #[import(cc = "thorin")] fn pe_info[T](_src: &[u8], _val: T) -> ();
-#[import(cc = "thorin")] fn parallel(_beg: i32, _end: i32, _num_cores: i32, body: fn (i32) -> ()) -> ();
+#[import(cc = "thorin")] fn parallel(_beg: i32, _end: i32, _num_cores: i32, _body: fn (i32) -> ()) -> ();
 
 struct Buffer[T] {
     data: &mut [T],
