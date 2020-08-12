@@ -1,3 +1,4 @@
+type pixel_t = f32;
 type Read = fn(i32) -> fn(i32, i32) -> pixel_t;
 type Write = fn(i32, i32, pixel_t) -> ();
 type BinOp = fn(i32, i32) -> pixel_t;
@@ -9,15 +10,9 @@ struct Extents {
     y : i32
 }
 
-fn @extents(x: i32, y: i32) -> Extents { Extents { x : x, y : y } }
-
-fn @add_extents(e1: Extents, e2: Extents) -> Extents {
-    Extents { x : e1.x + e2.x, y : e1.y + e2.y }
-}
-
-fn @max_extents(e1: Extents, e2: Extents) -> Extents {
-    Extents { x : max(e1.x, e2.x), y : max(e1.y, e2.y) }
-}
+fn @extents(x: i32, y: i32) = Extents { x = x, y = y }
+fn @add_extents(e1: Extents, e2: Extents) = Extents { x = e1.x + e2.x, y = e1.y + e2.y }
+fn @max_extents(e1: Extents, e2: Extents) = Extents { x = max(e1.x, e2.x), y = max(e1.y, e2.y) }
 
 struct Stencil {
     op : StencilOp,
@@ -25,8 +20,8 @@ struct Stencil {
     num_inputs : i32
 }
 
-fn @stencil(op: StencilOp, extents: Extents, num_inputs: i32) -> Stencil {
-    Stencil { op : @|read, x, y| @@op(read, x, y), extents : extents, num_inputs : num_inputs }
+fn @stencil(op: StencilOp, extents: Extents, num_inputs: i32) = Stencil {
+    op = @|read, x, y| @op(read, x, y), extents = extents, num_inputs = num_inputs
 }
 
 fn @infer_stencil(op: StencilOp) -> Stencil {
@@ -36,8 +31,8 @@ fn @infer_stencil(op: StencilOp) -> Stencil {
 
 fn @infer_extents_inputs(stencil: StencilOp) -> (Extents, i32) {
     let mut num_inputs = 0;
-    let mut extents = Extents { x : 0, y : 0 };
-    @@stencil(@|input| @|x, y| {
+    let mut extents = Extents { x = 0, y = 0 };
+    @stencil(@|input| @|x, y| {
         num_inputs = max(num_inputs, input);
         extents.x = max(extents.x, abs(x));
         extents.y = max(extents.y, abs(y));
@@ -50,7 +45,7 @@ struct Img {
     width  : i32,
     height : i32,
     data : &[pixel_t]
-};
+}
 
 type Region = (i32, i32);
 type Boundary = fn(Region, Read) -> Read;
@@ -63,10 +58,10 @@ struct Schedule {
     loop : ScheduleLoop,
     extents : Extents,
     num_inputs : i32
-};
+}
 
-fn @schedule(loop: ScheduleLoop, extents: Extents, num_inputs: i32) -> Schedule {
-    Schedule { loop : loop, extents : extents, num_inputs : num_inputs }
+fn @schedule(loop: ScheduleLoop, extents: Extents, num_inputs: i32) = Schedule {
+    loop = loop, extents = extents, num_inputs = num_inputs
 }
 
 // compute
@@ -108,7 +103,7 @@ fn @clip(v: i32, a: i32, b: i32) -> i32 { min(max(v, a), b) }
 fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
     let (rx, ry) = region;
     pe_info("region", region);
-    let check = @|region, idx, upper| match region {
+    let check = @|cur_region, idx, upper| match cur_region {
         0 => 0 <= idx,
         2 => idx < upper,
         _ => true
@@ -119,12 +114,12 @@ fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
 fn @boundary_img(boundary: fn(Img, Read, i32, i32, i32) -> pixel_t) -> ImgBoundary {
     @|img| @|region, read| @|i| @|x, y| {
         if region(0) == -1 {
-            @@boundary(img, read, i, x, y)
+            @boundary(img, read, i, x, y)
         } else {
             if is_within(region, x, y, img.width, img.height) {
                 read(i)(x, y)
             } else {
-                @@boundary(img, read, i, x, y)
+                @boundary(img, read, i, x, y)
             }
         }
     }
@@ -162,9 +157,7 @@ fn @vec(vector_length: i32) -> Loop {
     }
 }
 
-fn @par(num_threads: i32) -> Loop {
-    @|lower, upper, body| parallel(num_threads, lower, upper, body)
-}
+fn @par(num_threads: i32) -> Loop = @|lower, upper, body| parallel(num_threads, lower, upper, body)
 
 
 // 2D schedules
@@ -172,40 +165,40 @@ fn @par(num_threads: i32) -> Loop {
 fn @iterate_regions(lower: i32, upper: i32, tile_size: i32, extent: i32, body: fn(i32, i32, i32) -> ()) -> () {
     if extent == 0 {
         let region = 1;
-        @@body(lower, upper, region);
+        @body(lower, upper, region);
     } else {
         let lower_aligned = round_up(lower + extent, tile_size);
         let upper_aligned = round_down(upper - extent, tile_size);
         for region in unroll(0, 3) {
-            let (lower, upper) = match region {
+            let (region_lower, region_upper) = match region {
                 0 => (lower, lower_aligned),
                 1 => (lower_aligned, upper_aligned),
                 2 => (upper_aligned, upper),
                 _ => undef[(i32,i32)]()
             };
-            @@body(lower, upper, region);
+            @body(region_lower, region_upper, region);
         }
     }
 }
 
-fn @dummy_boundaries(boundary: Boundary, align_x:i32, align_y:i32, schedule: Schedule) -> Schedule {
+fn @dummy_boundaries(boundary: Boundary, _align_x: i32, _align_y: i32, schedule: Schedule) -> Schedule {
     let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
         let boundary_read = boundary((-1, -1), read);
         schedule.loop(boundary_read, x_lower, y_lower, x_upper, y_upper, write);
     };
-    Schedule { loop : loop, extents : schedule.extents, num_inputs : schedule.num_inputs }
+    Schedule { loop = loop, extents = schedule.extents, num_inputs = schedule.num_inputs }
 }
 
-fn @handle_boundaries(boundary: Boundary, align_x:i32, align_y:i32, center: Schedule, perimeter: Schedule) -> Schedule {
+fn @handle_boundaries(boundary: Boundary, align_x: i32, align_y: i32, center: Schedule, perimeter: Schedule) -> Schedule {
     let extents = max_extents(center.extents, perimeter.extents);
     let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
-        for y_lower, y_upper, region_y in iterate_regions(y_lower, y_upper, align_y, extents.y) {
-            for x_lower, x_upper, region_x in iterate_regions(x_lower, x_upper, align_x, extents.x) {
+        for region_y_lower, region_y_upper, region_y in iterate_regions(y_lower, y_upper, align_y, extents.y) {
+            for region_x_lower, region_x_upper, region_x in iterate_regions(x_lower, x_upper, align_x, extents.x) {
                 let boundary_read = boundary((region_x, region_y), read);
                 if region_x == 1 && region_y == 1 {
-                    center.loop(boundary_read, x_lower, y_lower, x_upper, y_upper, write);
+                    center.loop(boundary_read, region_x_lower, region_y_lower, region_x_upper, region_y_upper, write);
                 } else {
-                    perimeter.loop(boundary_read, x_lower, y_lower, x_upper, y_upper, write);
+                    perimeter.loop(boundary_read, region_x_lower, region_y_lower, region_x_upper, region_y_upper, write);
                 }
             }
         }
@@ -221,7 +214,7 @@ fn @combine_xy(loop_x: Loop, loop_y: Loop, stencil: Stencil) -> Schedule {
             }
         }
     };
-    Schedule { loop : loop, extents : stencil.extents, num_inputs : stencil.num_inputs }
+    Schedule { loop = loop, extents = stencil.extents, num_inputs = stencil.num_inputs }
 }
 
 fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Schedule {
@@ -238,21 +231,21 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
         let read_outer = @|input| @|ix, iy| read(input)(x_lower + ix - extents.x, y_lower + iy);
 
         fn @(?n)alloc_tmps(n: i32) -> fn(i32) -> Img {
-            let data = ~[tmp_width * tmp_height:pixel_t];
+            let data = runtime_alloc(0, tmp_width * tmp_height * sizeof[pixel_t]());
             // do not inline syntactically, this needs to be captured
-            let tmp = Img { width : tmp_width, height : tmp_height, data : data };
+            let tmp = Img { width = tmp_width, height = tmp_height, data = data };
             if n == 1 {
-                @|i| tmp
+                @|_i| tmp
             } else {
                 // do not inline syntactically, this needs to be captured
                 let tmps = alloc_tmps(n-1);
-                @|i:i32| if i == n-1 { tmp } else { tmps(i) }
+                @|i| if i == n-1 { tmp } else { tmps(i) }
             }
         }
         let tmps = alloc_tmps(consume.num_inputs);
         for i in unroll(0, consume.num_inputs) {
             // iterate from 0 to please the vectorizer
-            for ix, iy, value in root_schedules(i).loop(read_outer, 0, -extents.y, width + 2 * extents.x, height + extents.y) @{
+            for ix, iy, value in root_schedules(i).loop(read_outer, 0, -extents.y, width + 2 * extents.x, height + extents.y) {
                 img_write(tmps(i))(ix, iy + extents.y, value);
             }
         }
@@ -268,15 +261,13 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
         }
     };
     fn @(?n)max_root_exts(n: i32) -> Extents {
-        let extents = root_schedules(n-1).extents;
-        if n == 1 { extents } else { max_extents(max_root_exts(n-1), extents) }
+        let cur_extents = root_schedules(n-1).extents;
+        if n == 1 { cur_extents } else { max_extents(max_root_exts(n-1), cur_extents) }
     }
     schedule(loop, max_extents(max_root_exts(consume.num_inputs), consume.extents), root_schedules(0).num_inputs)
 }
 
-fn @produce_root(schedule1: Schedule, schedule2: Schedule) -> Schedule {
-    produce_roots(@|i| schedule1, schedule2)
-}
+fn @produce_root(schedule1: Schedule, schedule2: Schedule) -> Schedule = produce_roots(@|_i| schedule1, schedule2)
 
 fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Schedule {
     let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
@@ -293,7 +284,7 @@ fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Sc
             }
         }
     };
-    Schedule { loop : loop, extents : inner.extents, num_inputs : inner.num_inputs }
+    Schedule { loop = loop, extents = inner.extents, num_inputs = inner.num_inputs }
 }
 
 
@@ -312,7 +303,7 @@ fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
             write(x, y, stencil.op(read, x, y))
         });
     };
-    Schedule { loop : loop, extents : stencil.extents, num_inputs : stencil.num_inputs }
+    Schedule { loop = loop, extents = stencil.extents, num_inputs = stencil.num_inputs }
 }
 
 fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> Stencil, consume: Stencil) -> Schedule {
@@ -334,15 +325,15 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
             }
 
             let (tmp_size_x, tmp_size_y) = (block(0), block(1));
-            fn @(?n)alloc_tmps(n: i32) -> fn(i32) -> &mut[3][pixel_t] {
+            fn @(?n)alloc_tmps(n: i32) -> fn(i32) -> &mut addrspace(3)[pixel_t] {
                 let data = reserve_shared[pixel_t](tmp_size_x * tmp_size_y);
                 // do not inline syntactically, this needs to be captured
                 if n == 1 {
-                    @|i| data
+                    @|_i| data
                 } else {
                     // do not inline syntactically, this needs to be captured
                     let tmps = alloc_tmps(n-1);
-                    @|i:i32| if i == n-1 { data } else { tmps(i) }
+                    @|i| if i == n-1 { data } else { tmps(i) }
                 }
             }
             let tmps = alloc_tmps(consume.num_inputs);
@@ -356,18 +347,16 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
             cuda_syncthreads();
 
             if tid_y < tile_height && tid_x < tile_width && gid_x + extents.x < x_upper && gid_y + extents.y < y_upper {
-                let tmp_read = @|i:i32| @|x, y| tmps(i)(tmp_idx_read(x, y));
+                let tmp_read = @|i| @|x, y| tmps(i)(tmp_idx_read(x, y));
                 write(gid_x + extents.x, gid_y + extents.y , consume.op(tmp_read, tid_x, tid_y))
             }
         });
     };
     fn @(?n)max_root_exts(n: i32) -> Extents {
-        let extents = root_stencils(n-1).extents;
-        if n == 1 { extents } else { max_extents(max_root_exts(n-1), extents) }
+        let cur_extents = root_stencils(n-1).extents;
+        if n == 1 { cur_extents } else { max_extents(max_root_exts(n-1), cur_extents) }
     }
     schedule(loop, max_extents(max_root_exts(consume.num_inputs), consume.extents), root_stencils(0).num_inputs)
 }
 
-fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule {
-    tile_cuda_ats(tile_width, tile_height, @|i| stencil1, stencil2)
-}
+fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule = tile_cuda_ats(tile_width, tile_height, @|_i| stencil1, stencil2)

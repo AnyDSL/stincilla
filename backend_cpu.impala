@@ -11,19 +11,19 @@ fn @is_avx2() -> bool { false }
 fn @get_vector_length() -> i32 { 1 }
 fn @get_thread_count() -> i32 { 4 }
 
-fn @outer_loop(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
-    for i in parallel(get_thread_count(), lower, upper) {
-        @@body(i);
+fn @outer_loop(body: fn(i32) -> ()) {
+    @(?lower & ?upper) |lower: i32, upper: i32| {
+        for i in parallel(get_thread_count(), lower, upper) {
+            @body(i);
+        }
     }
 }
-fn @outer_loop_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () {
-    for i in parallel(get_thread_count(), 0, (upper - lower) / step) {
-        @@body(i * step + lower);
+fn @outer_loop_step(body: fn(i32) -> ()) {
+    @(?lower & ?upper & ?step) |lower: i32, upper: i32, step: i32| {
+        for i in parallel(get_thread_count(), 0, (upper - lower) / step) {
+            @body(i * step + lower);
+        }
     }
 }
-fn @inner_loop(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
-    range(lower, upper, body)
-}
-fn @inner_loop_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () {
-    range_step(lower, upper, step, body)
-}
+fn @inner_loop(body: fn(i32) -> ()) = range(body)
+fn @inner_loop_step(body: fn(i32) -> ()) = range_step(body)

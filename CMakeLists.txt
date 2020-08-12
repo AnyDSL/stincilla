@@ -22,7 +22,8 @@ else()
 endif()
 
 set(CLANG_FLAGS -march=native)
-set(IMPALA_FLAGS --log-level info)
+#set(IMPALA_FLAGS --log-level info)
+set(IMPALA_FLAGS --max-messages 5)
 set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)

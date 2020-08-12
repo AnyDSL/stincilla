@@ -72,10 +72,10 @@ fn compute(out: Img, loop: Loop_xy, f: BinOp) -> BinOp {
 }
 
 
-extern
+#[export]
 fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
-    let img = Img { width : width, height : height, data : data };
-    let out = Img { width : width, height : height, data : ~[width*height:i32] };
+    let img = Img { width = width, height = height, data = data };
+    let out = Img { width = width, height = height, data = runtime_alloc(0, width * height * sizeof[i32]()) };
 
     let input  = |x, y| access(img, x, y);
     let blur_x = |x, y| ( input(x-1, y) +  input(x, y) +  input(x+1, y)) / 3;
@@ -93,11 +93,11 @@ fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
     let use_cuda = false;
 
     if use_cuda {
-        with benchmark_cuda() {
+        for benchmark_cuda() {
             compute(out, schedule_cuda, blur_y);
         }
     } else {
-        with benchmark_cpu() {
+        for benchmark_cpu() {
             compute(out, schedule_cpu, blur_y);
         }
     }
