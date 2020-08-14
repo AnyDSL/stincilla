@@ -92,4 +92,6 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
             data(y * width + x) = out.data(y * width + x);
         }
     }
+
+    runtime_release(0, out.data as &[i8]);
 }

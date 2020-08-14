@@ -1,11 +1,11 @@
-type pixel_t = i32;
+//type pixel_t = i32;
 
-extern
+#[export]
 fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     let use_cuda = true;
 
-    let img = Img { width : width, height : height, data : data };
-    let out = Img { width : width, height : height, data : ~[width*height:pixel_t] };
+    let img = Img { width = width, height = height, data = data };
+    let out = Img { width = width, height = height, data = runtime_alloc(0, width * height * sizeof[pixel_t]()) };
 
     let identity = stencil(|read: Read, x: i32, y: i32| read(0)(x, y), extents(0, 0), 1);
     let add_constant = @|c: pixel_t| stencil(|read: Read, x: i32, y: i32| clip(read(0)(x, y) + c, 0, 255), extents(0, 0), 1);
@@ -90,22 +90,22 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     let schedule_cuda = tile_cuda_at(tile_width_cuda, tile_height_cuda, blur_x, blur_y);
 
     if use_cuda {
-        let img_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
-        let out_cuda = Img { width : width, height : height, data : alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
-        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0i64, runtime_device(1, cuda_dev), img_cuda.data as &[i8], 0i64, (width * height) as i64 * sizeof[pixel_t]());
+        let img_cuda = Img { width = width, height = height, data = alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
+        let out_cuda = Img { width = width, height = height, data = alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
+        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0, runtime_device(1, cuda_dev), img_cuda.data as &[i8], 0, (width * height) as i64 * sizeof[pixel_t]());
 
         let schedule_cuda = handle_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda, schedule_cuda);
         //let schedule_cuda = dummy_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda);
 
-        with benchmark_cuda() {
+        for benchmark_cuda() {
             compute(img_cuda, out_cuda, schedule_cuda);
         }
 
-        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0i64, runtime_device(0, 0), out.data as &[i8], 0i64, (width * height) as i64 * sizeof[pixel_t]());
+        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0, runtime_device(0, 0), out.data as &[i8], 0, (width * height) as i64 * sizeof[pixel_t]());
         runtime_release(runtime_device(1, cuda_dev), img_cuda.data as &[i8]);
         runtime_release(runtime_device(1, cuda_dev), out_cuda.data as &[i8]);
     } else {
-        with benchmark_cpu() {
+        for benchmark_cpu() {
             compute(img, out, schedule_cpu);
         }
     }
@@ -117,4 +117,6 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
             data(y * width + x) = out.data(y * width + x);
         }
     }
+
+    runtime_release(0, out.data as &[i8]);
 }
