@@ -5,7 +5,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     let use_cuda = true;
 
     let img = Img { width = width, height = height, data = data };
-    let out = Img { width = width, height = height, data = runtime_alloc(0, width * height * sizeof[pixel_t]()) };
+    let out = Img { width = width, height = height, data = runtime_alloc(0, (width * height) as i64 * sizeof[pixel_t]()) as &[pixel_t] };
 
     // scheduled root | scheduled together after
     //         -- ix -|-- ixx -- sxx -
@@ -24,12 +24,12 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
         - 1:f32 / 12:f32 * read(x-1, y-1) - 2:f32 / 12:f32 * read(x, y-1) - 1:f32 / 12:f32 * read(x+1, y-1)
         + 1:f32 / 12:f32 * read(x-1, y+1) + 2:f32 / 12:f32 * read(x, y+1) + 1:f32 / 12:f32 * read(x+1, y+1) }, extents(1, 1), 1);
 
-    let multiply = @|i, j| @|read: Read, x, y| read(i)(x, y) * read(j)(x, y);
+    let multiply = @|i: i32, j: i32| @|read: Read, x: i32, y: i32| read(i)(x, y) * read(j)(x, y);
     let i_xx = multiply(0, 0);
     let i_yy = multiply(1, 1);
     let i_xy = multiply(0, 1);
 
-    let sum = @|op| @|r: Read, x: i32, y: i32| {
+    let sum = @|op: StencilOp| @|r: Read, x: i32, y: i32| {
         op(r, x-1, y-1) + op(r, x-1, y) + op(r, x-1, y+1) +
         op(r, x,   y-1) + op(r, x,   y) + op(r, x,   y+1) +
         op(r, x+1, y-1) + op(r, x+1, y) + op(r, x+1, y+1) };
@@ -67,7 +67,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     if use_cuda {
         let img_cuda = Img { width = width, height = height, data = alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
         let out_cuda = Img { width = width, height = height, data = alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
-        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0, runtime_device(1, cuda_dev), img_cuda.data as &[i8], 0, (width * height) as i64 * sizeof[pixel_t]());
+        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0, runtime_device(1, cuda_dev), img_cuda.data as &mut [i8], 0, (width * height) as i64 * sizeof[pixel_t]());
 
         let schedule_cuda = handle_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda, schedule_cuda);
         //let schedule_cuda = dummy_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda);
@@ -76,7 +76,7 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
             compute(img_cuda, out_cuda, schedule_cuda);
         }
 
-        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0, runtime_device(0, 0), out.data as &[i8], 0, (width * height) as i64 * sizeof[pixel_t]());
+        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0, runtime_device(0, 0), out.data as &mut [i8], 0, (width * height) as i64 * sizeof[pixel_t]());
         runtime_release(runtime_device(1, cuda_dev), img_cuda.data as &[i8]);
         runtime_release(runtime_device(1, cuda_dev), out_cuda.data as &[i8]);
     } else {

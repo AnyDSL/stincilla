@@ -36,7 +36,7 @@ fn @infer_extents_inputs(stencil: StencilOp) -> (Extents, i32) {
         num_inputs = max(num_inputs, input);
         extents.x = max(extents.x, abs(x));
         extents.y = max(extents.y, abs(y));
-        1 as pixel_t
+        1:pixel_t
     }, 0, 0);
     (extents, num_inputs)
 }
@@ -85,7 +85,7 @@ fn @img_read_bounds(img: Img) -> Read {
             print_string("OOB: "); print_i32(x); print_string(", "); print_i32(y);
             print_string(" not in "); print_i32(img.width); print_string(" x "); print_i32(img.height);
             print_string("\n");
-            return(128 as pixel_t)
+            return(128:pixel_t)
         }
 
         img_read(img)(i)(x, y)
@@ -232,10 +232,10 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
         let tmp_width  = width  + extents.x * 2;
         let tmp_height = height + extents.y * 2;
 
-        let read_outer = @|input: i32| @|ix: i32, iy: i32| read(input)(x_lower + ix - extents.x, y_lower + iy);
+        let read_outer = @|i: i32| @|ix: i32, iy: i32| read(i)(x_lower + ix - extents.x, y_lower + iy);
 
         fn @(?n)alloc_tmps(n: i32) -> fn(i32) -> Img {
-            let data = runtime_alloc(0, (tmp_width * tmp_height) as i64 * sizeof[pixel_t]()) as &[f32];
+            let data = runtime_alloc(0, (tmp_width * tmp_height) as i64 * sizeof[pixel_t]()) as &[pixel_t];
             // do not inline syntactically, this needs to be captured
             let tmp = Img { width = tmp_width, height = tmp_height, data = data };
             if n == 1 {
@@ -261,7 +261,7 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
         }
 
         for i in unroll(0, consume.num_inputs) {
-            runtime_release(0, bitcast[&[i8], &[f32]](tmps(i).data));
+            runtime_release(0, bitcast[&[i8], &[pixel_t]](tmps(i).data));
         }
     };
     fn @(?n)max_root_exts(n: i32) -> Extents {
@@ -293,9 +293,7 @@ fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Sc
 
 
 static cuda_dev = 0;
-fn @benchmark_cuda(body: fn() -> ()) -> () {
-    total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev))
-}
+fn @benchmark_cuda(body: fn() -> ()) = @|| total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev))
 
 fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
     let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
@@ -352,7 +350,7 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
             cuda_syncthreads();
 
             if tid_y < tile_height && tid_x < tile_width && gid_x + extents.x < x_upper && gid_y + extents.y < y_upper {
-                let tmp_read = @|i| @|x, y| tmps(i)(tmp_idx_read(x, y));
+                let tmp_read = @|i: i32| @|x: i32, y: i32| tmps(i)(tmp_idx_read(x, y));
                 write(gid_x + extents.x, gid_y + extents.y , consume.op(tmp_read, tid_x, tid_y))
             }
         });
