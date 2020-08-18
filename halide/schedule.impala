@@ -51,8 +51,9 @@ type Region = (i32, i32);
 type Boundary = fn(Region, Read) -> Read;
 type ImgBoundary = fn(Img) -> Boundary;
 
-type Loop = fn(i32, i32, fn(i32) -> ()) -> ();
-type ScheduleLoop = fn(Read, i32, i32, i32, i32, Write) -> ();
+type Loop = fn(fn(i32) -> ()) -> fn(i32, i32)->();
+//type ScheduleLoop = fn(Read, i32, i32, i32, i32, Write) -> ();
+type ScheduleLoop = fn(Write) -> fn(Read, i32, i32, i32, i32) -> ();
 
 struct Schedule {
     loop : ScheduleLoop,
@@ -68,7 +69,7 @@ fn @schedule(loop: ScheduleLoop, extents: Extents, num_inputs: i32) = Schedule {
 
 fn @compute(input: Img, out: Img, schedule: Schedule) -> BinOp {
     // TODO assert(schedule.num_inputs == 1)
-    schedule.loop(img_read(input), 0, 0, out.width, out.height, img_write(out));
+    schedule.loop(img_write(out))(img_read(input), 0, 0, out.width, out.height);
     img_read(out)(0)
 }
 
@@ -102,8 +103,8 @@ fn @clip(v: i32, a: i32, b: i32) -> i32 { min(max(v, a), b) }
 
 fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
     let (rx, ry) = region;
-    pe_info("region", region);
-    let check = @|cur_region, idx, upper| match cur_region {
+    pe_info[Region]("region", region);
+    let check = @|cur_region: i32, idx: i32, upper: i32| match cur_region {
         0 => 0 <= idx,
         2 => idx < upper,
         _ => true
@@ -113,7 +114,8 @@ fn @is_within(region: Region, x: i32, y: i32, w: i32, h: i32) -> bool {
 
 fn @boundary_img(boundary: fn(Img, Read, i32, i32, i32) -> pixel_t) -> ImgBoundary {
     @|img| @|region, read| @|i| @|x, y| {
-        if region(0) == -1 {
+        let (rx, ry) = region;
+        if rx == -1 {
             @boundary(img, read, i, x, y)
         } else {
             if is_within(region, x, y, img.width, img.height) {
@@ -134,7 +136,7 @@ fn @boundary_clamp() -> ImgBoundary {
 }
 
 fn @boundary_mirror() -> ImgBoundary {
-    let mirror = @|x, w| if x < 0 { -x } else { if x >= w { w + w - x - 1 } else { x } };
+    let mirror = @|x:i32, w:i32| if x < 0 { -x } else { if x >= w { w + w - x - 1 } else { x } };
     boundary_img(@|img, read, i, x, y| read(i)(mirror(x, img.width), mirror(y, img.height)))
 }
 
@@ -144,7 +146,7 @@ fn @vec(vector_length: i32) -> Loop {
     if vector_length == 1 {
         range
     } else {
-        @|lower, upper, body| {
+        @|body| |lower, upper| {
             let peel_begin = round_down(upper, vector_length);
             for i in range_step(lower, peel_begin, vector_length) {
                 vectorize(vector_length, |j| body(i + j))
@@ -157,48 +159,50 @@ fn @vec(vector_length: i32) -> Loop {
     }
 }
 
-fn @par(num_threads: i32) -> Loop = @|lower, upper, body| parallel(num_threads, lower, upper, body)
+fn @par(num_threads: i32) -> Loop = @|body| |lower, upper| parallel(body)(num_threads, lower, upper)
 
 
 // 2D schedules
 
-fn @iterate_regions(lower: i32, upper: i32, tile_size: i32, extent: i32, body: fn(i32, i32, i32) -> ()) -> () {
-    if extent == 0 {
-        let region = 1;
-        @body(lower, upper, region);
-    } else {
-        let lower_aligned = round_up(lower + extent, tile_size);
-        let upper_aligned = round_down(upper - extent, tile_size);
-        for region in unroll(0, 3) {
-            let (region_lower, region_upper) = match region {
-                0 => (lower, lower_aligned),
-                1 => (lower_aligned, upper_aligned),
-                2 => (upper_aligned, upper),
-                _ => undef[(i32,i32)]()
-            };
-            @body(region_lower, region_upper, region);
+fn @iterate_regions(body: fn(i32, i32, i32) -> ()) {
+    @|lower: i32, upper: i32, tile_size: i32, extent: i32| {
+        if extent == 0 {
+            let region = 1;
+            @body(lower, upper, region);
+        } else {
+            let lower_aligned = round_up(lower + extent, tile_size);
+            let upper_aligned = round_down(upper - extent, tile_size);
+            for region in unroll(0, 3) {
+                let (region_lower, region_upper) = match region {
+                    0 => (lower, lower_aligned),
+                    1 => (lower_aligned, upper_aligned),
+                    2 => (upper_aligned, upper),
+                    _ => undef[(i32,i32)]()
+                };
+                @body(region_lower, region_upper, region);
+            }
         }
     }
 }
 
 fn @dummy_boundaries(boundary: Boundary, _align_x: i32, _align_y: i32, schedule: Schedule) -> Schedule {
-    let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+    let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
         let boundary_read = boundary((-1, -1), read);
-        schedule.loop(boundary_read, x_lower, y_lower, x_upper, y_upper, write);
+        schedule.loop(write)(boundary_read, x_lower, y_lower, x_upper, y_upper);
     };
     Schedule { loop = loop, extents = schedule.extents, num_inputs = schedule.num_inputs }
 }
 
 fn @handle_boundaries(boundary: Boundary, align_x: i32, align_y: i32, center: Schedule, perimeter: Schedule) -> Schedule {
     let extents = max_extents(center.extents, perimeter.extents);
-    let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+    let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
         for region_y_lower, region_y_upper, region_y in iterate_regions(y_lower, y_upper, align_y, extents.y) {
             for region_x_lower, region_x_upper, region_x in iterate_regions(x_lower, x_upper, align_x, extents.x) {
                 let boundary_read = boundary((region_x, region_y), read);
                 if region_x == 1 && region_y == 1 {
-                    center.loop(boundary_read, region_x_lower, region_y_lower, region_x_upper, region_y_upper, write);
+                    center.loop(write)(boundary_read, region_x_lower, region_y_lower, region_x_upper, region_y_upper);
                 } else {
-                    perimeter.loop(boundary_read, region_x_lower, region_y_lower, region_x_upper, region_y_upper, write);
+                    perimeter.loop(write)(boundary_read, region_x_lower, region_y_lower, region_x_upper, region_y_upper);
                 }
             }
         }
@@ -207,7 +211,7 @@ fn @handle_boundaries(boundary: Boundary, align_x: i32, align_y: i32, center: Sc
 }
 
 fn @combine_xy(loop_x: Loop, loop_y: Loop, stencil: Stencil) -> Schedule {
-    let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+    let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
         for y in loop_y(y_lower, y_upper) {
             for x in loop_x(x_lower, x_upper) {
                 write(x, y, stencil.op(read, x, y))
@@ -221,17 +225,17 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
     // TODO assert that all root_schedules have same num_inputs
     // TODO assert that all #root_schedules == consume.num_inputs
     let extents = consume.extents;
-    let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+    let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
         let width  = x_upper - x_lower;
         let height = y_upper - y_lower;
 
         let tmp_width  = width  + extents.x * 2;
         let tmp_height = height + extents.y * 2;
 
-        let read_outer = @|input| @|ix, iy| read(input)(x_lower + ix - extents.x, y_lower + iy);
+        let read_outer = @|input: i32| @|ix: i32, iy: i32| read(input)(x_lower + ix - extents.x, y_lower + iy);
 
         fn @(?n)alloc_tmps(n: i32) -> fn(i32) -> Img {
-            let data = runtime_alloc(0, tmp_width * tmp_height * sizeof[pixel_t]());
+            let data = runtime_alloc(0, (tmp_width * tmp_height) as i64 * sizeof[pixel_t]()) as &[f32];
             // do not inline syntactically, this needs to be captured
             let tmp = Img { width = tmp_width, height = tmp_height, data = data };
             if n == 1 {
@@ -250,14 +254,14 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
             }
         }
 
-        let read_tmp = @|i| @|ix, iy| { img_read(tmps(i))(0)(ix + extents.x, iy + extents.y) };
+        let read_tmp = @|i: i32| @|ix: i32, iy: i32| { img_read(tmps(i))(0)(ix + extents.x, iy + extents.y) };
 
         for ix, iy, value in consume.loop(read_tmp, 0, 0, width, height) {
             write(x_lower + ix, y_lower + iy, value);
         }
 
         for i in unroll(0, consume.num_inputs) {
-            runtime_release(0, bitcast[&[i8]](tmps(i).data));
+            runtime_release(0, bitcast[&[i8], &[f32]](tmps(i).data));
         }
     };
     fn @(?n)max_root_exts(n: i32) -> Extents {
@@ -270,13 +274,13 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
 fn @produce_root(schedule1: Schedule, schedule2: Schedule) -> Schedule = produce_roots(@|_i| schedule1, schedule2)
 
 fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Schedule {
-    let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+    let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
         for y_tile in y_loop(0, (y_upper - y_lower) / tile_height) {
             for x_tile in range(0, (x_upper - x_lower) / tile_width) {
-                let to_img_x = @|ix| x_lower + x_tile * tile_width + ix;
-                let to_img_y = @|iy| y_lower + y_tile * tile_height + iy;
+                let to_img_x = @|ix: i32| x_lower + x_tile * tile_width + ix;
+                let to_img_y = @|iy: i32| y_lower + y_tile * tile_height + iy;
 
-                let tile_read = @|i| @|ix, iy| read(i)(to_img_x(ix), to_img_y(iy));
+                let tile_read = @|i: i32| @|ix: i32, iy: i32| read(i)(to_img_x(ix), to_img_y(iy));
 
                 for ix, iy, value in inner.loop(tile_read, 0, 0, tile_width, tile_height) {
                     write(to_img_x(ix), to_img_y(iy), value)
@@ -294,7 +298,7 @@ fn @benchmark_cuda(body: fn() -> ()) -> () {
 }
 
 fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
-    let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+    let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
         let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
         let block = (tile_width, tile_height, 1);
         cuda(cuda_dev, grid, block, || {
@@ -309,10 +313,11 @@ fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
 fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> Stencil, consume: Stencil) -> Schedule {
     // TODO assert that consume_stencil.num_inputs == 1
     let extents = consume.extents;
-    let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
+    let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
         let (x_range, y_range)  = (x_upper - x_lower, y_upper - y_lower);
         let block = (tile_width + 2 * extents.x, tile_height + 2 * extents.y, 1);
-        let grid  = (round_up(x_range, tile_width) / tile_width * block(0), round_up(y_range, tile_height) / tile_height * block(1), 1);
+        let (block_x, block_y, _) = block;
+        let grid  = (round_up(x_range, tile_width) / tile_width * block_x, round_up(y_range, tile_height) / tile_height * block_y, 1);
         cuda(cuda_dev, grid, block, || {
             let (tid_x, tid_y) = (cuda_threadIdx_x(), cuda_threadIdx_y());
             let (bid_x, bid_y) = (cuda_blockIdx_x(),  cuda_blockIdx_y());
@@ -324,7 +329,7 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
                 return()
             }
 
-            let (tmp_size_x, tmp_size_y) = (block(0), block(1));
+            let (tmp_size_x, tmp_size_y) = (block_x, block_y);
             fn @(?n)alloc_tmps(n: i32) -> fn(i32) -> &mut addrspace(3)[pixel_t] {
                 let data = reserve_shared[pixel_t](tmp_size_x * tmp_size_y);
                 // do not inline syntactically, this needs to be captured
@@ -337,8 +342,8 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
                 }
             }
             let tmps = alloc_tmps(consume.num_inputs);
-            let tmp_idx_read  = @|x, y| extents.x + x + (extents.y + y) * tmp_size_x;
-            let tmp_idx_write = @|x, y| x + y * tmp_size_x;
+            let tmp_idx_read  = @|x: i32, y: i32| extents.x + x + (extents.y + y) * tmp_size_x;
+            let tmp_idx_write = @|x: i32, y: i32| x + y * tmp_size_x;
 
             for i in unroll(0, consume.num_inputs) {
                 tmps(i)(tmp_idx_write(tid_x, tid_y)) = root_stencils(i).op(read, gid_x, gid_y);
