@@ -31,7 +31,7 @@ fn @benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn()
         sync();
         times(i) = get_time() - start;
     }
-    sort[i64](num_iter, times);
+    sort[i64](num_iter, times, |a:i64, b:i64| a > b);
     print_string("Timing: ");
     print_f64(times(num_iter/2) as f64 / 1000.0);
     print_string(" | ");
@@ -61,12 +61,12 @@ fn print_total_timing() -> () {
     print_string(" ms\n")
 }
 
-fn @(?num) sort[T](num: i32, arr: &mut[T]) -> () {
+fn @(?num) sort[T](num: i32, arr: &mut[T], cmp: fn(T, T)->bool) -> () {
     // insertion sort
     for i in range(1, num) {
         let x = arr(i);
         let mut j = i;
-        while j > 0 && arr(j-1) > x {
+        while j >  0 && cmp(arr(j-1), x) {
             arr(j) = arr(j-1);
             j = j - 1;
         }

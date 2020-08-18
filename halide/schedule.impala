@@ -92,7 +92,7 @@ fn @img_read_bounds(img: Img) -> Read {
 }
 
 fn @img_write(img: Img) -> Write {
-    let data = bitcast[&mut[pixel_t]](img.data);
+    let data = bitcast[&mut[pixel_t],&[pixel_t]](img.data);
     @|x: i32, y: i32, v: pixel_t| -> () { data(y * img.width + x) = v; }
 }
 
