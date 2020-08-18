@@ -17,21 +17,31 @@ static cuda_dev = 0;
 fn benchmark_cuda(body: fn() -> ()) = || { total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev)) }
 
 fn combine_xy(loop_x: Loop, loop_y: Loop) -> Loop_xy {
-    |body: fn(i32, i32)->()| |x_lower, y_lower, x_upper, y_upper|
-        loop_y(|y| loop_x(|x| body(x, y))(x_lower, x_upper))(y_lower, y_upper)
+    @|body| |x_lower, y_lower, x_upper, y_upper| {
+        for y in loop_y(y_lower, y_upper) {
+            for x in loop_x(x_lower, x_upper) {
+                body(x, y)
+            }
+        }
+    }
 }
 
 fn tile(tile_x: i32, tile_y: i32, loop_x: Loop, loop_y: Loop) -> Loop_xy {
-    |body| |x_lower, y_lower, x_upper, y_upper|
-        loop_y(|ly| range(|ry| range(|rx| loop_x(|lx| body(lx, ry)
-                                                )(rx * tile_x + x_lower, (rx + 1) * tile_x + x_lower)
-                                    )(0, (x_upper - x_lower) / tile_x)
-                         )(ly * tile_y + y_lower, (ly + 1) * tile_y + y_lower)
-              )(0, (y_upper - y_lower) / tile_y)
+    @|body| |x_lower, y_lower, x_upper, y_upper| {
+        for ly in loop_y(0, (y_upper - y_lower) / tile_y) {
+            for ry in range(ly * tile_y + y_lower, (ly + 1) * tile_y + y_lower) {
+                for rx in range(0, (x_upper - x_lower) / tile_x) {
+                    for lx in loop_x(rx * tile_x + x_lower, (rx + 1) * tile_x + x_lower) {
+                        body(lx, ry)
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn tile_cuda(tile_x: i32, tile_y: i32) -> Loop_xy {
-    |body: fn(i32, i32)->()| |x_lower, y_lower, x_upper, y_upper| {
+    @|body| |x_lower, y_lower, x_upper, y_upper| {
         let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
         let block = (tile_x, tile_y, 1);
         cuda(cuda_dev, grid, block, || {
@@ -44,20 +54,26 @@ fn tile_cuda(tile_x: i32, tile_y: i32) -> Loop_xy {
 }
 
 fn vec(vector_length: i32) -> Loop {
-    |body| |lower, upper| range_step(|i| vectorize(vector_length, |j| body(i + j)))(lower, upper, vector_length)
+    @|body| |lower, upper| {
+        for i in range_step(lower, upper, vector_length) {
+            vectorize(vector_length, |j| body(i + j))
+        }
+    }
 }
 
 fn unr(factor: i32) -> Loop {
-    |body| |lower, upper| range_step(|x| unroll(|xu| body(x + xu))(0, factor))(lower, upper, factor)
+    @|body| |lower, upper| {
+        for i in range_step(lower, upper, factor) {
+            for j in unroll(0, factor) {
+                body(i + j)
+            }
+        }
+    }
 }
 
-fn par(num_threads: i32) -> Loop {
-    |body| |lower, upper| parallel(body)(num_threads, lower, upper)
-}
-
+fn par(num_threads: i32) -> Loop = @|body| |lower, upper| parallel(body)(num_threads, lower, upper)
 
 // compute
-
 fn compute(out: Img, loop: Loop_xy, f: BinOp) -> BinOp {
     let width  = out.width;
     let height = out.height;
@@ -68,7 +84,6 @@ fn compute(out: Img, loop: Loop_xy, f: BinOp) -> BinOp {
     }
     |x, y| data(y * width + x)
 }
-
 
 #[export]
 fn run_halide(data: &mut[i32], width: i32, height: i32) -> () {
