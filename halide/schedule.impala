@@ -52,7 +52,6 @@ type Boundary = fn(Region, Read) -> Read;
 type ImgBoundary = fn(Img) -> Boundary;
 
 type Loop = fn(fn(i32) -> ()) -> fn(i32, i32)->();
-//type ScheduleLoop = fn(Read, i32, i32, i32, i32, Write) -> ();
 type ScheduleLoop = fn(Write) -> fn(Read, i32, i32, i32, i32) -> ();
 
 struct Schedule {

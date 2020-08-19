@@ -14,42 +14,42 @@ fn @get_thread_count() -> i32 { 4 }
 // amount of full vector iterations that trigger loop vectorization
 static simd_iter_threshold = 2;
 
-fn @outer_loop(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+fn @outer_loop(body: fn(i32) -> ()) = @|lower: i32, upper: i32| {
     for i in parallel(get_thread_count(), lower, upper) {
-        @@body(i);
+        @body(i);
     }
 }
-fn @outer_loop_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () {
+fn @outer_loop_step(body: fn(i32) -> ()) = @|lower: i32, upper: i32, step: i32| {
     for i in parallel(get_thread_count(), 0, (upper - lower) / step) {
-        @@body(i * step + lower);
+        @body(i * step + lower);
     }
 }
 
-fn @inner_loop(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+fn @inner_loop(body: fn(i32) -> ()) = @|lower: i32, upper: i32| {
     if upper - lower < get_vector_length() * simd_iter_threshold {
-        range(lower, upper, body);
+        range(body)(lower, upper);
     } else {
         let peel_end = round_up(lower, get_vector_length());
         let remainder_start = round_up(upper - get_vector_length() + 1, get_vector_length());
 
-        range(lower, peel_end, body);
+        range(body)(lower, peel_end);
         for i in range_step(peel_end, remainder_start, get_vector_length()) {
-            vectorize(get_vector_length(), |j| @@body(i + j))
+            vectorize(get_vector_length(), |j| @body(i + j))
         }
-        range(remainder_start, upper, body);
+        range(body)(remainder_start, upper);
     }
 }
 
-fn @inner_loop_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () {
+fn @inner_loop_step(body: fn(i32) -> ()) = @|lower: i32, upper: i32, step: i32| {
     if upper - lower < get_vector_length() * simd_iter_threshold * step {
-        range_step(lower, upper, step, body);
+        range_step(body)(lower, upper, step);
     } else {
         let iter_vec = (upper - lower) / (step * get_vector_length());
         let remainder_start = lower + iter_vec * get_vector_length() * step;
 
         for i in range_step(0, iter_vec * get_vector_length(), get_vector_length()) {
-            vectorize(get_vector_length(), |j| @@body((i + j) * get_vector_length() + lower))
+            vectorize(get_vector_length(), |j| @body((i + j) * get_vector_length() + lower))
         }
-        range_step(remainder_start, upper, step, body);
+        range_step(body)(remainder_start, upper, step);
     }
 }

@@ -43,14 +43,14 @@ enum BoundaryMode {
 }
 
 fn @apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
-    let mut sum = 0.0f;
+    let mut sum = 0:f32;
     let half_range_y = mask.size_y / 2;
     let half_range_x = mask.size_x / 2;
 
     for j in unroll(-half_range_y, half_range_y+1) {
         for i in unroll(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y, i + half_range_x);
-            if stencil_val != 0.0f {
+            if stencil_val != 0:f32 {
                 sum += acc.read(x + i, y + j) * stencil_val;
             } else {
                 // additional logic for empty stencil value
@@ -62,12 +62,12 @@ fn @apply_stencil(x: i32, y: i32, acc: Acc, mask: Mask) -> f32 {
 }
 
 fn @apply_stencil_sep(x: i32, y: i32, acc: Acc, mask: MaskSep, row: bool) -> f32 {
-    let mut sum = 0.0f;
+    let mut sum = 0:f32;
     let half_range = mask.size / 2;
 
     for i in unroll(-half_range, half_range+1) {
         let stencil_val = mask.data(i + half_range);
-        if stencil_val != 0.0f {
+        if stencil_val != 0:f32 {
             if row {
                 sum += acc.read(x + i, y) * stencil_val;
             } else {
@@ -98,37 +98,37 @@ fn @get_boundary(boundary: i32) -> Boundary {
         _ => undef[Boundary]()
     }
 }
-fn @iterate_1dregion(lower: i32, upper: i32, tile_size: i32, body: fn((i32, i32), Boundary) -> ()) -> () {
+fn @iterate_1dregion(body: fn((i32, i32), Boundary) -> ()) = @|lower: i32, upper: i32, tile_size: i32| {
     if tile_size == 0 {
         let boundary:Boundary = Boundary::Center;
-        @@body((lower, upper), boundary)
+        @body((lower, upper), boundary)
     } else {
         for region in unroll(0, 3) {
             let boundary = get_boundary(region);
             let bounds   = get_bounds(lower, upper, tile_size, boundary);
-            @@body(bounds, boundary)
+            @body(bounds, boundary)
         }
     }
 }
-fn @iterate_2dregion(lower: (i32, i32), upper: (i32, i32), tile_size: (i32, i32), body: fn(((i32, i32), (i32, i32)), Region) -> ()) -> () {
-    for bounds_row, boundary_row in iterate_1dregion(lower(0), upper(0), tile_size(0)) {
-        for bounds_col, boundary_col in iterate_1dregion(lower(1), upper(1), tile_size(1)) {
-            @@body((bounds_row, bounds_col), (boundary_row, boundary_col))
+fn @iterate_2dregion(body: fn(((i32, i32), (i32, i32)), Region) -> ()) = @|(lower_row: i32, lower_col: i32), (upper_row: i32, upper_col: i32), (tile_size_row: i32, tile_size_col: i32)| {
+    for bounds_row, boundary_row in iterate_1dregion(lower_row, upper_row, tile_size_row) {
+        for bounds_col, boundary_col in iterate_1dregion(lower_col, upper_col, tile_size_col) {
+            @body((bounds_row, bounds_col), (boundary_row, boundary_col))
         }
     }
 }
 
-fn @nobh_center (idx: i32, lower: i32, upper: i32) -> BoundaryMode { BoundaryMode::Index(idx) }
-fn @clamp_lower (idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+fn @nobh_center (idx: i32, _lower: i32, _upper: i32) -> BoundaryMode { BoundaryMode::Index(idx) }
+fn @clamp_lower (idx: i32, lower: i32, _upper: i32) -> BoundaryMode {
     BoundaryMode::Index(if idx < lower { lower } else { idx })
 }
-fn @clamp_upper (idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+fn @clamp_upper (idx: i32, _lower: i32, upper: i32) -> BoundaryMode {
     BoundaryMode::Index(if idx >= upper { upper - 1 } else { idx })
 }
-fn @mirror_lower(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+fn @mirror_lower(idx: i32, lower: i32, _upper: i32) -> BoundaryMode {
     BoundaryMode::Index(if idx < lower { lower + (lower - idx-1) } else { idx })
 }
-fn @mirror_upper(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
+fn @mirror_upper(idx: i32, _lower: i32, upper: i32) -> BoundaryMode {
     BoundaryMode::Index(if idx >= upper { upper - (idx+1 - upper) } else { idx })
 }
 fn @repeat_lower(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
@@ -137,10 +137,10 @@ fn @repeat_lower(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
 fn @repeat_upper(idx: i32, lower: i32, upper: i32) -> BoundaryMode {
     BoundaryMode::Index(if idx >= upper { idx - (lower + upper) } else { idx })
 }
-fn @const_lower (idx: i32, lower: i32, upper: i32, cval: f32) -> BoundaryMode {
+fn @const_lower (idx: i32, lower: i32, _upper: i32, cval: f32) -> BoundaryMode {
     if idx < lower { BoundaryMode::Const(cval) } else { BoundaryMode::Index(idx) }
 }
-fn @const_upper (idx: i32, lower: i32, upper: i32, cval: f32) -> BoundaryMode {
+fn @const_upper (idx: i32, _lower: i32, upper: i32, cval: f32) -> BoundaryMode {
     if idx >= upper { BoundaryMode::Const(cval) } else { BoundaryMode::Index(idx) }
 }
 fn @wrap_const_fun(fun: fn(i32, i32, i32, f32) -> BoundaryMode, cval: f32) -> BoundaryFn {
@@ -149,8 +149,8 @@ fn @wrap_const_fun(fun: fn(i32, i32, i32, f32) -> BoundaryMode, cval: f32) -> Bo
 
 fn @map_boundary_mode(mode: BoundaryMode, bh_fun: fn(i32) -> BoundaryMode) -> BoundaryMode {
     match mode {
-        BoundaryMode::Index(idx) => bh_fun(idx),
-        BoundaryMode::Const(val) => mode
+        BoundaryMode::Index( idx) => bh_fun(idx),
+        BoundaryMode::Const(_val) => mode
     }
 }
 
@@ -181,93 +181,64 @@ fn @read_pixel(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -> f
     match (mode_x, mode_y) {
         (BoundaryMode::Index(x), BoundaryMode::Index(y)) => read(x, y),
         (BoundaryMode::Const(c), _) => c,
-        (_, BoundaryMode::Const(c)) => c,
-        _ => undef[f32]()
+        (_, BoundaryMode::Const(c)) => c
     }
 }
 
 // &   [f32] on CPU/AVX
 // &[1][f32] on CUDA/NVVM & OpenCL/AMDGPU
-fn @get_acc_bh(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    get_acc_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
+fn @get_acc_bh(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) = get_acc_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
+fn @get_acc_bh_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) = Acc {
+    read  = @|x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x = 0, o_y = 0, width = img.width, height = img.height }, @|x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
+    write = @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
 }
-fn @get_acc_bh_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    Acc {
-        read  : @|x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, @|x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
-        write : @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
-    }
-}
-fn @get_acc(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32) -> Acc {
-    get_acc_offset(img, set_pixel, get_pixel, 0, 0)
-}
-fn @get_acc_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32) -> Acc {
-    Acc {
-        read  : @|x, y|    get_pixel((y + roy) * img.stride + x + rox),
-        write : @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
-    }
+fn @get_acc(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32) = get_acc_offset(img, set_pixel, get_pixel, 0, 0)
+fn @get_acc_offset(img: Img, set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, rox: i32, roy: i32) = Acc {
+    read  = @|x, y|    get_pixel((y + roy) * img.stride + x + rox),
+    write = @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
 }
 
 // &   [f32] on CPU/AVX
 // &[3][f32] on CUDA/NVVM & OpenCL/AMDGPU
-fn @get_acc_bh_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    get_acc_bh_offset_memory(set_pixel, get_pixel, width, height, 0, 0, region, bh_lower, bh_upper)
+fn @get_acc_bh_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) = get_acc_bh_offset_memory(set_pixel, get_pixel, width, height, 0, 0, region, bh_lower, bh_upper)
+fn @get_acc_bh_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) = Acc {
+    read  = @|x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x = 0, o_y = 0, width = width, height = height }, @|x, y| { get_pixel(y * width + x) }, bh_lower, bh_upper),
+    write = @|x, y, v| set_pixel((y + roy) * width + x + rox, v)
 }
-fn @get_acc_bh_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn, bh_upper: BoundaryFn) -> Acc {
-    Acc {
-        read  : @|x, y|    read_pixel(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : width, height : height }, @|x, y| { get_pixel(y * width + x) }, bh_lower, bh_upper),
-        write : @|x, y, v| set_pixel((y + roy) * width + x + rox, v)
-    }
-}
-fn @get_acc_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32) -> Acc {
-    get_acc_offset_memory(set_pixel, get_pixel, width, height, 0, 0)
-}
-fn @get_acc_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32) -> Acc {
-    Acc {
-        read  : @|x, y|    get_pixel((y + roy) * width + x + rox),
-        write : @|x, y, v| set_pixel((y + roy) * width + x + rox, v)
-    }
+fn @get_acc_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32) = get_acc_offset_memory(set_pixel, get_pixel, width, height, 0, 0)
+fn @get_acc_offset_memory(set_pixel: fn(i32, f32) -> (), get_pixel: fn(i32) -> f32, width: i32, height: i32, rox: i32, roy: i32) = Acc {
+    read  = @|x, y|    get_pixel((y + roy) * width + x + rox),
+    write = @|x, y, v| set_pixel((y + roy) * width + x + rox, v)
 }
 
-fn @new_img(width: i32, height: i32, stride: i32, buf: Buffer) -> Img {
-    Img { buf : buf, width : width,  height : height, stride : stride }
+fn @new_img(width: i32, height: i32, stride: i32, buf: Buffer) = Img {
+    buf = buf, width = width, height = height, stride = stride
 }
 
-fn @alloc_img(img: Img, alloc: fn(i64) -> Buffer) -> Img {
-    new_img(img.width, img.height, img.stride, alloc((img.stride * img.height) as i64 * sizeof[f32]()))
-}
+fn @alloc_img(img: Img, alloc: fn(i64) -> Buffer) = new_img(img.width, img.height, img.stride, alloc((img.stride * img.height) as i64 * sizeof[f32]()))
 
 fn @create_img(width: i32, height: i32, alloc: fn(i64) -> Buffer) -> Img {
     let stride = round_up(width * sizeof[f32]() as i32, 64) / sizeof[f32]() as i32;
     new_img(width, height, stride, alloc((stride * height) as i64 * sizeof[f32]()))
 }
 
-fn @copy_img(src: Img, dst: Img) -> () {
-    copy(src.buf, dst.buf)
-}
+fn @copy_img(src: Img, dst: Img) = copy(src.buf, dst.buf)
 
-fn @get_mask3(data : [[f32 * 3] * 3]) -> Mask {
-    Mask {
-        data : @|x, y| -> f32 { data(y)(x) },
-        size_x : 3, size_y : 3
-    }
+fn @get_mask3(data : [[f32 * 3] * 3]) = Mask {
+    data = @|x, y| -> f32 { data(y)(x) },
+    size_x = 3, size_y = 3
 }
-fn @get_mask5(data : [[f32 * 5] * 5]) -> Mask {
-    Mask {
-        data : @|x, y| -> f32 { data(y)(x) },
-        size_x : 5, size_y : 5
-    }
+fn @get_mask5(data : [[f32 * 5] * 5]) = Mask {
+    data = @|x, y| -> f32 { data(y)(x) },
+    size_x = 5, size_y = 5
 }
-fn @get_mask_sep3(data : [f32 * 3]) -> MaskSep {
-    MaskSep {
-        data : @|x| -> f32 { data(x) },
-        size : 3
-    }
+fn @get_mask_sep3(data : [f32 * 3]) = MaskSep {
+    data = @|x| -> f32 { data(x) },
+    size = 3
 }
-fn @get_mask_sep5(data : [f32 * 5]) -> MaskSep {
-    MaskSep {
-        data : @|x| -> f32 { data(x) },
-        size : 5
-    }
+fn @get_mask_sep5(data : [f32 * 5]) = MaskSep {
+    data = @|x| -> f32 { data(x) },
+    size = 5
 }
 
 // image and accessor lists
@@ -278,62 +249,50 @@ struct ImgList {
     size : i32, id : i32
 }
 
-fn @img_list_empty() -> ImgList {
-    ImgList {
-        get : @|i| undef[Img](),
-        ext : @|i| undef[(i32, i32)](),
-        size : 0, id : 0
-    }
+fn @img_list_empty() = ImgList {
+    get = @|i| undef[Img](),
+    ext = @|i| undef[(i32, i32)](),
+    size = 0, id = 0
 }
 
-fn @img_list_tail(img: Img, ext: (i32, i32), n: i32) -> ImgList {
-    ImgList {
-        get : @|i| { if i == n - 1 { img } else { undef[Img]() } },
-        ext : @|i| { if i == n - 1 { ext } else { undef[(i32, i32)]() } },
-        size : n, id : n
-    }
+fn @img_list_tail(img: Img, ext: (i32, i32), n: i32) = ImgList {
+    get = @|i| { if i == n - 1 { img } else { undef[Img]() } },
+    ext = @|i| { if i == n - 1 { ext } else { undef[(i32, i32)]() } },
+    size = n, id = n
 }
 
-fn @img_list_prepend(list: ImgList, img: Img, ext: (i32, i32)) -> ImgList {
-    ImgList {
-        get : @|i| { if i == list.id - 2 { img } else { list.get(i) } },
-        ext : @|i| { if i == list.id - 2 { ext } else { list.ext(i) } },
-        size : list.size, id : list.id - 1
-    }
+fn @img_list_prepend(list: ImgList, img: Img, ext: (i32, i32)) = ImgList {
+    get = @|i| { if i == list.id - 2 { img } else { list.get(i) } },
+    ext = @|i| { if i == list.id - 2 { ext } else { list.ext(i) } },
+    size = list.size, id = list.id - 1
 }
 
-fn @make_img_list1(img: Img, ext: (i32, i32)) -> ImgList {
-    img_list_tail(img, ext, 1)
-}
-fn @make_img_list2(img1: Img, ext1: (i32, i32), img2: Img, ext2: (i32, i32)) -> ImgList {
-    img_list_prepend(img_list_tail(img2, ext2, 2), img1, ext1)
-}
-fn @make_img_list3(img1: Img, ext1: (i32, i32), img2: Img, ext2: (i32, i32), img3: Img, ext3: (i32, i32)) -> ImgList {
-    img_list_prepend(img_list_prepend(img_list_tail(img3, ext3, 3), img2, ext2), img1, ext1)
-}
+fn @make_img_list1(img: Img, ext: (i32, i32)) = img_list_tail(img, ext, 1)
+fn @make_img_list2(img1: Img, ext1: (i32, i32), img2: Img, ext2: (i32, i32)) = img_list_prepend(img_list_tail(img2, ext2, 2), img1, ext1)
+fn @make_img_list3(img1: Img, ext1: (i32, i32), img2: Img, ext2: (i32, i32), img3: Img, ext3: (i32, i32)) = img_list_prepend(img_list_prepend(img_list_tail(img3, ext3, 3), img2, ext2), img1, ext1)
 
 fn @img_list_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Img) -> ImgList {
     fn @(?i)map(list: ImgList, i: i32) -> ImgList {
         if i == 0 {
             list
         } else if i == imgs.size {
-            map(img_list_tail(@@body(imgs.get(i - 1), imgs.ext(i - 1)), imgs.ext(i - 1), imgs.size), i - 1)
+            map(img_list_tail(@body(imgs.get(i - 1), imgs.ext(i - 1)), imgs.ext(i - 1), imgs.size), i - 1)
         } else {
-            map(img_list_prepend(list, @@body(imgs.get(i - 1), imgs.ext(i - 1)), imgs.ext(i - 1)), i - 1)
+            map(img_list_prepend(list, @body(imgs.get(i - 1), imgs.ext(i - 1)), imgs.ext(i - 1)), i - 1)
         }
     }
 
     map(img_list_empty(), imgs.size)
 }
 
-fn @img_list2acc_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Acc) -> AccList {
+fn @img_list2acc_map(body: fn(Img, (i32, i32)) -> Acc) = @|imgs: ImgList| {
     fn @(?i)map(list: AccList, i: i32) -> AccList {
         if i == 0 {
             list
         } else if i == imgs.size {
-            map(acc_list_tail(@@body(imgs.get(i - 1), imgs.ext(i - 1)), imgs.size), i - 1)
+            map(acc_list_tail(@body(imgs.get(i - 1), imgs.ext(i - 1)), imgs.size), i - 1)
         } else {
-            map(acc_list_prepend(list, @@body(imgs.get(i - 1), imgs.ext(i - 1))), i - 1)
+            map(acc_list_prepend(list, @body(imgs.get(i - 1), imgs.ext(i - 1))), i - 1)
         }
     }
 
@@ -341,11 +300,12 @@ fn @img_list2acc_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Acc) -> AccList
 }
 
 fn @get_max_ext(imgs: ImgList) -> (i32, i32) {
-    fn @(?i)max_ext(ext: (i32, i32), i: i32) -> (i32, i32) {
+    fn @(?i)max_ext((ext_x: i32, ext_y: i32), i: i32) -> (i32, i32) {
         if i == 0 {
-            ext
+            (ext_x, ext_y)
         } else {
-            max_ext((max(ext(0), imgs.ext(i - 1)(0)), max(ext(1), imgs.ext(i - 1)(1))), i - 1)
+            let (img_ext_x, img_ext_y) = imgs.ext(i - 1);
+            max_ext((max(ext_x, img_ext_x), max(ext_y, img_ext_y)), i - 1)
         }
     }
 
@@ -358,33 +318,21 @@ struct AccList {
     size : i32, id : i32
 }
 
-fn @acc_list_empty() -> AccList {
-    AccList {
-        get : @|i| { undef[Acc]() },
-        size : 0, id : 0
-    }
+fn @acc_list_empty() = AccList {
+    get = @|i| { undef[Acc]() },
+    size = 0, id = 0
 }
 
-fn @acc_list_tail(acc: Acc, n: i32) -> AccList {
-    AccList {
-        get : @|i| { if i == n - 1 { acc } else { undef[Acc]() } },
-        size : n, id : n
-    }
+fn @acc_list_tail(acc: Acc, n: i32) = AccList {
+    get = @|i| { if i == n - 1 { acc } else { undef[Acc]() } },
+    size = n, id = n
 }
 
-fn @acc_list_prepend(list: AccList, acc: Acc) -> AccList {
-    AccList {
-        get : @|i| { if i == list.id - 2 { acc } else { list.get(i) } },
-        size : list.size, id : list.id - 1
-    }
+fn @acc_list_prepend(list: AccList, acc: Acc) = AccList {
+    get = @|i| { if i == list.id - 2 { acc } else { list.get(i) } },
+    size = list.size, id = list.id - 1
 }
 
-fn @make_acc_list1(acc: Acc) -> AccList {
-    acc_list_tail(acc, 1)
-}
-fn @make_acc_list2(acc1: Acc, acc2: Acc) -> AccList {
-    acc_list_prepend(acc_list_tail(acc2, 2), acc1)
-}
-fn @make_acc_list3(acc1: Acc, acc2: Acc, acc3: Acc) -> AccList {
-    acc_list_prepend(acc_list_prepend(acc_list_tail(acc3, 3), acc2), acc1)
-}
+fn @make_acc_list1(acc: Acc) = acc_list_tail(acc, 1)
+fn @make_acc_list2(acc1: Acc, acc2: Acc) = acc_list_prepend(acc_list_tail(acc2, 2), acc1)
+fn @make_acc_list3(acc1: Acc, acc2: Acc, acc3: Acc) = acc_list_prepend(acc_list_prepend(acc_list_tail(acc3, 3), acc2), acc1)

@@ -1,4 +1,4 @@
-fn @accelerator(dev: i32) -> Accelerator { nvvm_accelerator(dev) }
+fn @accelerator(dev: i32) = nvvm_accelerator(dev)
 static device_id = 0;
 static math = nvvm_intrinsics;
 static atomic_add_global = nvvm_atomic_add_global;

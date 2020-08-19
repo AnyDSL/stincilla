@@ -1,4 +1,4 @@
-fn @accelerator(dev: i32) -> Accelerator { amdgpu_accelerator(dev) }
+fn @accelerator(dev: i32) = amdgpu_accelerator(dev)
 static device_id = 1;
 static math = amdgpu_intrinsics;
 static atomic_add_global = amdgcn_atomic_add_global;
