@@ -38,8 +38,8 @@ fn @iteration_bounds(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgL
             //let outer_loop_fun = if region == Boundary::Center { outer_loop } else { range };
             // gets slower when computed in parallel
 
-            let (bounds_col_lower, bounds_col_upper) = bounds_col;
             let (bounds_row_lower, bounds_row_upper) = bounds_row;
+            let (bounds_col_lower, bounds_col_upper) = bounds_col;
             for y in range(bounds_col_lower, bounds_col_upper) {
                 for x in inner_loop(bounds_row_lower, bounds_row_upper) {
                     @body(math, x, y, out_acc, accs);
@@ -93,8 +93,8 @@ fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: Im
             //let outer_loop_fun = if region == Boundary::Center { outer_loop } else { range };
             // gets slower when computed in parallel
 
-            let (bounds_col_lower, bounds_col_upper) = bounds_col;
             let (bounds_row_lower, bounds_row_upper) = bounds_row;
+            let (bounds_col_lower, bounds_col_upper) = bounds_col;
             match region {
                 (Boundary::Center, Boundary::Center) => tiled_loop(bounds_row_lower, bounds_row_upper, bounds_col_lower, bounds_col_upper, @|x, y| @body(math, x, y, out_acc, accs)),
                 _ =>

@@ -271,7 +271,7 @@ fn @make_img_list1(img: Img, ext: (i32, i32)) = img_list_tail(img, ext, 1)
 fn @make_img_list2(img1: Img, ext1: (i32, i32), img2: Img, ext2: (i32, i32)) = img_list_prepend(img_list_tail(img2, ext2, 2), img1, ext1)
 fn @make_img_list3(img1: Img, ext1: (i32, i32), img2: Img, ext2: (i32, i32), img3: Img, ext3: (i32, i32)) = img_list_prepend(img_list_prepend(img_list_tail(img3, ext3, 3), img2, ext2), img1, ext1)
 
-fn @img_list_map(imgs: ImgList, body: fn(Img, (i32, i32)) -> Img) -> ImgList {
+fn @img_list_map(body: fn(Img, (i32, i32)) -> Img) = @|imgs: ImgList| {
     fn @(?i)map(list: ImgList, i: i32) -> ImgList {
         if i == 0 {
             list
