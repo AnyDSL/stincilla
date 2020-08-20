@@ -13,8 +13,8 @@ fn main() -> i32 {
                              [    b, a, b   ],
                              [0:f32, b, 0:f32]]);
 
-    let lower = clamp_lower;
-    let upper = clamp_upper;
+    let lower = clamp_lower[f32];
+    let upper = clamp_upper[f32];
 
     let iteration_fun = iteration;                  // SS
     //let iteration_fun = iteration_bounds;           // SS + BH
