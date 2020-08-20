@@ -4,8 +4,8 @@ fn main() -> i32 {
     let height = 2048;
     let a      = 0.2:f32;
     let b      = 1:f32 - 4:f32 * a;
-    let arr    = create_img(width, height, alloc_cpu);
-    let out    = create_img(width, height, alloc_cpu);
+    let arr    = create_img[f32](width, height, alloc_cpu);
+    let out    = create_img[f32](width, height, alloc_cpu);
     init_rand(bitcast[&mut[f32], &[i8]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[f32], &[i8]](out.buf.data), out.stride, out.height);
 

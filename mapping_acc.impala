@@ -29,9 +29,9 @@ fn @get_pixel_shared_fn(data: &addrspace(3)[f32]) -> fn(i32) -> f32 { @|idx| dat
 fn @iteration(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
-    let out_gpu  = alloc_img(out, acc.alloc);
+    let out_gpu  = alloc_img[f32](out, acc.alloc);
     let imgs_gpu = for img, ext in img_list_map(imgs) {
-        let img_gpu = alloc_img(img, acc.alloc);
+        let img_gpu = alloc_img[f32](img, acc.alloc);
         copy_img(img, img_gpu);
         img_gpu
     };
@@ -71,9 +71,9 @@ fn @iteration(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgList, bh
 fn @iteration_bounds(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
-    let out_gpu  = alloc_img(out, acc.alloc);
+    let out_gpu  = alloc_img[f32](out, acc.alloc);
     let imgs_gpu = for img, ext in img_list_map(imgs) {
-        let img_gpu = alloc_img(img, acc.alloc);
+        let img_gpu = alloc_img[f32](img, acc.alloc);
         copy_img(img, img_gpu);
         img_gpu
     };
@@ -188,9 +188,9 @@ fn @iteration_bounds(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgL
 fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
-    let out_gpu  = alloc_img(out, acc.alloc);
+    let out_gpu  = alloc_img[f32](out, acc.alloc);
     let imgs_gpu = for img, ext in img_list_map(imgs) {
-        let img_gpu = alloc_img(img, acc.alloc);
+        let img_gpu = alloc_img[f32](img, acc.alloc);
         copy_img(img, img_gpu);
         img_gpu
     };
@@ -277,9 +277,9 @@ fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: Im
 
 fn @iteration_sep(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
     let acc = accelerator(device_id);
-    let arr_gpu = alloc_img(arr, acc.alloc);
-    let out_gpu = alloc_img(out, acc.alloc);
-    let tmp_gpu = alloc_img(out, acc.alloc);
+    let arr_gpu = alloc_img[f32](arr, acc.alloc);
+    let out_gpu = alloc_img[f32](out, acc.alloc);
+    let tmp_gpu = alloc_img[f32](out, acc.alloc);
     copy_img(arr, arr_gpu);
 
     let coarsening_factor = 1;
@@ -326,9 +326,9 @@ fn @iteration_sep(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, 
 
 fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
     let acc = accelerator(device_id);
-    let arr_gpu = alloc_img(arr, acc.alloc);
-    let out_gpu = alloc_img(out, acc.alloc);
-    let tmp_gpu = alloc_img(out, acc.alloc);
+    let arr_gpu = alloc_img[f32](arr, acc.alloc);
+    let out_gpu = alloc_img[f32](out, acc.alloc);
+    let tmp_gpu = alloc_img[f32](out, acc.alloc);
     copy_img(arr, arr_gpu);
 
     // compute the number of blocks required for boundary handling
@@ -457,8 +457,8 @@ fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr
 
 fn @iteration_sep_advanced(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
     let acc = accelerator(device_id);
-    let arr_gpu = alloc_img(arr, acc.alloc);
-    let out_gpu = alloc_img(out, acc.alloc);
+    let arr_gpu = alloc_img[f32](arr, acc.alloc);
+    let out_gpu = alloc_img[f32](out, acc.alloc);
     copy_img(arr, arr_gpu);
 
     let coarsening_factor = 1;

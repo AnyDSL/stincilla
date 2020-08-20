@@ -1,12 +1,5 @@
 type BoundaryFni16 = fn(i32, i32, i32) -> BoundaryModei16;
 
-struct Imgi16 {
-    buf : Buffer,
-    width  : i32,
-    height : i32,
-    stride : i32,
-}
-
 struct Acci16 {
     read  : fn(i32, i32) -> i16,
     write : fn(i32, i32, i16) -> (),
@@ -65,45 +58,21 @@ fn @read_pixeli16(x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -
     match (mode_x, mode_y) {
         (BoundaryModei16::Index(x), BoundaryModei16::Index(y)) => read(x, y),
         (BoundaryModei16::Const(c), _) => c,
-        (_, BoundaryModei16::Const(c)) => c,
-        _ => undef[i16]()
+        (_, BoundaryModei16::Const(c)) => c
     }
 }
 
 // &   [i16] on CPU/AVX
 // &[1][i16] on CUDA/NVVM & OpenCL/AMDGPU
-fn @get_acci16_bh(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, region: Region, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
+fn @get_acci16_bh(img: Img, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, region: Region, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
     get_acci16_bh_offset(img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 }
-fn @get_acci16_bh_offset(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) -> Acci16 {
-    Acci16 {
-        read  : @|x, y|    read_pixeli16(x + rox, y + roy, region, RoI { o_x : 0, o_y : 0, width : img.width, height : img.height }, @|x, y| { get_pixel(y * img.stride + x) }, bh_lower, bh_upper),
-        write : @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
-    }
+fn @get_acci16_bh_offset(img: Img, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16) = Acci16 {
+    read  = @|x, y|    read_pixeli16(x + rox, y + roy, region, RoI { o_x = 0, o_y = 0, width = img.width, height = img.height }, @|x, y| get_pixel(y * img.stride + x), bh_lower, bh_upper),
+    write = @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
 }
-fn @get_acci16(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16) -> Acci16 {
-    get_acci16_offset(img, set_pixel, get_pixel, 0, 0)
-}
-fn @get_acci16_offset(img: Imgi16, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32) -> Acci16 {
-    Acci16 {
-        read  : @|x, y|    { get_pixel((y + roy) * img.stride + x + rox) },
-        write : @|x, y, v| { set_pixel((y + roy) * img.stride + x + rox, v) }
-    }
-}
-
-fn @new_imgi16(width: i32, height: i32, stride: i32, buf: Buffer) -> Imgi16 {
-    Imgi16 { buf : buf, width : width,  height : height, stride : stride }
-}
-
-fn @alloc_imgi16(img: Imgi16, alloc: fn(i64) -> Buffer) -> Imgi16 {
-    new_imgi16(img.width, img.height, img.stride, alloc((img.stride * img.height) as i64 * sizeof[i16]()))
-}
-
-fn @create_imgi16(width: i32, height: i32, alloc: fn(i64) -> Buffer) -> Imgi16 {
-    let stride = round_up(width * sizeof[i16]() as i32, 64) / sizeof[i16]() as i32;
-    new_imgi16(width, height, stride, alloc((stride * height) as i64 * sizeof[i16]()))
-}
-
-fn @copy_imgi16(src: Imgi16, dst: Imgi16) -> () {
-    copy(src.buf, dst.buf)
+fn @get_acci16(img: Img, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16) = get_acci16_offset(img, set_pixel, get_pixel, 0, 0)
+fn @get_acci16_offset(img: Img, set_pixel: fn(i32, i16) -> (), get_pixel: fn(i32) -> i16, rox: i32, roy: i32) = Acci16 {
+    read  = @|x, y|    get_pixel((y + roy) * img.stride + x + rox),
+    write = @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
 }

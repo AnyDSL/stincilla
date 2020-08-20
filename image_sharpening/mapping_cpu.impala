@@ -1,9 +1,7 @@
-fn @set_pixeli16_fn(img: Imgi16) = @|idx, val| bitcast[&mut[i16], &[i8]](img.buf.data)(idx) = val
-fn @get_pixeli16_fn(img: Imgi16) = @|idx| bitcast[&[i16], &[i8]](img.buf.data)(idx)
+fn @set_pixeli16_fn(img: Img) = @|idx: i32, val: i16| bitcast[&mut[i16], &[i8]](img.buf.data)(idx) = val
+fn @get_pixeli16_fn(img: Img) = @|idx: i32| bitcast[&[i16], &[i8]](img.buf.data)(idx)
 
-fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
-                  body: fn(i32, i32, Acc, Acci16) -> ()
-                 ) -> () {
+fn @iteration1f1i(body: fn(i32, i32, Acc, Acci16) -> ()) = @|out: Img, arr: Img, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16| {
     let out_acc = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
     let arr_acc = get_acci16_bh(arr, set_pixeli16_fn(arr), get_pixeli16_fn(arr), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
@@ -15,9 +13,7 @@ fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
         }
     }
 }
-fn @iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
-                body: fn(i32, i32, Acci16, Acci16) -> ()
-               ) -> () {
+fn @iteration2i(body: fn(i32, i32, Acci16, Acci16) -> ()) = @|out: Img, arr: Img, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16| {
     let out_acc = get_acci16(out, set_pixeli16_fn(out), get_pixeli16_fn(out));
     let arr_acc = get_acci16_bh(arr, set_pixeli16_fn(arr), get_pixeli16_fn(arr), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
@@ -29,9 +25,7 @@ fn @iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bou
         }
     }
 }
-fn @iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
-                  body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
-                 ) -> () {
+fn @iteration2i1m(body: fn(i32, i32, Acci16, Acci16, Acc) -> ()) = @|out: Img, img: Img, map: Img, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16| {
     let out_acc = get_acci16(out, set_pixeli16_fn(out), get_pixeli16_fn(out));
     let img_acc = get_acci16_bh(img, set_pixeli16_fn(img), get_pixeli16_fn(img), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
     let map_acc = get_acc(map, set_pixel_fn(map), get_pixel_fn(map));
@@ -44,9 +38,7 @@ fn @iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, b
         }
     }
 }
-fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
-                body: fn(i32, i32, Acci16, Acci16, Acci16) -> ()
-               ) -> () {
+fn @iteration3i(body: fn(i32, i32, Acci16, Acci16, Acci16) -> ()) = @|out: Img, img: Img, tmp: Img| {
     let out_acc = get_acci16(out, set_pixeli16_fn(out), get_pixeli16_fn(out));
     let img_acc = get_acci16(img, set_pixeli16_fn(img), get_pixeli16_fn(img));
     let tmp_acc = get_acci16(tmp, set_pixeli16_fn(tmp), get_pixeli16_fn(tmp));
@@ -59,7 +51,7 @@ fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
         }
     }
 }
-fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
+fn @reduce(body: fn(i32, i32, Acci16) -> i32) = @|img: Img| -> i32 {
     let mut sum = 0;
     let img_acc = get_acci16(img, set_pixeli16_fn(img), get_pixeli16_fn(img));
     for y in range(0, img.height) {
@@ -69,9 +61,9 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     }
     sum
 }
-fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
-    let hist_buf = alloc_cpu(256i64 * sizeof[i32]());
-    let     hist = bitcast[&mut[i32]](hist_buf.data);
+fn @histogram(body: fn(i32, i32, Acc) -> i32) = @|img: Img| -> Buffer {
+    let hist_buf = alloc_cpu(256:i64 * sizeof[i32]());
+    let     hist = bitcast[&mut[i32], &[i8]](hist_buf.data);
     let img_acc  = get_acc(img, set_pixel_fn(img), get_pixel_fn(img));
 
     for i in range(0, 256) {
@@ -88,16 +80,16 @@ fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
 }
 fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     let scan_buf = alloc_cpu(size as i64 * sizeof[i32]());
-    let     scan = bitcast[&mut[i32]](scan_buf.data);
-    let     hist = bitcast[&   [i32]](hist_buf.data);
+    let     scan = bitcast[&mut[i32], &[i8]](scan_buf.data);
+    let     hist = bitcast[&   [i32], &[i8]](hist_buf.data);
     scan(0) = hist(0);
     for i in range(1, size) {
         scan(i) = scan(i-1) + hist(i);
     }
     scan_buf
 }
-fn @find_position(scan_buf: Buffer, size: i32, body: fn(i32) -> i32) -> i32 {
-    let scan = bitcast[&[i32]](scan_buf.data);
+fn @find_position(body: fn(i32) -> i32) = @|scan_buf: Buffer, size: i32| -> i32 {
+    let scan = bitcast[&[i32], &[i8]](scan_buf.data);
     for i in range(0, size) {
         if @body(scan(i)) != 0 { return(i) }
     }

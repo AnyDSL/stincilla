@@ -110,7 +110,7 @@ fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: Im
 
 fn @iteration_sep(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
     // allocate temporary array
-    let tmp       = alloc_img(out, alloc_cpu);
+    let tmp       = alloc_img[f32](out, alloc_cpu);
     let out_acc   = get_acc(out, set_pixel_fn(out), get_pixel_fn(out));
     let tmp_acc_w = get_acc(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp));
     let tmp_acc_r = get_acc_bh(tmp, set_pixel_fn(tmp), get_pixel_fn(tmp), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
@@ -137,7 +137,7 @@ fn @iteration_sep(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, 
 
 fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
     // allocate temporary array
-    let tmp = alloc_img(out, alloc_cpu);
+    let tmp = alloc_img[f32](out, alloc_cpu);
 
     // compute the number of vector strides for boundary handling
     let bhy = mask_col.size / 2;

@@ -215,11 +215,11 @@ fn @new_img(width: i32, height: i32, stride: i32, buf: Buffer) = Img {
     buf = buf, width = width, height = height, stride = stride
 }
 
-fn @alloc_img(img: Img, alloc: fn(i64) -> Buffer) = new_img(img.width, img.height, img.stride, alloc((img.stride * img.height) as i64 * sizeof[f32]()))
+fn @alloc_img[T](img: Img, alloc: fn(i64) -> Buffer) = new_img(img.width, img.height, img.stride, alloc((img.stride * img.height) as i64 * sizeof[T]()))
 
-fn @create_img(width: i32, height: i32, alloc: fn(i64) -> Buffer) -> Img {
-    let stride = round_up(width * sizeof[f32]() as i32, 64) / sizeof[f32]() as i32;
-    new_img(width, height, stride, alloc((stride * height) as i64 * sizeof[f32]()))
+fn @create_img[T](width: i32, height: i32, alloc: fn(i64) -> Buffer) -> Img {
+    let stride = round_up(width * sizeof[T]() as i32, 64) / sizeof[T]() as i32;
+    new_img(width, height, stride, alloc((stride * height) as i64 * sizeof[T]()))
 }
 
 fn @copy_img(src: Img, dst: Img) = copy(src.buf, dst.buf)

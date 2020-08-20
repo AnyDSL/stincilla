@@ -9,15 +9,15 @@
 #[export]
 fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32) -> () {
     let input  = Img { buf = Buffer { data = bitcast[&mut [i8], &[f32]](img_data), size = (width * height) as i64 * sizeof[f32](), device = 0 }, width = width, height = height, stride = width };
-    let harris = create_img(width, height, alloc_cpu);
-    let dx     = create_img(width, height, alloc_cpu);
-    let dy     = create_img(width, height, alloc_cpu);
-    let dxx    = create_img(width, height, alloc_cpu);
-    let dxy    = create_img(width, height, alloc_cpu);
-    let dyy    = create_img(width, height, alloc_cpu);
-    let gxx    = create_img(width, height, alloc_cpu);
-    let gxy    = create_img(width, height, alloc_cpu);
-    let gyy    = create_img(width, height, alloc_cpu);
+    let harris = create_img[f32](width, height, alloc_cpu);
+    let dx     = create_img[f32](width, height, alloc_cpu);
+    let dy     = create_img[f32](width, height, alloc_cpu);
+    let dxx    = create_img[f32](width, height, alloc_cpu);
+    let dxy    = create_img[f32](width, height, alloc_cpu);
+    let dyy    = create_img[f32](width, height, alloc_cpu);
+    let gxx    = create_img[f32](width, height, alloc_cpu);
+    let gxy    = create_img[f32](width, height, alloc_cpu);
+    let gyy    = create_img[f32](width, height, alloc_cpu);
 
     // compute the first derivative using the Sobel operator
     let mdx = get_mask3([[ -1:f32,  0:f32,  1:f32 ],

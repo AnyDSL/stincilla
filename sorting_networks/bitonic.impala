@@ -1,5 +1,5 @@
 // bitonic sorting network for n not a power of 2
-fn @bitonic_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) -> () {
+fn @bitonic_sort[T](length: i32, cmp: fn(T, T) -> bool, read: fn(i32) -> T, write: fn(i32, T) -> ()) -> () {
     let ascending = true; // sorting direction
 
     fn @(?n) greatest_power_of_two_less_than(n: i32) -> i32 {
@@ -15,53 +15,7 @@ fn @bitonic_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) -> ()) -
     }
 
     fn @compare_and_swap(i: i32, j: i32, dir: bool) -> () {
-        if read(i) > read(j) == dir {
-            let tmp = read(i);
-            write(i, read(j));
-            write(j, tmp);
-        }
-    }
-
-    fn @(?lo & ?n) sort(lo: i32, n: i32, dir: bool) -> () {
-        if n > 1 {
-            let m = n / 2;
-            sort(lo, m, !dir);
-            sort(lo+m, n-m, dir);
-            merge(lo, n, dir);
-        }
-    }
-
-    fn @(?lo & ?n) merge(lo: i32, n: i32, dir: bool) -> () {
-        if n > 1 {
-            let m = greatest_power_of_two_less_than(n);
-            for i in unroll(lo, lo+n-m) {
-                compare_and_swap(i, i+m, dir);
-            }
-            merge(lo, m, dir);
-            merge(lo+m, n-m, dir);
-        }
-    }
-
-    sort(0, length, ascending)
-}
-
-fn @bitonic_sort_i16(length: i32, read: fn(i32) -> i16, write: fn(i32, i16) -> ()) -> () {
-    let ascending = true; // sorting direction
-
-    fn @(?n) greatest_power_of_two_less_than(n: i32) -> i32 {
-        fn @(?k) loop(k: i32) -> i32 {
-            if k < n {
-                loop(k << 1)
-            } else {
-                k
-            }
-        }
-
-        loop(1) >> 1
-    }
-
-    fn @compare_and_swap(i: i32, j: i32, dir: bool) -> () {
-        if read(i) > read(j) == dir {
+        if cmp(read(i), read(j)) == dir {
             let tmp = read(i);
             write(i, read(j));
             write(j, tmp);
@@ -94,5 +48,5 @@ fn @bitonic_sort_i16(length: i32, read: fn(i32) -> i16, write: fn(i32, i16) -> (
 #[export]
 fn test() -> () {
     let mut arr: [f32 * 3];
-    bitonic_sort(3, @|idx| arr(idx), @|idx, val| arr(idx) = val)
+    bitonic_sort[f32](3, @|a, b| a > b, @|idx| arr(idx), @|idx, val| arr(idx) = val)
 }

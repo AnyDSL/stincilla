@@ -3,8 +3,8 @@ fn @iteration_median(body: fn(i32, i32, Acc, Acc) -> ()) = @|out: Img, arr: Img,
     let grid  = (out.width, out.height, 1);
     let block = (128, 1, 1);
 
-    let out_gpu = alloc_img(out, acc.alloc);
-    let arr_gpu = alloc_img(arr, acc.alloc);
+    let out_gpu = alloc_img[f32](out, acc.alloc);
+    let arr_gpu = alloc_img[f32](arr, acc.alloc);
     copy_img(arr, arr_gpu);
 
     for benchmark_acc(acc) {

@@ -2,8 +2,8 @@
 fn main() -> i32 {
     let width  = 4096;
     let height = 4096;
-    let arr    = create_img(width, height, alloc_cpu);
-    let out    = create_img(width, height, alloc_cpu);
+    let arr    = create_img[f32](width, height, alloc_cpu);
+    let out    = create_img[f32](width, height, alloc_cpu);
     init_rand(bitcast[&mut[f32], &mut[i8]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[f32], &mut[i8]](out.buf.data), out.stride, out.height);
 

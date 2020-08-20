@@ -1,8 +1,8 @@
 // Deriv 2D
 fn @deriv2D(RHS: Img, img: Img) -> () {
-    let mask = get_mask3([[0.0f,  1.0f, 0.0f],
-                          [1.0f, -4.0f, 1.0f],
-                          [0.0f,  1.0f, 0.0f]]);
+    let mask = get_mask3([[0:f32,  1:f32, 0:f32],
+                          [1:f32, -4:f32, 1:f32],
+                          [0:f32,  1:f32, 0:f32]]);
     for math, x, y, rhs_acc, accs in iteration_bounds(math, RHS, make_img_list1(img, (mask.size_x / 2, mask.size_y / 2)), mirror_lower, mirror_upper) {
         rhs_acc.write(x, y, apply_stencil(x, y, accs.get(0), mask));
     }
@@ -10,29 +10,29 @@ fn @deriv2D(RHS: Img, img: Img) -> () {
 
 
 // Jacobi
-static omega = 0.8f;
+static omega = 0.8:f32;
 static jacobi_mask = Mask {
-    data : @|x: i32, y: i32| -> f32 { [[0.00f, 0.25f, 0.00f],
-                                       [0.25f, 0.00f, 0.25f],
-                                       [0.00f, 0.25f, 0.00f]](y)(x) },
-    size_x : 3, size_y : 3
+    data = @|x: i32, y: i32| -> f32 { [[0.00:f32, 0.25:f32, 0.00:f32],
+                                       [0.25:f32, 0.00:f32, 0.25:f32],
+                                       [0.00:f32, 0.25:f32, 0.00:f32]](y)(x) },
+    size_x = 3, size_y = 3
 };
 // Dirichlet boundary handling -> 0
 //static dirichlet_lower = wrap_const_fun(const_lower, 0.0f);
 //static dirichlet_upper = wrap_const_fun(const_upper, 0.0f);
-fn @dirichlet_lower(idx: i32, lower: i32, upper: i32) -> BoundaryMode { const_lower(idx, lower, upper, 0.0f) }
-fn @dirichlet_upper(idx: i32, lower: i32, upper: i32) -> BoundaryMode { const_upper(idx, lower, upper, 0.0f) }
+fn @dirichlet_lower(idx: i32, lower: i32, upper: i32) = const_lower(idx, lower, upper, 0:f32)
+fn @dirichlet_upper(idx: i32, lower: i32, upper: i32) = const_upper(idx, lower, upper, 0:f32)
 fn @jacobi_solver(math: Intrinsics, x: i32, y: i32, Sol: Acc, Tmp: Acc, RHS: Acc, mask: Mask) -> () {
-    let val = (1.0f - omega) * Tmp.read(x, y) +
-              0.25f * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, mask);
+    let val = (1.0:f32 - omega) * Tmp.read(x, y) +
+              0.25:f32 * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, mask);
     Sol.write(x, y, val);
 }
 
 fn @jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
     for math, x, y, Sol, accs in iteration_bounds(math, Sol, make_img_list2(Tmp, (jacobi_mask.size_x / 2, jacobi_mask.size_y / 2), RHS, (0, 0)), dirichlet_lower, dirichlet_upper) {
         let (Tmp, RHS) = (accs.get(0), accs.get(1));
-        let val = (1.0f - omega) * Tmp.read(x, y) +
-                  0.25f * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, jacobi_mask);
+        let val = (1.0:f32 - omega) * Tmp.read(x, y) +
+                  0.25:f32 * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, jacobi_mask);
         Sol.write(x, y, val);
     }
 }
@@ -40,10 +40,10 @@ fn @jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
 
 // Residual
 static residual_mask = Mask {
-    data : @|x: i32, y: i32| -> f32 { [[0.0f,  1.0f, 0.0f],
-                                       [1.0f, -4.0f, 1.0f],
-                                       [0.0f,  1.0f, 0.0f]](y)(x) },
-    size_x : 3, size_y : 3
+    data = @|x: i32, y: i32| -> f32 { [[0:f32,  1:f32, 0:f32],
+                                       [1:f32, -4:f32, 1:f32],
+                                       [0:f32,  1:f32, 0:f32]](y)(x) },
+    size_x = 3, size_y = 3
 };
 fn @residual_fun(math: Intrinsics, x: i32, y: i32, Res: Acc, Sol: Acc, RHS: Acc, mask: Mask) -> () {
     let val = RHS.read(x, y) + apply_stencil(x, y, Sol, mask);
@@ -62,10 +62,10 @@ fn @residual(math: Intrinsics, Res: Img, Sol: Img, RHS: Img) -> () {
 // Restrict: arr = size x size; out = size/2 x size/2; fine -> coarse
 // coarse = Stencil * fine;
 static restrict_mask = Mask {
-    data : @|x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
-                                       [0.50f, 1.00f, 0.50f],
-                                       [0.25f, 0.50f, 0.25f]](y)(x) },
-    size_x : 3, size_y : 3
+    data = @|x: i32, y: i32| -> f32 { [[0.25:f32, 0.50:f32, 0.25:f32],
+                                       [0.50:f32, 1.00:f32, 0.50:f32],
+                                       [0.25:f32, 0.50:f32, 0.25:f32]](y)(x) },
+    size_x = 3, size_y = 3
 };
 fn @restrict_fun(math: Intrinsics, x: i32, y: i32, RHS: Acc, Res: Acc) -> () {
     let val = Res.read(2*x,   2*y  ) +
@@ -90,10 +90,10 @@ fn @restrict(math: Intrinsics, RHS: Img, Res: Img) -> () {
 // Interpolate: arr = size/2 x size/2; out = size x size; coarse -> fine
 // fine += Stencil * coarse:
 static interpolate_mask = Mask {
-    data : @|x: i32, y: i32| -> f32 { [[0.25f, 0.50f, 0.25f],
-                                       [0.50f, 1.00f, 0.50f],
-                                       [0.25f, 0.50f, 0.25f]](y)(x) },
-    size_x : 3, size_y : 3
+    data = @|x: i32, y: i32| -> f32 { [[0.25:f32, 0.50:f32, 0.25:f32],
+                                       [0.50:f32, 1.00:f32, 0.50:f32],
+                                       [0.25:f32, 0.50:f32, 0.25:f32]](y)(x) },
+    size_x = 3, size_y = 3
 };
 fn @interpolate_fun(math: Intrinsics, x: i32, y: i32, SolF: Acc, SolC: Acc) -> () {
     let val = SolC.read(x, y);
@@ -119,10 +119,10 @@ fn @interpolate(SolF: Img, SolC: Img) -> () {
 // L2 norm
 fn @l2norm(img: Img) -> f32 {
     // TODO: runs only on the CPU atm
-    let mut l2sum = 0.0f;
+    let mut l2sum = 0:f32;
     for y in range(0, img.height) {
         for x in range(0, img.width) {
-            let value = bitcast[&[f32]](img.buf.data)(y * img.stride + x);
+            let value = bitcast[&[f32], &[i8]](img.buf.data)(y * img.stride + x);
             l2sum += value*value;
         }
     }
@@ -134,17 +134,17 @@ fn @l2norm(img: Img) -> f32 {
 fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
     let width  = RHS0.width;
     let height = RHS0.height;
-    let RHS = ~[levels:Img];
-    let Sol = ~[levels:Img];
-    let Tmp = ~[levels:Img];
-    let Res = ~[levels:Img];
+    let RHS = runtime_alloc(0, levels as i64 * sizeof[Img]()) as &mut[Img];
+    let Sol = runtime_alloc(0, levels as i64 * sizeof[Img]()) as &mut[Img];
+    let Tmp = runtime_alloc(0, levels as i64 * sizeof[Img]()) as &mut[Img];
+    let Res = runtime_alloc(0, levels as i64 * sizeof[Img]()) as &mut[Img];
     for level in range(0, levels) {
-        fn init_img(level: i32) -> Img { create_img(width >> level, height >> level, alloc_cpu) }
+        fn init_img(level: i32) -> Img { create_img[f32](width >> level, height >> level, alloc_cpu) }
         RHS(level) = if level == 0 { RHS0 } else { init_img(level) };
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        init_zero(bitcast[&mut[f32]](Tmp(level).buf.data), Tmp(level).stride, Tmp(level).height);
+        init_zero(bitcast[&mut[f32], &[i8]](Tmp(level).buf.data), Tmp(level).stride, Tmp(level).height);
     }
 
     fn vcycle_intern(level: i32) -> () {
@@ -166,7 +166,7 @@ fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
 
             //if level == 0 { print_string("L2 norm: "); print_f32(l2norm(Res(level))); print_char('\n'); }
 
-            init_zero(bitcast[&mut[f32]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
+            init_zero(bitcast[&mut[f32], &[i8]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_intern(level+1);
 
             interpolate(Sol(level), Sol(level+1));
@@ -193,10 +193,10 @@ fn vcycle_reference(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32) -> Img {
         release(Tmp(level).buf);
     }
 
-    runtime_release(0, bitcast[&[i8]](RHS));
-    runtime_release(0, bitcast[&[i8]](Sol));
-    runtime_release(0, bitcast[&[i8]](Tmp));
-    runtime_release(0, bitcast[&[i8]](Res));
+    runtime_release(0, bitcast[&[i8], &[Img]](RHS));
+    runtime_release(0, bitcast[&[i8], &[Img]](Sol));
+    runtime_release(0, bitcast[&[i8], &[Img]](Tmp));
+    runtime_release(0, bitcast[&[i8], &[Img]](Res));
 
     result
 }
@@ -211,17 +211,17 @@ fn @vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
              ) -> Img {
     let width  = RHS0.width;
     let height = RHS0.height;
-    let RHS = ~[levels:Img];
-    let Sol = ~[levels:Img];
-    let Tmp = ~[levels:Img];
-    let Res = ~[levels:Img];
+    let RHS = runtime_alloc(0, levels as i64 * sizeof[Img]()) as &mut[Img];
+    let Sol = runtime_alloc(0, levels as i64 * sizeof[Img]()) as &mut[Img];
+    let Tmp = runtime_alloc(0, levels as i64 * sizeof[Img]()) as &mut[Img];
+    let Res = runtime_alloc(0, levels as i64 * sizeof[Img]()) as &mut[Img];
     for level in unroll(0, levels) {
-        fn init_img(level: i32) -> Img { create_img(width >> level, height >> level, alloc_cpu) }
+        fn init_img(level: i32) -> Img { create_img[f32](width >> level, height >> level, alloc_cpu) }
         RHS(level) = if level == 0 { RHS0 } else { init_img(level) };
         Sol(level) = init_img(level);
         Res(level) = init_img(level);
         Tmp(level) = init_img(level);
-        init_zero(bitcast[&mut[f32]](Tmp(level).buf.data), Tmp(level).stride, Tmp(level).height);
+        init_zero(bitcast[&mut[f32], &[i8]](Tmp(level).buf.data), Tmp(level).stride, Tmp(level).height);
     }
 
     fn @(?level) vcycle_dsl_intern(level: i32) -> () {
@@ -261,7 +261,7 @@ fn @vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
 
             //if level == 0 { print_string("L2 norm: "); print_f32(l2norm(Res(level))); print_char('\n'); }
 
-            init_zero(bitcast[&mut[f32]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
+            init_zero(bitcast[&mut[f32], &[i8]](Tmp(level+1).buf.data), Tmp(level+1).stride, Tmp(level+1).height);
             vcycle_dsl_intern(level+1);
 
             // use iteration space of SolC, compute 4x elements
@@ -295,20 +295,20 @@ fn @vcycle_dsl(RHS0: Img, levels: i32, vsteps: i32, ssteps: i32,
         release(Tmp(level).buf);
     }
 
-    runtime_release(0, bitcast[&[i8]](RHS));
-    runtime_release(0, bitcast[&[i8]](Sol));
-    runtime_release(0, bitcast[&[i8]](Tmp));
-    runtime_release(0, bitcast[&[i8]](Res));
+    runtime_release(0, bitcast[&[i8], &[Img]](RHS));
+    runtime_release(0, bitcast[&[i8], &[Img]](Sol));
+    runtime_release(0, bitcast[&[i8], &[Img]](Tmp));
+    runtime_release(0, bitcast[&[i8], &[Img]](Res));
 
     result
 }
 
 
-extern
+#[export]
 fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
-    let img = Img { buf : Buffer { data : bitcast[&[i8]](img_data), size : (width * height) as i64 * sizeof[f32](), device : 0 }, width : width, height : height, stride : width };
-    let out = Img { buf : Buffer { data : bitcast[&[i8]](out_data), size : (width * height) as i64 * sizeof[f32](), device : 0 }, width : width, height : height, stride : width };
-    let RHS = create_img(width, height, alloc_cpu);
+    let img = Img { buf = Buffer { data = bitcast[&mut[i8], &[f32]](img_data), size = (width * height) as i64 * sizeof[f32](), device = 0 }, width = width, height = height, stride = width };
+    let out = Img { buf = Buffer { data = bitcast[&mut[i8], &[f32]](out_data), size = (width * height) as i64 * sizeof[f32](), device = 0 }, width = width, height = height, stride = width };
+    let RHS = create_img[f32](width, height, alloc_cpu);
 
     deriv2D(RHS, img);
 
@@ -322,8 +322,8 @@ fn vcycle(img_data: &[f32], out_data: &[f32], width: i32, height: i32) -> () {
 
     for y in range(0, out.height) {
         for x in range(0, out.width) {
-            let out_acc = get_acc(out,    @|idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val },    @|idx| bitcast[&[f32]](out.buf.data)(idx));
-            let res_acc = get_acc(result, @|idx, val| { bitcast[&mut[f32]](result.buf.data)(idx) = val }, @|idx| bitcast[&[f32]](result.buf.data)(idx));
+            let out_acc = get_acc(out,    @|idx, val| bitcast[&mut[f32], &[i8]](out.buf.data)(idx) = val,    @|idx| bitcast[&[f32], &[i8]](out.buf.data)(idx));
+            let res_acc = get_acc(result, @|idx, val| bitcast[&mut[f32], &[i8]](result.buf.data)(idx) = val, @|idx| bitcast[&[f32], &[i8]](result.buf.data)(idx));
             out_acc.write(x, y, res_acc.read(x, y));
         }
     }
