@@ -1,4 +1,4 @@
-//type pixel_t = f32;
+type pixel_t = f32;
 
 #[export]
 fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {

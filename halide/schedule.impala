@@ -1,4 +1,3 @@
-type pixel_t = f32;
 type Read = fn(i32) -> fn(i32, i32) -> pixel_t;
 type Write = fn(i32, i32, pixel_t) -> ();
 type BinOp = fn(i32, i32) -> pixel_t;

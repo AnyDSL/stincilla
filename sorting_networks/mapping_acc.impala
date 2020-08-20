@@ -1,6 +1,4 @@
-fn iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: BoundaryFn,
-                    body: fn(i32, i32, Acc, Acc) -> ()
-                   ) -> () {
+fn @iteration_median(body: fn(i32, i32, Acc, Acc) -> ()) = @|out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
     let acc   = accelerator(device_id);
     let grid  = (out.width, out.height, 1);
     let block = (128, 1, 1);
@@ -15,7 +13,7 @@ fn iteration_median(out: Img, arr: Img, bh_lower: BoundaryFn, bh_upper: Boundary
             let gid_y = work_item.gidy();
             let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Unknown, Boundary::Center), bh_lower, bh_upper);
             let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-            @@body(gid_x, gid_y, out_acc, arr_acc);
+            @body(gid_x, gid_y, out_acc, arr_acc);
         }
     }
 

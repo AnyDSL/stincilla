@@ -1,23 +1,24 @@
-fn @iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) -> () {
+fn @iteration(body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -> ()) = @|out: Buffer, arr: Buffer, width: i32, height: i32| {
     let acc         = accelerator(device_id);
     let arr_buf_gpu = acc.alloc((width * height) as i64 * sizeof[f32]());
     let out_buf_gpu = acc.alloc((width * height) as i64 * sizeof[f32]());
-    let     arr_gpu = bitcast[&   [1][f32]](arr_buf_gpu.data);
-    let     out_gpu = bitcast[&mut[1][f32]](out_buf_gpu.data);
+    let     arr_gpu = bitcast[&    addrspace(1)[f32], &[i8]](arr_buf_gpu.data);
+    let     out_gpu = bitcast[&mut addrspace(1)[f32], &[i8]](out_buf_gpu.data);
     copy(arr, arr_buf_gpu);
 
     let grid  = (width, height, 1);
     let block = (128, 1, 1);
+    let (block_x, block_y, _) = block;
     for work_item in acc.exec(grid, block) {
-        let shared = reserve_shared[f32](block(0) * block(1));
+        let shared = reserve_shared[f32](block_x * block_y);
         // arr -> shared
-        @@body(work_item.gidx(), work_item.gidy(),
-               |x, y|      { arr_gpu(y*width + x) },
-               |x, y, val| {  shared(work_item.tidx()) = val; });
+        @body(work_item.gidx(), work_item.gidy(),
+              |x, y|      { arr_gpu(y*width + x) },
+              |x, y, val| {  shared(work_item.tidx()) = val; });
         // shared -> out
-        @@body(work_item.gidx(), work_item.gidy(),
-               |x, y|      {  shared(work_item.tidx()) },
-               |x, y, val| { out_gpu(y*width + x) = val; });
+        @body(work_item.gidx(), work_item.gidy(),
+              |x, y|      {  shared(work_item.tidx()) },
+              |x, y, val| { out_gpu(y*width + x) = val; });
     }
     acc.sync();
 
@@ -26,16 +27,17 @@ fn @iteration(out: Buffer, arr: Buffer, width: i32, height: i32, body: fn(i32, i
     release(arr_buf_gpu);
 }
 
+#[export]
 fn main() -> i32 {
     let width   = 2048;
     let height  = 2048;
     let arr     = alloc_cpu((width * height) as i64 * sizeof[f32]());
     let out     = alloc_cpu((width * height) as i64 * sizeof[f32]());
     for i in range(0, width*height) {
-        let arr_ptr = bitcast[&mut[f32]](arr.data);
-        let out_ptr = bitcast[&mut[f32]](out.data);
+        let arr_ptr = bitcast[&mut[f32], &[i8]](arr.data);
+        let out_ptr = bitcast[&mut[f32], &[i8]](out.data);
         arr_ptr(i) = i as f32;
-        out_ptr(i) = 0.0f;
+        out_ptr(i) = 0:f32;
     }
 
     for x, y, read, write in iteration(out, arr, width, height) {
@@ -45,7 +47,7 @@ fn main() -> i32 {
 
     let mut passed = 0;
     for i in range(0, width*height) {
-        if bitcast[&[f32]](out.data)(i) != bitcast[&[f32]](arr.data)(i) { passed++; }
+        if bitcast[&[f32], &[i8]](out.data)(i) != bitcast[&[f32], &[i8]](arr.data)(i) { passed++; }
     }
     if passed == 0 {
         print_string("Test PASSED!\n");

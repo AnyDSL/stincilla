@@ -1,8 +1,3 @@
-add_executable(jit jit.cpp)
-target_link_libraries(jit ${AnyDSL_runtime_LIBRARIES})
-set_target_properties(jit PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
-add_test("jit" jit)
-
 anydsl_runtime_wrap(STENCIL_INT_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
@@ -18,6 +13,13 @@ anydsl_runtime_wrap(FLOW_GRAPH_PROGRAM
 add_executable(flow_graph ${FLOW_GRAPH_PROGRAM})
 target_link_libraries(flow_graph ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("flow_graph" flow_graph)
+
+if(AnyDSL_runtime_HAS_JIT_SUPPORT)
+    add_executable(jit jit.cpp)
+    target_link_libraries(jit ${AnyDSL_runtime_LIBRARIES})
+    set_target_properties(jit PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+    add_test("jit" jit)
+endif()
 
 if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     anydsl_runtime_wrap(MULTI_GPU_PROGRAM

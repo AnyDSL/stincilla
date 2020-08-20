@@ -1,6 +1,4 @@
-fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
-              body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()
-             ) -> () {
+fn @iteration(body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()) = @|math: Intrinsics, out: Buffer, width: i32, height: i32| {
     let acc   = accelerator(device_id);
     let grid  = (width, height, 1);
     let block = (32, 4, 1);
@@ -8,7 +6,7 @@ fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
     // initialize seed on the CPU
     random_seed(get_micro_time() as u32);
     let seed_buf = alloc_cpu((width * height) as i64 * sizeof[u64]());
-    let seed = bitcast[&mut[u64]](seed_buf.data);
+    let seed = bitcast[&mut[u64], &[i8]](seed_buf.data);
     for i in range(0, width * height) {
         seed(i) = random_val_u64();
     }
@@ -21,7 +19,7 @@ fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
         for work_item in acc.exec(grid, block) {
             let gid_x = work_item.gidx();
             let gid_y = work_item.gidy();
-            let seed  = bitcast[&[1][u64]](seed_gpu.data);
+            let seed  = bitcast[&addrspace(1)[u64], &[i8]](seed_gpu.data);
             let mut state = seed(gid_y * width + gid_x);
             fn @rand() -> f64 {
                 let (r, s) = rnd_f64(state);
@@ -29,12 +27,12 @@ fn @iteration(math: Intrinsics, out: Buffer, width: i32, height: i32,
                 r
             }
             fn @out_fun(r: u8, g: u8, b: u8) -> () {
-                let out = bitcast[&mut[1][u8]](out_gpu.data);
+                let out = bitcast[&mut addrspace(1)[u8], &[i8]](out_gpu.data);
                 out(3 * (gid_y * width + gid_x) + 0) = r;
                 out(3 * (gid_y * width + gid_x) + 1) = g;
                 out(3 * (gid_y * width + gid_x) + 2) = b;
             }
-            @@body(math, gid_x, gid_y, out_fun, rand);
+            @body(math, gid_x, gid_y, out_fun, rand);
         }
     }
 

@@ -34,7 +34,7 @@ fn @oddeven_merge_sort(length: i32, read: fn(i32) -> f32, write: fn(i32, f32) ->
     oddeven_merge_sort_range(0, length);
 }
 
-extern
+#[export]
 fn test(input: &[f32]) -> f32 {
     let length = 4;
 

@@ -1,11 +1,12 @@
+#[export]
 fn main() -> i32 {
     let num_tasks = 3;
-    let tasks = ~[num_tasks:FlowTask];
+    let tasks = runtime_alloc(0, num_tasks as i64 * sizeof[FlowTask]()) as &mut[FlowTask];
 
     let graph = create_graph();
 
     for t in range(0, num_tasks) {
-        tasks(t) = with create_task(graph) {
+        tasks(t) = for create_task(graph) {
             print_string("hello from task #");
             print_i32(t);
             print_string("\n");
@@ -16,6 +17,7 @@ fn main() -> i32 {
     }
 
     execute_flowgraph(graph, tasks(0));
+    runtime_release(0, tasks as &[i8]);
 
     0
 }

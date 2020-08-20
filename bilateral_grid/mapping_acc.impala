@@ -1,34 +1,29 @@
-fn @img_read_fn(img: Buffer, width: i32) -> fn(i32, i32) -> f32 { |x: i32, y: i32| bitcast[&[1][f32]](img.data)(y * width + x) }
-fn @img_write_fn(img: Buffer, width: i32) -> fn(i32, i32, f32) -> () { |x: i32, y: i32, v: f32| bitcast[&mut[1][f32]](img.data)(y * width + x) = v }
-fn @grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32) -> f32 {
-    @|x, y, z, c| bitcast[&[1][f32]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c)
-}
-fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) -> fn(i32, i32, i32, i32, f32) -> () {
-    @|x, y, z, c, v| { bitcast[&mut[1][f32]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c) = v }
-}
+fn @img_read_fn(img: Buffer, width: i32) = @|x: i32, y: i32| bitcast[&addrspace(1)[f32], &[i8]](img.data)(y * width + x)
+fn @img_write_fn(img: Buffer, width: i32) = @|x: i32, y: i32, v: f32| bitcast[&mut addrspace(1)[f32], &[i8]](img.data)(y * width + x) = v
+fn @grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32| bitcast[&addrspace(1)[f32], &[i8]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c)
+fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32, v: f32| bitcast[&mut addrspace(1)[f32], &[i8]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c) = v
+
 fn @get_device_copy(host: &[f32], size: i64) -> Buffer {
     let acc = accelerator(device_id);
     let img_gpu = acc.alloc(size);
-    let img_cpu = Buffer { data : bitcast[&[i8]](host), size : size, device : 0 };
+    let img_cpu = Buffer { data = bitcast[&mut[i8], &[f32]](host), size = size, device = 0 };
     copy(img_cpu, img_gpu);
     img_gpu
 }
 
 fn @copy_to_host(host: &[f32], img_gpu: Buffer, size: i64) -> () {
-    let img_cpu = Buffer { data : bitcast[&[i8]](host), size : size, device : 0 };
+    let img_cpu = Buffer { data = bitcast[&mut[i8], &[f32]](host), size = size, device = 0 };
     copy(img_gpu, img_cpu);
 }
 
-fn @release_device_copy(img: Buffer) -> () {
-    release(img)
-}
+fn @release_device_copy(img: Buffer) = release(img)
 
 fn @alloc_grid(size: i64) -> Buffer {
     let acc = accelerator(device_id);
     acc.alloc(size)
 }
 
-fn @iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
+fn @iteration_grid(body: fn(i32, i32) -> ()) = @|bgrid: Grid| {
     let acc = accelerator(device_id);
     let coarsening_factor = 1;
     let grid  = (bgrid.width(), bgrid.height() / coarsening_factor, 1);
@@ -41,13 +36,13 @@ fn @iteration_grid(bgrid: Grid, body: fn(i32, i32) -> ()) -> () {
             let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
             for i in unroll(0, coarsening_factor) {
-                @@body(gid_x, gid_y + i * bdim_y);
+                @body(gid_x, gid_y + i * bdim_y);
             }
         }
     }
 }
 
-fn @iteration_space(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
+fn @iteration_space(body: fn(i32, i32) -> ()) = @|width: i32, height: i32| {
     let acc = accelerator(device_id);
     let coarsening_factor = 1;
     let grid  = (width, height / coarsening_factor, 1);
@@ -60,7 +55,7 @@ fn @iteration_space(width: i32, height: i32, body: fn(i32, i32) -> ()) -> () {
             let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
             for i in unroll(0, coarsening_factor) {
-                @@body(gid_x, gid_y + i * bdim_y);
+                @body(gid_x, gid_y + i * bdim_y);
             }
         }
     }

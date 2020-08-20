@@ -24,20 +24,20 @@ fn create_grid(x: i32, y: i32, grid: Grid, image: fn(i32, i32) -> f32) -> () {
     for ry in range(0, grid.sigma_s()+1) {
         for rx in range(0, grid.sigma_s()+1) {
             let mut val = image(x * grid.sigma_s() + rx - grid.sigma_s()/2, y * grid.sigma_s() + ry - grid.sigma_s()/2);
-            val = clamp_f32(val, 0.0f, 1.0f);
-            let zi = (val * (1.0f / grid.sigma_r()) + 0.5f) as i32;
+            val = clamp_f32(val, 0:f32, 1:f32);
+            let zi = (val * (1:f32 / grid.sigma_r()) + 0.5:f32) as i32;
             grid.write(x, y, zi, 0, grid.read(x, y, zi, 0) + val);
-            grid.write(x, y, zi, 1, grid.read(x, y, zi, 1) + 1.0f);
+            grid.write(x, y, zi, 1, grid.read(x, y, zi, 1) + 1:f32);
         }
     }
 }
 
 fn slice_grid(x: i32, y: i32, grid: Grid, image: fn(i32, i32) -> f32, filter: fn(i32, i32, i32, i32, Grid) -> f32) -> f32 {
     // trilinear samples to compute the output
-    let lerp         = @|a: f32, b: f32, w: f32| -> f32 { (1.0f - w) * a + w * b };
+    let lerp         = @|a: f32, b: f32, w: f32| -> f32 { (1:f32 - w) * a + w * b };
     let interpolate  = @|x: i32, y: i32, c: i32| -> f32 {
-                        let val = clamp_f32(image(x, y), 0.0f, 1.0f);
-                        let zv = val * (1.0f / grid.sigma_r());
+                        let val = clamp_f32(image(x, y), 0:f32, 1:f32);
+                        let zv = val * (1:f32 / grid.sigma_r());
                         let zi = zv as i32;
                         let zf = zv - zi as f32;
                         let xf = (x % grid.sigma_s()) as f32 / grid.sigma_s() as f32;
@@ -54,24 +54,24 @@ fn slice_grid(x: i32, y: i32, grid: Grid, image: fn(i32, i32) -> f32, filter: fn
 }
 
 
-extern
+#[export]
 fn bilateral_grid(image: &[f32], width: i32, height: i32) -> () {
     let sigma_s  = 8;
-    let sigma_r  = 0.1f;
+    let sigma_r  = 0.1:f32;
     let padding  = 2;
-    let bins     = (1.0f  / sigma_r) as i32 + 2 * padding;
-    let gwidth   = width  / sigma_s;
-    let gheight  = height / sigma_s;
+    let bins     = (1.0:f32  / sigma_r) as i32 + 2 * padding;
+    let gwidth   = width     / sigma_s;
+    let gheight  = height    / sigma_s;
     let grid_buf = alloc_grid((gwidth * gheight * bins) as i64 * sizeof[[f32*2]]());
     let grid = Grid {
-        sigma_s : @|| sigma_s,
-        sigma_r : @|| sigma_r,
-        padding : @|| padding,
-        width   : @|| gwidth,
-        height  : @|| gheight,
-        bins    : @|| bins,
-        read    : grid_read_fn(gwidth, bins, padding, grid_buf),
-        write   : grid_write_fn(gwidth, bins, padding, grid_buf),
+        sigma_s = @|| sigma_s,
+        sigma_r = @|| sigma_r,
+        padding = @|| padding,
+        width   = @|| gwidth,
+        height  = @|| gheight,
+        bins    = @|| bins,
+        read    = grid_read_fn(gwidth, bins, padding, grid_buf),
+        write   = grid_write_fn(gwidth, bins, padding, grid_buf),
     };
 
     let gpu_image = get_device_copy(image, (width * height) as i64 * sizeof[f32]());
@@ -84,23 +84,23 @@ fn bilateral_grid(image: &[f32], width: i32, height: i32) -> () {
     // blur the grid
     let blurz    = @|x: i32, y: i32, z: i32, c: i32, grid: Grid| -> f32 {
                      grid.read(x, y, z-2, c) +
-                     grid.read(x, y, z-1, c) * 4.0f +
-                     grid.read(x, y, z  , c) * 6.0f +
-                     grid.read(x, y, z+1, c) * 4.0f +
+                     grid.read(x, y, z-1, c) * 4:f32 +
+                     grid.read(x, y, z  , c) * 6:f32 +
+                     grid.read(x, y, z+1, c) * 4:f32 +
                      grid.read(x, y, z+2, c)
                    };
     let blurx    = @|x: i32, y: i32, z: i32, c: i32, grid: Grid| -> f32 {
                      blurz(clamp_i32(x-2, 0, grid.width()), y, z, c, grid) +
-                     blurz(clamp_i32(x-1, 0, grid.width()), y, z, c, grid) * 4.0f +
-                     blurz(clamp_i32(x  , 0, grid.width()), y, z, c, grid) * 6.0f +
-                     blurz(clamp_i32(x+1, 0, grid.width()), y, z, c, grid) * 4.0f +
+                     blurz(clamp_i32(x-1, 0, grid.width()), y, z, c, grid) * 4:f32 +
+                     blurz(clamp_i32(x  , 0, grid.width()), y, z, c, grid) * 6:f32 +
+                     blurz(clamp_i32(x+1, 0, grid.width()), y, z, c, grid) * 4:f32 +
                      blurz(clamp_i32(x+2, 0, grid.width()), y, z, c, grid)
                    };
     let blury    = @|x: i32, y: i32, z: i32, c: i32, grid: Grid| -> f32 {
                      blurx(x, clamp_i32(y-2, 0, grid.height()), z, c, grid) +
-                     blurx(x, clamp_i32(y-1, 0, grid.height()), z, c, grid) * 4.0f +
-                     blurx(x, clamp_i32(y  , 0, grid.height()), z, c, grid) * 6.0f +
-                     blurx(x, clamp_i32(y+1, 0, grid.height()), z, c, grid) * 4.0f +
+                     blurx(x, clamp_i32(y-1, 0, grid.height()), z, c, grid) * 4:f32 +
+                     blurx(x, clamp_i32(y  , 0, grid.height()), z, c, grid) * 6:f32 +
+                     blurx(x, clamp_i32(y+1, 0, grid.height()), z, c, grid) * 4:f32 +
                      blurx(x, clamp_i32(y+2, 0, grid.height()), z, c, grid)
                    };
     let filter   = @|x: i32, y: i32, z: i32, c: i32, grid: Grid| -> f32 { blury(x, y, z, c, grid) };
@@ -109,8 +109,8 @@ fn bilateral_grid(image: &[f32], width: i32, height: i32) -> () {
     // init grid
     for x, y in iteration_grid(grid) {
         for z in range(-grid.padding(), grid.bins()-grid.padding()) {
-            grid.write(x, y, z, 0, 0.0f);
-            grid.write(x, y, z, 1, 0.0f);
+            grid.write(x, y, z, 0, 0:f32);
+            grid.write(x, y, z, 1, 0:f32);
         }
     }
 

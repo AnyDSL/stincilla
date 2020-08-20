@@ -5,20 +5,18 @@ struct Mat {
     write : fn(i32, i32, f32) -> (),
 }
 
-fn @get_mat(buf: Buffer, rows: i32, cols: i32) -> Mat {
-    Mat {
-        rows  : @|| rows,
-        cols  : @|| cols,
-        read  : @|x, y| { bitcast[&[f32]](buf.data)(y * cols + x) },
-        write : @|x, y, v| { bitcast[&mut[f32]](buf.data)(y * cols + x) = v },
-    }
+fn @get_mat(buf: Buffer, rows: i32, cols: i32) = Mat {
+    rows  = @|| rows,
+    cols  = @|| cols,
+    read  = @|x, y|    { bitcast[&[f32],    &[i8]](buf.data)(y * cols + x) },
+    write = @|x, y, v| { bitcast[&mut[f32], &[i8]](buf.data)(y * cols + x) = v },
 }
 
 
 fn matmul_golden(C: Mat, A: Mat, B: Mat) -> () {
     for i in range(0, C.rows()) {
         for k in range(0, C.cols()) {
-            let mut sum = 0.0f;
+            let mut sum = 0:f32;
             for j in range(0, A.cols()) {
                 sum += A.read(j, i) * B.read(k, j);
             }
@@ -32,7 +30,7 @@ fn matmul_hand_tiled(C: Mat, A: Mat, B: Mat) -> () {
     // initialize C with zeros
     for y in range(0, C.rows()) {
         for x in range(0, C.cols()) {
-            C.write(x, y, 0.0f);
+            C.write(x, y, 0:f32);
         }
     }
 
@@ -67,7 +65,7 @@ fn matmul_auto_tiled(C: Mat, A: Mat, B: Mat) -> () {
 
         fn @(?cur_lvl) tile(cur_lvl: i32, il: i32, iu: i32, kl: i32, ku: i32, jl: i32, ju: i32) -> () {
             let step = get_step(cur_lvl);
-            pe_info("step size", step);
+            pe_info[i32]("step size", step);
 
             if step == 1 {
                 for i in range(il, min(iu, C.rows())) {
@@ -96,7 +94,7 @@ fn matmul_auto_tiled(C: Mat, A: Mat, B: Mat) -> () {
     // initialize C with zeros
     for y in range(0, C.rows()) {
         for x in range(0, C.cols()) {
-            C.write(x, y, 0.0f);
+            C.write(x, y, 0:f32);
         }
     }
 
@@ -104,7 +102,8 @@ fn matmul_auto_tiled(C: Mat, A: Mat, B: Mat) -> () {
 }
 
 
-fn main(i: i32) -> i32 {
+#[export]
+fn main() -> i32 {
     let l = 512;
     let m = 1024;
     let n = 2048;
@@ -116,35 +115,35 @@ fn main(i: i32) -> i32 {
     let B = get_mat(B_buf, m, n); // nxm
     let C = get_mat(C_buf, l, n); // nxl
     let R = get_mat(R_buf, l, n); // nxl
-    init_rand(bitcast[&mut[f32]](A_buf.data), A.cols(), A.rows());
-    init_rand(bitcast[&mut[f32]](B_buf.data), B.cols(), B.rows());
+    init_rand(bitcast[&mut[f32], &[i8]](A_buf.data), A.cols(), A.rows());
+    init_rand(bitcast[&mut[f32], &[i8]](B_buf.data), B.cols(), B.rows());
 
     let nops = 2 as i64 * l as i64 * m as i64 * n as i64;
     fn print_gflops(time: i64) -> () {
         print_string("Timing: ");
-        print_f64(time as f64 / 1000.0);
+        print_f64(time as f64 / 1000:f64);
         print_string(" ms\n");
         let gflops = (1.0e-9 * nops as f64) / (time as f64 * 1.0e-6);
         print_f64(gflops);
         print_string(" GFLOPS\n")
     }
 
-    fn bench_fun(fun: fn() -> ()) -> () {
+    fn bench_fun(fun: fn() -> ()) = @|| {
         let start = get_micro_time();
         fun();
         let end = get_micro_time();
         print_gflops(end - start);
     }
 
-    with bench_fun() {
+    for bench_fun() {
         matmul_golden(R, A, B);
     }
 
-    with bench_fun() {
+    for bench_fun() {
         matmul_hand_tiled(C, A, B);
     }
 
-    with bench_fun() {
+    for bench_fun() {
         matmul_auto_tiled(C, A, B);
     }
 

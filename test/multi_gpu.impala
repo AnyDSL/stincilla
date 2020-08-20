@@ -1,6 +1,6 @@
-fn @iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(i32, i32, &mut[1][f32], &[1][f32]) -> ()) -> () {
+fn @iteration_multi(body: fn(i32, i32, &mut addrspace(1)[f32], &addrspace(1)[f32]) -> ()) = @|width: i32, height: i32, out: Buffer, arr: Buffer| {
     let num_dev  = 2;
-    let ids      = ~[num_dev:i32];
+    let ids      = runtime_alloc(0, num_dev as i64 * sizeof[i32]()) as &mut[i32];
     let size_gpu = (width * height / num_dev) as i64 * sizeof[f32]();
 
     for dev in range(0, num_dev) {
@@ -8,18 +8,18 @@ fn @iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(
         let grid  = (width, height / num_dev, 1);
         let block = (128, 1, 1);
 
-        ids(dev) = with spawn() {
+        ids(dev) = for spawn() {
             let acc = accelerator(dev);
             let arr_gpu = acc.alloc(size_gpu);
             let out_gpu = acc.alloc(size_gpu);
-            copy_offset(arr, offset, arr_gpu, 0i64, size_gpu);
+            copy_offset(arr, offset, arr_gpu, 0, size_gpu);
 
             for work_item in acc.exec(grid, block) {
-                @@body(work_item.gidx(), work_item.gidy(), bitcast[&mut[1][f32]](out_gpu.data), bitcast[&[1][f32]](arr_gpu.data));
+                @body(work_item.gidx(), work_item.gidy(), bitcast[&mut addrspace(1)[f32], &[i8]](out_gpu.data), bitcast[&addrspace(1)[f32], &[i8]](arr_gpu.data));
             }
             acc.sync();
 
-            copy_offset(out_gpu, 0i64, out, offset, size_gpu);
+            copy_offset(out_gpu, 0, out, offset, size_gpu);
             release(out_gpu);
             release(arr_gpu);
         }
@@ -28,15 +28,17 @@ fn @iteration_multi(width: i32, height: i32, out: Buffer, arr: Buffer, body: fn(
     for dev in range(0, num_dev) {
         sync(ids(dev));
     }
+    runtime_release(0, ids as &[i8]);
 }
 
+#[export]
 fn main() -> i32 {
     let width   = 4096;
     let height  = 4096;
     let arr_buf = alloc_cpu((width * height) as i64 * sizeof[f32]());
     let out_buf = alloc_cpu((width * height) as i64 * sizeof[f32]());
-    let arr = bitcast[&mut[f32]](arr_buf.data);
-    let out = bitcast[&mut[f32]](out_buf.data);
+    let arr = bitcast[&mut[f32], &[i8]](arr_buf.data);
+    let out = bitcast[&mut[f32], &[i8]](out_buf.data);
     init_rand(arr, width, height);
     init_zero(out, width, height);
 

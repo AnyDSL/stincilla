@@ -1,22 +1,20 @@
-fn @set_pixeli16_fn(img: Imgi16) -> fn(i32, i16) -> () { |idx, val| bitcast[&mut[1][i16]](img.buf.data)(idx) = val }
-fn @get_pixeli16_fn(img: Imgi16) -> fn(i32) -> i16 { |idx| bitcast[&[1][i16]](img.buf.data)(idx) }
+fn @set_pixeli16_fn(img: Imgi16) = @|idx, val| bitcast[&mut addrspace(1)[i16], &[i8]](img.buf.data)(idx) = val
+fn @get_pixeli16_fn(img: Imgi16) = @|idx| bitcast[&addrspace(1)[i16], &[i8]](img.buf.data)(idx)
 
-fn @(?a & ?b) for_shift_down(a: i32, b: i32, body: fn(i32) -> ()) -> () {
+fn @for_shift_down(body: fn(i32) -> ()) = @(?a & ?b) |a: i32, b: i32| {
     if a > b {
-        @@body(a);
-        for_shift_down(a >> 1, b, body)
+        @body(a);
+        for_shift_down(body)(a >> 1, b)
     }
 }
-fn @(?a & ?b) for_shift_up(a: i32, b: i32, body: fn(i32) -> ()) -> () {
+fn @for_shift_up(body: fn(i32) -> ()) = @(?a & ?b) |a: i32, b: i32| {
     if a < b {
-        @@body(a);
-        for_shift_up(a << 1, b, body)
+        @body(a);
+        for_shift_up(body)(a << 1, b)
     }
 }
 
-fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
-                  body: fn(i32, i32, Acc, Acci16) -> ()
-                 ) -> () {
+fn @iteration1f1i(body: fn(i32, i32, Acc, Acci16) -> ()) = @|out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16| {
     let coarsening_factor = 1;
     let acc   = accelerator(device_id);
     let grid  = (out.width, out.height / coarsening_factor, 1);
@@ -35,7 +33,7 @@ fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
             let arr_acc = get_acci16_bh(arr_gpu, set_pixeli16_fn(arr_gpu), get_pixeli16_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
             for i in unroll(0, coarsening_factor) {
-                @@body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc);
+                @body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc);
             }
         }
     }
@@ -44,9 +42,7 @@ fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
     release(out_gpu.buf);
     release(arr_gpu.buf);
 }
-fn @iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
-                body: fn(i32, i32, Acci16, Acci16) -> ()
-               ) -> () {
+fn @iteration2i(body: fn(i32, i32, Acci16, Acci16) -> ()) = @|out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16| {
     let coarsening_factor = 1;
     let acc   = accelerator(device_id);
     let grid  = (out.width, out.height / coarsening_factor, 1);
@@ -65,7 +61,7 @@ fn @iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bou
             let arr_acc = get_acci16_bh(arr_gpu, set_pixeli16_fn(arr_gpu), get_pixeli16_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
 
             for i in unroll(0, coarsening_factor) {
-                @@body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc);
+                @body(gid_x, gid_y + i * bdim_y, out_acc, arr_acc);
             }
         }
     }
@@ -74,9 +70,7 @@ fn @iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bou
     release(out_gpu.buf);
     release(arr_gpu.buf);
 }
-fn @iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
-                  body: fn(i32, i32, Acci16, Acci16, Acc) -> ()
-                 ) -> () {
+fn @iteration2i1m(body: fn(i32, i32, Acci16, Acci16, Acc) -> ()) = @|out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16| {
     let coarsening_factor = 1;
     let acc   = accelerator(device_id);
     let grid  = (out.width, out.height / coarsening_factor, 1);
@@ -98,7 +92,7 @@ fn @iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, b
             let map_acc = get_acc(map_gpu, set_pixel_fn(map_gpu), get_pixel_fn(map_gpu));
 
             for i in unroll(0, coarsening_factor) {
-                @@body(gid_x, gid_y + i * bdim_y, out_acc, img_acc, map_acc);
+                @body(gid_x, gid_y + i * bdim_y, out_acc, img_acc, map_acc);
             }
         }
     }
@@ -108,9 +102,7 @@ fn @iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, b
     release(img_gpu.buf);
     release(map_gpu.buf);
 }
-fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
-                body: fn(i32, i32, Acci16, Acci16, Acci16) -> ()
-               ) -> () {
+fn @iteration3i(body: fn(i32, i32, Acci16, Acci16, Acci16) -> ()) = @|out: Imgi16, img: Imgi16, tmp: Imgi16| {
     let coarsening_factor = 1;
     let acc   = accelerator(device_id);
     let grid  = (out.width, out.height / coarsening_factor, 1);
@@ -132,7 +124,7 @@ fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
             let tmp_acc = get_acci16(tmp_gpu, set_pixeli16_fn(tmp_gpu), get_pixeli16_fn(tmp_gpu));
 
             for i in unroll(0, coarsening_factor) {
-                @@body(gid_x, gid_y + i * bdim_y, out_acc, img_acc, tmp_acc);
+                @body(gid_x, gid_y + i * bdim_y, out_acc, img_acc, tmp_acc);
             }
         }
     }
@@ -142,12 +134,12 @@ fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     release(img_gpu.buf);
     release(tmp_gpu.buf);
 }
-fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
+fn @reduce(body: fn(i32, i32, Acci16) -> i32) = @|img: Imgi16| -> i32 {
     let acc = accelerator(device_id);
     let tmp_buf = acc.alloc(sizeof[i32]());
-    let tmp     = bitcast[&mut[1][i32]](tmp_buf.data);
+    let tmp     = bitcast[&mut addrspace(1)[i32], &[i8]](tmp_buf.data);
     let sum_buf = alloc_cpu(sizeof[i32]());
-    bitcast[&mut[i32]](sum_buf.data)(0) = 0;
+    bitcast[&mut[i32], &[i8]](sum_buf.data)(0) = 0;
     copy(sum_buf, tmp_buf);
 
     let img_gpu = alloc_imgi16(img, acc.alloc);
@@ -165,7 +157,7 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
             let mut sum = 0;
             let img_acc = get_acci16(img_gpu, set_pixeli16_fn(img_gpu), get_pixeli16_fn(img_gpu));
             for y in range(0, img_gpu.height) {
-                sum += @@body(gid_x, y, img_acc);
+                sum += @body(gid_x, y, img_acc);
             }
             sm_sum(tid_x) = sum;
 
@@ -185,16 +177,16 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     }
 
     copy(tmp_buf, sum_buf);
-    let sum = bitcast[&[i32]](sum_buf.data)(0) / iter_acc;
+    let sum = bitcast[&[i32], &[i8]](sum_buf.data)(0) / iter_acc;
     release(sum_buf);
     release(tmp_buf);
     release(img_gpu.buf);
     sum
 }
-fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
+fn @histogram(body: fn(i32, i32, Acc) -> i32) = @|img: Img| -> Buffer {
     let acc      = accelerator(device_id);
-    let hist_buf = acc.alloc(256i64 * sizeof[i32]());
-    let     hist = bitcast[&mut[1][i32]](hist_buf.data);
+    let hist_buf = acc.alloc(256 * sizeof[i32]());
+    let     hist = bitcast[&mut addrspace(1)[i32], &[i8]](hist_buf.data);
 
     let img_gpu = alloc_img(img, acc.alloc);
     copy_img(img, img_gpu);
@@ -209,7 +201,7 @@ fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
             let sm_hist = reserve_shared[i32](256);
             let img_acc = get_acc(img_gpu, set_pixel_fn(img_gpu), get_pixel_fn(img_gpu));
             for y in range(0, img.height) {
-                let bin = @@body(work_item.gidx(), y, img_acc);
+                let bin = @body(work_item.gidx(), y, img_acc);
                 atomic_add_shared(&mut sm_hist(bin), 1);
             }
             atomic_add_global(&mut hist(work_item.tidx()), sm_hist(work_item.tidx()));
@@ -221,14 +213,14 @@ fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
 fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     let acc = accelerator(device_id);
     let scan_buf = acc.alloc(size as i64 * sizeof[i32]());
-    let     scan = bitcast[&mut[1][i32]](scan_buf.data);
-    let     hist = bitcast[&   [1][i32]](hist_buf.data);
+    let     scan = bitcast[&mut addrspace(1)[i32], &[i8]](scan_buf.data);
+    let     hist = bitcast[&    addrspace(1)[i32], &[i8]](hist_buf.data);
 
     // perform scan per block in shared memory first
     let block_size = if size <= 256 { 128 } else { 256 };
     let num_blocks = size / (2 * block_size);
     let tmp_buf = acc.alloc(num_blocks as i64 * sizeof[i32]());
-    let     tmp = bitcast[&mut[1][i32]](tmp_buf.data);
+    let     tmp = bitcast[&mut addrspace(1)[i32], &[i8]](tmp_buf.data);
 
     let grid  = (size / 2, 1, 1);
     let block = (block_size, 1, 1);
@@ -341,10 +333,10 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
 }
 fn @find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 {
     let acc      = accelerator(device_id);
-    let size_buf = Buffer { data : bitcast[&[i8]](&mut size), size : sizeof[i32](), device : 0 };
+    let size_buf = Buffer { data = bitcast[&[i8], &mut i32](&mut size), size = sizeof[i32](), device = 0 };
     let pos_buf  = acc.alloc(sizeof[i32]());
-    let pos      = bitcast[&mut[1][i32]](pos_buf.data);
-    let scan     = bitcast[&   [1][i32]](scan_buf.data);
+    let pos      = bitcast[&mut addrspace(1)[i32], &[i8]](pos_buf.data);
+    let scan     = bitcast[&    addrspace(1)[i32], &[i8]](scan_buf.data);
     copy(size_buf, pos_buf);
 
     let grid  = (size, 1, 1);
@@ -352,14 +344,14 @@ fn @find_position(scan_buf: Buffer, mut size: i32, body: fn(i32) -> i32) -> i32 
     for benchmark_acc(acc) {
         for work_item in acc.exec(grid, block) {
             let gid_x = work_item.gidx();
-            if @@body(scan(gid_x)) != 0 {
+            if @body(scan(gid_x)) != 0 {
                 atomic_min_global(&mut pos(0), gid_x);
             }
         }
     }
 
     let mut result:i32;
-    let r_buf = Buffer { data : bitcast[&[i8]](&mut result), size : sizeof[i32](), device : 0 };
+    let r_buf = Buffer { data = bitcast[&[i8], &[i8]](&mut result), size = sizeof[i32](), device = 0 };
     copy(pos_buf, r_buf);
     release(pos_buf);
     result

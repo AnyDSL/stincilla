@@ -1,11 +1,12 @@
+#[export]
 fn main() -> i32 {
     let length = 4;
     let width  = 4096;
     let height = 4096;
     let arr    = create_img(width, height, alloc_cpu);
     let out    = create_img(width, height, alloc_cpu);
-    init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
-    init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
+    init_rand(bitcast[&mut[f32], &[i8]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[f32], &[i8]](out.buf.data), out.stride, out.height);
 
     for x, y, out, arr in iteration_median(out, arr, clamp_lower, clamp_upper) {
         fn @median() -> f32 {
@@ -24,8 +25,8 @@ fn main() -> i32 {
 
     fn reference() -> i32 {
         let mut passed = 0;
-        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Center), clamp_lower, clamp_upper);
-        let out_acc = get_acc(out, |idx, val| bitcast[&mut[f32]](out.buf.data)(idx) = val, |idx| bitcast[&[f32]](out.buf.data)(idx));
+        let arr_acc = get_acc_bh(arr, |idx, val| bitcast[&mut[f32], &[i8]](arr.buf.data)(idx) = val, |idx| bitcast[&[f32], &[i8]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Center), clamp_lower, clamp_upper);
+        let out_acc = get_acc(out, |idx, val| bitcast[&mut[f32], &[i8]](out.buf.data)(idx) = val, |idx| bitcast[&[f32], &[i8]](out.buf.data)(idx));
         for y in range(0, out.height) {
             for x in range(0, out.width) {
                 fn @median() -> f32 {
@@ -33,7 +34,7 @@ fn main() -> i32 {
                     for i in unroll(-length/2, +length/2) {
                         tmp(i + length / 2) = arr_acc.read(x + i, y);
                     }
-                    sort_f32(length, &mut tmp);
+                    sort[f32](length, &mut tmp, |a: f32, b: f32| a > b);
                     tmp((length - 1) / 2)
                 }
                 if median() != out_acc.read(x, y) { passed = 42; }

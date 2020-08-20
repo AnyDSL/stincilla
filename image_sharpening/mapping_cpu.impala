@@ -1,5 +1,5 @@
-fn @set_pixeli16_fn(img: Imgi16) -> fn(i32, i16) -> () { @|idx, val| bitcast[&mut[i16]](img.buf.data)(idx) = val }
-fn @get_pixeli16_fn(img: Imgi16) -> fn(i32) -> i16 { @|idx| bitcast[&[i16]](img.buf.data)(idx) }
+fn @set_pixeli16_fn(img: Imgi16) = @|idx, val| bitcast[&mut[i16], &[i8]](img.buf.data)(idx) = val
+fn @get_pixeli16_fn(img: Imgi16) = @|idx| bitcast[&[i16], &[i8]](img.buf.data)(idx)
 
 fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: BoundaryFni16,
                   body: fn(i32, i32, Acc, Acci16) -> ()
@@ -10,7 +10,7 @@ fn @iteration1f1i(out: Img, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Boun
     for benchmark_cpu() {
         for y in outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) {
-                @@body(x, y, out_acc, arr_acc);
+                @body(x, y, out_acc, arr_acc);
             }
         }
     }
@@ -24,7 +24,7 @@ fn @iteration2i(out: Imgi16, arr: Imgi16, bh_lower: BoundaryFni16, bh_upper: Bou
     for benchmark_cpu() {
         for y in outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) {
-                @@body(x, y, out_acc, arr_acc);
+                @body(x, y, out_acc, arr_acc);
             }
         }
     }
@@ -39,7 +39,7 @@ fn @iteration2i1m(out: Imgi16, img: Imgi16, map: Img, bh_lower: BoundaryFni16, b
     for benchmark_cpu() {
         for y in outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) {
-                @@body(x, y, out_acc, img_acc, map_acc);
+                @body(x, y, out_acc, img_acc, map_acc);
             }
         }
     }
@@ -54,7 +54,7 @@ fn @iteration3i(out: Imgi16, img: Imgi16, tmp: Imgi16,
     for benchmark_cpu() {
         for y in outer_loop(0, out.height) {
             for x in inner_loop(0, out.width) {
-                @@body(x, y, out_acc, img_acc, tmp_acc);
+                @body(x, y, out_acc, img_acc, tmp_acc);
             }
         }
     }
@@ -64,7 +64,7 @@ fn @reduce(img: Imgi16, body: fn(i32, i32, Acci16) -> i32) -> i32 {
     let img_acc = get_acci16(img, set_pixeli16_fn(img), get_pixeli16_fn(img));
     for y in range(0, img.height) {
         for x in range(0, img.width) {
-            sum += @@body(x, y, img_acc);
+            sum += @body(x, y, img_acc);
         }
     }
     sum
@@ -79,7 +79,7 @@ fn @histogram(img: Img, body: fn(i32, i32, Acc) -> i32) -> Buffer {
     }
     for y in range(0, img.height) {
         for x in range(0, img.width) {
-            let bin = @@body(x, y, img_acc);
+            let bin = @body(x, y, img_acc);
             hist(bin)++;
         }
     }
@@ -99,7 +99,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
 fn @find_position(scan_buf: Buffer, size: i32, body: fn(i32) -> i32) -> i32 {
     let scan = bitcast[&[i32]](scan_buf.data);
     for i in range(0, size) {
-        if @@body(scan(i)) != 0 { return(i) }
+        if @body(scan(i)) != 0 { return(i) }
     }
     size
 }
