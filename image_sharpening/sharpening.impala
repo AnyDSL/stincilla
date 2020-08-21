@@ -1,4 +1,4 @@
-fn @qcod(x: i32, y: i32, map: Acc, img: Acci16) -> () {
+fn @qcod(x: i32, y: i32, map: Acc[f32], img: Acc[i16]) -> () {
     let mut arr: [i16 * 25];
     for y in unroll(0, 5) {
         for x in unroll(0, 5) {
@@ -14,7 +14,7 @@ fn @qcod(x: i32, y: i32, map: Acc, img: Acci16) -> () {
     map.write(x, y, (Q3 - Q1) / (Q3 + Q1));
 }
 
-fn @sobel(x: i32, y: i32, tmp: Acci16, img: Acci16) -> () {
+fn @sobel(x: i32, y: i32, tmp: Acc[i16], img: Acc[i16]) -> () {
     let mask_x  = [[-1,  0, +1],
                    [-2,  0, +2],
                    [-1,  0, +1]];
@@ -47,7 +47,7 @@ fn @sobel(x: i32, y: i32, tmp: Acci16, img: Acci16) -> () {
     tmp.write(x, y, val);
 }
 
-fn @filter(x: i32, y: i32, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, ksize: i32) -> () {
+fn @filter(x: i32, y: i32, tmp: Acc[i16], img: Acc[i16], map: Acc[f32], threshold: f32, ksize: i32) -> () {
     let val = map.read(x, y);
     let ksizeh = ksize / 2;
     if val > threshold {
@@ -63,7 +63,7 @@ fn @filter(x: i32, y: i32, tmp: Acci16, img: Acci16, map: Acc, threshold: f32, k
     }
 }
 
-fn @sharpen(x: i32, y: i32, out: Acci16, img: Acci16, blur: Acci16) -> () {
+fn @sharpen(x: i32, y: i32, out: Acc[i16], img: Acc[i16], blur: Acc[i16]) -> () {
     let val_img  =  img.read(x, y);
     let val_blur = blur.read(x, y);
     out.write(x, y, val_img + (val_img - val_blur));
@@ -85,12 +85,12 @@ fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
 
     fn @sharpening() -> () {
         // compute quartile coefficient of dispersion (QCOD)
-        for x, y, map, img in iteration1f1i(map, img, mirror_lower_i16, mirror_upper_i16) {
+        for x, y, map, img in iteration1f1i(map, img, mirror_lower[i16], mirror_upper[i16]) {
             qcod(x, y, map, img);
         }
 
         // edge detector - TODO: use Canny
-        for x, y, tmp, img in iteration2i(tmp, img, mirror_lower_i16, mirror_upper_i16) {
+        for x, y, tmp, img in iteration2i(tmp, img, mirror_lower[i16], mirror_upper[i16]) {
             sobel(x, y, tmp, img);
         }
 
@@ -119,7 +119,7 @@ fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
 
         // apply filter
         let threshold = bin as f32 / 256:f32;
-        for x, y, tmp, img, map in iteration2i1m(tmp, img, map, mirror_lower_i16, mirror_upper_i16) {
+        for x, y, tmp, img, map in iteration2i1m(tmp, img, map, mirror_lower[i16], mirror_upper[i16]) {
             let ksize = 5;
             filter(x, y, tmp, img, map, threshold, ksize);
         }

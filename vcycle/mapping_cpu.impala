@@ -1,7 +1,7 @@
 fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
-                    bh_lower: BoundaryFn, bh_upper: BoundaryFn,
-                    residual: fn(Intrinsics, i32, i32, Acc, Acc, Acc, Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
-                    restrict: fn(Intrinsics, i32, i32, Acc, Acc) -> ()                                  // Res -> RHS(+1)
+                    bh_lower: BoundaryFn[f32], bh_upper: BoundaryFn[f32],
+                    residual: fn(Intrinsics, i32, i32, Acc[f32], Acc[f32], Acc[f32], Mask) -> (), residual_mask: Mask, // RHS + sum(Sol) -> Res
+                    restrict: fn(Intrinsics, i32, i32, Acc[f32], Acc[f32]) -> (),                                      // Res -> RHS(+1)
                    ) -> () {
     let coarsening_factor = 1;
     let step   = 2; // restrict by 2x
@@ -20,17 +20,17 @@ fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
                     let inner_row  = match boundary_row { Boundary::Center => inner_loop, _ => range };
                     for yi in unroll(0, step * coarsening_factor) {
                         for x in inner_row(bounds_row_lower, bounds_row_upper) {
-                            let tmp_acc  = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), Sol.stride, step * coarsening_factor);
-                            let rhsf_acc = get_acc_offset(RHSF, set_pixel_fn(RHSF), get_pixel_fn(RHSF), 0, y);
-                            let sol_acc  = get_acc_bh_offset(Sol, set_pixel_fn(Sol), get_pixel_fn(Sol), 0, y, (boundary_row, boundary_col), bh_lower, bh_upper);
+                            let tmp_acc  = get_acc_memory[f32](set_pixel_memory_fn[f32](tmp), get_pixel_memory_fn[f32](tmp), Sol.stride, step * coarsening_factor);
+                            let rhsf_acc = get_acc_offset[f32](RHSF, set_pixel_fn[f32](RHSF), get_pixel_fn[f32](RHSF), 0, y);
+                            let sol_acc  = get_acc_bh_offset[f32](Sol, set_pixel_fn[f32](Sol), get_pixel_fn[f32](Sol), 0, y, (boundary_row, boundary_col), bh_lower, bh_upper);
                             @residual(math, x, yi, tmp_acc, sol_acc, rhsf_acc, residual_mask);
                         }
                     }
                 }
                 // restrict: index space == cache line
                 for yi in unroll(0, coarsening_factor) {
-                    let tmp_acc  = get_acc_memory(set_pixel_memory_fn(tmp), get_pixel_memory_fn(tmp), Sol.stride, step * coarsening_factor);
-                    let rhsc_acc = get_acc_offset(RHSC, set_pixel_fn(RHSC), get_pixel_fn(RHSC), 0, y/step + yi);
+                    let tmp_acc  = get_acc_memory[f32](set_pixel_memory_fn[f32](tmp), get_pixel_memory_fn[f32](tmp), Sol.stride, step * coarsening_factor);
+                    let rhsc_acc = get_acc_offset[f32](RHSC, set_pixel_fn[f32](RHSC), get_pixel_fn[f32](RHSC), 0, y/step + yi);
                     for x in range(0, RHSC.width) {
                         @restrict(math, x, yi, rhsc_acc, tmp_acc);
                     }

@@ -27,15 +27,15 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
                          [  0:f32,  0:f32,  0:f32 ],
                          [  1:f32,  2:f32,  1:f32 ]]);
 
-    let lower = clamp_lower;
-    let upper = clamp_upper;
-    let iteration_fun = iteration;
+    let lower = clamp_lower[f32];
+    let upper = clamp_upper[f32];
+    let iteration_fun = iteration[f32];
 
     for math, x, y, out, arrs in iteration_fun(math, dx, make_img_list1(input, (mdx.size_x / 2, mdx.size_y / 2)), lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arrs.get(0), mdx));
+        out.write(x, y, apply_stencil[f32](x, y, arrs.get(0), mdx));
     }
     for math, x, y, out, arrs in iteration_fun(math, dy, make_img_list1(input, (mdy.size_x / 2, mdy.size_y / 2)), lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arrs.get(0), mdy));
+        out.write(x, y, apply_stencil[f32](x, y, arrs.get(0), mdy));
     }
 
 
@@ -60,13 +60,13 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
                         [ 0.057118:f32, 0.124758:f32, 0.057118:f32 ]]);
 
     for math, x, y, out, arrs in iteration_fun(math, gxx, make_img_list1(dxx, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
+        out.write(x, y, apply_stencil[f32](x, y, arrs.get(0), mg));
     }
     for math, x, y, out, arrs in iteration_fun(math, gyy, make_img_list1(dyy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
+        out.write(x, y, apply_stencil[f32](x, y, arrs.get(0), mg));
     }
     for math, x, y, out, arrs in iteration_fun(math, gxy, make_img_list1(dxy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
-        out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
+        out.write(x, y, apply_stencil[f32](x, y, arrs.get(0), mg));
     }
 
 
@@ -93,7 +93,7 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
     }
     for y in range(0, height) {
         for x in range(0, width) {
-            let harris_acc = get_acc(harris, |idx, val| { bitcast[&mut[f32], &[i8]](harris.buf.data)(idx) = val }, |idx| bitcast[&[f32], &[i8]](harris.buf.data)(idx));
+            let harris_acc = get_acc[f32](harris, |idx, val| bitcast[&mut[f32], &[i8]](harris.buf.data)(idx) = val, |idx| bitcast[&[f32], &[i8]](harris.buf.data)(idx));
             if harris_acc.read(x, y) > threshold {
                 for i in range(-5, 5+1) {
                     if x+i >= 0 && x+i < width {

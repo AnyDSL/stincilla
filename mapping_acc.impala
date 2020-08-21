@@ -19,19 +19,20 @@ fn @compute_config((range_mask_x: i32, range_mask_y: i32), coarsening_factor: i3
     ((threads_x, threads_y, 1), (blocks_x, blocks_y))
 }
 
-fn @get_ldg_fn() -> fn(&addrspace(1)f32) -> f32 { if is_nvvm() { nvvm_ldg_f32 } else { cuda_ldg_f32 } }
-fn @set_pixel_fn(img: Img) -> fn(i32, f32) -> () { @|idx, val| bitcast[&mut addrspace(1)[f32], &mut[i8]](img.buf.data)(idx) = val }
-fn @get_pixel_fn(img: Img) -> fn(i32) -> f32 { @|idx| bitcast[&addrspace(1)[f32], &mut[i8]](img.buf.data)(idx) }
-fn @get_pixel_ldg_fn(img: Img) -> fn(i32) -> f32 { if has_ldg() { @|idx| get_ldg_fn()(&bitcast[&addrspace(1)[f32], &mut[i8]](img.buf.data)(idx)) } else { get_pixel_fn(img) } }
-fn @set_pixel_shared_fn(data: &mut addrspace(3)[f32]) -> fn(i32, f32) -> () { @|idx, val| data(idx) = val }
-fn @get_pixel_shared_fn(data: &addrspace(3)[f32]) -> fn(i32) -> f32 { @|idx| data(idx) }
+fn @set_pixel_fn[T](img: Img) = @|idx : i32, val : T| bitcast[&mut addrspace(1)[T], &mut[i8]](img.buf.data)(idx) = val
+fn @get_pixel_fn[T](img: Img) = @|idx : i32| bitcast[&addrspace(1)[T], &mut[i8]](img.buf.data)(idx)
+fn @set_pixel_shared_fn[T](data: &mut addrspace(3)[T]) = @|idx: i32, val : T| data(idx) = val
+fn @get_pixel_shared_fn[T](data: &addrspace(3)[T]) = @|idx: i32| data(idx)
+fn @get_pixel_ldg_fn[T](img: Img) = get_pixel_fn[T](img)
+//fn @get_ldg_fn[T]() = bitcast[fn(&addrspace(1)T) -> T, fn(&addrspace(1)f32) -> f32](if is_nvvm() { nvvm_ldg_f32 } else { cuda_ldg_f32 })
+//fn @get_pixel_ldg_fn[T](img: Img) = if has_ldg() { @|idx : i32| get_ldg_fn[T]()(&bitcast[&addrspace(1)[T], &mut[i8]](img.buf.data)(idx)) } else { get_pixel_fn[T](img) }
 
-fn @iteration(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+fn @iteration[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
-    let out_gpu  = alloc_img[f32](out, acc.alloc);
+    let out_gpu  = alloc_img[T](out, acc.alloc);
     let imgs_gpu = for img, ext in img_list_map(imgs) {
-        let img_gpu = alloc_img[f32](img, acc.alloc);
+        let img_gpu = alloc_img[T](img, acc.alloc);
         copy_img(img, img_gpu);
         img_gpu
     };
@@ -46,12 +47,12 @@ fn @iteration(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgList, bh
             let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
             let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
-            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-            let accs = for img, (ext_x, ext_y) in img_list2acc_map(imgs_gpu) {
+            let out_acc = get_acc[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu));
+            let accs = for img, (ext_x, ext_y) in img_list2acc_map[T](imgs_gpu) {
                 if ext_x == 0 && ext_y == 0 {
-                    get_acc(img, set_pixel_fn(img), get_pixel_fn(img))
+                    get_acc[T](img, set_pixel_fn[T](img), get_pixel_fn[T](img))
                 } else {
-                    get_acc_bh(img, set_pixel_fn(img), get_pixel_ldg_fn(img), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper)
+                    get_acc_bh[T](img, set_pixel_fn[T](img), get_pixel_ldg_fn[T](img), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper)
                 }
             };
 
@@ -68,12 +69,12 @@ fn @iteration(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgList, bh
     release(out_gpu.buf);
 }
 
-fn @iteration_bounds(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
-    let out_gpu  = alloc_img[f32](out, acc.alloc);
+    let out_gpu  = alloc_img[T](out, acc.alloc);
     let imgs_gpu = for img, ext in img_list_map(imgs) {
-        let img_gpu = alloc_img[f32](img, acc.alloc);
+        let img_gpu = alloc_img[T](img, acc.alloc);
         copy_img(img, img_gpu);
         img_gpu
     };
@@ -98,14 +99,14 @@ fn @iteration_bounds(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgL
                 let gid_y   = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
                 let nblk_x  = work_item.nblkx();
                 let nblk_y  = work_item.nblky();
-                let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+                let out_acc = get_acc[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu));
 
-                fn @get_accs_region(region: Region) -> AccList {
-                    for img, (ext_x, ext_y) in img_list2acc_map(imgs_gpu) {
+                fn @get_accs_region(region: Region) -> AccList[T] {
+                    for img, (ext_x, ext_y) in img_list2acc_map[T](imgs_gpu) {
                         if ext_x == 0 && ext_y == 0 {
-                            get_acc(img, set_pixel_fn(img), get_pixel_fn(img))
+                            get_acc[T](img, set_pixel_fn[T](img), get_pixel_fn[T](img))
                         } else {
-                            get_acc_bh(img, set_pixel_fn(img), get_pixel_ldg_fn(img), region, bh_lower, bh_upper)
+                            get_acc_bh[T](img, set_pixel_fn[T](img), get_pixel_ldg_fn[T](img), region, bh_lower, bh_upper)
                         }
                     }
                 }
@@ -155,12 +156,12 @@ fn @iteration_bounds(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgL
             let (bounds_col_lower, bounds_col_upper) = bounds_col;
             let grid = (bounds_row_upper - bounds_row_lower, bounds_col_upper - bounds_col_lower, 1);
 
-            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
-            let accs = for img, (ext_x, ext_y) in img_list2acc_map(imgs_gpu) {
+            let out_acc = get_acc[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu));
+            let accs = for img, (ext_x, ext_y) in img_list2acc_map[T](imgs_gpu) {
                 if ext_x == 0 && ext_y == 0 {
-                    get_acc(img, set_pixel_fn(img), get_pixel_fn(img))
+                    get_acc[T](img, set_pixel_fn[T](img), get_pixel_fn[T](img))
                 } else {
-                    get_acc_bh(img, set_pixel_fn(img), get_pixel_ldg_fn(img), region, bh_lower, bh_upper)
+                    get_acc_bh[T](img, set_pixel_fn[T](img), get_pixel_ldg_fn[T](img), region, bh_lower, bh_upper)
                 }
             };
 
@@ -185,12 +186,12 @@ fn @iteration_bounds(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgL
     release(out_gpu.buf);
 }
 
-fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+fn @iteration_advanced[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
-    let out_gpu  = alloc_img[f32](out, acc.alloc);
+    let out_gpu  = alloc_img[T](out, acc.alloc);
     let imgs_gpu = for img, ext in img_list_map(imgs) {
-        let img_gpu = alloc_img[f32](img, acc.alloc);
+        let img_gpu = alloc_img[T](img, acc.alloc);
         copy_img(img, img_gpu);
         img_gpu
     };
@@ -212,7 +213,7 @@ fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: Im
             let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
 
             // quick hack: lists have at max 3 images
-            let mut spms : [&mut addrspace(3)[f32] * 3];
+            let mut spms : [&mut addrspace(3)[T] * 3];
             let mut spms_stride : [i32 * 3];
             let mut spms_height : [i32 * 3];
 
@@ -222,7 +223,7 @@ fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: Im
                 if ext_x != 0 || ext_y != 0 {
                     let spm_stride =                     block_x + 2 * ext_x;
                     let spm_height = coarsening_factor * block_y + 2 * ext_y;
-                    let spm = reserve_shared[f32](spm_stride * spm_height);
+                    let spm = reserve_shared[T](spm_stride * spm_height);
                     spms(i) = spm;
                     spms_stride(i) = spm_stride;
                     spms_height(i) = spm_height;
@@ -233,15 +234,15 @@ fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: Im
                     let steps_y   = coarsening_factor + (2 * ext_y) / block_y + offset_y;
 
                     for y in unroll(0, steps_y) {
-                        let lid_y = tid_y          + y*bdim_y;
+                        let lid_y = tid_y         + y*bdim_y;
                         let idx_y = gid_y - ext_y + y*bdim_y;
                         for x in unroll(0, steps_x) {
                             let lid_x = tid_x         + x*bdim_x;
                             let idx_x = gid_x - ext_x + x*bdim_x;
 
                             if lid_x < spm_stride && lid_y < spm_height {
-                                let gpu_acc = get_acc_bh(img, set_pixel_fn(img), get_pixel_ldg_fn(img), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper); // TODO: set region!
-                                let spm_acc = get_acc_memory(set_pixel_shared_fn(spm), get_pixel_shared_fn(spm), spm_stride, spm_height);
+                                let gpu_acc = get_acc_bh[T](img, set_pixel_fn[T](img), get_pixel_ldg_fn[T](img), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper); // TODO: set region!
+                                let spm_acc = get_acc_memory[T](set_pixel_shared_fn[T](spm), get_pixel_shared_fn[T](spm), spm_stride, spm_height);
                                 spm_acc.write(lid_x, lid_y, gpu_acc.read(idx_x, idx_y));
                             }
                         }
@@ -254,15 +255,15 @@ fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: Im
             let mut id = -1;
             for i in unroll(0, coarsening_factor) {
                 // index space: block
-                let accs = for img, (ext_x, ext_y) in img_list2acc_map(imgs_gpu) {
+                let accs = for img, (ext_x, ext_y) in img_list2acc_map[T](imgs_gpu) {
                     id++;
                     if ext_x == 0 && ext_y == 0 {
-                        get_acc_offset(img, set_pixel_fn(img), get_pixel_fn(img), bdim_x * bid_x, bdim_y * bid_y * coarsening_factor + i * bdim_y)
+                        get_acc_offset[T](img, set_pixel_fn[T](img), get_pixel_fn[T](img), bdim_x * bid_x, bdim_y * bid_y * coarsening_factor + i * bdim_y)
                     } else {
-                        get_acc_offset_memory(set_pixel_shared_fn(spms(id)), get_pixel_shared_fn(spms(id)), spms_stride(id), spms_height(id), ext_x, ext_y + i * bdim_y)
+                        get_acc_offset_memory[T](set_pixel_shared_fn[T](spms(id)), get_pixel_shared_fn[T](spms(id)), spms_stride(id), spms_height(id), ext_x, ext_y + i * bdim_y)
                     }
                 };
-                let out_acc = get_acc_offset(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu), bdim_x * bid_x, bdim_y * bid_y * coarsening_factor + i * bdim_y);
+                let out_acc = get_acc_offset[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu), bdim_x * bid_x, bdim_y * bid_y * coarsening_factor + i * bdim_y);
                 @body(math, tid_x, tid_y, out_acc, accs);
             }
         }
@@ -275,11 +276,11 @@ fn @iteration_advanced(body: StencilFn) = @|math: Intrinsics, out: Img, imgs: Im
     release(out_gpu.buf);
 }
 
-fn @iteration_sep(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+fn @iteration_sep[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
-    let arr_gpu = alloc_img[f32](arr, acc.alloc);
-    let out_gpu = alloc_img[f32](out, acc.alloc);
-    let tmp_gpu = alloc_img[f32](out, acc.alloc);
+    let arr_gpu = alloc_img[T](arr, acc.alloc);
+    let out_gpu = alloc_img[T](out, acc.alloc);
+    let tmp_gpu = alloc_img[T](out, acc.alloc);
     copy_img(arr, arr_gpu);
 
     let coarsening_factor = 1;
@@ -294,8 +295,8 @@ fn @iteration_sep(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, 
             let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
             let is_row = false;
 
-            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
-            let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
+            let arr_acc = get_acc_bh[T](arr_gpu, set_pixel_fn[T](arr_gpu), get_pixel_ldg_fn[T](arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
+            let tmp_acc = get_acc[T](tmp_gpu, set_pixel_fn[T](tmp_gpu), get_pixel_fn[T](tmp_gpu));
 
             for i in unroll(0, coarsening_factor) {
                 @body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
@@ -309,8 +310,8 @@ fn @iteration_sep(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, 
             let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
             let is_row = true;
 
-            let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
-            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+            let tmp_acc = get_acc_bh[T](tmp_gpu, set_pixel_fn[T](tmp_gpu), get_pixel_ldg_fn[T](tmp_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper);
+            let out_acc = get_acc[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu));
 
             for i in unroll(0, coarsening_factor) {
                 @body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
@@ -324,11 +325,11 @@ fn @iteration_sep(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, 
     release(tmp_gpu.buf);
 }
 
-fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+fn @iteration_sep_bounds[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
-    let arr_gpu = alloc_img[f32](arr, acc.alloc);
-    let out_gpu = alloc_img[f32](out, acc.alloc);
-    let tmp_gpu = alloc_img[f32](out, acc.alloc);
+    let arr_gpu = alloc_img[T](arr, acc.alloc);
+    let out_gpu = alloc_img[T](out, acc.alloc);
+    let tmp_gpu = alloc_img[T](out, acc.alloc);
     copy_img(arr, arr_gpu);
 
     // compute the number of blocks required for boundary handling
@@ -346,7 +347,7 @@ fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr
 
         // column component
         for benchmark_acc(acc) {
-            let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
+            let tmp_acc = get_acc[T](tmp_gpu, set_pixel_fn[T](tmp_gpu), get_pixel_fn[T](tmp_gpu));
             for work_item in acc.exec(grid, block_col) {
                 let bdim_y = work_item.bdimy();
                 let bid_y  = work_item.bidy();
@@ -357,17 +358,17 @@ fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr
                 let is_row = false;
 
                 if bid_y < by {                  // top
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Center, Boundary::Lower), bh_lower, bh_upper);
+                    let arr_acc = get_acc_bh[T](arr_gpu, set_pixel_fn[T](arr_gpu), get_pixel_ldg_fn[T](arr_gpu), (Boundary::Center, Boundary::Lower), bh_lower, bh_upper);
                     for i in unroll(0, coarsening_factor) {
                         @body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
                 } else if bid_y >= nblk_y - by { // bottom
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Center, Boundary::Upper), bh_lower, bh_upper);
+                    let arr_acc = get_acc_bh[T](arr_gpu, set_pixel_fn[T](arr_gpu), get_pixel_ldg_fn[T](arr_gpu), (Boundary::Center, Boundary::Upper), bh_lower, bh_upper);
                     for i in unroll(0, coarsening_factor) {
                         @body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
                 } else {                         // center
-                    let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Center, Boundary::Center), bh_lower, bh_upper);
+                    let arr_acc = get_acc_bh[T](arr_gpu, set_pixel_fn[T](arr_gpu), get_pixel_ldg_fn[T](arr_gpu), (Boundary::Center, Boundary::Center), bh_lower, bh_upper);
                     for i in unroll(0, coarsening_factor) {
                         @body(math, gid_x, gid_y + i * bdim_y, tmp_acc, arr_acc, mask_col, is_row);
                     }
@@ -385,20 +386,20 @@ fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr
                 let nblk_x  = work_item.nblkx();
                 let nblk_y  = work_item.nblky();
                 let is_row  = true;
-                let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+                let out_acc = get_acc[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu));
 
                 if bid_x < bx {                  // left
-                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Boundary::Lower, Boundary::Center), bh_lower, bh_upper);
+                    let tmp_acc = get_acc_bh[T](tmp_gpu, set_pixel_fn[T](tmp_gpu), get_pixel_ldg_fn[T](tmp_gpu), (Boundary::Lower, Boundary::Center), bh_lower, bh_upper);
                     for i in unroll(0, coarsening_factor) {
                         @body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
                 } else if bid_x >= nblk_x - bx { // right
-                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Boundary::Upper, Boundary::Center), bh_lower, bh_upper);
+                    let tmp_acc = get_acc_bh[T](tmp_gpu, set_pixel_fn[T](tmp_gpu), get_pixel_ldg_fn[T](tmp_gpu), (Boundary::Upper, Boundary::Center), bh_lower, bh_upper);
                     for i in unroll(0, coarsening_factor) {
                         @body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
                 } else {                         // center
-                    let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), (Boundary::Center, Boundary::Center), bh_lower, bh_upper);
+                    let tmp_acc = get_acc_bh[T](tmp_gpu, set_pixel_fn[T](tmp_gpu), get_pixel_ldg_fn[T](tmp_gpu), (Boundary::Center, Boundary::Center), bh_lower, bh_upper);
                     for i in unroll(0, coarsening_factor) {
                         @body(math, gid_x, gid_y + i * bdim_y, out_acc, tmp_acc, mask_row, is_row);
                     }
@@ -410,8 +411,8 @@ fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr
             let region = (Boundary::Center, boundary_col);
             let grid   = (out.width, bounds_upper - bounds_lower, 1);
 
-            let arr_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), region, bh_lower, bh_upper);
-            let tmp_acc = get_acc(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_fn(tmp_gpu));
+            let arr_acc = get_acc_bh[T](arr_gpu, set_pixel_fn[T](arr_gpu), get_pixel_ldg_fn[T](arr_gpu), region, bh_lower, bh_upper);
+            let tmp_acc = get_acc[T](tmp_gpu, set_pixel_fn[T](tmp_gpu), get_pixel_fn[T](tmp_gpu));
 
             for benchmark_acc(acc) {
                 for work_item in acc.exec(grid, block_col) {
@@ -431,8 +432,8 @@ fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr
             let region = (boundary_row, Boundary::Center);
             let grid   = (bounds_upper - bounds_lower, out.height / coarsening_factor, 1);
 
-            let tmp_acc = get_acc_bh(tmp_gpu, set_pixel_fn(tmp_gpu), get_pixel_ldg_fn(tmp_gpu), region, bh_lower, bh_upper);
-            let out_acc = get_acc(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu));
+            let tmp_acc = get_acc_bh[T](tmp_gpu, set_pixel_fn[T](tmp_gpu), get_pixel_ldg_fn[T](tmp_gpu), region, bh_lower, bh_upper);
+            let out_acc = get_acc[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu));
 
             for benchmark_acc(acc) {
                 for work_item in acc.exec(grid, block_row) {
@@ -455,10 +456,10 @@ fn @iteration_sep_bounds(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr
     release(tmp_gpu.buf);
 }
 
-fn @iteration_sep_advanced(body: StencilSepFn) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn, bh_upper: BoundaryFn| {
+fn @iteration_sep_advanced[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
-    let arr_gpu = alloc_img[f32](arr, acc.alloc);
-    let out_gpu = alloc_img[f32](out, acc.alloc);
+    let arr_gpu = alloc_img[T](arr, acc.alloc);
+    let out_gpu = alloc_img[T](out, acc.alloc);
     copy_img(arr, arr_gpu);
 
     let coarsening_factor = 1;
@@ -487,8 +488,8 @@ fn @iteration_sep_advanced(body: StencilSepFn) = @|math: Intrinsics, out: Img, a
             let spm_stride     =                     block_x + 2 * range_row;
             let spm_height_col = coarsening_factor * block_y + 2 * range_col;
             let spm_height_row = coarsening_factor * block_y;
-            let spm_col = reserve_shared[f32](spm_stride * spm_height_col);
-            let spm_row = reserve_shared[f32](spm_stride * spm_height_row);
+            let spm_col = reserve_shared[T](spm_stride * spm_height_col);
+            let spm_row = reserve_shared[T](spm_stride * spm_height_row);
 
             for y in unroll(0, steps_y) {
                 let lid_y = tid_y             + y*bdim_y;
@@ -498,8 +499,8 @@ fn @iteration_sep_advanced(body: StencilSepFn) = @|math: Intrinsics, out: Img, a
                     let idx_x = gid_x - range_row + x*bdim_x;
 
                     if lid_x < spm_stride && lid_y < spm_height_col {
-                        let gpu_acc = get_acc_bh(arr_gpu, set_pixel_fn(arr_gpu), get_pixel_ldg_fn(arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper); // TODO: set region!
-                        let spm_acc = get_acc_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col);
+                        let gpu_acc = get_acc_bh[T](arr_gpu, set_pixel_fn[T](arr_gpu), get_pixel_ldg_fn[T](arr_gpu), (Boundary::Unknown, Boundary::Unknown), bh_lower, bh_upper); // TODO: set region!
+                        let spm_acc = get_acc_memory[T](set_pixel_shared_fn[T](spm_col), get_pixel_shared_fn[T](spm_col), spm_stride, spm_height_col);
                         spm_acc.write(lid_x, lid_y, gpu_acc.read(idx_x, idx_y));
                     }
                 }
@@ -511,20 +512,20 @@ fn @iteration_sep_advanced(body: StencilSepFn) = @|math: Intrinsics, out: Img, a
                 let is_row = false;
                 {
                     // index space: block
-                    let out_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_row), get_pixel_shared_fn(spm_row), spm_stride, spm_height_row, range_row,             i * bdim_y);
-                    let arr_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col, range_row, range_col + i * bdim_y);
+                    let out_acc = get_acc_offset_memory[T](set_pixel_shared_fn[T](spm_row), get_pixel_shared_fn[T](spm_row), spm_stride, spm_height_row, range_row,             i * bdim_y);
+                    let arr_acc = get_acc_offset_memory[T](set_pixel_shared_fn[T](spm_col), get_pixel_shared_fn[T](spm_col), spm_stride, spm_height_col, range_row, range_col + i * bdim_y);
                     @body(math, tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
                 }
                 if tid_x < range_row {
                     // left halo
-                    let out_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_row), get_pixel_shared_fn(spm_row), spm_stride, spm_height_row, 0,             i * bdim_y);
-                    let arr_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col, 0, range_col + i * bdim_y);
+                    let out_acc = get_acc_offset_memory[T](set_pixel_shared_fn[T](spm_row), get_pixel_shared_fn[T](spm_row), spm_stride, spm_height_row, 0,             i * bdim_y);
+                    let arr_acc = get_acc_offset_memory[T](set_pixel_shared_fn[T](spm_col), get_pixel_shared_fn[T](spm_col), spm_stride, spm_height_col, 0, range_col + i * bdim_y);
                     @body(math, tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
                 }
                 if tid_x >= bdim_x - range_row {
                     // right halo
-                    let out_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_row), get_pixel_shared_fn(spm_row), spm_stride, spm_height_row, range_row + range_row,             i * bdim_y);
-                    let arr_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_col), get_pixel_shared_fn(spm_col), spm_stride, spm_height_col, range_row + range_row, range_col + i * bdim_y);
+                    let out_acc = get_acc_offset_memory[T](set_pixel_shared_fn[T](spm_row), get_pixel_shared_fn[T](spm_row), spm_stride, spm_height_row, range_row + range_row,             i * bdim_y);
+                    let arr_acc = get_acc_offset_memory[T](set_pixel_shared_fn[T](spm_col), get_pixel_shared_fn[T](spm_col), spm_stride, spm_height_col, range_row + range_row, range_col + i * bdim_y);
                     @body(math, tid_x, tid_y, out_acc, arr_acc, mask_col, is_row);
                 }
             }
@@ -534,8 +535,8 @@ fn @iteration_sep_advanced(body: StencilSepFn) = @|math: Intrinsics, out: Img, a
             for i in unroll(0, coarsening_factor) {
                 // index space: block
                 let is_row  = true;
-                let out_acc =        get_acc_offset(out_gpu, set_pixel_fn(out_gpu), get_pixel_fn(out_gpu), bdim_x * bid_x, bdim_y * bid_y * coarsening_factor + i * bdim_y);
-                let arr_acc = get_acc_offset_memory(set_pixel_shared_fn(spm_row), get_pixel_shared_fn(spm_row), spm_stride, spm_height_row, range_row, i * bdim_y);
+                let out_acc =        get_acc_offset[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu), bdim_x * bid_x, bdim_y * bid_y * coarsening_factor + i * bdim_y);
+                let arr_acc = get_acc_offset_memory[T](set_pixel_shared_fn[T](spm_row), get_pixel_shared_fn[T](spm_row), spm_stride, spm_height_row, range_row, i * bdim_y);
                 @body(math, tid_x, tid_y, out_acc, arr_acc, mask_row, is_row);
             }
         }

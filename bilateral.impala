@@ -6,7 +6,7 @@ fn @similarity(math: Intrinsics, c_r: f32, xi: f32, x: f32) -> f32 {
     math.expf(-c_r * diff * diff)
 }
 
-fn @bilateral_filter(math: Intrinsics, x: i32, y: i32, acc: Acc, _mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
+fn @bilateral_filter(math: Intrinsics, x: i32, y: i32, acc: Acc[f32], _mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
     let mut k = 0:f32;
     let mut p = 0:f32;
 
@@ -23,7 +23,7 @@ fn @bilateral_filter(math: Intrinsics, x: i32, y: i32, acc: Acc, _mask: Mask, si
     p / k
 }
 
-fn @bilateral_filter_mask(math: Intrinsics, x: i32, y: i32, acc: Acc, mask: Mask, sigma_d: i32, _c_d: f32, c_r: f32) -> f32 {
+fn @bilateral_filter_mask(math: Intrinsics, x: i32, y: i32, acc: Acc[f32], mask: Mask, sigma_d: i32, _c_d: f32, c_r: f32) -> f32 {
     let mut k = 0:f32;
     let mut p = 0:f32;
 
@@ -84,12 +84,12 @@ fn main() -> i32 {
     let sigma_d = mask.size_x / 4;
     let c_d = 1:f32 / (2:f32 * (sigma_d*sigma_d) as f32);
 
-    let lower = clamp_lower;
-    let upper = clamp_upper;
+    let lower = clamp_lower[f32];
+    let upper = clamp_upper[f32];
 
-    let iteration_fun = iteration;                  // SS
-    //let iteration_fun = iteration_bounds;           // SS + BH
-    //let iteration_fun = iteration_advanced;         // SS + SM
+    let iteration_fun = iteration[f32];                  // SS
+    //let iteration_fun = iteration_bounds[f32];           // SS + BH
+    //let iteration_fun = iteration_advanced[f32];         // SS + SM
 
     //let bilateral_fun = bilateral_filter;
     let bilateral_fun = bilateral_filter_mask;
@@ -104,8 +104,8 @@ fn main() -> i32 {
         let mut passed = 0;
         let mut rms_err = 0:f32;
         let EPS = 0.02:f32;
-        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32], &[i8]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32], &[i8]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
-        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32], &[i8]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32], &[i8]](out.buf.data)(idx));
+        let arr_acc = get_acc_bh[f32](arr, |idx, val| bitcast[&mut[f32], &[i8]](arr.buf.data)(idx) = val, |idx| bitcast[&[f32], &[i8]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
+        let out_acc = get_acc   [f32](out, |idx, val| bitcast[&mut[f32], &[i8]](out.buf.data)(idx) = val, |idx| bitcast[&[f32], &[i8]](out.buf.data)(idx));
         for y in range(0, out.height) {
             for x in range(0, out.width) {
                 let ref = bilateral_filter_mask(cpu_intrinsics, x, y, arr_acc, mask, sigma_d, c_d, c_r);
