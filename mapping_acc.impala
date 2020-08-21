@@ -31,7 +31,7 @@ fn @iteration[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgLi
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
     let out_gpu  = alloc_img[T](out, acc.alloc);
-    let imgs_gpu = for img, ext in img_list_map(imgs) {
+    let imgs_gpu = for img, _ext in img_list_map(imgs) {
         let img_gpu = alloc_img[T](img, acc.alloc);
         copy_img(img, img_gpu);
         img_gpu
@@ -73,7 +73,7 @@ fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
     let out_gpu  = alloc_img[T](out, acc.alloc);
-    let imgs_gpu = for img, ext in img_list_map(imgs) {
+    let imgs_gpu = for img, _ext in img_list_map(imgs) {
         let img_gpu = alloc_img[T](img, acc.alloc);
         copy_img(img, img_gpu);
         img_gpu
@@ -81,8 +81,7 @@ fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs
 
     // compute the number of blocks required for boundary handling
     let coarsening_factor = 1;
-    let (block, (bx, by)) = compute_config(ext, coarsening_factor);
-    let (block_x, block_y, _) = block;
+    let (block as (block_x, block_y, _), (bx, by)) = compute_config(ext, coarsening_factor);
 
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
@@ -151,9 +150,7 @@ fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs
             }
         }
     } else {
-        for (bounds_row, bounds_col), region in iterate_2dregion((0, 0), (out.width, out.height / coarsening_factor), (bx * block_x, by * block_y)) {
-            let (bounds_row_lower, bounds_row_upper) = bounds_row;
-            let (bounds_col_lower, bounds_col_upper) = bounds_col;
+        for ((bounds_row_lower, bounds_row_upper), (bounds_col_lower, bounds_col_upper)), region in iterate_2dregion((0, 0), (out.width, out.height / coarsening_factor), (bx * block_x, by * block_y)) {
             let grid = (bounds_row_upper - bounds_row_lower, bounds_col_upper - bounds_col_lower, 1);
 
             let out_acc = get_acc[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu));
@@ -190,16 +187,15 @@ fn @iteration_advanced[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, im
     let acc = accelerator(device_id);
     let ext = get_max_ext(imgs);
     let out_gpu  = alloc_img[T](out, acc.alloc);
-    let imgs_gpu = for img, ext in img_list_map(imgs) {
+    let imgs_gpu = for img, _ext in img_list_map(imgs) {
         let img_gpu = alloc_img[T](img, acc.alloc);
         copy_img(img, img_gpu);
         img_gpu
     };
 
     let coarsening_factor = 1;
-    let (block, _) = compute_config(ext, coarsening_factor);
-    let grid       = (out.width, out.height / coarsening_factor, 1);
-    let (block_x, block_y, _) = block;
+    let (block as (block_x, block_y, _), _) = compute_config(ext, coarsening_factor);
+    let grid = (out.width, out.height / coarsening_factor, 1);
 
     for benchmark_acc(acc) {
         for work_item in acc.exec(grid, block) {
@@ -334,10 +330,8 @@ fn @iteration_sep_bounds[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Im
 
     // compute the number of blocks required for boundary handling
     let coarsening_factor = 1;
-    let (block_row, (bx, _)) = compute_config((mask_row.size / 2, 1), coarsening_factor);
-    let (block_col, (_, by)) = compute_config((1, mask_col.size / 2), coarsening_factor);
-    let (block_row_x, _block_row_y, _) = block_row;
-    let (_block_col_x, block_col_y, _) = block_col;
+    let (block_row as (block_row_x, _block_row_y, _), (bx, _)) = compute_config((mask_row.size / 2, 1), coarsening_factor);
+    let (block_col as (_block_col_x, block_col_y, _), (_, by)) = compute_config((1, mask_col.size / 2), coarsening_factor);
 
     // define if we want to generate one big kernel or multiple kernels
     let big_kernel = false;
@@ -353,7 +347,6 @@ fn @iteration_sep_bounds[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Im
                 let bid_y  = work_item.bidy();
                 let gid_x  = work_item.tidx() + work_item.bdimx() * work_item.bidx();
                 let gid_y  = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
-                let nblk_x = work_item.nblkx();
                 let nblk_y = work_item.nblky();
                 let is_row = false;
 
@@ -384,7 +377,6 @@ fn @iteration_sep_bounds[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Im
                 let gid_x   = work_item.tidx() + work_item.bdimx() * work_item.bidx();
                 let gid_y   = work_item.tidy() + work_item.bdimy() * work_item.bidy() * coarsening_factor;
                 let nblk_x  = work_item.nblkx();
-                let nblk_y  = work_item.nblky();
                 let is_row  = true;
                 let out_acc = get_acc[T](out_gpu, set_pixel_fn[T](out_gpu), get_pixel_fn[T](out_gpu));
 
@@ -463,9 +455,8 @@ fn @iteration_sep_advanced[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: 
     copy_img(arr, arr_gpu);
 
     let coarsening_factor = 1;
-    let (block, _) = compute_config((mask_row.size / 2, mask_col.size / 2), coarsening_factor);
-    let grid       = (out.width, out.height / coarsening_factor, 1);
-    let (block_x, block_y, _) = block;
+    let (block as (block_x, block_y, _), _) = compute_config((mask_row.size / 2, mask_col.size / 2), coarsening_factor);
+    let grid = (out.width, out.height / coarsening_factor, 1);
 
     // compute number of steps required to stage data to shared memory
     let range_row = mask_row.size / 2;

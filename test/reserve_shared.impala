@@ -13,12 +13,12 @@ fn @iteration(body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -
         let shared = reserve_shared[f32](block_x * block_y);
         // arr -> shared
         @body(work_item.gidx(), work_item.gidy(),
-              |x, y|      { arr_gpu(y*width + x) },
-              |x, y, val| {  shared(work_item.tidx()) = val; });
+              |x, y|        arr_gpu(y*width + x),
+              |_x, _y, val| shared(work_item.tidx()) = val );
         // shared -> out
         @body(work_item.gidx(), work_item.gidy(),
-              |x, y|      {  shared(work_item.tidx()) },
-              |x, y, val| { out_gpu(y*width + x) = val; });
+              |_x, _y|    shared(work_item.tidx()),
+              |x, y, val| out_gpu(y*width + x) = val );
     }
     acc.sync();
 

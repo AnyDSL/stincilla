@@ -26,7 +26,7 @@ fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs
     let (ex, ey) = get_max_ext(imgs);
 
     for benchmark_cpu() {
-        for (bounds_row, bounds_col), region in iterate_2dregion((0, 0), (out.width, out.height), (round_up(ex, get_vector_length()), ey)) {
+        for (bounds_row as (bounds_row_lower, bounds_row_upper), bounds_col as (bounds_col_lower, bounds_col_upper)), region in iterate_2dregion((0, 0), (out.width, out.height), (round_up(ex, get_vector_length()), ey)) {
             let out_acc = get_acc[T](out, set_pixel_fn[T](out), get_pixel_fn[T](out));
             let accs = for img, (ext_x, ext_y) in img_list2acc_map[T](imgs) {
                 if ext_x == 0 && ext_y == 0 {
@@ -38,8 +38,6 @@ fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs
             //let outer_loop_fun = if region == Boundary::Center { outer_loop } else { range };
             // gets slower when computed in parallel
 
-            let (bounds_row_lower, bounds_row_upper) = bounds_row;
-            let (bounds_col_lower, bounds_col_upper) = bounds_col;
             for y in range(bounds_col_lower, bounds_col_upper) {
                 for x in inner_loop(bounds_row_lower, bounds_row_upper) {
                     @body(math, x, y, out_acc, accs);
@@ -81,7 +79,7 @@ fn @iteration_advanced[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, im
     let (ex, ey) = get_max_ext(imgs);
 
     for benchmark_cpu() {
-        for (bounds_row, bounds_col), region in iterate_2dregion((0, 0), (out.width, out.height), (round_up(ex, get_vector_length()), ey)) {
+        for (bounds_row as (bounds_row_lower, bounds_row_upper), bounds_col as (bounds_col_lower, bounds_col_upper)), region in iterate_2dregion((0, 0), (out.width, out.height), (round_up(ex, get_vector_length()), ey)) {
             let out_acc = get_acc[T](out, set_pixel_fn[T](out), get_pixel_fn[T](out));
             let accs = for img, (ext_x, ext_y) in img_list2acc_map[T](imgs) {
                 if ext_x == 0 && ext_y == 0 {
@@ -93,8 +91,6 @@ fn @iteration_advanced[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, im
             //let outer_loop_fun = if region == Boundary::Center { outer_loop } else { range };
             // gets slower when computed in parallel
 
-            let (bounds_row_lower, bounds_row_upper) = bounds_row;
-            let (bounds_col_lower, bounds_col_upper) = bounds_col;
             match region {
                 (Boundary::Center, Boundary::Center) => tiled_loop(bounds_row_lower, bounds_row_upper, bounds_col_lower, bounds_col_upper, @|x, y| @body(math, x, y, out_acc, accs)),
                 _ =>

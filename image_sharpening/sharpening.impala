@@ -76,12 +76,6 @@ fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
     let out     = Img { buf = Buffer { data = bitcast[&mut[i8], &[i16]](output), size = (width * height) as i64 * sizeof[i16](), device = 0 }, width = width, height = height, stride = width };
     let tmp     = create_img[i16](width, height, alloc_cpu);
     let map     = create_img[f32](width, height, alloc_cpu);
-    //let mask    = get_mask5([[1:f32, .. 5], .. 5]);
-    let mask    = get_mask5([[1:f32, 1:f32, 1:f32, 1:f32, 1:f32],
-                             [1:f32, 1:f32, 1:f32, 1:f32, 1:f32],
-                             [1:f32, 1:f32, 1:f32, 1:f32, 1:f32],
-                             [1:f32, 1:f32, 1:f32, 1:f32, 1:f32],
-                             [1:f32, 1:f32, 1:f32, 1:f32, 1:f32]]);
 
     fn @sharpening() -> () {
         // compute quartile coefficient of dispersion (QCOD)

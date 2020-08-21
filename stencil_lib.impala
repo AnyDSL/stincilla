@@ -206,7 +206,7 @@ fn @get_acc_bh_offset_memory[T](set_pixel: fn(i32, T) -> (), get_pixel: fn(i32) 
     write = @|x, y, v| set_pixel((y + roy) * width + x + rox, v)
 }
 fn @get_acc_memory[T](set_pixel: fn(i32, T) -> (), get_pixel: fn(i32) -> T, width: i32, height: i32) = get_acc_offset_memory[T](set_pixel, get_pixel, width, height, 0, 0)
-fn @get_acc_offset_memory[T](set_pixel: fn(i32, T) -> (), get_pixel: fn(i32) -> T, width: i32, height: i32, rox: i32, roy: i32) = Acc[T] {
+fn @get_acc_offset_memory[T](set_pixel: fn(i32, T) -> (), get_pixel: fn(i32) -> T, width: i32, _height: i32, rox: i32, roy: i32) = Acc[T] {
     read  = @|x, y|    get_pixel((y + roy) * width + x + rox),
     write = @|x, y, v| set_pixel((y + roy) * width + x + rox, v)
 }
@@ -250,8 +250,8 @@ struct ImgList {
 }
 
 fn @img_list_empty() = ImgList {
-    get = @|i| undef[Img](),
-    ext = @|i| undef[(i32, i32)](),
+    get = @|_i| undef[Img](),
+    ext = @|_i| undef[(i32, i32)](),
     size = 0, id = 0
 }
 
@@ -300,9 +300,9 @@ fn @img_list2acc_map[T](body: fn(Img, (i32, i32)) -> Acc[T]) = @|imgs: ImgList| 
 }
 
 fn @get_max_ext(imgs: ImgList) -> (i32, i32) {
-    fn @(?i)max_ext((ext_x: i32, ext_y: i32), i: i32) -> (i32, i32) {
+    fn @(?i)max_ext(ext as (ext_x: i32, ext_y: i32), i: i32) -> (i32, i32) {
         if i == 0 {
-            (ext_x, ext_y)
+            ext
         } else {
             let (img_ext_x, img_ext_y) = imgs.ext(i - 1);
             max_ext((max(ext_x, img_ext_x), max(ext_y, img_ext_y)), i - 1)
@@ -319,7 +319,7 @@ struct AccList[T] {
 }
 
 fn @acc_list_empty[T]() = AccList[T] {
-    get = @|i| { undef[Acc[T]]() },
+    get = @|_i| { undef[Acc[T]]() },
     size = 0, id = 0
 }
 
