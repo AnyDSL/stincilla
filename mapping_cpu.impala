@@ -1,7 +1,7 @@
-fn @set_pixel_fn[T](img: Img) = @|idx : i32, val : T| bitcast[&mut[T], &mut[i8]](img.buf.data)(idx) = val
-fn @get_pixel_fn[T](img: Img) = @|idx : i32| bitcast[&[T], &mut[i8]](img.buf.data)(idx)
-fn @set_pixel_memory_fn[T](buf: Buffer) = @|idx : i32, val: T| bitcast[&mut[T], &mut[i8]](buf.data)(idx) = val
-fn @get_pixel_memory_fn[T](buf: Buffer) = @|idx : i32| bitcast[&[T], &mut[i8]](buf.data)(idx)
+fn @set_pixel_fn[T](img: Img) = @|idx : i32, val : T| bitcast[&mut[T]](img.buf.data)(idx) = val
+fn @get_pixel_fn[T](img: Img) = @|idx : i32| bitcast[&[T]](img.buf.data)(idx)
+fn @set_pixel_memory_fn[T](buf: Buffer) = @|idx : i32, val: T| bitcast[&mut[T]](buf.data)(idx) = val
+fn @get_pixel_memory_fn[T](buf: Buffer) = @|idx : i32| bitcast[&[T]](buf.data)(idx)
 
 fn @iteration[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let out_acc = get_acc[T](out, set_pixel_fn[T](out), get_pixel_fn[T](out));

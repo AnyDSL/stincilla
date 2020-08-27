@@ -8,7 +8,7 @@
 
 #[export]
 fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32) -> () {
-    let input  = Img { buf = Buffer { data = bitcast[&mut [i8], &[f32]](img_data), size = (width * height) as i64 * sizeof[f32](), device = 0 }, width = width, height = height, stride = width };
+    let input  = Img { buf = Buffer { data = bitcast[&mut [i8]](img_data), size = (width * height) as i64 * sizeof[f32](), device = 0 }, width = width, height = height, stride = width };
     let harris = create_img[f32](width, height, alloc_cpu);
     let dx     = create_img[f32](width, height, alloc_cpu);
     let dy     = create_img[f32](width, height, alloc_cpu);
@@ -93,7 +93,7 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
     }
     for y in range(0, height) {
         for x in range(0, width) {
-            let harris_acc = get_acc[f32](harris, |idx, val| bitcast[&mut[f32], &[i8]](harris.buf.data)(idx) = val, |idx| bitcast[&[f32], &[i8]](harris.buf.data)(idx));
+            let harris_acc = get_acc[f32](harris, |idx, val| bitcast[&mut[f32]](harris.buf.data)(idx) = val, |idx| bitcast[&[f32]](harris.buf.data)(idx));
             if harris_acc.read(x, y) > threshold {
                 for i in range(-5, 5+1) {
                     if x+i >= 0 && x+i < width {

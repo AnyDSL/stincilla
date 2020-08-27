@@ -6,7 +6,7 @@ fn @iteration(body: fn(i32, i32) -> ()) = @|acc: Accelerator, width: i32, height
         if work_item.gidx() == 0 && work_item.gidy() == 0 {
             let mut tmp: [i32 * 4];
             tmp(0) = 23;
-            *(&mut tmp(2) as &mut i64) = bitcast[i64,f64](42);
+            *(&mut tmp(2) as &mut i64) = bitcast[i64](42);
             vprintf("hello from %d, %f\n", &tmp as &[u8]);
         }
         @body(work_item.gidx(), work_item.gidy());
@@ -14,8 +14,8 @@ fn @iteration(body: fn(i32, i32) -> ()) = @|acc: Accelerator, width: i32, height
     acc.sync();
 }
 
-fn @read(buf: Buffer, i: i32) = bitcast[&addrspace(1)[f32], &[i8]](buf.data)(i)
-fn @write(buf: Buffer, i: i32, v: f32) = bitcast[&mut addrspace(1)[f32], &[i8]](buf.data)(i) = v
+fn @read(buf: Buffer, i: i32) = bitcast[&addrspace(1)[f32]](buf.data)(i)
+fn @write(buf: Buffer, i: i32, v: f32) = bitcast[&mut addrspace(1)[f32]](buf.data)(i) = v
 
 #[export]
 fn main() -> i32 {
@@ -27,8 +27,8 @@ fn main() -> i32 {
     let arr_gpu = acc.alloc((width * height) as i64 * sizeof[f32]());
     let out_gpu = acc.alloc((width * height) as i64 * sizeof[f32]());
     for i in range(0, width*height) {
-        let arr_ptr = bitcast[&mut[f32], &[i8]](arr.data);
-        let out_ptr = bitcast[&mut[f32], &[i8]](out.data);
+        let arr_ptr = bitcast[&mut[f32]](arr.data);
+        let out_ptr = bitcast[&mut[f32]](out.data);
         arr_ptr(i) = i as f32;
         out_ptr(i) = 0:f32;
     }
@@ -44,7 +44,7 @@ fn main() -> i32 {
 
     let mut passed = 0;
     for i in range(0, width*height) {
-        if bitcast[&[f32], &[i8]](out.data)(i) != bitcast[&[f32], &[i8]](arr.data)(i) { passed++; }
+        if bitcast[&[f32]](out.data)(i) != bitcast[&[f32]](arr.data)(i) { passed++; }
     }
     if passed == 0 {
         print_string("Test PASSED!\n");

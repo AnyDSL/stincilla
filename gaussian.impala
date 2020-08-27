@@ -4,8 +4,8 @@ fn main() -> i32 {
     let height = 4096;
     let arr    = create_img[f32](width, height, alloc_cpu);
     let out    = create_img[f32](width, height, alloc_cpu);
-    init_rand(bitcast[&mut[f32], &mut[i8]](arr.buf.data), arr.stride, out.height);
-    init_zero(bitcast[&mut[f32], &mut[i8]](out.buf.data), out.stride, out.height);
+    init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
 
     let mask_sep = get_mask_sep5([ 0.070766:f32, 0.244460:f32, 0.369546:f32, 0.244460:f32, 0.070766:f32 ]);
     let mask     = get_mask5([[ 0.005008:f32, 0.017300:f32, 0.026151:f32, 0.017300:f32, 0.005008:f32 ],
@@ -42,8 +42,8 @@ fn main() -> i32 {
 
     fn reference() -> i32 {
         let mut passed = 0;
-        let arr_acc = get_acc_bh[f32](arr, |idx, val| bitcast[&mut[f32], &mut[i8]](arr.buf.data)(idx) = val, |idx| bitcast[&[f32], &mut[i8]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
-        let out_acc = get_acc   [f32](out, |idx, val| bitcast[&mut[f32], &mut[i8]](out.buf.data)(idx) = val, |idx| bitcast[&[f32], &mut[i8]](out.buf.data)(idx));
+        let arr_acc = get_acc_bh[f32](arr, |idx, val| bitcast[&mut[f32]](arr.buf.data)(idx) = val, |idx| bitcast[&[f32]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
+        let out_acc = get_acc   [f32](out, |idx, val| bitcast[&mut[f32]](out.buf.data)(idx) = val, |idx| bitcast[&[f32]](out.buf.data)(idx));
         for y in range(0, out.height) {
             for x in range(0, out.width) {
                 let ref = apply_stencil[f32](x, y, arr_acc, mask);

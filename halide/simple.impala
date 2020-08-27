@@ -77,7 +77,7 @@ fn par(num_threads: i32) -> Loop = @|body| |lower, upper| parallel(body)(num_thr
 fn compute(out: Img, loop: Loop_xy, f: BinOp) -> BinOp {
     let width  = out.width;
     let height = out.height;
-    let data   = bitcast[&mut[i32],&[i32]](out.data);
+    let data   = bitcast[&mut[i32]](out.data);
 
     for x, y in loop(0, 0, width, height) {
         data(y * width + x) = f(x, y);

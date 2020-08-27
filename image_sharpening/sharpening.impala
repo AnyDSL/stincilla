@@ -72,8 +72,8 @@ fn @sharpen(x: i32, y: i32, out: Acc[i16], img: Acc[i16], blur: Acc[i16]) -> () 
 
 #[export]
 fn sharpening(input: &[i16], output: &[i16], width: i32, height: i32) -> () {
-    let img     = Img { buf = Buffer { data = bitcast[&mut[i8], &[i16]](input),  size = (width * height) as i64 * sizeof[i16](), device = 0 }, width = width, height = height, stride = width };
-    let out     = Img { buf = Buffer { data = bitcast[&mut[i8], &[i16]](output), size = (width * height) as i64 * sizeof[i16](), device = 0 }, width = width, height = height, stride = width };
+    let img     = Img { buf = Buffer { data = bitcast[&mut[i8]](input),  size = (width * height) as i64 * sizeof[i16](), device = 0 }, width = width, height = height, stride = width };
+    let out     = Img { buf = Buffer { data = bitcast[&mut[i8]](output), size = (width * height) as i64 * sizeof[i16](), device = 0 }, width = width, height = height, stride = width };
     let tmp     = create_img[i16](width, height, alloc_cpu);
     let map     = create_img[f32](width, height, alloc_cpu);
 

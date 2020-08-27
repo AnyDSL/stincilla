@@ -51,14 +51,14 @@ fn @apply_stencil[T](x: i32, y: i32, acc: Acc[T], mask: Mask) -> T {
         for i in unroll(-half_range_x, half_range_x+1) {
             let stencil_val = mask.data(j + half_range_y, i + half_range_x);
             if stencil_val != 0:f32 {
-                sum += bitcast[f32, T](acc.read(x + i, y + j)) * stencil_val;
+                sum += bitcast[f32](acc.read(x + i, y + j)) * stencil_val;
             } else {
                 // additional logic for empty stencil value
             }
         }
     }
 
-    bitcast[T, f32](sum)
+    bitcast[T](sum)
 }
 
 fn @apply_stencil_sep[T](x: i32, y: i32, acc: Acc[T], mask: MaskSep, row: bool) -> T {
@@ -69,16 +69,16 @@ fn @apply_stencil_sep[T](x: i32, y: i32, acc: Acc[T], mask: MaskSep, row: bool) 
         let stencil_val = mask.data(i + half_range);
         if stencil_val != 0:f32 {
             if row {
-                sum += bitcast[f32, T](acc.read(x + i, y)) * stencil_val;
+                sum += bitcast[f32](acc.read(x + i, y)) * stencil_val;
             } else {
-                sum += bitcast[f32, T](acc.read(x, y + i)) * stencil_val;
+                sum += bitcast[f32](acc.read(x, y + i)) * stencil_val;
             }
         } else {
             // additional logic for empty stencil value
         }
     }
 
-    bitcast[T, f32](sum)
+    bitcast[T](sum)
 }
 
 // boundary handling functions

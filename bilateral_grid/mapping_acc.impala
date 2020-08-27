@@ -1,18 +1,18 @@
-fn @img_read_fn(img: Buffer, width: i32) = @|x: i32, y: i32| bitcast[&addrspace(1)[f32], &[i8]](img.data)(y * width + x)
-fn @img_write_fn(img: Buffer, width: i32) = @|x: i32, y: i32, v: f32| bitcast[&mut addrspace(1)[f32], &[i8]](img.data)(y * width + x) = v
-fn @grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32| bitcast[&addrspace(1)[f32], &[i8]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c)
-fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32, v: f32| bitcast[&mut addrspace(1)[f32], &[i8]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c) = v
+fn @img_read_fn(img: Buffer, width: i32) = @|x: i32, y: i32| bitcast[&addrspace(1)[f32]](img.data)(y * width + x)
+fn @img_write_fn(img: Buffer, width: i32) = @|x: i32, y: i32, v: f32| bitcast[&mut addrspace(1)[f32]](img.data)(y * width + x) = v
+fn @grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32| bitcast[&addrspace(1)[f32]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c)
+fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32, v: f32| bitcast[&mut addrspace(1)[f32]](buf.data)(2 * ((y * width + x) * bins + z + padding) + c) = v
 
 fn @get_device_copy(host: &[f32], size: i64) -> Buffer {
     let acc = accelerator(device_id);
     let img_gpu = acc.alloc(size);
-    let img_cpu = Buffer { data = bitcast[&mut[i8], &[f32]](host), size = size, device = 0 };
+    let img_cpu = Buffer { data = bitcast[&mut[i8]](host), size = size, device = 0 };
     copy(img_cpu, img_gpu);
     img_gpu
 }
 
 fn @copy_to_host(host: &[f32], img_gpu: Buffer, size: i64) -> () {
-    let img_cpu = Buffer { data = bitcast[&mut[i8], &[f32]](host), size = size, device = 0 };
+    let img_cpu = Buffer { data = bitcast[&mut[i8]](host), size = size, device = 0 };
     copy(img_gpu, img_cpu);
 }
 

@@ -15,7 +15,7 @@ fn @iteration_multi(body: fn(i32, i32, &mut addrspace(1)[f32], &addrspace(1)[f32
             copy_offset(arr, offset, arr_gpu, 0, size_gpu);
 
             for work_item in acc.exec(grid, block) {
-                @body(work_item.gidx(), work_item.gidy(), bitcast[&mut addrspace(1)[f32], &[i8]](out_gpu.data), bitcast[&addrspace(1)[f32], &[i8]](arr_gpu.data));
+                @body(work_item.gidx(), work_item.gidy(), bitcast[&mut addrspace(1)[f32]](out_gpu.data), bitcast[&addrspace(1)[f32]](arr_gpu.data));
             }
             acc.sync();
 
@@ -37,8 +37,8 @@ fn main() -> i32 {
     let height  = 4096;
     let arr_buf = alloc_cpu((width * height) as i64 * sizeof[f32]());
     let out_buf = alloc_cpu((width * height) as i64 * sizeof[f32]());
-    let arr = bitcast[&mut[f32], &[i8]](arr_buf.data);
-    let out = bitcast[&mut[f32], &[i8]](out_buf.data);
+    let arr = bitcast[&mut[f32]](arr_buf.data);
+    let out = bitcast[&mut[f32]](out_buf.data);
     init_rand(arr, width, height);
     init_zero(out, width, height);
 

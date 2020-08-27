@@ -2,8 +2,8 @@ fn @iteration(body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -
     let acc         = accelerator(device_id);
     let arr_buf_gpu = acc.alloc((width * height) as i64 * sizeof[f32]());
     let out_buf_gpu = acc.alloc((width * height) as i64 * sizeof[f32]());
-    let     arr_gpu = bitcast[&    addrspace(1)[f32], &[i8]](arr_buf_gpu.data);
-    let     out_gpu = bitcast[&mut addrspace(1)[f32], &[i8]](out_buf_gpu.data);
+    let     arr_gpu = bitcast[&    addrspace(1)[f32]](arr_buf_gpu.data);
+    let     out_gpu = bitcast[&mut addrspace(1)[f32]](out_buf_gpu.data);
     copy(arr, arr_buf_gpu);
 
     let grid  = (width, height, 1);
@@ -34,8 +34,8 @@ fn main() -> i32 {
     let arr     = alloc_cpu((width * height) as i64 * sizeof[f32]());
     let out     = alloc_cpu((width * height) as i64 * sizeof[f32]());
     for i in range(0, width*height) {
-        let arr_ptr = bitcast[&mut[f32], &[i8]](arr.data);
-        let out_ptr = bitcast[&mut[f32], &[i8]](out.data);
+        let arr_ptr = bitcast[&mut[f32]](arr.data);
+        let out_ptr = bitcast[&mut[f32]](out.data);
         arr_ptr(i) = i as f32;
         out_ptr(i) = 0:f32;
     }
@@ -47,7 +47,7 @@ fn main() -> i32 {
 
     let mut passed = 0;
     for i in range(0, width*height) {
-        if bitcast[&[f32], &[i8]](out.data)(i) != bitcast[&[f32], &[i8]](arr.data)(i) { passed++; }
+        if bitcast[&[f32]](out.data)(i) != bitcast[&[f32]](arr.data)(i) { passed++; }
     }
     if passed == 0 {
         print_string("Test PASSED!\n");

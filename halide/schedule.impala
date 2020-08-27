@@ -91,7 +91,7 @@ fn @img_read_bounds(img: Img) -> Read {
 }
 
 fn @img_write(img: Img) -> Write {
-    let data = bitcast[&mut[pixel_t],&[pixel_t]](img.data);
+    let data = bitcast[&mut[pixel_t]](img.data);
     @|x: i32, y: i32, v: pixel_t| -> () { data(y * img.width + x) = v; }
 }
 
@@ -259,7 +259,7 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
         }
 
         for i in unroll(0, consume.num_inputs) {
-            runtime_release(0, bitcast[&[i8], &[pixel_t]](tmps(i).data));
+            runtime_release(0, bitcast[&[i8]](tmps(i).data));
         }
     };
     fn @(?n)max_root_exts(n: i32) -> Extents {

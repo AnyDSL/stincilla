@@ -257,7 +257,7 @@ fn aobench() -> () {
     let img = alloc_cpu((WIDTH*HEIGHT*3) as i64 * sizeof[u8]());
     let (spheres, plane) = init_scene();
     render(img, WIDTH, HEIGHT, NSUBSAMPLES, spheres, plane);
-    saveppm(bitcast[&[u8], &[i8]](img.data), WIDTH, HEIGHT);
+    saveppm(bitcast[&[u8]](img.data), WIDTH, HEIGHT);
     release(img);
     print_total_timing()
 }
