@@ -24,7 +24,7 @@ fn @dirichlet_lower(idx: i32, lower: i32, upper: i32) = const_lower[f32](idx, lo
 fn @dirichlet_upper(idx: i32, lower: i32, upper: i32) = const_upper[f32](idx, lower, upper, 0:f32)
 fn @jacobi_solver(_math: Intrinsics, x: i32, y: i32, Sol: Acc[f32], Tmp: Acc[f32], RHS: Acc[f32], mask: Mask) -> () {
     let val = (1.0:f32 - omega) * Tmp.read(x, y) +
-              0.25:f32 * omega  * RHS.read(x, y) + apply_stencil[f32](x, y, Tmp, mask);
+              0.25:f32 * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, mask);
     Sol.write(x, y, val);
 }
 
@@ -32,7 +32,7 @@ fn @jacobi(Sol: Img, Tmp: Img, RHS: Img, omega: f32) -> () {
     for _math, x, y, Sol, accs in iteration_bounds[f32](math, Sol, make_img_list2(Tmp, (jacobi_mask.size_x / 2, jacobi_mask.size_y / 2), RHS, (0, 0)), dirichlet_lower, dirichlet_upper) {
         let (Tmp, RHS) = (accs.get(0), accs.get(1));
         let val = (1.0:f32 - omega) * Tmp.read(x, y) +
-                  0.25:f32 * omega  * RHS.read(x, y) + apply_stencil[f32](x, y, Tmp, jacobi_mask);
+                  0.25:f32 * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, jacobi_mask);
         Sol.write(x, y, val);
     }
 }
@@ -46,14 +46,14 @@ static residual_mask = Mask {
     size_x = 3, size_y = 3
 };
 fn @residual_fun(_math: Intrinsics, x: i32, y: i32, Res: Acc[f32], Sol: Acc[f32], RHS: Acc[f32], mask: Mask) -> () {
-    let val = RHS.read(x, y) + apply_stencil[f32](x, y, Sol, mask);
+    let val = RHS.read(x, y) + apply_stencil(x, y, Sol, mask);
     Res.write(x, y, val);
 }
 
 fn @residual(math: Intrinsics, Res: Img, Sol: Img, RHS: Img) -> () {
     for _math, x, y, Res, accs in iteration_bounds[f32](math, Res, make_img_list2(Sol, (residual_mask.size_x / 2, residual_mask.size_y / 2), RHS, (0, 0)), dirichlet_lower, dirichlet_upper) {
         let (Sol, RHS) = (accs.get(0), accs.get(1));
-        let val = RHS.read(x, y) + apply_stencil[f32](x, y, Sol, residual_mask);
+        let val = RHS.read(x, y) + apply_stencil(x, y, Sol, residual_mask);
         Res.write(x, y, val);
     }
 }

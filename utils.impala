@@ -31,7 +31,7 @@ fn @benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn()
         sync();
         times(i) = get_time() - start;
     }
-    sort[i64](num_iter, times, |a: i64, b: i64| a > b);
+    sort(num_iter, times, |a: i64, b: i64| a > b);
     print_string("Timing: ");
     print_f64(times(num_iter/2) as f64 / 1000.0);
     print_string(" | ");

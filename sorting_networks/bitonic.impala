@@ -48,5 +48,5 @@ fn @bitonic_sort[T](length: i32, cmp: fn(T, T) -> bool, read: fn(i32) -> T, writ
 #[export]
 fn test() -> () {
     let mut arr: [f32 * 3];
-    bitonic_sort[f32](3, @|a, b| a > b, @|idx| arr(idx), @|idx, val| arr(idx) = val)
+    bitonic_sort(3, @|a: f32, b: f32| a > b, @|idx: i32| arr(idx), @|idx: i32, val: f32| arr(idx) = val)
 }

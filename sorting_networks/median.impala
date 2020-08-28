@@ -34,7 +34,7 @@ fn main() -> i32 {
                     for i in unroll(-length/2, +length/2) {
                         tmp(i + length / 2) = arr_acc.read(x + i, y);
                     }
-                    sort[f32](length, &mut tmp, |a: f32, b: f32| a > b);
+                    sort(length, &mut tmp, |a: f32, b: f32| a > b);
                     tmp((length - 1) / 2)
                 }
                 if median() != out_acc.read(x, y) { passed = 42; }

@@ -336,7 +336,7 @@ fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
 }
 fn @find_position(body: fn(i32) -> i32) = @|scan_buf: Buffer, size: i32| -> i32 {
     let acc      = accelerator(device_id);
-    let size_buf = Buffer { data = bitcast[&mut[i8](&size), size = sizeof[i32](), device = 0 };
+    let size_buf = Buffer { data = bitcast[&mut[i8]](&size), size = sizeof[i32](), device = 0 };
     let pos_buf  = acc.alloc(sizeof[i32]());
     let pos      = bitcast[&mut addrspace(1)[i32]](pos_buf.data);
     let scan     = bitcast[&    addrspace(1)[i32]](scan_buf.data);

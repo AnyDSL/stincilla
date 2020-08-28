@@ -185,8 +185,8 @@ fn @read_pixel[T](x: i32, y: i32, region: Region, roi: RoI, read: fn(i32, i32) -
     }
 }
 
-// &   [f32] on CPU/AVX
-// &[1][f32] on CUDA/NVVM & OpenCL/AMDGPU
+// &            [T] on CPU/AVX
+// &addrspace(1)[T] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acc_bh[T](img: Img, set_pixel: fn(i32, T) -> (), get_pixel: fn(i32) -> T, region: Region, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]) = get_acc_bh_offset[T](img, set_pixel, get_pixel, 0, 0, region, bh_lower, bh_upper)
 fn @get_acc_bh_offset[T](img: Img, set_pixel: fn(i32, T) -> (), get_pixel: fn(i32) -> T, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]) = Acc[T] {
     read  = @|x, y|    read_pixel[T](x + rox, y + roy, region, RoI { o_x = 0, o_y = 0, width = img.width, height = img.height }, @|x, y| get_pixel(y * img.stride + x), bh_lower, bh_upper),
@@ -198,8 +198,8 @@ fn @get_acc_offset[T](img: Img, set_pixel: fn(i32, T) -> (), get_pixel: fn(i32) 
     write = @|x, y, v| set_pixel((y + roy) * img.stride + x + rox, v)
 }
 
-// &   [f32] on CPU/AVX
-// &[3][f32] on CUDA/NVVM & OpenCL/AMDGPU
+// &            [T] on CPU/AVX
+// &addrspace(3)[T] on CUDA/NVVM & OpenCL/AMDGPU
 fn @get_acc_bh_memory[T](set_pixel: fn(i32, T) -> (), get_pixel: fn(i32) -> T, width: i32, height: i32, region: Region, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]) = get_acc_bh_offset_memory[T](set_pixel, get_pixel, width, height, 0, 0, region, bh_lower, bh_upper)
 fn @get_acc_bh_offset_memory[T](set_pixel: fn(i32, T) -> (), get_pixel: fn(i32) -> T, width: i32, height: i32, rox: i32, roy: i32, region: Region, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]) = Acc[T] {
     read  = @|x, y|    read_pixel[T](x + rox, y + roy, region, RoI { o_x = 0, o_y = 0, width = width, height = height }, @|x, y| get_pixel(y * width + x), bh_lower, bh_upper),
