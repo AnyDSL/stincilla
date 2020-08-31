@@ -5,27 +5,27 @@ fn @get_global_read_vec1(img: Img) -> fn(int) -> pixel_t {
 }
 
 fn @get_global_read_vec2(img: Img) -> fn(int) -> [pixel_t * 2] {
-    let ptr = bitcast[&[1][[pixel_t * 2]]](bitcast[&[1][pixel_t]](bitcast[&[1][[pixel_t * 2]]](img.buf.data)));
+    let ptr = bitcast[&[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx| { ptr($idx) }
 }
 
 fn @get_global_read_vec4(img: Img) -> fn(int) -> [pixel_t * 4] {
-    let ptr = bitcast[&[1][[pixel_t * 4]]](bitcast[&[1][pixel_t]](bitcast[&[1][[pixel_t * 4]]](img.buf.data)));
+    let ptr = bitcast[&[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx| { ptr($idx) }
 }
 
 fn @get_global_read_vec8(img: Img) -> fn(int) -> [pixel_t * 8] {
-    let ptr = bitcast[&[1][[pixel_t * 8]]](bitcast[&[1][pixel_t]](bitcast[&[1][[pixel_t * 8]]](img.buf.data)));
+    let ptr = bitcast[&[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx| { ptr($idx) }
 }
 
 fn @get_global_read_vec16(img: Img) -> fn(int) -> [pixel_t * 16] {
-    let ptr = bitcast[&[1][[pixel_t * 16]]](bitcast[&[1][pixel_t]](bitcast[&[1][[pixel_t * 16]]](img.buf.data)));
+    let ptr = bitcast[&[1][[pixel_t *  16]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx| { ptr($idx) }
 }
 
 fn @get_global_read_vec32(img: Img) -> fn(int) -> [pixel_t * 32] {
-    let ptr = bitcast[&[1][[pixel_t * 32]]](bitcast[&[1][pixel_t]](bitcast[&[1][[pixel_t * 32]]](img.buf.data)));
+    let ptr = bitcast[&[1][[pixel_t *  32]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx| { ptr($idx) }
 }
 
@@ -35,26 +35,26 @@ fn @get_global_write_vec1(img: Img) -> fn(int, pixel_t) -> () {
 }
 
 fn @get_global_write_vec2(img: Img) -> fn(int, [pixel_t * 2]) -> () {
-    let ptr = bitcast[&mut[1][[pixel_t * 2]]](bitcast[&mut[1][pixel_t]](bitcast[&mut[1][[pixel_t * 2]]](img.buf.data)));
+    let ptr = bitcast[&mut[1][[pixel_t *  2]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx, value| { ptr($idx) = value; }
 }
 
 fn @get_global_write_vec4(img: Img) -> fn(int, [pixel_t * 4]) -> () {
-    let ptr = bitcast[&mut[1][[pixel_t * 4]]](bitcast[&mut[1][pixel_t]](bitcast[&mut[1][[pixel_t * 4]]](img.buf.data)));
+    let ptr = bitcast[&mut[1][[pixel_t *  4]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx, value| { ptr($idx) = value; }
 }
 
 fn @get_global_write_vec8(img: Img) -> fn(int, [pixel_t * 8]) -> () {
-    let ptr = bitcast[&mut[1][[pixel_t * 8]]](bitcast[&mut[1][pixel_t]](bitcast[&mut[1][[pixel_t * 8]]](img.buf.data)));
+    let ptr = bitcast[&mut[1][[pixel_t *  8]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx, value| { ptr($idx) = value; }
 }
 
 fn @get_global_write_vec16(img: Img) -> fn(int, [pixel_t * 16]) -> () {
-    let ptr = bitcast[&mut[1][[pixel_t * 16]]](bitcast[&mut[1][pixel_t]](bitcast[&mut[1][[pixel_t * 16]]](img.buf.data)));
+    let ptr = bitcast[&mut[1][[pixel_t *  16]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx, value| { ptr($idx) = value; }
 }
 
 fn @get_global_write_vec32(img: Img) -> fn(int, [pixel_t * 32]) -> () {
-    let ptr = bitcast[&mut[1][[pixel_t * 32]]](bitcast[&mut[1][pixel_t]](bitcast[&mut[1][[pixel_t * 32]]](img.buf.data)));
+    let ptr = bitcast[&mut[1][[pixel_t *  32]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx, value| { ptr($idx) = value; }
 }
