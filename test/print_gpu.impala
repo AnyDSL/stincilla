@@ -6,7 +6,7 @@ fn @iteration(body: fn(i32, i32) -> ()) = @|acc: Accelerator, width: i32, height
         if work_item.gidx() == 0 && work_item.gidy() == 0 {
             let mut tmp: [i32 * 4];
             tmp(0) = 23;
-            *(&mut tmp(2) as &mut i64) = bitcast[i64](42);
+            *(&mut tmp(2) as &mut i64) = bitcast[i64](42:f64);
             vprintf("hello from %d, %f\n", &tmp as &[u8]);
         }
         @body(work_item.gidx(), work_item.gidy());
