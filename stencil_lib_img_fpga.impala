@@ -19,18 +19,18 @@ fn @new_img(width: i32, height: i32, stride: i32, buf: Buffer) -> Img {
     Img { buf: buf, fifo: &mut dummy, virtual: false, width: width, height: height, stride: stride }
 }
 
-fn @alloc_img(img: Img, alloc: fn(i32) -> Buffer) -> Img {
-    new_img(img.width, img.height, img.stride, alloc(img.stride * img.height * sizeof[pixel_t]()))
+fn @alloc_img(img: Img, alloc: fn(i64) -> Buffer) -> Img {
+    new_img(img.width, img.height, img.stride, alloc((img.stride * img.height) as i64 * sizeof[pixel_t]()))
 }
 
 fn @create_host_img(width: i32, height: i32) -> Img {
     let stride = round_up(width, get_vector_length());
-    let buf = alloc_cpu(stride * height * sizeof[pixel_t]());
+    let buf = alloc_cpu((stride * height) as i64 * sizeof[pixel_t]());
     new_img(width, height, stride, buf)
 }
 
 fn @new_virtual_img(width: i32, height: i32, stride: i32, fifo: &mut pipe) -> Img {
-    let buf = alloc_cpu(0);
+    let buf = alloc_cpu(0 as i64);
     Img { buf: buf, fifo: fifo, virtual: true, width: width, height: height, stride: stride }
 }
 

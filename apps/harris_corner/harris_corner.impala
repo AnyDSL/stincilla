@@ -31,7 +31,7 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     // in --            > ixy -- sxy --> hc -- out
     //       \         /              /
     //         -- iy -|-- iyy -- syy -
-    let input  = new_img(width, height, stride, Buffer { data : bitcast[&[i8]](img_data), size : (width * height * sizeof[pixel_t]()) as i64, device : 0 });
+    let input  = new_img(width, height, stride, Buffer { data : bitcast[&[i8]](img_data), size : ((width * height) as i64 * sizeof[pixel_t]()) as i64, device : 0 });
     let harris = create_host_img(width, height);
     let dx  = create_virtual_img(width, height, &mut dx_c );
     let dy  = create_virtual_img(width, height, &mut dy_c );

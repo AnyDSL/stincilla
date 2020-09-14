@@ -19,10 +19,10 @@ fn @write(buf: Buffer, i: i32, v: f32) -> () { bitcast[&mut[1][f32]](buf.data)(i
 fn main() -> i32 {
     let size   = 2048;
     let fpga    = accelerator(device_id);
-    let arr     = alloc_cpu(size * sizeof[f32]());
-    let out     = alloc_cpu(size * sizeof[f32]());
-    let arr_fpga = fpga.alloc(size * sizeof[f32]());
-    let out_fpga = fpga.alloc(size * sizeof[f32]());
+    let arr     = alloc_cpu(size as i64 * sizeof[f32]());
+    let out     = alloc_cpu(size as i64 * sizeof[f32]());
+    let arr_fpga = fpga.alloc(size as i64 * sizeof[f32]());
+    let out_fpga = fpga.alloc(size as i64 * sizeof[f32]());
     for i in range(0, size) {
         let arr_ptr = bitcast[&mut[f32]](arr.data);
         let out_ptr = bitcast[&mut[f32]](out.data);

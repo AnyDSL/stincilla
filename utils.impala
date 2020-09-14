@@ -25,7 +25,7 @@ static mut total_fpga_timing = 0i64;
 static mut total_host_timing = 0i64;
 
 fn @benchmark(get_time: fn() -> i64, num_iter: i32, body: fn() -> (), sync: fn() -> ()) -> i64 {
-    let times_buf = alloc_cpu(num_iter * sizeof[i64]());
+    let times_buf = alloc_cpu(num_iter as i64 * sizeof[i64]());
     let times = bitcast[&mut[i64]](times_buf.data);
     for i in range(0, num_iter) {
         let start = get_time();
@@ -63,10 +63,10 @@ fn @benchmark_fpga(sync: fn() -> (), body: fn() -> ()) -> () {
 }
 fn @benchmark_host(num_iter: i32, body: fn() -> ()) -> () {
     // sum of kernel times
-    let total_times_buf = alloc_cpu((num_iter + 1) * sizeof[i64]());
+    let total_times_buf = alloc_cpu((num_iter + 1) as i64 * sizeof[i64]());
     let total_times = bitcast[&mut[i64]](total_times_buf.data);
     // total host time
-    let times_buf = alloc_cpu((num_iter + 1) * sizeof[i64]());
+    let times_buf = alloc_cpu((num_iter + 1) as i64 * sizeof[i64]());
     let times = bitcast[&mut[i64]](times_buf.data);
     for i in range(0, num_iter + 1) {
         total_fpga_timing = 0i64;
