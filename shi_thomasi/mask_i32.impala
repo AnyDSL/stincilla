@@ -1,0 +1,17 @@
+static sobel_mask3_x = [[ -1,  0,  1],
+                       [ -2,  0,  2],
+                       [ -1,  0,  1]];
+
+static sobel_mask3_y = [[ -1, -2, -1],
+                       [  0,  0,  0],
+                       [  1,  2,  1]];
+
+static gauss_mask3 = [[ 1, 2, 1],
+                      [ 2, 4, 2],
+                      [ 1, 2, 1]];
+
+static threshold = 100000;
+static k = 4;
+static k_den = 100;
+static markHigh = 255;
+static markLow  = 0;

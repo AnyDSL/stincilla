@@ -1,0 +1,17 @@
+static sobel_mask3_x = [[ -1.0f,  0.0f,  1.0f ],
+                       [ -2.0f,  0.0f,  2.0f ],
+                       [ -1.0f,  0.0f,  1.0f ]];
+
+static sobel_mask3_y = [[ -1.0f, -2.0f, -1.0f ],
+                       [  0.0f,  0.0f,  0.0f ],
+                       [  1.0f,  2.0f,  1.0f ]];
+
+static gauss_mask3 = [[ 0.057118f, 0.124758f, 0.057118f ],
+                      [ 0.124758f, 0.272496f, 0.124758f ],
+                      [ 0.057118f, 0.124758f, 0.057118f ]];
+
+static threshold = 100000f;
+static k = 0.04f;
+static k_den = 1.0f;
+static markHigh = 255f;
+static markLow  = 0f;

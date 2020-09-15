@@ -1,0 +1,108 @@
+extern
+fn shi_thomasi(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
+    let width  = 1024;
+    let height = 1024;
+    let stride = 1024;
+
+    static mut in_c0  : pipe;
+    static mut in_c1  : pipe;
+    static mut dx_c  : pipe;
+    static mut dy_c  : pipe;
+    static mut dxx_c : pipe;
+    static mut dxy_c : pipe;
+    static mut dyy_c : pipe;
+    static mut gxx_c : pipe;
+    static mut gxy_c : pipe;
+    static mut gyy_c : pipe;
+    static mut dx_c0 : pipe;
+    static mut dx_c1 : pipe;
+    static mut dy_c0 : pipe;
+    static mut dy_c1 : pipe;
+    //         -- ix -|-- ixx -- sxx -
+    //       /         \              \
+    // in --            > ixy -- sxy --> hc -- out
+    //       \         /              /
+    //         -- iy -|-- iyy -- syy -
+    let input  = new_img(width, height, stride, Buffer { data : bitcast[&[i8]](img_data), size : ((width * height) as i64 * sizeof[pixel_t]()) as i64, device : 0 });
+    let host_image = create_host_img(width, height);
+    let dx  = create_virtual_img(width, height, &mut dx_c );
+    let dy  = create_virtual_img(width, height, &mut dy_c );
+    let dxx = create_virtual_img(width, height, &mut dxx_c);
+    let dxy = create_virtual_img(width, height, &mut dxy_c);
+    let dyy = create_virtual_img(width, height, &mut dyy_c);
+    let gxx = create_virtual_img(width, height, &mut gxx_c);
+    let gxy = create_virtual_img(width, height, &mut gxy_c);
+    let gyy = create_virtual_img(width, height, &mut gyy_c);
+
+    // compute the first derivative using the Sobel operator
+    let mdx = get_mask3(sobel_mask3_x);
+    let mdy = get_mask3(sobel_mask3_y);
+
+    let lower = nobh_center;
+    let upper = nobh_center;
+    //let lower = clamp_lower;
+    //let upper = clamp_upper;
+    //let lower = mirro_lower;
+    //let upper = mirro_upper;
+    let enable_offset = 1;
+
+    for benchmark_host(num_host_iter) {
+        let (in0, in1) = split_image(math, input, &mut in_c0, &mut in_c1);
+        for math, x, y, out, arr, mask in iteration(math, dx, in0, mdx, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
+        for math, x, y, out, arr, mask in iteration(math, dy, in1, mdy, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
+
+        // Replicate virtual images for multiple reads
+        let (dx0, dx1) = split_image(math, dx, &mut dx_c0, &mut dx_c1);
+        let (dy0, dy1) = split_image(math, dy, &mut dy_c0, &mut dy_c1);
+
+        // compute dxx, dyy, dxy
+        for math, x, y, out, dx in iteration_point(math, dxx, dx0) {
+            out.write(x, y, dx * dx);
+        }
+        for math, x, y, out, dy in iteration_point(math, dyy, dy0) {
+            out.write(x, y, dy * dy);
+        }
+        for math, x, y, out, dx, dy in iteration_point2(math, dxy, dx1, dy1) {
+            out.write(x, y, dx * dy);
+        }
+
+        // compute gxx, gyy, gxy using Gaussian blur
+        let mg = get_mask3(gauss_mask3);
+
+        for math, x, y, out, arr, mask in iteration(math, gxx, dxx, mg, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
+        for math, x, y, out, arr, mask in iteration(math, gyy, dyy, mg, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
+        for math, x, y, out, arr, mask in iteration(math, gxy, dxy, mg, lower, upper) {
+            out.write(x, y, apply_stencil(x, y, arr, mask));
+        }
+
+        // compute score for shi-thomasi
+        for math, x, y, out, xx, yy, xy in iteration_point3(math, host_image, gxx, gyy, gxy) {
+            let min = if (xx < yy) { xx } else { yy };
+            out.write(x, y, min);
+        }
+    }
+    print_total_timing();
+
+    // post-processing: mark corners
+    for y in range(0, height) {
+        for x in range(0, width) {
+            let image_acc = get_acc(host_image, |idx, val| { bitcast[&mut[pixel_t]](host_image.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](host_image.buf.data)(idx));
+            if image_acc.read(x, y) > threshold {
+                out_data(y*width + x) = markHigh;
+            } else{
+                out_data(y*width + x) = markLow;
+            }
+            //out_data(y*width + x) = image_acc.read(x, y);
+        }
+    }
+
+    release(host_image.buf);
+}

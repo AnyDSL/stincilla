@@ -36,6 +36,7 @@ set (MAXIMUM_DIR        ${APPS_DIR}/reduce_ex)
 set (BOX_FILTER_DIR     ${APPS_DIR}/box_filter)
 set (FILTER_CHAIN_DIR   ${APPS_DIR}/filter_chain)
 set (HARRIS_CORNER_DIR  ${APPS_DIR}/harris_corner)
+set (SHI_THOMASI_DIR    ${APPS_DIR}/shi_thomasi)
 
 set(BILATERAL_FILES     ${BILATERAL_DIR}/mask_f32.impala ${BILATERAL_DIR}/bilateral.impala)
 set(SQUARE_FILES        ${SQUARE_DIR}/square.impala)
@@ -47,6 +48,7 @@ set(SOBEL_LUMA_FILES    ${SOBEL_LUMA_DIR}/mask_i32.impala ${SOBEL_LUMA_DIR}/sobe
 set(JACOBI_FILES        ${JACOBI_DIR}/mask_${PIXEL_TYPE}.impala ${JACOBI_DIR}/jacobi.impala)
 set(FILTER_CHAIN_FILES  ${FILTER_CHAIN_DIR}/mask_${PIXEL_TYPE}.impala ${FILTER_CHAIN_DIR}/filter_chain.impala)
 set(HARRIS_CORNER_FILES ${HARRIS_CORNER_DIR}/mask_${PIXEL_TYPE}.impala ${HARRIS_CORNER_DIR}/harris_corner.impala)
+set(SHI_THOMASI_FILES   ${SHI_THOMASI_DIR}/mask_${PIXEL_TYPE}.impala ${SHI_THOMASI_DIR}/shi_thomasi.impala)
 
 # for optional config files
 set(APPS_CONFIG_FILES "")
@@ -123,6 +125,16 @@ add_executable(filter_chain ${FILTER_CHAIN_PROGRAM})
 target_link_libraries(filter_chain ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(filter_chain PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 set_target_properties(filter_chain PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+
+anydsl_runtime_wrap(SHI_THOMASI_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${SHI_THOMASI_FILES})
+add_executable(shi_thomasi "${SHI_THOMASI_DIR}/main.cpp" ${SHI_THOMASI_PROGRAM})
+target_link_libraries(shi_thomasi ${ANYDSL_RUNTIME_LIBRARIES})
+set_target_properties(shi_thomasi PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
+set_target_properties(shi_thomasi PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 
 anydsl_runtime_wrap(HARRIS_CORNER_PIPE_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
