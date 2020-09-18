@@ -34,6 +34,7 @@ set (BILATERAL_DIR      ${APPS_DIR}/bilateral)
 set (SQUARE_DIR         ${APPS_DIR}/square)
 set (MAXIMUM_DIR        ${APPS_DIR}/reduce_ex)
 set (BOX_FILTER_DIR     ${APPS_DIR}/box_filter)
+set (LAPLACE_DIR        ${APPS_DIR}/laplace)
 set (FILTER_CHAIN_DIR   ${APPS_DIR}/filter_chain)
 set (HARRIS_CORNER_DIR  ${APPS_DIR}/harris_corner)
 set (SHI_THOMASI_DIR    ${APPS_DIR}/shi_thomasi)
@@ -42,6 +43,7 @@ set(BILATERAL_FILES     ${BILATERAL_DIR}/mask_f32.impala ${BILATERAL_DIR}/bilate
 set(SQUARE_FILES        ${SQUARE_DIR}/square.impala)
 set(MAXIMUM_FILES       ${MAXIMUM_DIR}/reduce_ex.impala)
 set(BOX_FILTER_FILES    ${BOX_FILTER_DIR}/mask.impala ${BOX_FILTER_DIR}/box_filter.impala)
+set(LAPLACE_FILES       ${LAPLACE_DIR}/mask.impala ${LAPLACE_DIR}/laplace.impala)
 set(BOX_FILTER_CONST_FILES ${BOX_FILTER_DIR}/box_filter_const.impala)
 set(GAUSSIAN_FILES      ${GAUSSIAN_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_DIR}/gaussian.impala)
 set(SOBEL_LUMA_FILES    ${SOBEL_LUMA_DIR}/mask_i32.impala ${SOBEL_LUMA_DIR}/sobel_luma.impala)
@@ -70,6 +72,15 @@ anydsl_runtime_wrap(BOX_FILTER_PROGRAM
 add_executable(box_filter ${BOX_FILTER_PROGRAM})
 target_link_libraries(box_filter ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("box_filter" box_filter)
+
+anydsl_runtime_wrap(LAPLACE_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${LAPLACE_FILES})
+add_executable(laplace ${LAPLACE_PROGRAM})
+target_link_libraries(laplace ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("laplace" laplace)
 
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
