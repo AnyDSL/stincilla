@@ -1,7 +1,8 @@
 anydsl_runtime_wrap(SHARPENING_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} ../utils.impala ../stencil_lib.impala ../sorting_networks/bitonic.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala stencil_lib_i16.impala sharpening.impala)
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${BACKEND_FILE} ${PIXEL_F32_FILE} ../utils.impala ../stencil_lib.impala  ../sorting_networks/bitonic.impala ../stencil_lib_img_proc.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala stencil_lib_i16.impala sharpening.impala)
 add_executable(sharpening main.cpp ${SHARPENING_PROGRAM})
 target_link_libraries(sharpening ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(sharpening PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
