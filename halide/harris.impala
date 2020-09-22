@@ -2,7 +2,7 @@ type pixel_t = f32;
 
 extern
 fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
-    let use_cuda = true;
+    let use_cuda = false;
 
     let img = Img { width : width, height : height, data : data };
     let out = Img { width : width, height : height, data : ~[width*height:pixel_t] };
