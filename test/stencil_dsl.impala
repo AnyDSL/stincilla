@@ -77,8 +77,8 @@ fn main() -> i32 {
     let a       = 0.2f;
     let b       = 1.0f - 4.0f * a;
     let num_it  = 100;
-    let mut arr = Field { buf : alloc_cpu(width * height * sizeof[f32]()), cols : width, rows : height, stride : width };
-    let mut out = Field { buf : alloc_cpu(width * height * sizeof[f32]()), cols : width, rows : height, stride : width };
+    let mut arr = Field { buf : alloc_cpu((width * height) as i64 * sizeof[f32]()), cols : width, rows : height, stride : width };
+    let mut out = Field { buf : alloc_cpu((width * height) as i64 * sizeof[f32]()), cols : width, rows : height, stride : width };
     let stencil = [b, a, b];
 
     for iter in range(0, num_it) {

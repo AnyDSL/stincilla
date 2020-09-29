@@ -12,7 +12,7 @@ fn @iteration_merge(math: Intrinsics, RHSC: Img, Sol: Img, RHSF: Img,
         for bounds_col, boundary_col in iterate_1dregion(0, Sol.height, bhy) {
             //let outer_col  = match boundary_col { Boundary::Center => outer_loop_step, _ => range_step };
             // allocate temporary array
-            let tmp = alloc_cpu(Sol.stride * step * coarsening_factor * sizeof[f32]());
+            let tmp = alloc_cpu((Sol.stride * step * coarsening_factor) as i64 * sizeof[f32]());
             // gets slower when computed in parallel
             for y in range_step(bounds_col(0), bounds_col(1), step * coarsening_factor) {
                 // residual: index space == cache line

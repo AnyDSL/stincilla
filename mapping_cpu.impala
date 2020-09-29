@@ -184,7 +184,7 @@ fn @iteration_sep_advanced(math: Intrinsics, out: Img, arr: Img, mask_row: MaskS
             let (outer_col, inner_col) = match boundary_col { Boundary::Center => (outer_loop_step, inner_loop), _ => (range_step, range) };
             for y in outer_col(bounds_col(0), bounds_col(1), coarsening_factor) {
                 // allocate temporary array per thread
-                let tmp = alloc_cpu(out.width * coarsening_factor * sizeof[pixel_t]());
+                let tmp = alloc_cpu((out.width * coarsening_factor) as i64 * sizeof[pixel_t]());
 
                 for x in inner_col(0, out.width) {
                     let is_row = false;

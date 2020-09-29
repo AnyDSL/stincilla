@@ -95,13 +95,13 @@ fn @new_imgi16(width: i32, height: i32, stride: i32, buf: Buffer) -> Imgi16 {
     Imgi16 { buf : buf, width : width,  height : height, stride : stride }
 }
 
-fn @alloc_imgi16(img: Imgi16, alloc: fn(i32) -> Buffer) -> Imgi16 {
-    new_imgi16(img.width, img.height, img.stride, alloc(img.stride * img.height * sizeof[i16]()))
+fn @alloc_imgi16(img: Imgi16, alloc: fn(i64) -> Buffer) -> Imgi16 {
+    new_imgi16(img.width, img.height, img.stride, alloc((img.stride * img.height) as i64 * sizeof[i16]()))
 }
 
-fn @create_imgi16(width: i32, height: i32, alloc: fn(i32) -> Buffer) -> Imgi16 {
-    let stride = round_up(width * sizeof[i16](), 64) / sizeof[i16]();
-    new_imgi16(width, height, stride, alloc(stride * height * sizeof[i16]()))
+fn @create_imgi16(width: i32, height: i32, alloc: fn(i64) -> Buffer) -> Imgi16 {
+    let stride = round_up(width * sizeof[i16]() as i32, 64) / sizeof[i16]() as i32;
+    new_imgi16(width, height, stride, alloc((stride * height) as i64 * sizeof[i16]()))
 }
 
 fn @copy_imgi16(src: Imgi16, dst: Imgi16) -> () {

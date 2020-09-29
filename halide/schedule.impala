@@ -49,6 +49,7 @@ fn @infer_extents_inputs(stencil: StencilOp) -> (Extents, i32) {
 struct Img {
     width  : i32,
     height : i32,
+    device : i32,
     data : &[pixel_t]
 };
 
@@ -80,7 +81,11 @@ fn @compute(input: Img, out: Img, schedule: Schedule) -> BinOp {
 // image read and write
 
 fn @img_read(img: Img) -> Read {
-    @|i: i32| @|x: i32, y: i32| -> pixel_t { img.data(y * img.width + x) }
+    if img.device == 0 {
+        @|i: i32| @|x: i32, y: i32| -> pixel_t { img.data(y * img.width + x) }
+    } else {
+        @|i: i32| @|x: i32, y: i32| -> pixel_t { bitcast[&[1][pixel_t]](img.data)(y * img.width + x) }
+    }
 }
 
 fn @img_read_bounds(img: Img) -> Read {
@@ -97,8 +102,16 @@ fn @img_read_bounds(img: Img) -> Read {
 }
 
 fn @img_write(img: Img) -> Write {
-    let data = bitcast[&mut[pixel_t]](img.data);
-    @|x: i32, y: i32, v: pixel_t| -> () { data(y * img.width + x) = v; }
+    if img.device == 0 {
+        @|x: i32, y: i32, v: pixel_t| -> () { bitcast[&mut[pixel_t]](img.data)(y * img.width + x) = v; }
+    } else {
+        @|x: i32, y: i32, v: pixel_t| -> () { bitcast[&mut[1][pixel_t]](img.data)(y * img.width + x) = v; }
+    }
+}
+
+fn @img_alloc(width: i32, height: i32, alloc: fn(i64) -> Buffer) -> Img {
+    let buf = alloc((width * height) as i64 * sizeof[pixel_t]());
+    Img { width : width, height : height, device : buf.device, data : buf.data as &[pixel_t] }
 }
 
 // boundary handling
@@ -240,7 +253,7 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
         fn @(?n)alloc_tmps(n: i32) -> fn(i32) -> Img {
             let data = ~[tmp_width * tmp_height:pixel_t];
             // do not inline syntactically, this needs to be captured
-            let tmp = Img { width : tmp_width, height : tmp_height, data : data };
+            let tmp = Img { width : tmp_width, height : tmp_height, device : 0, data : data };
             if n == 1 {
                 @|i| tmp
             } else {
@@ -296,35 +309,31 @@ fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Sc
     Schedule { loop : loop, extents : inner.extents, num_inputs : inner.num_inputs }
 }
 
-
-static cuda_dev = 0;
-fn @benchmark_cuda(body: fn() -> ()) -> () {
-    total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev))
-}
-
-fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
+fn @tile_gpu(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
+    let acc  = accelerator(device_id);
     let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
         let grid  = (x_upper - x_lower, y_upper - y_lower, 1);
         let block = (tile_width, tile_height, 1);
-        cuda(cuda_dev, grid, block, || {
-            let x = x_lower + cuda_threadIdx_x() + cuda_blockDim_x() * cuda_blockIdx_x();
-            let y = y_lower + cuda_threadIdx_y() + cuda_blockDim_y() * cuda_blockIdx_y();
+        acc.exec(grid, block, |work_item| {
+            let x = x_lower + work_item.gidx();
+            let y = y_lower + work_item.gidy();;
             write(x, y, stencil.op(read, x, y))
         });
     };
     Schedule { loop : loop, extents : stencil.extents, num_inputs : stencil.num_inputs }
 }
 
-fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> Stencil, consume: Stencil) -> Schedule {
+fn @tile_gpu_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> Stencil, consume: Stencil) -> Schedule {
     // TODO assert that consume_stencil.num_inputs == 1
     let extents = consume.extents;
+    let acc  = accelerator(device_id);
     let loop = @|read: Read, x_lower, y_lower, x_upper, y_upper, write: Write| {
         let (x_range, y_range)  = (x_upper - x_lower, y_upper - y_lower);
         let block = (tile_width + 2 * extents.x, tile_height + 2 * extents.y, 1);
         let grid  = (round_up(x_range, tile_width) / tile_width * block(0), round_up(y_range, tile_height) / tile_height * block(1), 1);
-        cuda(cuda_dev, grid, block, || {
-            let (tid_x, tid_y) = (cuda_threadIdx_x(), cuda_threadIdx_y());
-            let (bid_x, bid_y) = (cuda_blockIdx_x(),  cuda_blockIdx_y());
+        acc.exec(grid, block, |work_item| {
+            let (tid_x, tid_y) = (work_item.tidx(), work_item.tidy());
+            let (bid_x, bid_y) = (work_item.bidx(), work_item.bidy());
 
             let gid_x = x_lower + tid_x + tile_width  * bid_x - extents.x;
             let gid_y = y_lower + tid_y + tile_height * bid_y - extents.y;
@@ -353,7 +362,7 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
                 tmps(i)(tmp_idx_write(tid_x, tid_y)) = root_stencils(i).op(read, gid_x, gid_y);
             }
 
-            cuda_syncthreads();
+            acc.barrier();
 
             if tid_y < tile_height && tid_x < tile_width && gid_x + extents.x < x_upper && gid_y + extents.y < y_upper {
                 let tmp_read = @|i:i32| @|x, y| tmps(i)(tmp_idx_read(x, y));
@@ -368,6 +377,6 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
     schedule(loop, max_extents(max_root_exts(consume.num_inputs), consume.extents), root_stencils(0).num_inputs)
 }
 
-fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule {
-    tile_cuda_ats(tile_width, tile_height, @|i| stencil1, stencil2)
+fn @tile_gpu_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule {
+    tile_gpu_ats(tile_width, tile_height, @|i| stencil1, stencil2)
 }

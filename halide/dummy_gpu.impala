@@ -1,0 +1,10 @@
+fn @accelerator(dev: i32) -> Accelerator {
+    Accelerator {
+        exec          : @|grid, block, body| undef[()](),
+        sync          : @|| undef[()](),
+        alloc         : @|size| undef[Buffer](),
+        alloc_unified : @|size| undef[Buffer](),
+        barrier       : @|| undef[()]()
+    }
+}
+static device_id = 0;

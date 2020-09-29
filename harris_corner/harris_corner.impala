@@ -7,13 +7,8 @@
  */
 
 extern
-fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t], width_: i32, height_: i32) -> () {
-    if width_ != 2048 || height_ != 2048 {
-        print_string("Image size expected to be 2048x2048!\n");
-        return()
-    }
-    let (width, height) = (2048, 2048);
-    let input  = Img { buf : Buffer { data : bitcast[&[i8]](img_data), size : (width * height * sizeof[pixel_t]()) as i64, device : 0 }, width : width, height : height, stride : width };
+fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t], width: i32, height: i32) -> () {
+    let input  = Img { buf : Buffer { data : bitcast[&[i8]](img_data), size : (width * height) as i64 * sizeof[pixel_t](), device : 0 }, width : width, height : height, stride : width };
     let harris = create_img(width, height, alloc_cpu);
     let dx     = create_img(width, height, alloc_cpu);
     let dy     = create_img(width, height, alloc_cpu);
