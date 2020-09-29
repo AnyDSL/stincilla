@@ -322,9 +322,8 @@ fn @tile_gpu_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> St
     let acc  = accelerator(device_id);
     let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
         let (x_range, y_range)  = (x_upper - x_lower, y_upper - y_lower);
-        let block = (tile_width + 2 * extents.x, tile_height + 2 * extents.y, 1);
-        let (block_x, block_y, _) = block;
-        let grid  = (round_up(x_range, tile_width) / tile_width * block_x, round_up(y_range, tile_height) / tile_height * block_y, 1);
+        let (block as (block_x, block_y, _)) = (tile_width + 2 * extents.x, tile_height + 2 * extents.y, 1);
+        let grid = (round_up(x_range, tile_width) / tile_width * block_x, round_up(y_range, tile_height) / tile_height * block_y, 1);
         acc.exec(|work_item| {
             let (tid_x, tid_y) = (work_item.tidx(), work_item.tidy());
             let (bid_x, bid_y) = (work_item.bidx(), work_item.bidy());
@@ -336,9 +335,8 @@ fn @tile_gpu_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> St
                 return()
             }
 
-            let (tmp_size_x, tmp_size_y) = (block_x, block_y);
             fn @(?n)alloc_tmps(n: i32) -> fn(i32) -> &mut addrspace(3)[pixel_t] {
-                let data = reserve_shared[pixel_t](tmp_size_x * tmp_size_y);
+                let data = reserve_shared[pixel_t](block_x * block_y);
                 // do not inline syntactically, this needs to be captured
                 if n == 1 {
                     @|_i| data
@@ -349,8 +347,8 @@ fn @tile_gpu_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> St
                 }
             }
             let tmps = alloc_tmps(consume.num_inputs);
-            let tmp_idx_read  = @|x: i32, y: i32| extents.x + x + (extents.y + y) * tmp_size_x;
-            let tmp_idx_write = @|x: i32, y: i32| x + y * tmp_size_x;
+            let tmp_idx_read  = @|x: i32, y: i32| extents.x + x + (extents.y + y) * block_x;
+            let tmp_idx_write = @|x: i32, y: i32| x + y * block_x;
 
             for i in unroll(0, consume.num_inputs) {
                 tmps(i)(tmp_idx_write(tid_x, tid_y)) = root_stencils(i).op(read, gid_x, gid_y);
