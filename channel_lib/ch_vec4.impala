@@ -1,0 +1,33 @@
+fn @channel_to_Mem2D_read(img: Img, pFactor: int) -> Mem2D {
+    if(pFactor == 4) {
+        channel_to_Mem2D_read_vec4(img)
+    } else {
+        undef[Mem2D]()
+    }
+}
+
+fn @channel_to_Mem2D_write(img: Img, pFactor: int) -> Mem2D {
+    if(pFactor == 4 {
+        channel_to_Mem2D_write_vec4(img)
+    } else {
+        undef[Mem2D]()
+    }
+}
+
+fn @channel_to_Mem2D_write_vec4(img: Img) -> Mem2D {
+    let mut value = [ 0 as pixel_t, .. 4 ];
+    let pFactor = 4;
+    fn @update(idx: int) -> () { write_channel4(img.fifo, value); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 4, update, read, write)
+}
+
+fn @channel_to_Mem2D_read_vec4(img: Img) -> Mem2D {
+    let mut value = [ 0 as pixel_t, .. 4 ];
+    let pFactor = 4;
+    fn @update(idx: int) -> () { value = read_channel4(img.fifo); }
+    fn @read(idx: int) -> pixel_t { value(idx) }
+    fn @write(idx: int, din: pixel_t) -> () { value(idx) = din; }
+    create_Mem2D_from_img(img, 4, update, read, write)
+}

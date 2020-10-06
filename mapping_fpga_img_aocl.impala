@@ -1,6 +1,6 @@
 // ---------------------------- streaming --------------------------------------
-fn @get_global_read_vec1(img: Img) -> fn(int) -> pixel_t {
-    let ptr = bitcast[&[1][pixel_t]](img.buf.data);
+fn @get_global_read_vec1(img: Img) -> fn(int) -> [pixel_t * 1] {
+    let ptr = bitcast[&[1][[pixel_t * 1]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx| { ptr($idx) }
 }
 
@@ -29,8 +29,18 @@ fn @get_global_read_vec32(img: Img) -> fn(int) -> [pixel_t * 32] {
     |idx| { ptr($idx) }
 }
 
-fn @get_global_write_vec1(img: Img) -> fn(int, pixel_t) -> () {
-    let ptr = bitcast[&mut[1][pixel_t]](img.buf.data);
+fn @get_global_read_vec64(img: Img) -> fn(int) -> [pixel_t * 64] {
+    let ptr = bitcast[&[1][[pixel_t *  64]]](bitcast[&[1][pixel_t]](img.buf.data));
+    |idx| { ptr($idx) }
+}
+
+fn @get_global_read_vec128(img: Img) -> fn(int) -> [pixel_t * 128] {
+    let ptr = bitcast[&[1][[pixel_t *  128]]](bitcast[&[1][pixel_t]](img.buf.data));
+    |idx| { ptr($idx) }
+}
+
+fn @get_global_write_vec1(img: Img) -> fn(int, [pixel_t * 1]) -> () {
+    let ptr = bitcast[&mut[1][[pixel_t * 1]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx, value| { ptr($idx) = value }
 }
 
@@ -56,5 +66,15 @@ fn @get_global_write_vec16(img: Img) -> fn(int, [pixel_t * 16]) -> () {
 
 fn @get_global_write_vec32(img: Img) -> fn(int, [pixel_t * 32]) -> () {
     let ptr = bitcast[&mut[1][[pixel_t *  32]]](bitcast[&[1][pixel_t]](img.buf.data));
+    |idx, value| { ptr($idx) = value; }
+}
+
+fn @get_global_write_vec64(img: Img) -> fn(int, [pixel_t * 64]) -> () {
+    let ptr = bitcast[&mut[1][[pixel_t *  64]]](bitcast[&[1][pixel_t]](img.buf.data));
+    |idx, value| { ptr($idx) = value; }
+}
+
+fn @get_global_write_vec128(img: Img) -> fn(int, [pixel_t * 128]) -> () {
+    let ptr = bitcast[&mut[1][[pixel_t *  128]]](bitcast[&[1][pixel_t]](img.buf.data));
     |idx, value| { ptr($idx) = value; }
 }
