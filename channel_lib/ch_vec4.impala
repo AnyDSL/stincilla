@@ -7,7 +7,7 @@ fn @channel_to_Mem2D_read(img: Img, pFactor: int) -> Mem2D {
 }
 
 fn @channel_to_Mem2D_write(img: Img, pFactor: int) -> Mem2D {
-    if(pFactor == 4 {
+    if(pFactor == 4) {
         channel_to_Mem2D_write_vec4(img)
     } else {
         undef[Mem2D]()
