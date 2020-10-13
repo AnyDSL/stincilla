@@ -2,10 +2,8 @@ type pixel_t = f32;
 
 #[export]
 fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
-    let use_cuda = false;
-
-    let img = Img { width = width, height = height, data = data };
-    let out = Img { width = width, height = height, data = runtime_alloc(0, (width * height) as i64 * sizeof[pixel_t]()) as &[pixel_t] };
+    let img = Img { width = width, height = height, device = 0, data = data };
+    let out = img_alloc(width, height, alloc_cpu);
 
     // scheduled root | scheduled together after
     //         -- ix -|-- ixx -- sxx -
@@ -61,24 +59,25 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
     let schedule_cpu = handle_boundaries(boundary(img), tile_width, tile_height, tile, tile);
     // let schedule_cpu = dummy_boundaries(boundary(img), 0, 0, tile);
 
-    let tile_width_cuda = 14; let tile_height_cuda = 14;
-    let schedule_cuda = tile_cuda_ats(tile_width_cuda, tile_height_cuda, @|i| match i { 0 => i_x, _ => i_y }, harris);
+    let tile_width_gpu = 14; let tile_height_gpu = 14;
+    let schedule_gpu = tile_gpu_ats(tile_width_gpu, tile_height_gpu, @|i| match i { 0 => i_x, _ => i_y }, harris);
 
-    if use_cuda {
-        let img_cuda = Img { width = width, height = height, data = alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
-        let out_cuda = Img { width = width, height = height, data = alloc_cuda(cuda_dev, (width * height) as i64 * sizeof[pixel_t]()).data as &[pixel_t] };
-        runtime_copy(runtime_device(0, 0), img.data as &[i8], 0, runtime_device(1, cuda_dev), img_cuda.data as &mut [i8], 0, (width * height) as i64 * sizeof[pixel_t]());
+    if is_gpu() {
+        let acc = accelerator(device_id);
+        let img_gpu = img_alloc(width, height, acc.alloc);
+        let out_gpu = img_alloc(width, height, acc.alloc);
+        runtime_copy(img.device, img.data as &[i8], 0, img_gpu.device, img_gpu.data as &mut[i8], 0, (width * height) as i64 * sizeof[pixel_t]());
 
-        let schedule_cuda = handle_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda, schedule_cuda);
-        //let schedule_cuda = dummy_boundaries(boundary(img_cuda), tile_width_cuda, tile_height_cuda, schedule_cuda);
+        let schedule_gpu = handle_boundaries(boundary(img_gpu), tile_width_gpu, tile_height_gpu, schedule_gpu, schedule_gpu);
+        //let schedule_gpu = dummy_boundaries(boundary(img_gpu), tile_width_gpu, tile_height_gpu, schedule_gpu);
 
-        for benchmark_cuda() {
-            compute(img_cuda, out_cuda, schedule_cuda);
+        for benchmark_acc(acc) {
+            compute(img_gpu, out_gpu, schedule_gpu);
         }
 
-        runtime_copy(runtime_device(1, cuda_dev), out_cuda.data as &[i8], 0, runtime_device(0, 0), out.data as &mut [i8], 0, (width * height) as i64 * sizeof[pixel_t]());
-        runtime_release(runtime_device(1, cuda_dev), img_cuda.data as &[i8]);
-        runtime_release(runtime_device(1, cuda_dev), out_cuda.data as &[i8]);
+        runtime_copy(out_gpu.device, out_gpu.data as &[i8], 0, out.device, out.data as &mut[i8], 0, (width * height) as i64 * sizeof[pixel_t]());
+        runtime_release(img_gpu.device, img_gpu.data as &[i8]);
+        runtime_release(out_gpu.device, out_gpu.data as &[i8]);
     } else {
         for benchmark_cpu() {
             compute(img, out, schedule_cpu);
@@ -93,5 +92,5 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
         }
     }
 
-    runtime_release(0, out.data as &[i8]);
+    runtime_release(out.device, out.data as &[i8]);
 }

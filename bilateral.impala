@@ -50,6 +50,8 @@ fn main() -> i32 {
     let c_r     = 1:f32 / (2:f32 * sigma_r*sigma_r);
     let arr     = create_img[f32](width, height, alloc_cpu);
     let out     = create_img[f32](width, height, alloc_cpu);
+    init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
 
     let mask = get_mask5([[0.018316:f32, 0.082085:f32, 0.135335:f32, 0.082085:f32, 0.018316:f32],
                           [0.082085:f32, 0.367879:f32, 0.606531:f32, 0.367879:f32, 0.082085:f32],

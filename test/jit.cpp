@@ -13,7 +13,7 @@ int main(int argc, const char **argv) {
         "   let (platform, device, codegen) = (2, 0, opencl);"
         "   /*let (platform, device, codegen) = (1, 0, cuda);*/"
         "   /*let (platform, device, codegen) = (1, 0, nvvm);*/"
-        "   /*let (platform, device, codegen) = (3, 0, amdgpu);*/"
+        "   /*let (platform, device, codegen) = (3, 1, amdgpu);*/"
         "   let size = sizeof[i32]();"
         "   let dev_cpu  = runtime_device(0, 0);"
         "   let dev_gpu  = runtime_device(platform, device);"
