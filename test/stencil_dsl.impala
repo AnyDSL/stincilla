@@ -17,8 +17,8 @@ fn @apply_bh(mut index: i32,
     index
 }
 
-fn @get_elem(fld: Field, idx: i32) = bitcast[&[f32]](fld.buf.data)(idx)
-fn @set_elem(fld: Field, idx: i32, val: f32) = bitcast[&mut[f32]](fld.buf.data)(idx) = val
+fn @get_elem(fld: Field, idx: i32) = bitcast[&[f32]](fld.buf.data)(idx);
+fn @set_elem(fld: Field, idx: i32, val: f32) = bitcast[&mut[f32]](fld.buf.data)(idx) = val;
 fn @iterate_field(body: fn(i32, i32, Accessor, Accessor, [f32 * 3]) -> ()) = @|out: Field, arr: Field, stencil: [f32 * 3], bh_lower: fn(i32, i32) -> i32, bh_upper: fn(i32, i32) -> i32| {
     let size = 1;
     let lb = [0,    size,            out.cols - size];
@@ -42,7 +42,7 @@ fn @iterate_field(body: fn(i32, i32, Accessor, Accessor, [f32 * 3]) -> ()) = @|o
             }
         }
     }
-}
+};
 
 
 // DSL code

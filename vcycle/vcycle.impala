@@ -20,8 +20,8 @@ static jacobi_mask = Mask {
 // Dirichlet boundary handling -> 0
 //static dirichlet_lower = wrap_const_fun[f32](const_lower[f32], 0:f32);
 //static dirichlet_upper = wrap_const_fun[f32](const_upper[f32], 0:f32);
-fn @dirichlet_lower(idx: i32, lower: i32, upper: i32) = const_lower[f32](idx, lower, upper, 0:f32)
-fn @dirichlet_upper(idx: i32, lower: i32, upper: i32) = const_upper[f32](idx, lower, upper, 0:f32)
+fn @dirichlet_lower(idx: i32, lower: i32, upper: i32) = const_lower[f32](idx, lower, upper, 0);
+fn @dirichlet_upper(idx: i32, lower: i32, upper: i32) = const_upper[f32](idx, lower, upper, 0);
 fn @jacobi_solver(_math: Intrinsics, x: i32, y: i32, Sol: Acc[f32], Tmp: Acc[f32], RHS: Acc[f32], mask: Mask) -> () {
     let val = (1.0:f32 - omega) * Tmp.read(x, y) +
               0.25:f32 * omega  * RHS.read(x, y) + apply_stencil(x, y, Tmp, mask);

@@ -9,9 +9,9 @@ struct Extents {
     y : i32
 }
 
-fn @extents(x: i32, y: i32) = Extents { x = x, y = y }
-fn @add_extents(e1: Extents, e2: Extents) = Extents { x = e1.x + e2.x, y = e1.y + e2.y }
-fn @max_extents(e1: Extents, e2: Extents) = Extents { x = max(e1.x, e2.x), y = max(e1.y, e2.y) }
+fn @extents(x: i32, y: i32) = Extents { x = x, y = y };
+fn @add_extents(e1: Extents, e2: Extents) = Extents { x = e1.x + e2.x, y = e1.y + e2.y };
+fn @max_extents(e1: Extents, e2: Extents) = Extents { x = max(e1.x, e2.x), y = max(e1.y, e2.y) };
 
 struct Stencil {
     op : StencilOp,
@@ -21,7 +21,7 @@ struct Stencil {
 
 fn @stencil(op: StencilOp, extents: Extents, num_inputs: i32) = Stencil {
     op = @|read, x, y| @op(read, x, y), extents = extents, num_inputs = num_inputs
-}
+};
 
 fn @infer_stencil(op: StencilOp) -> Stencil {
     let (extents, num_inputs) = infer_extents_inputs(op);
@@ -61,7 +61,7 @@ struct Schedule {
 
 fn @schedule(loop: ScheduleLoop, extents: Extents, num_inputs: i32) = Schedule {
     loop = loop, extents = extents, num_inputs = num_inputs
-}
+};
 
 // compute
 
@@ -157,7 +157,7 @@ fn @vec(vector_length: i32) -> Loop {
     }
 }
 
-fn @par(num_threads: i32) -> Loop = @|body| |lower, upper| parallel(body)(num_threads, lower, upper)
+fn @par(num_threads: i32) -> Loop = @|body| |lower, upper| parallel(body)(num_threads, lower, upper);
 
 
 // 2D schedules
@@ -269,7 +269,7 @@ fn @produce_roots(root_schedules: fn(i32) -> Schedule, consume: Schedule) -> Sch
     schedule(loop, max_extents(max_root_exts(consume.num_inputs), consume.extents), root_schedules(0).num_inputs)
 }
 
-fn @produce_root(schedule1: Schedule, schedule2: Schedule) -> Schedule = produce_roots(@|_i| schedule1, schedule2)
+fn @produce_root(schedule1: Schedule, schedule2: Schedule) -> Schedule = produce_roots(@|_i| schedule1, schedule2);
 
 fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Schedule {
     let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
@@ -291,7 +291,7 @@ fn @tile(tile_width: i32, tile_height: i32, inner: Schedule, y_loop: Loop) -> Sc
 
 
 static cuda_dev = 0;
-fn @benchmark_cuda(body: fn() -> ()) = @|| total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev))
+fn @benchmark_cuda(body: fn() -> ()) = @|| total_kernel_timing += benchmark(get_kernel_time, iter_acc, body, || synchronize_cuda(cuda_dev));
 
 fn @tile_cuda(tile_width: i32, tile_height: i32, stencil: Stencil) -> Schedule {
     let loop = @|write: Write| |read: Read, x_lower: i32, y_lower: i32, x_upper: i32, y_upper: i32| {
@@ -360,4 +360,4 @@ fn @tile_cuda_ats(tile_width: i32, tile_height: i32, root_stencils: fn(i32) -> S
     schedule(loop, max_extents(max_root_exts(consume.num_inputs), consume.extents), root_stencils(0).num_inputs)
 }
 
-fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule = tile_cuda_ats(tile_width, tile_height, @|_i| stencil1, stencil2)
+fn @tile_cuda_at(tile_width: i32, tile_height: i32, stencil1: Stencil, stencil2: Stencil) -> Schedule = tile_cuda_ats(tile_width, tile_height, @|_i| stencil1, stencil2);

@@ -19,11 +19,11 @@ fn @compute_config((range_mask_x: i32, range_mask_y: i32), coarsening_factor: i3
     ((threads_x, threads_y, 1), (blocks_x, blocks_y))
 }
 
-fn @set_pixel_fn[T](img: Img) = @|idx: i32, val: T| bitcast[&mut addrspace(1)[T]](img.buf.data)(idx) = val
-fn @get_pixel_fn[T](img: Img) = @|idx: i32| bitcast[&addrspace(1)[T]](img.buf.data)(idx)
-fn @set_pixel_shared_fn[T](data: &mut addrspace(3)[T]) = @|idx: i32, val: T| data(idx) = val
-fn @get_pixel_shared_fn[T](data: &addrspace(3)[T]) = @|idx: i32| data(idx)
-fn @get_pixel_ldg_fn[T](img: Img) = get_pixel_fn[T](img)
+fn @set_pixel_fn[T](img: Img) = @|idx: i32, val: T| bitcast[&mut addrspace(1)[T]](img.buf.data)(idx) = val;
+fn @get_pixel_fn[T](img: Img) = @|idx: i32| bitcast[&addrspace(1)[T]](img.buf.data)(idx);
+fn @set_pixel_shared_fn[T](data: &mut addrspace(3)[T]) = @|idx: i32, val: T| data(idx) = val;
+fn @get_pixel_shared_fn[T](data: &addrspace(3)[T]) = @|idx: i32| data(idx);
+fn @get_pixel_ldg_fn[T](img: Img) = get_pixel_fn[T](img);
 //fn @get_ldg_fn[T]() = bitcast[fn(&addrspace(1)T) -> T, fn(&addrspace(1)f32) -> f32](if is_nvvm() { nvvm_ldg_f32 } else { cuda_ldg_f32 })
 //fn @get_pixel_ldg_fn[T](img: Img) = if has_ldg() { @|idx: i32| get_ldg_fn[T]()(&bitcast[&addrspace(1)[T]](img.buf.data)(idx)) } else { get_pixel_fn[T](img) }
 
@@ -67,7 +67,7 @@ fn @iteration[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgLi
     }
     copy_img(out_gpu, out);
     release(out_gpu.buf);
-}
+};
 
 fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
@@ -181,7 +181,7 @@ fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs
     }
     copy_img(out_gpu, out);
     release(out_gpu.buf);
-}
+};
 
 fn @iteration_advanced[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
@@ -270,7 +270,7 @@ fn @iteration_advanced[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, im
     }
     copy_img(out_gpu, out);
     release(out_gpu.buf);
-}
+};
 
 fn @iteration_sep[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
@@ -319,7 +319,7 @@ fn @iteration_sep[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr:
     release(arr_gpu.buf);
     release(out_gpu.buf);
     release(tmp_gpu.buf);
-}
+};
 
 fn @iteration_sep_bounds[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
@@ -446,7 +446,7 @@ fn @iteration_sep_bounds[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Im
     release(arr_gpu.buf);
     release(out_gpu.buf);
     release(tmp_gpu.buf);
-}
+};
 
 fn @iteration_sep_advanced[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let acc = accelerator(device_id);
@@ -536,4 +536,4 @@ fn @iteration_sep_advanced[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: 
     copy_img(out_gpu, out);
     release(arr_gpu.buf);
     release(out_gpu.buf);
-}
+};

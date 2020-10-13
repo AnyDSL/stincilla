@@ -1,7 +1,7 @@
-fn @set_pixel_fn[T](img: Img) = @|idx: i32, val: T| bitcast[&mut[T]](img.buf.data)(idx) = val
-fn @get_pixel_fn[T](img: Img) = @|idx: i32| bitcast[&[T]](img.buf.data)(idx)
-fn @set_pixel_memory_fn[T](buf: Buffer) = @|idx: i32, val: T| bitcast[&mut[T]](buf.data)(idx) = val
-fn @get_pixel_memory_fn[T](buf: Buffer) = @|idx: i32| bitcast[&[T]](buf.data)(idx)
+fn @set_pixel_fn[T](img: Img) = @|idx: i32, val: T| bitcast[&mut[T]](img.buf.data)(idx) = val;
+fn @get_pixel_fn[T](img: Img) = @|idx: i32| bitcast[&[T]](img.buf.data)(idx);
+fn @set_pixel_memory_fn[T](buf: Buffer) = @|idx: i32, val: T| bitcast[&mut[T]](buf.data)(idx) = val;
+fn @get_pixel_memory_fn[T](buf: Buffer) = @|idx: i32| bitcast[&[T]](buf.data)(idx);
 
 fn @iteration[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let out_acc = get_acc[T](out, set_pixel_fn[T](out), get_pixel_fn[T](out));
@@ -20,7 +20,7 @@ fn @iteration[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgLi
             }
         }
     }
-}
+};
 
 fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs: ImgList, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     let (ex, ey) = get_max_ext(imgs);
@@ -45,7 +45,7 @@ fn @iteration_bounds[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, imgs
             }
         }
     }
-}
+};
 
 fn @tiled_loop(xl: i32, xu: i32, yl: i32, yu: i32, body: fn(i32, i32) -> ()) -> () {
     fn @get_step(lvl: i32) -> i32 { // size -> 2048 -> 1
@@ -102,7 +102,7 @@ fn @iteration_advanced[T](body: StencilFn[T]) = @|math: Intrinsics, out: Img, im
             }
         }
     }
-}
+};
 
 fn @iteration_sep[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     // allocate temporary array
@@ -129,7 +129,7 @@ fn @iteration_sep[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr:
     }
 
     release(tmp.buf);
-}
+};
 
 fn @iteration_sep_bounds[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     // allocate temporary array
@@ -168,7 +168,7 @@ fn @iteration_sep_bounds[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Im
     }
 
     release(tmp.buf);
-}
+};
 
 fn @iteration_sep_advanced[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: Img, arr: Img, mask_row: MaskSep, mask_col: MaskSep, bh_lower: BoundaryFn[T], bh_upper: BoundaryFn[T]| {
     // compute the number of vector strides for boundary handling
@@ -212,4 +212,4 @@ fn @iteration_sep_advanced[T](body: StencilSepFn[T]) = @|math: Intrinsics, out: 
             }
         }
     }
-}
+};

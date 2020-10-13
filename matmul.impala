@@ -10,7 +10,7 @@ fn @get_mat(buf: Buffer, rows: i32, cols: i32) = Mat {
     cols  = @|| cols,
     read  = @|x, y|    { bitcast[&[f32],  ](buf.data)(y * cols + x) },
     write = @|x, y, v| { bitcast[&mut[f32]](buf.data)(y * cols + x) = v },
-}
+};
 
 
 fn matmul_golden(C: Mat, A: Mat, B: Mat) -> () {
@@ -133,7 +133,7 @@ fn main() -> i32 {
         fun();
         let end = get_micro_time();
         print_gflops(end - start);
-    }
+    };
 
     for bench_fun() {
         matmul_golden(R, A, B);

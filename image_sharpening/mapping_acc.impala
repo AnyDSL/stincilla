@@ -44,7 +44,7 @@ fn @iteration1f1i(body: fn(i32, i32, Acc[f32], Acc[i16]) -> ()) = @|out: Img, ar
     copy_img(out_gpu, out);
     release(out_gpu.buf);
     release(arr_gpu.buf);
-}
+};
 fn @iteration2i(body: fn(i32, i32, Acc[i16], Acc[i16]) -> ()) = @|out: Img, arr: Img, bh_lower: BoundaryFn[i16], bh_upper: BoundaryFn[i16]| {
     let coarsening_factor = 1;
     let acc   = accelerator(device_id);
@@ -72,7 +72,7 @@ fn @iteration2i(body: fn(i32, i32, Acc[i16], Acc[i16]) -> ()) = @|out: Img, arr:
     copy_img(out_gpu, out);
     release(out_gpu.buf);
     release(arr_gpu.buf);
-}
+};
 fn @iteration2i1m(body: fn(i32, i32, Acc[i16], Acc[i16], Acc[f32]) -> ()) = @|out: Img, img: Img, map: Img, bh_lower: BoundaryFn[i16], bh_upper: BoundaryFn[i16]| {
     let coarsening_factor = 1;
     let acc   = accelerator(device_id);
@@ -104,7 +104,7 @@ fn @iteration2i1m(body: fn(i32, i32, Acc[i16], Acc[i16], Acc[f32]) -> ()) = @|ou
     release(out_gpu.buf);
     release(img_gpu.buf);
     release(map_gpu.buf);
-}
+};
 fn @iteration3i(body: fn(i32, i32, Acc[i16], Acc[i16], Acc[i16]) -> ()) = @|out: Img, img: Img, tmp: Img| {
     let coarsening_factor = 1;
     let acc   = accelerator(device_id);
@@ -136,7 +136,7 @@ fn @iteration3i(body: fn(i32, i32, Acc[i16], Acc[i16], Acc[i16]) -> ()) = @|out:
     release(out_gpu.buf);
     release(img_gpu.buf);
     release(tmp_gpu.buf);
-}
+};
 fn @reduce(body: fn(i32, i32, Acc[i16]) -> i32) = @|img: Img| -> i32 {
     let acc = accelerator(device_id);
     let tmp_buf = acc.alloc(sizeof[i32]());
@@ -185,7 +185,7 @@ fn @reduce(body: fn(i32, i32, Acc[i16]) -> i32) = @|img: Img| -> i32 {
     release(tmp_buf);
     release(img_gpu.buf);
     sum
-}
+};
 fn @histogram(body: fn(i32, i32, Acc[f32]) -> i32) = @|img: Img| -> Buffer {
     let acc      = accelerator(device_id);
     let hist_buf = acc.alloc(256:i64 * sizeof[i32]());
@@ -212,7 +212,7 @@ fn @histogram(body: fn(i32, i32, Acc[f32]) -> i32) = @|img: Img| -> Buffer {
     }
 
     hist_buf
-}
+};
 fn @inclusive_scan(hist_buf: Buffer, size: i32) -> Buffer {
     let acc = accelerator(device_id);
     let scan_buf = acc.alloc(size as i64 * sizeof[i32]());
@@ -358,4 +358,4 @@ fn @find_position(body: fn(i32) -> i32) = @|scan_buf: Buffer, size: i32| -> i32 
     copy(pos_buf, r_buf);
     release(pos_buf);
     result
-}
+};

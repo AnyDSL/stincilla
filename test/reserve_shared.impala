@@ -25,7 +25,7 @@ fn @iteration(body: fn(i32, i32, fn(i32, i32) -> f32, fn(i32, i32, f32) -> ()) -
     copy(out_buf_gpu, out);
     release(out_buf_gpu);
     release(arr_buf_gpu);
-}
+};
 
 #[export]
 fn main() -> i32 {

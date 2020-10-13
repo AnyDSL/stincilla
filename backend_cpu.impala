@@ -25,5 +25,5 @@ fn @outer_loop_step(body: fn(i32) -> ()) {
         }
     }
 }
-fn @inner_loop(body: fn(i32) -> ()) = range(body)
-fn @inner_loop_step(body: fn(i32) -> ()) = range_step(body)
+fn @inner_loop(body: fn(i32) -> ()) = range(body);
+fn @inner_loop_step(body: fn(i32) -> ()) = range_step(body);

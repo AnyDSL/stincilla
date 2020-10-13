@@ -29,7 +29,7 @@ fn @iteration_multi(body: fn(i32, i32, &mut addrspace(1)[f32], &addrspace(1)[f32
         sync(ids(dev));
     }
     runtime_release(0, ids as &[i8]);
-}
+};
 
 #[export]
 fn main() -> i32 {

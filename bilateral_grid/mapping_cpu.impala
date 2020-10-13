@@ -1,13 +1,13 @@
-fn @img_read_fn(img: Buffer, width: i32) = @|x: i32, y: i32| bitcast[&[f32]](img.data)(y * width + x)
-fn @img_write_fn(img: Buffer, width: i32) = @|x: i32, y: i32, v: f32| bitcast[&mut[f32]](img.data)(y * width + x) = v
-fn @grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32| bitcast[&[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c)
-fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32, v: f32| bitcast[&mut[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c) = v
+fn @img_read_fn(img: Buffer, width: i32) = @|x: i32, y: i32| bitcast[&[f32]](img.data)(y * width + x);
+fn @img_write_fn(img: Buffer, width: i32) = @|x: i32, y: i32, v: f32| bitcast[&mut[f32]](img.data)(y * width + x) = v;
+fn @grid_read_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32| bitcast[&[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c);
+fn @grid_write_fn(width: i32, bins: i32, padding: i32, buf: Buffer) = @|x: i32, y: i32, z: i32, c: i32, v: f32| bitcast[&mut[[f32*2]]](buf.data)((y * width + x) * bins + z + padding)(c) = v;
 
-fn @get_device_copy(host: &[f32], size: i64) = Buffer { data = bitcast[&mut [i8]](host), size = size, device = 0 }
-fn @copy_to_host(_host: &[f32], _img_gpu: Buffer, _size: i64) = @|| {}
-fn @release_device_copy(_img: Buffer) = @|| {}
+fn @get_device_copy(host: &[f32], size: i64) = Buffer { data = bitcast[&mut [i8]](host), size = size, device = 0 };
+fn @copy_to_host(_host: &[f32], _img_gpu: Buffer, _size: i64) = @|| {};
+fn @release_device_copy(_img: Buffer) = @|| {};
 
-fn @alloc_grid(size: i64) = alloc_cpu(size)
+fn @alloc_grid(size: i64) = alloc_cpu(size);
 
 fn @iteration_grid(body: fn(i32, i32) -> ()) = @|bgrid: Grid| {
     for benchmark_cpu() {
@@ -17,7 +17,7 @@ fn @iteration_grid(body: fn(i32, i32) -> ()) = @|bgrid: Grid| {
             }
         }
     }
-}
+};
 
 fn @iteration_space(body: fn(i32, i32) -> ()) = @|width: i32, height: i32| {
     for benchmark_cpu() {
@@ -27,4 +27,4 @@ fn @iteration_space(body: fn(i32, i32) -> ()) = @|width: i32, height: i32| {
             }
         }
     }
-}
+};

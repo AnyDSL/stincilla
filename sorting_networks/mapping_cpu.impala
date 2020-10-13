@@ -9,4 +9,4 @@ fn @iteration_median[T](body: fn(i32, i32, Acc[T], Acc[T]) -> ()) = @|out: Img, 
             }
         }
     }
-}
+};

@@ -39,4 +39,4 @@ fn @iteration(body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) 
     copy(out_gpu, out);
     release(seed_buf);
     release(out_gpu);
-}
+};

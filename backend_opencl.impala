@@ -1,4 +1,4 @@
-fn @accelerator(dev: i32) = opencl_accelerator(dev)
+fn @accelerator(dev: i32) = opencl_accelerator(dev);
 static device_id = 0;
 static math = opencl_intrinsics;
 static atomic_add_global = opencl_atomic_add_global;

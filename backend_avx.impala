@@ -18,12 +18,12 @@ fn @outer_loop(body: fn(i32) -> ()) = @|lower: i32, upper: i32| {
     for i in parallel(get_thread_count(), lower, upper) {
         @body(i);
     }
-}
+};
 fn @outer_loop_step(body: fn(i32) -> ()) = @|lower: i32, upper: i32, step: i32| {
     for i in parallel(get_thread_count(), 0, (upper - lower) / step) {
         @body(i * step + lower);
     }
-}
+};
 
 fn @inner_loop(body: fn(i32) -> ()) = @|lower: i32, upper: i32| {
     if upper - lower < get_vector_length() * simd_iter_threshold {
@@ -38,7 +38,7 @@ fn @inner_loop(body: fn(i32) -> ()) = @|lower: i32, upper: i32| {
         }
         range(body)(remainder_start, upper);
     }
-}
+};
 
 fn @inner_loop_step(body: fn(i32) -> ()) = @|lower: i32, upper: i32, step: i32| {
     if upper - lower < get_vector_length() * simd_iter_threshold * step {
@@ -52,4 +52,4 @@ fn @inner_loop_step(body: fn(i32) -> ()) = @|lower: i32, upper: i32, step: i32| 
         }
         range_step(body)(remainder_start, upper, step);
     }
-}
+};

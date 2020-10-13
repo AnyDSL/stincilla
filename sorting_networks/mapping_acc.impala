@@ -20,4 +20,4 @@ fn @iteration_median[T](body: fn(i32, i32, Acc[T], Acc[T]) -> ()) = @|out: Img, 
     copy_img(out_gpu, out);
     release(out_gpu.buf);
     release(arr_gpu.buf);
-}
+};

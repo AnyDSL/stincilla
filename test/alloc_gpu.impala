@@ -5,10 +5,10 @@ fn @iteration(body: fn(i32, i32) -> ()) = @|acc: Accelerator, width: i32, height
         @body(work_item.gidx(), work_item.gidy());
     }
     acc.sync();
-}
+};
 
-fn @read(buf: Buffer, i: i32) = bitcast[&addrspace(1)[f32]](buf.data)(i)
-fn @write(buf: Buffer, i: i32, v: f32) = bitcast[&mut addrspace(1)[f32]](buf.data)(i) = v
+fn @read(buf: Buffer, i: i32) = bitcast[&addrspace(1)[f32]](buf.data)(i);
+fn @write(buf: Buffer, i: i32, v: f32) = bitcast[&mut addrspace(1)[f32]](buf.data)(i) = v;
 
 #[export]
 fn main() -> i32 {
