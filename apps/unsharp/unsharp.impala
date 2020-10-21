@@ -60,7 +60,7 @@ fn main() -> i32 {
 
         for math, x, y, out, input_image, blur in iteration_point2(math, sharpen, in_to_sharpen, blur_to_sharpen) {
             // Sharpen
-            let pix_sharpen = input_image * (1 + weight) + blur * (-weight);
+            let pix_sharpen = input_image * (one + weight) + blur * (-weight);
             out.write(x, y, pix_sharpen);
         }
 
