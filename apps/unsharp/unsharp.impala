@@ -36,7 +36,7 @@ fn main() -> i32 {
     init_data(input_image);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
-    let mask   = get_mask5(blur_mask5);
+    let mask = get_mask5(blur_mask5);
 
     let threshold = 80 as i32;
     let kernel   = apply_stencil;
@@ -63,7 +63,7 @@ fn main() -> i32 {
 
         for math, x, y, out, input_image, blur in iteration_point2(math, sharpen, in_to_sharpen, blur_to_sharpen) {
             // Sharpen
-            let pix_sharpen = input_image * (1 + weight) - blur * (-weight);
+            let pix_sharpen = input_image * (1 + weight) + blur * (-weight);
             out.write(x, y, pix_sharpen);
         }
 
