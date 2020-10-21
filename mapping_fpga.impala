@@ -1106,6 +1106,39 @@ fn @split_image(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) 
     (out0, out1)
 }
 
+fn @split_image3(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe, pipe2: &mut pipe) -> (Img, Img, Img) {
+    let acc = accelerator(device_id);
+    let arr_dev = get_device_copy(arr);
+    let out0 = new_virtual_img(arr.width, arr.height, arr.stride, pipe0);
+    let out1 = new_virtual_img(arr.width, arr.height, arr.stride, pipe1);
+    let out2 = new_virtual_img(arr.width, arr.height, arr.stride, pipe2);
+
+    let pFactor = get_vector_length();
+    let image_size = (arr.height * (arr.stride / pFactor) );
+    for benchmark_fpga(get_device_sync(out0)) {
+        for work_item in acc.exec((1,1,1), (1,1,1)) {
+            let in_s   = Img_to_Mem2D_read(arr_dev, get_vector_length());
+            let out0_s = Img_to_Mem2D_write(out0, get_vector_length());
+            let out1_s = Img_to_Mem2D_write(out1, get_vector_length());
+            let out2_s = Img_to_Mem2D_write(out2, get_vector_length());
+
+            for idx in auto_pipeline(0, image_size) {
+                in_s.update(idx);
+                for v in unroll(0, pFactor) {
+                    let data = in_s.read(v);
+                    out0_s.write(v, data);
+                    out1_s.write(v, data);
+                    out2_s.write(v, data);
+                }
+                out0_s.update(idx);
+                out1_s.update(idx);
+                out2_s.update(idx);
+            }
+        }
+    }
+    (out0, out1, out2)
+}
+
 // this function significantly increases compile time comparing with the above
 fn @split_image_point(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe) -> (Img, Img) {
     let out0 = new_virtual_img(arr.width, arr.height, arr.stride, pipe0);

@@ -1,0 +1,11 @@
+static blur_mask_sep5 =  [ 1,  4,  6,  4, 1];
+
+static blur_mask5     = [[ 1,  4,  6,  4, 1 ],
+                         [ 4, 16, 24, 16, 4 ],
+                         [ 6, 24, 36, 24, 6 ],
+                         [ 4, 16, 24, 16, 4 ],
+                         [ 1,  4,  6,  4, 1 ]];
+
+static weight = 1;
+static mask_factor = 256; // ex. blur_mask5 / max_factor
+static threshold = 5;
