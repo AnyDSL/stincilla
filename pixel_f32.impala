@@ -4,7 +4,7 @@ static cuda_ldg = cuda_ldg_f32;
 fn @is_same_pixel(a: f32, b: f32) -> bool { cpu_fabsf(a - b) < 0.01f }
 fn @print_pixel(pixel: f32) -> () { print_f32(pixel) }
 
-fn @read_channel   (c: &mut channel1_f32)   -> [pixel_t * 1  ] { read_channel_f32(c)    }
+fn @read_channel1  (c: &mut channel1_f32)   -> [pixel_t * 1  ] { read_channel1_f32(c)   }
 fn @read_channel2  (c: &mut channel2_f32)   -> [pixel_t * 2  ] { read_channel2_f32(c)   }
 fn @read_channel4  (c: &mut channel4_f32)   -> [pixel_t * 4  ] { read_channel4_f32(c)   }
 fn @read_channel8  (c: &mut channel8_f32)   -> [pixel_t * 8  ] { read_channel8_f32(c)   }
@@ -13,7 +13,7 @@ fn @read_channel32 (c: &mut channel32_f32)  -> [pixel_t * 32 ] { read_channel32_
 fn @read_channel64 (c: &mut channel64_f32)  -> [pixel_t * 64 ] { read_channel64_f32(c)  }
 fn @read_channel128(c: &mut channel128_f32) -> [pixel_t * 128] { read_channel128_f32(c) }
 
-fn @write_channel   (c: &mut channel1_f32,  v: [pixel_t * 1  ])  -> () { write_channel_f32(c, v)    }
+fn @write_channel1  (c: &mut channel1_f32,  v: [pixel_t * 1  ])  -> () { write_channel1_f32(c, v)   }
 fn @write_channel2  (c: &mut channel2_f32 , v: [pixel_t * 2  ])  -> () { write_channel2_f32(c, v)   }
 fn @write_channel4  (c: &mut channel4_f32 , v: [pixel_t * 4  ])  -> () { write_channel4_f32(c, v)   }
 fn @write_channel8  (c: &mut channel8_f32 , v: [pixel_t * 8  ])  -> () { write_channel8_f32(c, v)   }
