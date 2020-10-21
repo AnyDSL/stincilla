@@ -38,9 +38,6 @@ fn main() -> i32 {
 
     let mask = get_mask5(blur_mask5);
 
-    let threshold = 80 as i32;
-    let kernel   = apply_stencil;
-
     let lower = nobh_center;
     let upper = nobh_center;
     //let lower = clamp_lower;
