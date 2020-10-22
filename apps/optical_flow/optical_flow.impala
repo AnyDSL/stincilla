@@ -30,6 +30,7 @@ fn main() -> i32 {
     //let upper = mirro_upper;
     let enable_offset = 0;
     for benchmark_host(num_host_iter) {
+
     }
     print_total_timing();
     // display results
