@@ -1,0 +1,53 @@
+fn init_data(arr: Img) -> () {
+    let buf = bitcast[&mut[pixel_t]](arr.buf.data);
+
+    for y in range(0, arr.height) {
+        for x in range(0, arr.width) {
+            let val = if ((((x % 16) >= 8) & (( y % 16) < 8)) | (((x % 16) < 8) & ((y % 16) >= 8))) == false {
+                255 as pixel_t
+            }
+            else {
+                0 as pixel_t
+            };
+            buf(y * arr.stride + x) = val;
+        }
+    }
+}
+
+
+fn main() -> i32 {
+    let width  = 1024;
+    let height = 1024;
+    let lower = nobh_center;
+    let upper = nobh_center;
+
+    let in_frame_1 = create_host_img(width, height);
+    let in_frame_2 = create_host_img(width, height);
+    let out = create_host_img(width, height);
+    //let lower = clamp_lower;
+    //let upper = clamp_upper;
+    //let lower = mirro_lower;
+    //let upper = mirro_upper;
+    let enable_offset = 0;
+    for benchmark_host(num_host_iter) {
+    }
+    print_total_timing();
+    // display results
+    let in_frame_1_acc = get_acc(in_frame_1, |idx, val| { bitcast[&mut[pixel_t]](in_frame_1.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](in_frame_1.buf.data)(idx));
+    let in_frame_2_acc = get_acc(in_frame_2, |idx, val| { bitcast[&mut[pixel_t]](in_frame_2.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](in_frame_2.buf.data)(idx));
+    let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+
+    let roi_x = 0;
+    let roi_y = 0;
+    print_string("Frame 1 ");
+    display_image(in_frame_1_acc, roi_x, roi_y);
+    print_string("Frame 2 ");
+    display_image(in_frame_2_acc, roi_x, roi_y);
+    print_string("Optical flow:\n");
+    display_image(out_acc, roi_x, roi_y);
+
+    release(in_frame_1.buf);
+    release(in_frame_2.buf);
+    release(out.buf);
+    0
+}

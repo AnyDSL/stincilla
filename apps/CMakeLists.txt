@@ -38,6 +38,7 @@ set(COMMON_FILES_U8  ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIX
 set (GAUSSIAN_DIR       ${APPS_DIR}/gaussian)
 set (SOBEL_LUMA_DIR     ${APPS_DIR}/sobel_luma)
 set (UNSHARP_DIR        ${APPS_DIR}/unsharp)
+set (OPTICAL_FLOW_DIR   ${APPS_DIR}/optical_flow)
 set (JACOBI_DIR         ${APPS_DIR}/jacobi)
 set (BILATERAL_DIR      ${APPS_DIR}/bilateral)
 set (SQUARE_DIR         ${APPS_DIR}/square)
@@ -57,6 +58,7 @@ set(BOX_FILTER_CONST_FILES ${BOX_FILTER_DIR}/box_filter_const.impala)
 set(GAUSSIAN_FILES      ${GAUSSIAN_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_DIR}/gaussian.impala)
 set(SOBEL_LUMA_FILES    ${SOBEL_LUMA_DIR}/mask_i32.impala ${SOBEL_LUMA_DIR}/sobel_luma.impala)
 set(UNSHARP_FILES       ${UNSHARP_DIR}/mask_${PIXEL_TYPE}.impala ${UNSHARP_DIR}/unsharp.impala)
+set(OPTICAL_FLOW_FILES  ${OPTICAL_FLOW_DIR}/mask_i32.impala ${OPTICAL_FLOW_DIR}/optical_flow.impala)
 set(JACOBI_FILES        ${JACOBI_DIR}/mask_${PIXEL_TYPE}.impala ${JACOBI_DIR}/jacobi.impala)
 set(FILTER_CHAIN_FILES  ${FILTER_CHAIN_DIR}/mask_${PIXEL_TYPE}.impala ${FILTER_CHAIN_DIR}/filter_chain.impala)
 set(HARRIS_CORNER_FILES ${HARRIS_CORNER_DIR}/mask_${PIXEL_TYPE}.impala ${HARRIS_CORNER_DIR}/harris_corner.impala)
@@ -118,6 +120,15 @@ anydsl_runtime_wrap(UNSHARP_PROGRAM
 add_executable(unsharp ${UNSHARP_PROGRAM})
 target_link_libraries(unsharp ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("unsharp" unsharp)
+
+anydsl_runtime_wrap(OPTICAL_FLOW_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${OPTICAL_FLOW_FILES})
+add_executable(optical_flow ${OPTICAL_FLOW_PROGRAM})
+target_link_libraries(optical_flow ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("optical_flow" optical_flow)
 
 anydsl_runtime_wrap(JACOBI_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
