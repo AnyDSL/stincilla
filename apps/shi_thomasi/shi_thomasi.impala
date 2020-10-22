@@ -20,11 +20,11 @@ fn shi_thomasi(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     static mut dy_c1 : pipe;
     //         -- ix -|-- ixx -- sxx -
     //       /         \              \
-    // in --            > ixy -- sxy --> hc -- out
+    // in --            > ixy -- sxy --> st -- out
     //       \         /              /
     //         -- iy -|-- iyy -- syy -
     let input  = new_img(width, height, stride, Buffer { data : bitcast[&[i8]](img_data), size : ((width * height) as i64 * sizeof[pixel_t]()) as i64, device : 0 });
-    let host_image = create_host_img(width, height);
+    let out_image = create_host_img(width, height);
     let dx  = create_virtual_img(width, height, &mut dx_c );
     let dy  = create_virtual_img(width, height, &mut dy_c );
     let dxx = create_virtual_img(width, height, &mut dxx_c);
@@ -84,7 +84,7 @@ fn shi_thomasi(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
         }
 
         // compute score for shi-thomasi
-        for math, x, y, out, xx, yy, xy in iteration_point3(math, host_image, gxx, gyy, gxy) {
+        for math, x, y, out, xx, yy, xy in iteration_point3(math, out_image, gxx, gyy, gxy) {
             let min = if (xx < yy) { xx } else { yy };
             out.write(x, y, min);
         }
@@ -94,7 +94,7 @@ fn shi_thomasi(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     // post-processing: mark corners
     for y in range(0, height) {
         for x in range(0, width) {
-            let image_acc = get_acc(host_image, |idx, val| { bitcast[&mut[pixel_t]](host_image.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](host_image.buf.data)(idx));
+            let image_acc = get_acc(out_image, |idx, val| { bitcast[&mut[pixel_t]](out_image.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out_image.buf.data)(idx));
             if image_acc.read(x, y) > threshold {
                 out_data(y*width + x) = markHigh;
             } else{
@@ -104,5 +104,5 @@ fn shi_thomasi(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
         }
     }
 
-    release(host_image.buf);
+    release(out_image.buf);
 }
