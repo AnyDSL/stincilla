@@ -18,19 +18,57 @@ fn init_data(arr: Img) -> () {
 fn main() -> i32 {
     let width  = 1024;
     let height = 1024;
-    let lower = nobh_center;
-    let upper = nobh_center;
+
+    static mut channel_i_t : pipe;
+    static mut channel_i_x : pipe;
+    static mut channel_i_y : pipe;
 
     let in_frame_1 = create_host_img(width, height);
     let in_frame_2 = create_host_img(width, height);
     let out = create_host_img(width, height);
+
+    let i_t = create_virtual_img(width, height, &mut channel_i_t );
+    let i_x = create_virtual_img(width, height, &mut channel_i_x );
+    let i_y = create_virtual_img(width, height, &mut channel_i_y );
+
+    init_data(in_frame_1);
+    init_data(in_frame_2);
+    init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
+
+    let mask_x = get_mask3(sobel_maskx);
+    let mask_y = get_mask3(sobel_masky);
+
+    let lower = nobh_center;
+    let upper = nobh_center;
     //let lower = clamp_lower;
     //let upper = clamp_upper;
     //let lower = mirro_lower;
     //let upper = mirro_upper;
     let enable_offset = 0;
-    for benchmark_host(num_host_iter) {
 
+    // Solving the following equation iteratively: I_x * u + I_y * v + I_t = 0
+    // I_t        => differenec over frames
+    // I_x , I_y  => Image derivative along x and y, respectively
+    // Computing (u,v) indicating displacement
+
+    for benchmark_host(num_host_iter) {
+        // I_t
+        for math, x, y, out, in_frame_1, in_frame_2 in iteration_point2(math, i_t, in_frame_1, in_frame_2) {
+            let pix_i_t = in_frame_1 - in_frame_2;
+            out.write(x, y, pix_i_t);
+        }
+
+        // I_x
+        for math, x, y, out, in_frame_1, mask in iteration(math, i_x, in_frame_1, mask_x, lower, upper) {
+            let pix_i_x = apply_stencil(x, y, in_frame_1, mask);
+            out.write(x, y, pix_i_x);
+        }
+
+        // I_y
+        for math, x, y, out, in_frame_1, mask in iteration(math, i_y, in_frame_1, mask_y, lower, upper) {
+            let pix_i_y = apply_stencil(x, y, in_frame_1, mask);
+            out.write(x, y, pix_i_y);
+        }
     }
     print_total_timing();
     // display results
