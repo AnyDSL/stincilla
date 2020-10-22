@@ -3,6 +3,7 @@ static nvvm_ldg = nvvm_ldg_f32;
 static cuda_ldg = cuda_ldg_f32;
 fn @is_same_pixel(a: f32, b: f32) -> bool { cpu_fabsf(a - b) < 0.01f }
 fn @print_pixel(pixel: f32) -> () { print_f32(pixel) }
+fn @absolute(a: f32) -> f32 {math.fabsf(a)}
 
 fn @read_channel1  (c: &mut channel1_f32)   -> [pixel_t * 1  ] { read_channel1_f32(c)   }
 fn @read_channel2  (c: &mut channel2_f32)   -> [pixel_t * 2  ] { read_channel2_f32(c)   }

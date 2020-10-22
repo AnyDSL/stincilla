@@ -66,7 +66,7 @@ fn main() -> i32 {
 
         for math, x, y, out, sharpen , blur, input_image in iteration_point3(math, out, sharpen, blur_to_mask, in_to_mask) {
             // Mask (Ratio)
-            let absolute_value = abs(input_image - blur);
+            let absolute_value = absolute(input_image - blur);
             let pix_mask_out = if (absolute_value < threshold) {input_image} else {sharpen};
             out.write(x, y, pix_mask_out);
         }

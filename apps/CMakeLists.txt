@@ -56,7 +56,7 @@ set(LAPLACE_FILES       ${LAPLACE_DIR}/mask.impala ${LAPLACE_DIR}/laplace.impala
 set(BOX_FILTER_CONST_FILES ${BOX_FILTER_DIR}/box_filter_const.impala)
 set(GAUSSIAN_FILES      ${GAUSSIAN_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_DIR}/gaussian.impala)
 set(SOBEL_LUMA_FILES    ${SOBEL_LUMA_DIR}/mask_i32.impala ${SOBEL_LUMA_DIR}/sobel_luma.impala)
-set(UNSHARP_FILES       ${UNSHARP_DIR}/mask_i32.impala ${UNSHARP_DIR}/unsharp.impala)
+set(UNSHARP_FILES       ${UNSHARP_DIR}/mask_${PIXEL_TYPE}.impala ${UNSHARP_DIR}/unsharp.impala)
 set(JACOBI_FILES        ${JACOBI_DIR}/mask_${PIXEL_TYPE}.impala ${JACOBI_DIR}/jacobi.impala)
 set(FILTER_CHAIN_FILES  ${FILTER_CHAIN_DIR}/mask_${PIXEL_TYPE}.impala ${FILTER_CHAIN_DIR}/filter_chain.impala)
 set(HARRIS_CORNER_FILES ${HARRIS_CORNER_DIR}/mask_${PIXEL_TYPE}.impala ${HARRIS_CORNER_DIR}/harris_corner.impala)
