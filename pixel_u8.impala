@@ -3,8 +3,9 @@ static nvvm_ldg = nvvm_ldg_u8;
 static cuda_ldg = cuda_ldg_u8;
 fn @is_same_pixel(a: u8, b: u8 ) -> bool { a == b }
 fn @print_pixel(pixel: u8) -> () { print_i32(pixel as i32) }
+fn @absolute(a: u8) -> u8 {abs(a)}
 
-fn @read_channel   (c: &mut channel1_u8)   -> [pixel_t * 1  ] { read_channel_u8(c)    }
+fn @read_channel1  (c: &mut channel1_u8)   -> [pixel_t * 1  ] { read_channel1_u8(c)   }
 fn @read_channel2  (c: &mut channel2_u8)   -> [pixel_t * 2  ] { read_channel2_u8(c)   }
 fn @read_channel4  (c: &mut channel4_u8)   -> [pixel_t * 4  ] { read_channel4_u8(c)   }
 fn @read_channel8  (c: &mut channel8_u8)   -> [pixel_t * 8  ] { read_channel8_u8(c)   }
@@ -13,7 +14,7 @@ fn @read_channel32 (c: &mut channel32_u8)  -> [pixel_t * 32 ] { read_channel32_u
 fn @read_channel64 (c: &mut channel64_u8)  -> [pixel_t * 64 ] { read_channel64_u8(c)  }
 fn @read_channel128(c: &mut channel128_u8) -> [pixel_t * 128] { read_channel128_u8(c) }
 
-fn @write_channel   (c: &mut channel1_u8 , v: [pixel_t * 1  ]) -> () { write_channel_u8(c, v)     }
+fn @write_channel1  (c: &mut channel1_u8 , v: [pixel_t * 1  ]) -> () { write_channel1_u8(c, v)    }
 fn @write_channel2  (c: &mut channel2_u8 , v: [pixel_t * 2  ]) -> () { write_channel2_u8(c, v)    }
 fn @write_channel4  (c: &mut channel4_u8 , v: [pixel_t * 4  ]) -> () { write_channel4_u8(c, v)    }
 fn @write_channel8  (c: &mut channel8_u8 , v: [pixel_t * 8  ]) -> () { write_channel8_u8(c, v)    }
