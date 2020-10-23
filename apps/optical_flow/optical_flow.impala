@@ -22,14 +22,30 @@ fn main() -> i32 {
     static mut channel_i_t : pipe;
     static mut channel_i_x : pipe;
     static mut channel_i_y : pipe;
+    static mut channel_i_xx : pipe;
+    static mut channel_i_yy : pipe;
+    static mut channel_denom : pipe;
+    static mut channel_denom_to_common_x : pipe;
+    static mut channel_denom_to_common_y : pipe;
+    static mut channel_common_x : pipe;
+    static mut channel_common_y : pipe;
+    static mut channel_v0_x : pipe;
+    static mut channel_v0_y : pipe;
 
     let in_frame_1 = create_host_img(width, height);
     let in_frame_2 = create_host_img(width, height);
-    let out = create_host_img(width, height);
+    let out        = create_host_img(width, height);
 
     let i_t = create_virtual_img(width, height, &mut channel_i_t );
     let i_x = create_virtual_img(width, height, &mut channel_i_x );
     let i_y = create_virtual_img(width, height, &mut channel_i_y );
+    let i_xx = create_virtual_img(width, height, &mut channel_i_xx );
+    let i_yy = create_virtual_img(width, height, &mut channel_i_yy );
+    let denom = create_virtual_img(width, height, &mut channel_denom );
+    let common_x = create_virtual_img(width, height, &mut channel_common_x );
+    let common_y = create_virtual_img(width, height, &mut channel_common_y );
+    let v0_x = create_virtual_img(width, height, &mut channel_v0_x );
+    let v0_y = create_virtual_img(width, height, &mut channel_v0_y );
 
     init_data(in_frame_1);
     init_data(in_frame_2);
@@ -46,10 +62,10 @@ fn main() -> i32 {
     //let upper = mirro_upper;
     let enable_offset = 0;
 
-    // Solving the following equation iteratively: I_x * u + I_y * v + I_t = 0
+    // Solving I_x * u + I_y * v + I_t = 0 iteratively by discretising of derivatives via finite differences.
     // I_t        => differenec over frames
     // I_x , I_y  => Image derivative along x and y, respectively
-    // Computing (u,v) indicating displacement
+    // Computing (u = dx/dt, v = dy/dt ) indicating displacement
 
     for benchmark_host(num_host_iter) {
         // I_t
@@ -69,6 +85,57 @@ fn main() -> i32 {
             let pix_i_y = apply_stencil(x, y, in_frame_1, mask);
             out.write(x, y, pix_i_y);
         }
+
+        // I_xx
+        for math, x, y, out, i_x in iteration_point(math, i_xx, i_x) {
+            let pix_i_xx = i_x * i_x;
+            out.write(x, y, pix_i_xx);
+        }
+
+        // I_yy
+        for math, x, y, out, i_y in iteration_point(math, i_yy, i_y) {
+            let pix_i_yy = i_y * i_y;
+            out.write(x, y, pix_i_yy);
+        }
+
+        // Denominator
+        for math, x, y, out, i_xx, i_yy in iteration_point2(math, denom, i_xx, i_yy) {
+            let pix_i_yy = (alpha * alpha) + i_xx  + i_yy;
+            out.write(x, y, pix_i_yy);
+        }
+
+        // Denom is used both in common_x and common_y
+        let (denom_x, denom_y) = split_image(math, denom, &mut channel_denom_to_common_x , &mut channel_denom_to_common_y);
+
+        // Common_x
+        for math, x, y, out, denom_x, i_x in iteration_point2(math, common_x, denom_x, i_x) {
+            let pix_denom_x = i_x / denom_x;
+            out.write(x, y, pix_denom_x);
+        }
+
+        // Common_y
+        for math, x, y, out, denom_y, i_y in iteration_point2(math, common_y, denom_y, i_y) {
+            let pix_denom_y = i_y / denom_y;
+            out.write(x, y, pix_denom_y);
+        }
+
+        // V0_x
+        for math, x, y, out, common_x, i_t in iteration_point2(math, v0_x, common_x, i_t) {
+            let pix_common_x = -i_t * common_x;
+            out.write(x, y, pix_common_x);
+        }
+
+        // V0_y
+        for i ,a, b ,c in unroll(0, 10) {
+        for math, x, y, out, common_y, i_t in iteration_point2(math, v0_y, common_x, i_t) {
+            let pix_common_y = -i_t * common_y;
+            out.write(x, y, pix_common_y);
+        }
+
+        // Iterative section
+}
+
+
     }
     print_total_timing();
     // display results

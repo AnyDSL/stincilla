@@ -12,3 +12,5 @@ static sobel_masky = [[ -1, -2, -1],
 static average_mask = [[0, 1, 0],
                        [1, 0, 1],
                        [0, 1, 0]];
+
+static alpha = 2;
