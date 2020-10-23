@@ -126,14 +126,12 @@ fn main() -> i32 {
         }
 
         // V0_y
-        for i ,a, b ,c in unroll(0, 10) {
         for math, x, y, out, common_y, i_t in iteration_point2(math, v0_y, common_x, i_t) {
             let pix_common_y = -i_t * common_y;
             out.write(x, y, pix_common_y);
         }
 
         // Iterative section
-}
 
 
     }
