@@ -19,9 +19,6 @@ fn main() -> i32 {
     let width  = 1024;
     let height = 1024;
 
-    static mut ch_in_to_blur    : pipe;
-    static mut ch_in_to_sharpen : pipe;
-    static mut ch_in_to_mask    : pipe;
     static mut ch_blur_to_sharpen_or_mask : pipe;
     static mut ch_blur_to_sharpen : pipe;
     static mut ch_blur_to_mask    : pipe;
@@ -47,9 +44,8 @@ fn main() -> i32 {
     let enable_offset = 0;
 
     for benchmark_host(num_host_iter) {
-        let (in_to_blur, in_to_sharpen, in_to_mask) = split_image3(math, input_image, &mut ch_in_to_blur , &mut ch_in_to_sharpen, &mut ch_in_to_mask);
 
-        for math, x, y, out, input_image, mask in iteration(math, blur, in_to_blur, mask, lower,upper) {
+        for math, x, y, out, input_image, mask in iteration(math, blur, input_image, mask, lower,upper) {
             // Blur = Blurx . Blury
             let pix_blur = apply_stencil(x, y, input_image, mask);
             out.write(x, y, pix_blur);
@@ -58,13 +54,13 @@ fn main() -> i32 {
 
         let (blur_to_sharpen, blur_to_mask) = split_image(math, blur, &mut ch_blur_to_sharpen, &mut ch_blur_to_mask);
 
-        for math, x, y, out, input_image, blur in iteration_point2(math, sharpen, in_to_sharpen, blur_to_sharpen) {
+        for math, x, y, out, input_image, blur in iteration_point2(math, sharpen, input_image, blur_to_sharpen) {
             // Sharpen
             let pix_sharpen = input_image * (one + weight) + blur * (-weight);
             out.write(x, y, pix_sharpen);
         }
 
-        for math, x, y, out, sharpen , blur, input_image in iteration_point3(math, out, sharpen, blur_to_mask, in_to_mask) {
+        for math, x, y, out, sharpen , blur, input_image in iteration_point3(math, out, sharpen, blur_to_mask, input_image) {
             // Mask (Ratio)
             let absolute_value = absolute(input_image - blur);
             let pix_mask_out = if (absolute_value < threshold) {input_image} else {sharpen};
