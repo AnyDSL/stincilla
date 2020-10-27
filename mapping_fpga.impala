@@ -1236,7 +1236,7 @@ pipe4: &mut pipe, pipe5: &mut pipe) -> (Img, Img, Img, Img, Img, Img) {
     (out0, out1, out2, out3, out4, out5)
 }
 
-fn @split_image6(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe, pipe2: &mut pipe, pipe3: &mut pipe,
+fn @split_image7(math: Intrinsics, arr: Img, pipe0: &mut pipe, pipe1: &mut pipe, pipe2: &mut pipe, pipe3: &mut pipe,
 pipe4: &mut pipe, pipe5: &mut pipe, pipe6: &mut pipe) -> (Img, Img, Img, Img, Img, Img, Img) {
     let acc = accelerator(device_id);
     let arr_dev = get_device_copy(arr);
