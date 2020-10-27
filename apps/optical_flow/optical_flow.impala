@@ -38,6 +38,22 @@ fn main() -> i32 {
     static mut channel_ix_to_common0 : pipe;
     static mut channel_iy_to_iyy : pipe;
     static mut channel_iy_to_common0 : pipe;
+    static mut channel_av0_x_to_common0 : pipe;
+    static mut channel_av0_x_to_v1_x : pipe;
+    static mut channel_av0_y_to_common0 : pipe;
+    static mut channel_av0_y_to_v1_y : pipe;
+    static mut channel_common_x_to_v0_x : pipe;
+    static mut channel_common_x_to_v1_x : pipe;
+    static mut channel_common_x_to_v2_x : pipe;
+    static mut channel_common_x_to_v3_x : pipe;
+    static mut channel_common_x_to_v4_x : pipe;
+    static mut channel_common_x_to_v5_x : pipe;
+    static mut channel_common_y_to_v0_y : pipe;
+    static mut channel_common_y_to_v1_y : pipe;
+    static mut channel_common_y_to_v2_y : pipe;
+    static mut channel_common_y_to_v3_y : pipe;
+    static mut channel_common_y_to_v4_y : pipe;
+    static mut channel_common_y_to_v5_y : pipe;
 
     let in_frame_1 = create_host_img(width, height);
     let in_frame_2 = create_host_img(width, height);
@@ -70,12 +86,15 @@ fn main() -> i32 {
     //let upper = mirro_upper;
     let enable_offset = 0;
 
-    // Solving I_x * u + I_y * v + I_t = 0 iteratively by discretising of derivatives via finite differences.
-    // I_t        => difference over frames
-    // I_x , I_y  => Image derivative along x and y, respectively
-    // Computing (u = dx/dt, v = dy/dt ) indicating displacement, by Horn–Schunck method
+    // Solving I_x * U + I_y * V + I_t = 0 iteratively by discretising of derivatives via finite differences.
+    // I_t        => difference over frames (temporal derivative)
+    // I_x , I_y  => Image derivative along x and y, respectively (spatial derivatives)
+    // Computing (U = dx/dt, V = dy/dt ) indicating displacement, by Horn–Schunck method
+    // In this implementation We denote U by V(n)_x and V by V(n)_x which are computed iteratively for (n) times
 
     for benchmark_host(num_host_iter) {
+        // ---------------- Preprocessing stages ------------------
+
         // I_t
         for math, x, y, out, in_frame_1, in_frame_2 in iteration_point2(math, it, in_frame_1, in_frame_2) {
             let pix_it = in_frame_1 - in_frame_2;
@@ -126,27 +145,40 @@ fn main() -> i32 {
             out.write(x, y, pix_denom_x);
         }
 
+        let (common_x_to_v0_x, common_x_to_v1_x, common_x_to_v2_x, common_x_to_v3_x, common_x_to_v4_x, common_x_to_v5_x) =
+        split_image6(math, common_x, &mut channel_common_x_to_v0_x, &mut channel_common_x_to_v1_x, &mut channel_common_x_to_v2_x,
+        &mut channel_common_x_to_v3_x, &mut channel_common_x_to_v4_x, &mut channel_common_x_to_v5_x);
+
         // Common_y
         for math, x, y, out, denom_y, iy in iteration_point2(math, common_y, denom_y, iy) {
             let pix_denom_y = iy / denom_y;
             out.write(x, y, pix_denom_y);
         }
 
+        let (common_y_to_v0_y, common_y_to_v1_y, common_y_to_v2_y, common_y_to_v3_y, common_y_to_v4_y, common_y_to_v5_y) =
+        split_image6(math, common_y, &mut channel_common_y_to_v0_y, &mut channel_common_y_to_v1_y, &mut channel_common_y_to_v2_y,
+        &mut channel_common_y_to_v3_y, &mut channel_common_y_to_v4_y, &mut channel_common_y_to_v5_y);
+
         let (it_to_v0_x, it_to_v0_y, it_to_common0) = split_image3(math, it, &mut channel_it_to_v0_x, &mut channale_it_to_v0_y , &mut channel_it_to_common0)
 
         // V0_x
-        for math, x, y, out, common_x, it in iteration_point2(math, v0_x, common_x, it) {
+        for math, x, y, out, common_x_to_v0_x, it in iteration_point2(math, v0_x, common_x_to_v0_x, it) {
             let pix_common_x = -i_t * common_x;
             out.write(x, y, pix_common_x);
         }
 
         // V0_y
-        for math, x, y, out, common_y, it in iteration_point2(math, v0_y, common_y, it) {
+        for math, x, y, out, common_y_to_v0_y, it in iteration_point2(math, v0_y, common_y_to_v0_y, it) {
             let pix_common_y = -it * common_y;
             out.write(x, y, pix_common_y);
         }
 
         // ---------------  Iterative section --------------
+        // V(n+1)_x = AV(n)_x - Common(n)*Common_x
+        // V(n+1)_y = AV(n)_y - Common(n)*Common_y
+        // n : [1 .. 4]
+
+        // n = 0
 
         // A*V0_x --> Velocity_x average
         for math, x, y, out, v0_x, mask in iteration(math, av0_x, v0_x, mask_a) {
@@ -155,17 +187,29 @@ fn main() -> i32 {
 
         }
 
+        let (av0_x_to_common0, av0_x_to_av_x) = split_image(math, av0_x, &mut channel_av0_x_to_common0, &mut channel_av0_x_to_v1_x);
+
         // A*V0_y --> Velocity_y average
         for math, x, y, out, v0_y, mask in iteration(math, av0_y, v0_y, mask_a) {
             let pix_av0_y = apply_stencil(x, y, v0_y, mask);
             out.write(x, y, pix_av0_y);
         }
 
+        let (av0_y_to_common0, av0_y_to_av_y) = split_image(math, av0_y, &mut channel_av0_y_to_common0, &mut channel_av0_y_to_v1_y);
+
         // Common0
-        for math, x, y, out, av0_x, av0_y, ix_to_common0, iy_to_common0, it_to_common0 in iteration_point5(math, common0, av0_x, av0_y, ix_to_common0, iy_to_common0, it_to_common0 ) {
-            let pix_common0 = 0;
-            out.write(x, y, pix_common0);
+        for math, x, y, out, av0_x_to_common0, av0_y, ix_to_common0, iy_to_common0, it_to_common0 in
+            iteration_point5(math, common0, av0_x_to_common0, av0_y_to_common0, ix_to_common0, iy_to_common0, it_to_common0 ) {
+                let pix_common0 = ix_to_common0 * av0_x + iy_to_common0 * av0_x + it_to_common0;
+                out.write(x, y, pix_common0);
         }
+
+        // V1_x
+
+
+        // V1_y
+
+        // n=1
 
 
     }
