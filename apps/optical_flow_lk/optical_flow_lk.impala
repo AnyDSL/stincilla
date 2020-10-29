@@ -1,0 +1,136 @@
+fn init_data(arr: Img , fill_x :i32, fill_y: i32) -> () {
+    let buf = bitcast[&mut[pixel_t]](arr.buf.data);
+    let size = (fill_x + fill_y);
+
+    for y in range(0, arr.height) {
+        for x in range(0, arr.width) {
+            let val = if ((((x % size) >= fill_x) & (( y % size) < fill_y)) | (((x % size) < fill_x) & ((y % size) >= fill_y))) == false {
+                255 as pixel_t
+            }
+            else {
+                0 as pixel_t
+            };
+            buf(y * arr.stride + x) = val;
+        }
+    }
+}
+
+fn main() -> i32 {
+    let width  = 1024;
+    let height = 1024;
+
+    static mut channel_in_frame_1_to_ix : pipe;
+    static mut channel_in_frame_1_to_iy : pipe;
+    static mut channel_it : pipe;
+    static mut channel_ix : pipe;
+    static mut channel_iy : pipe;
+    static mut channel_ixx : pipe;
+    static mut channel_iyy : pipe;
+
+    let in_frame_1 = create_host_img(width, height);
+    let in_frame_2 = create_host_img(width, height);
+    let out_host_v_x    = create_host_img(width, height);
+    let out_host_v_y    = create_host_img(width, height);
+
+    let it = create_virtual_img(width, height, &mut channel_it );
+    let ix = create_virtual_img(width, height, &mut channel_ix );
+    let iy = create_virtual_img(width, height, &mut channel_iy );
+    let ixx = create_virtual_img(width, height, &mut channel_ixx );
+    let iyy = create_virtual_img(width, height, &mut channel_iyy );
+
+    init_data(in_frame_1, 8, 8);
+    init_data(in_frame_2, 8, 8);
+    init_zero(bitcast[&mut[pixel_t]](out_host_v_x.buf.data), out_host_v_x.stride, out_host_v_x.height);
+    init_zero(bitcast[&mut[pixel_t]](out_host_v_y.buf.data), out_host_v_y.stride, out_host_v_y.height);
+
+    let mask_x = get_mask3(sobel_maskx);
+    let mask_y = get_mask3(sobel_masky);
+    let mask_a = get_mask3(average_mask);
+
+    let lower = nobh_center;
+    let upper = nobh_center;
+    //let lower = clamp_lower;
+    //let upper = clamp_upper;
+    //let lower = mirro_lower;
+    //let upper = mirro_upper;
+    let enable_offset = 0;
+
+    // Solving I_x * U + I_y * V + I_t = 0
+    // I_t        => difference over frames (temporal derivative)
+    // I_x , I_y  => Image derivative along x and y, respectively (spatial derivatives)
+    // Computing (U = dx/dt, V = dy/dt ) indicating displacement, by Lucas-Kanade method
+    // In this implementation We denote U by V(n)_x and V by V(n)_x which are computed iteratively for (n) times
+
+    for benchmark_host(num_host_iter) {
+        // ---------------- Preprocessing stages ------------------
+
+        // I_t
+        for math, x, y, out, in_frame_1, in_frame_2 in iteration_point2(math, it, in_frame_1, in_frame_2) {
+            let pix_it = in_frame_1 - in_frame_2;
+            out.write(x, y, pix_it);
+        }
+
+        // Splitting in_frame_1
+        let (in_frame_1_to_ix, in_frame_1_to_iy) = split_image(math, in_frame_1, &mut channel_in_frame_1_to_ix, &mut channel_in_frame_1_to_iy);
+
+        // I_x
+        for math, x, y, out, in_frame_1_to_ix, mask in iteration(math, ix, in_frame_1_to_ix, mask_x, lower, upper) {
+            let pix_ix = apply_stencil(x, y, in_frame_1_to_ix, mask);
+            out.write(x, y, pix_ix);
+        }
+
+        // Spliting Ix
+        let (ix_to_ixx, ix_to_common0, ix_to_common1, ix_to_common2, ix_to_common3) =
+        split_image5(math, ix, &mut channel_ix_to_ixx, &mut channel_ix_to_common0, &mut channel_ix_to_common1, &mut channel_ix_to_common2,
+        &mut channel_ix_to_common3);
+
+        // I_y
+        for math, x, y, out, in_frame_1_to_iy, mask in iteration(math, iy, in_frame_1_to_iy, mask_y, lower, upper) {
+            let pix_iy = apply_stencil(x, y, in_frame_1_to_iy, mask);
+            out.write(x, y, pix_iy);
+        }
+
+        // Spliting Iy
+        let (iy_to_iyy, iy_to_common0, iy_to_common1, iy_to_common2, iy_to_common3) =
+        split_image5(math, iy, &mut channel_iy_to_iyy, &mut channel_iy_to_common0, &mut channel_iy_to_common1, &mut channel_iy_to_common2,
+        &mut channel_iy_to_common3);
+
+        // I_xx
+        for math, x, y, out, ix_to_ixx in iteration_point(math, ixx, ix_to_ixx) {
+            let pix_ixx = ix_to_ixx * ix_to_ixx;
+            out.write(x, y, pix_ixx);
+        }
+
+        // I_yy
+        for math, x, y, out, iy in iteration_point(math, iyy, iy) {
+            let pix_iyy = iy * iy;
+            out.write(x, y, pix_iyy);
+        }
+
+
+    }
+    print_total_timing();
+    // display results
+    let in_frame_1_acc = get_acc(in_frame_1, |idx, val| { bitcast[&mut[pixel_t]](in_frame_1.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](in_frame_1.buf.data)(idx));
+    let in_frame_2_acc = get_acc(in_frame_2, |idx, val| { bitcast[&mut[pixel_t]](in_frame_2.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](in_frame_2.buf.data)(idx));
+    let out_v_x_acc = get_acc(out_host_v_x, |idx, val| { bitcast[&mut[pixel_t]](out_host_v_x.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out_host_v_x.buf.data)(idx));
+    let out_v_y_acc = get_acc(out_host_v_y, |idx, val| { bitcast[&mut[pixel_t]](out_host_v_y.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out_host_v_y.buf.data)(idx));
+
+    let roi_x = 0;
+    let roi_y = 0;
+    print_string("Frame 1 ");
+    display_image(in_frame_1_acc, roi_x, roi_y);
+    print_string("Frame 2 ");
+    display_image(in_frame_2_acc, roi_x, roi_y);
+    print_string("Optical flow\n\n");
+    print_string("Vx:\n");
+    display_image(out_v_x_acc, roi_x, roi_y);
+    print_string("Vy:\n");
+    display_image(out_v_y_acc, roi_x, roi_y);
+
+    release(in_frame_1.buf);
+    release(in_frame_2.buf);
+    release(out_host_v_x.buf);
+    release(out_host_v_y.buf);
+    0
+}
