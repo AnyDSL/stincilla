@@ -1,0 +1,16 @@
+// Using sobel convolution kernel for computing spatiotemporal image brightness derivatives.
+static sobel_maskx = [[ -1,  0,  1],
+                      [ -2,  0,  2],
+                      [ -1,  0,  1]];
+
+static sobel_masky = [[ -1, -2, -1],
+                      [  0,  0,  0],
+                      [  1,  2,  1]];
+
+
+// Using the following kernel fot computing average velocity for each pixel
+static average_mask = [[0, 1, 0],
+                       [1, 0, 1],
+                       [0, 1, 0]];
+
+static alpha = 2;
