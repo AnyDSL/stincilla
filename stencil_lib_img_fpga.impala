@@ -40,6 +40,7 @@ fn @create_virtual_img(width: i32, height: i32, fifo: &mut pipe) -> Img {
 }
 
 fn @get_acc_virtual(img: Img, set_pixel: fn(i32, pixel_t) -> (), get_pixel: fn(i32) -> pixel_t) -> Acc {
+
     Acc {
         read  : @|x, y|    { get_pixel(x) },
         write : @|x, y, v| { set_pixel(x, v) }
