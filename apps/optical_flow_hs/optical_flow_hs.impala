@@ -159,6 +159,9 @@ fn main() -> i32 {
     // I_x , I_y  => Image derivative along x and y, respectively (spatial derivatives)
     // Computing (U = dx/dt, V = dy/dt ) indicating displacement, by Horn–Schunck method
     // In this implementation We denote U by V(n)_x and V by V(n)_x which are computed iteratively for (n) times
+    // Horn-Schunk iterations:
+    // V(n+1)_x = V(n)_x - ( I_x * [Ix * A * V(n)_x + I_y * A * V(n)_y + I_t]) / alpha^2 + I_xx + I_yy)
+    // V(n+1)_y = V(n)_y - ( I_y * [Ix * A * V(n)_x + I_y * A * V(n)_y + I_t]) / alpha^2 + I_xx + I_yy)
 
     for benchmark_host(num_host_iter) {
         // ---------------- Preprocessing stages ------------------
