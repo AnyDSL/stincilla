@@ -26,6 +26,9 @@ fn main() -> i32 {
     static mut channel_iy : pipe;
     static mut channel_ixx : pipe;
     static mut channel_iyy : pipe;
+    static mut channel_ixy : pipe;
+    static mut channel_ixt : pipe;
+    static mut channel_iyt : pipe;
 
     let in_frame_1 = create_host_img(width, height);
     let in_frame_2 = create_host_img(width, height);
@@ -37,6 +40,9 @@ fn main() -> i32 {
     let iy = create_virtual_img(width, height, &mut channel_iy );
     let ixx = create_virtual_img(width, height, &mut channel_ixx );
     let iyy = create_virtual_img(width, height, &mut channel_iyy );
+    let ixy = create_virtual_img(width, height, &mut channel_ixy );
+    let ixt = create_virtual_img(width, height, &mut channel_ixt );
+    let iyt = create_virtual_img(width, height, &mut channel_iyt );
 
     init_data(in_frame_1, 8, 8);
     init_data(in_frame_2, 8, 8);
@@ -59,7 +65,9 @@ fn main() -> i32 {
     // I_t        => difference over frames (temporal derivative)
     // I_x , I_y  => Image derivative along x and y, respectively (spatial derivatives)
     // Computing (U = dx/dt, V = dy/dt ) indicating displacement, by Lucas-Kanade method
-    // In this implementation We denote U by V(n)_x and V by V(n)_x which are computed iteratively for (n) times
+    // In this implementation We denote U by V(n)_x and V by V(n)_x
+    // least squares solution
+    // solving the final system of equations using cramer's rule
 
     for benchmark_host(num_host_iter) {
         // ---------------- Preprocessing stages ------------------
@@ -80,8 +88,8 @@ fn main() -> i32 {
         }
 
         // Spliting Ix
-        let (ix_to_ixx, ix_to_common0, ix_to_common1, ix_to_common2, ix_to_common3) =
-        split_image5(math, ix, &mut channel_ix_to_ixx, &mut channel_ix_to_common0, &mut channel_ix_to_common1, &mut channel_ix_to_common2,
+        let (ix_to_ixx, ix_to_ixy, ix_to_ixt) =
+        split_image3(math, ix, &mut channel_ix_to_ixx, &mut channel_ix_to_common0, &mut channel_ix_to_common1, &mut channel_ix_to_common2,
         &mut channel_ix_to_common3);
 
         // I_y
@@ -91,8 +99,8 @@ fn main() -> i32 {
         }
 
         // Spliting Iy
-        let (iy_to_iyy, iy_to_common0, iy_to_common1, iy_to_common2, iy_to_common3) =
-        split_image5(math, iy, &mut channel_iy_to_iyy, &mut channel_iy_to_common0, &mut channel_iy_to_common1, &mut channel_iy_to_common2,
+        let (iy_to_iyy, iy_to_ixy, iy_to_iyt) =
+        split_image3(math, iy, &mut channel_iy_to_iyy, &mut channel_iy_to_common0, &mut channel_iy_to_common1, &mut channel_iy_to_common2,
         &mut channel_iy_to_common3);
 
         // I_xx
@@ -106,6 +114,22 @@ fn main() -> i32 {
             let pix_iyy = iy * iy;
             out.write(x, y, pix_iyy);
         }
+
+        // I_xy
+
+        // I_xt
+
+        // I_yt
+
+        // windowed weighted averages
+
+        // Denominator of cramer's rule
+
+        // Spliting denominator for two unknowns (V_x and V_y)
+
+        // calculating V_x
+
+        // calculating V_y
 
 
     }
