@@ -37,6 +37,9 @@ fn main() -> i32 {
     static mut channel_iy_to_iyt : pipe;
     static mut channel_it_to_ixt : pipe;
     static mut channel_it_to_iyt : pipe;
+    static mut channel_wixx : pipe;
+    static mut channel_wiyy : pipe;
+    static mut channel_wixy : pipe;
 
     let in_frame_1 = create_host_img(width, height);
     let in_frame_2 = create_host_img(width, height);
@@ -51,6 +54,9 @@ fn main() -> i32 {
     let ixy = create_virtual_img(width, height, &mut channel_ixy );
     let ixt = create_virtual_img(width, height, &mut channel_ixt );
     let iyt = create_virtual_img(width, height, &mut channel_iyt );
+    let wixx = create_virtual_img(width, height, &mut channel_wixx );
+    let wiyy = create_virtual_img(width, height, &mut channel_wiyy );
+    let wixy = create_virtual_img(width, height, &mut channel_wixy );
 
     init_data(in_frame_1, 8, 8);
     init_data(in_frame_2, 8, 8);
@@ -144,6 +150,24 @@ fn main() -> i32 {
         }
 
         // windowed weighted averages
+
+        // wixx : windowed I_xx
+        for math, x, y, out, ixx, mask in iteration(math, wixx, ixx, lower, upper) {
+            let pix_wixx = apply_stencil(x, y, wixx, mask);
+            out.write(x, y, pix_wixx);
+        }
+
+        // wiyy : windowed I_yy
+        for math, x, y, out, iyy, mask in iteration(math, wiyy, iyy, lower, upper) {
+            let pix_wiyy = apply_stencil(x, y, wiyy, mask);
+            out.write(x, y, pix_wiyy);
+        }
+
+        // wixy : windowed I_xy
+        for math, x, y, out, ixy, mask in iteration(math, wixy, ixy, lower, upper) {
+            let pix_wixy = apply_stencil(x, y, wixy, mask);
+            out.write(x, y, pix_wixy);
+        }
 
         // Denominator of cramer's rule
 
