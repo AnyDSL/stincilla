@@ -199,14 +199,14 @@ fn main() -> i32 {
         let (denom_of_vx, denom_of_vy) = split_image(math, denominator, &mut channel_denom_of_vx, &mut channel_denom_of_vy);
 
         // calculating V_x
-        for math, x, y, out, wixt, wiyy, wiyt, denom_of_vx in iteration_point5(math, out_host_vx, wixt, wiyy, wiyt) {
+        for math, x, y, out, wixt, wiyy, wiyt, denom_of_vx in iteration_point4(math, out_host_vx, wixt, wiyy, wiyt) {
             let nominator = 0;
             let pix_vx = 0;
             out.write(x, y, pix_vx);
         }
 
         // calculating V_y
-        for math, x, y, out, wixx, wiyt, wixt, wixy, denom_of_vy in iteration_point5(math, out_host_vy, wixx, wiyt, wixt, wixy) {
+        for math, x, y, out, wixx, wiyt, wixt, wixy, denom_of_vy in iteration_point4(math, out_host_vy, wixx, wiyt, wixt, wixy) {
             let nominator = 0;
             let pix_vx = 0;
             out.write(x, y, pix_vx);
