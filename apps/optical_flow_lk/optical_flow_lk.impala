@@ -40,6 +40,11 @@ fn main() -> i32 {
     static mut channel_wixx : pipe;
     static mut channel_wiyy : pipe;
     static mut channel_wixy : pipe;
+    static mut channel_wixt : pipe;
+    static mut channel_wiyt : pipe;
+    static mut channel_denominator : pipe;
+    static mut channel_denom_of_vx : pipe
+    static mut channel_denom_of_vy : pipe
 
     let in_frame_1 = create_host_img(width, height);
     let in_frame_2 = create_host_img(width, height);
@@ -57,6 +62,9 @@ fn main() -> i32 {
     let wixx = create_virtual_img(width, height, &mut channel_wixx );
     let wiyy = create_virtual_img(width, height, &mut channel_wiyy );
     let wixy = create_virtual_img(width, height, &mut channel_wixy );
+    let wixt = create_virtual_img(width, height, &mut channel_wixt );
+    let wiyt = create_virtual_img(width, height, &mut channel_wiyt );
+    let denominator = create_virtual_img(width, height, &mut channel_denominator );
 
     init_data(in_frame_1, 8, 8);
     init_data(in_frame_2, 8, 8);
@@ -79,7 +87,7 @@ fn main() -> i32 {
     // I_t        => difference over frames (temporal derivative)
     // I_x , I_y  => Image derivative along x and y, respectively (spatial derivatives)
     // Computing (U = dx/dt, V = dy/dt ) indicating displacement, by Lucas-Kanade method
-    // In this implementation We denote U by V(n)_x and V by V(n)_x
+    // In this implementation We denote U by Vx and V by Vx
     // least squares solution results in a system of equations
     // solving the final system of equations using cramer's rule
 
@@ -169,13 +177,40 @@ fn main() -> i32 {
             out.write(x, y, pix_wixy);
         }
 
+        // wixt : windowed I_xt
+        for math, x, y, out, ixt, mask in iteration(math, wixt, ixt, lower, upper) {
+            let pix_wixt = apply_stencil(x, y, wixt, mask);
+            out.write(x, y, pix_wixt);
+        }
+
+        // wiyt : windowed I_yt
+        for math, x, y, out, iyt, mask in iteration(math, wiyt, iyt, lower, upper) {
+            let pix_wiyt = apply_stencil(x, y, wiyt, mask);
+            out.write(x, y, pix_wiyt);
+        }
+
         // Denominator of cramer's rule
+        for math, x, y, out, wixx, wiyy, wixy in iteration_point3(math, denominator, wixx, wiyy, wixy) {
+            let pix_denominator = wixx * wiyy - wixy * wixy;
+            out.write(x, y, pix_denominator);
+        }
 
         // Spliting denominator for two unknowns (V_x and V_y)
+        let (denom_of_vx, denom_of_vy) = split_image(math, denominator, &mut channel_denom_of_vx, &mut channel_denom_of_vy);
 
         // calculating V_x
+        for math, x, y, out, wixt, wiyy, wiyt, denom_of_vx in iteration_point5(math, out_host_vx, wixt, wiyy, wiyt) {
+            let nominator = 0;
+            let pix_vx = 0;
+            out.write(x, y, pix_vx);
+        }
 
         // calculating V_y
+        for math, x, y, out, wixx, wiyt, wixt, wixy, denom_of_vy in iteration_point5(math, out_host_vy, wixx, wiyt, wixt, wixy) {
+            let nominator = 0;
+            let pix_vx = 0;
+            out.write(x, y, pix_vx);
+        }
 
 
     }
