@@ -43,8 +43,14 @@ fn main() -> i32 {
     static mut channel_wixt : pipe;
     static mut channel_wiyt : pipe;
     static mut channel_denominator : pipe;
-    static mut channel_denom_of_vx : pipe
-    static mut channel_denom_of_vy : pipe
+    static mut channel_denom_of_v_x : pipe;
+    static mut channel_denom_of_v_y : pipe;
+    static mut channel_wixt_to_v_x : pipe;
+    static mut channel_wixt_to_v_y : pipe;
+    static mut channel_wixy_to_v_x : pipe;
+    static mut channel_wixy_to_v_y : pipe;
+    static mut channel_wiyt_to_v_x : pipe;
+    static mut channel_wiyt_to_v_y : pipe;
 
     let in_frame_1 = create_host_img(width, height);
     let in_frame_2 = create_host_img(width, height);
@@ -71,9 +77,9 @@ fn main() -> i32 {
     init_zero(bitcast[&mut[pixel_t]](out_host_v_x.buf.data), out_host_v_x.stride, out_host_v_x.height);
     init_zero(bitcast[&mut[pixel_t]](out_host_v_y.buf.data), out_host_v_y.stride, out_host_v_y.height);
 
-    let mask_x = get_mask3(sobel_maskx);
-    let mask_y = get_mask3(sobel_masky);
-    let mask_a = get_mask3(average_mask);
+    let mask_x = get_mask3(scharr_maskx);
+    let mask_y = get_mask3(scharr_masky);
+    let mask_a = get_mask3(average_mask3);
 
     let lower = nobh_center;
     let upper = nobh_center;
@@ -87,7 +93,7 @@ fn main() -> i32 {
     // I_t        => difference over frames (temporal derivative)
     // I_x , I_y  => Image derivative along x and y, respectively (spatial derivatives)
     // Computing (U = dx/dt, V = dy/dt ) indicating displacement, by Lucas-Kanade method
-    // In this implementation We denote U by Vx and V by Vx
+    // In this implementation We denote U by V_x and V by V_y
     // least squares solution results in a system of equations
     // solving the final system of equations using cramer's rule
 
@@ -141,7 +147,7 @@ fn main() -> i32 {
 
         // I_xy
         for math, x, y, out, ix_to_ixy, iy_to_ixy in iteration_point2(math, ixy, ix_to_ixy, iy_to_ixy) {
-            let pix_iyy = ix_to_ixy * iy_to_ixy;
+            let pix_ixy = ix_to_ixy * iy_to_ixy;
             out.write(x, y, pix_ixy);
         }
 
@@ -160,32 +166,32 @@ fn main() -> i32 {
         // windowed weighted averages
 
         // wixx : windowed I_xx
-        for math, x, y, out, ixx, mask in iteration(math, wixx, ixx, lower, upper) {
-            let pix_wixx = apply_stencil(x, y, wixx, mask);
+        for math, x, y, out, ixx, mask in iteration(math, wixx, ixx, mask_a, lower, upper) {
+            let pix_wixx = apply_stencil(x, y, ixx, mask);
             out.write(x, y, pix_wixx);
         }
 
         // wiyy : windowed I_yy
-        for math, x, y, out, iyy, mask in iteration(math, wiyy, iyy, lower, upper) {
-            let pix_wiyy = apply_stencil(x, y, wiyy, mask);
+        for math, x, y, out, iyy, mask in iteration(math, wiyy, iyy, mask_a, lower, upper) {
+            let pix_wiyy = apply_stencil(x, y, iyy, mask);
             out.write(x, y, pix_wiyy);
         }
 
         // wixy : windowed I_xy
-        for math, x, y, out, ixy, mask in iteration(math, wixy, ixy, lower, upper) {
-            let pix_wixy = apply_stencil(x, y, wixy, mask);
+        for math, x, y, out, ixy, mask in iteration(math, wixy, ixy, mask_a ,lower, upper) {
+            let pix_wixy = apply_stencil(x, y, ixy, mask);
             out.write(x, y, pix_wixy);
         }
 
         // wixt : windowed I_xt
-        for math, x, y, out, ixt, mask in iteration(math, wixt, ixt, lower, upper) {
-            let pix_wixt = apply_stencil(x, y, wixt, mask);
+        for math, x, y, out, ixt, mask in iteration(math, wixt, ixt, mask_a, lower, upper) {
+            let pix_wixt = apply_stencil(x, y, ixt, mask);
             out.write(x, y, pix_wixt);
         }
 
         // wiyt : windowed I_yt
-        for math, x, y, out, iyt, mask in iteration(math, wiyt, iyt, lower, upper) {
-            let pix_wiyt = apply_stencil(x, y, wiyt, mask);
+        for math, x, y, out, iyt, mask in iteration(math, wiyt, iyt, mask_a, lower, upper) {
+            let pix_wiyt = apply_stencil(x, y, iyt, mask);
             out.write(x, y, pix_wiyt);
         }
 
@@ -196,20 +202,30 @@ fn main() -> i32 {
         }
 
         // Spliting denominator for two unknowns (V_x and V_y)
-        let (denom_of_vx, denom_of_vy) = split_image(math, denominator, &mut channel_denom_of_vx, &mut channel_denom_of_vy);
+        let (denom_of_v_x, denom_of_v_y) = split_image(math, denominator, &mut channel_denom_of_v_x, &mut channel_denom_of_v_y);
+
+        // Splitting wixt
+        let (wixt_to_v_x, wixt_to_v_y) = split_image(math, wixt, &mut channel_wixt_to_v_x, &mut channel_wixt_to_v_y);
+
+        // Splitting wixy
+        let (wixy_to_v_x, wixy_to_v_y) = split_image(math, wixy, &mut channel_wixy_to_v_x, &mut channel_wixy_to_v_y);
+
+        // Splitting wiyt
+        let (wiyt_to_v_x, wiyt_to_v_y) = split_image(math, wiyt, &mut channel_wiyt_to_v_x, &mut channel_wiyt_to_v_y);
+
 
         // calculating V_x
-        for math, x, y, out, wixt, wiyy, wiyt, denom_of_vx in iteration_point4(math, out_host_vx, wixt, wiyy, wiyt) {
-            let nominator = 0;
-            let pix_vx = 0;
-            out.write(x, y, pix_vx);
+        for math, x, y, out, wixt_to_v_x, wiyy, wixy_to_v_x, wiyt_to_v_x, denom_of_v_x in iteration_point5(math, out_host_v_x, wixt_to_v_x, wiyy, wixy_to_v_x, wiyt_to_v_x, denom_of_v_x) {
+            let nominator_v_x = ((-1 * wixt_to_v_x) * wiyy) - (wixy_to_v_x * (-1 * wiyt_to_v_x));
+            let pix_v_x = nominator_v_x / denom_of_v_x;
+            out.write(x, y, pix_v_x);
         }
 
         // calculating V_y
-        for math, x, y, out, wixx, wiyt, wixt, wixy, denom_of_vy in iteration_point4(math, out_host_vy, wixx, wiyt, wixt, wixy) {
-            let nominator = 0;
-            let pix_vx = 0;
-            out.write(x, y, pix_vx);
+        for math, x, y, out, wixx, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, denom_of_v_y in iteration_point5(math, out_host_v_y, wixx, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, denom_of_v_y) {
+            let nominator_v_y = (wixx * (-1 * wiyt_to_v_y)) - ((-1 * wixt_to_v_y) * wixy_to_v_y);
+            let pix_v_y = nominator_v_y / denom_of_v_y;
+            out.write(x, y, pix_v_y);
         }
 
 
