@@ -60,7 +60,7 @@ set(GAUSSIAN_FILES         ${GAUSSIAN_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_
 set(SOBEL_LUMA_FILES       ${SOBEL_LUMA_DIR}/mask_i32.impala ${SOBEL_LUMA_DIR}/sobel_luma.impala)
 set(UNSHARP_FILES          ${UNSHARP_DIR}/mask_${PIXEL_TYPE}.impala ${UNSHARP_DIR}/unsharp.impala)
 set(OPTICAL_FLOW_HS_FILES  ${OPTICAL_FLOW_HS_DIR}/mask_${PIXEL_TYPE}.impala ${OPTICAL_FLOW_HS_DIR}/optical_flow_hs.impala)
-set(OPTICAL_FLOW_LK_FILES  ${OPTICAL_FLOW_HS_DIR}/mask_${PIXEL_TYPE}.impala ${OPTICAL_FLOW_LK_DIR}/optical_flow_lk.impala)
+set(OPTICAL_FLOW_LK_FILES  ${OPTICAL_FLOW_LK_DIR}/mask_${PIXEL_TYPE}.impala ${OPTICAL_FLOW_LK_DIR}/optical_flow_lk.impala)
 set(JACOBI_FILES           ${JACOBI_DIR}/mask_${PIXEL_TYPE}.impala ${JACOBI_DIR}/jacobi.impala)
 set(FILTER_CHAIN_FILES     ${FILTER_CHAIN_DIR}/mask_${PIXEL_TYPE}.impala ${FILTER_CHAIN_DIR}/filter_chain.impala)
 set(HARRIS_CORNER_FILES    ${HARRIS_CORNER_DIR}/mask_${PIXEL_TYPE}.impala ${HARRIS_CORNER_DIR}/harris_corner.impala)
