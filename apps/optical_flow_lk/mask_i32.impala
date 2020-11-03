@@ -1,16 +1,14 @@
-// Using sobel convolution kernel for computing spatiotemporal image brightness derivatives.
-static sobel_maskx = [[ -1,  0,  1],
-                      [ -2,  0,  2],
-                      [ -1,  0,  1]];
+// Using Scharr convolution kernel for computing image gradients.
+static scharr_maskx = [[ 3,  0, -3],
+                      [  10, 0, -10],
+                      [  3,  0, -3]];
 
-static sobel_masky = [[ -1, -2, -1],
-                      [  0,  0,  0],
-                      [  1,  2,  1]];
+static scharr_masky = [[ 3,  10,  3],
+                      [  0,  0,   0],
+                      [ -3, -10, -3]];
 
 
 // Using the following kernel fot computing average velocity for each pixel
-static average_mask = [[0, 1, 0],
-                       [1, 0, 1],
-                       [0, 1, 0]];
-
-static alpha = 2;
+static average_mask3 = [[1, 1, 1],
+                       [1, 1, 1],
+                       [1, 1, 1]];
