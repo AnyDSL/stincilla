@@ -204,8 +204,8 @@ fn main() -> i32 {
         }
 
         // I_yy
-        for math, x, y, out, iy in iteration_point(math, iyy, iy) {
-            let pix_iyy = iy * iy;
+        for math, x, y, out, iy_to_iyy in iteration_point(math, iyy, iy_to_iyy) {
+            let pix_iyy = iy_to_iyy * iy_to_iyy;
             out.write(x, y, pix_iyy);
         }
 
