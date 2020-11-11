@@ -22,6 +22,7 @@ fn main() -> i32 {
 
     static mut channel_in_frame_1_to_ix : pipe;
     static mut channel_in_frame_1_to_iy : pipe;
+    static mut channel_in_frame_1_to_it : pipe;
     static mut channel_it : pipe;
     static mut channel_ix : pipe;
     static mut channel_iy : pipe;
