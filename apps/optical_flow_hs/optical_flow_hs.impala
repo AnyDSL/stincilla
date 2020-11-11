@@ -166,14 +166,14 @@ fn main() -> i32 {
     for benchmark_host(num_host_iter) {
         // ---------------- Preprocessing stages ------------------
 
+        // Splitting in_frame_1
+        let (in_frame_1_to_ix, in_frame_1_to_iy, in_frame_1_to_it) = split_image3(math, in_frame_1, &mut channel_in_frame_1_to_ix, &mut channel_in_frame_1_to_iy, &mut channel_in_frame_1_to_it);
+
         // I_t
-        for math, x, y, out, in_frame_1, in_frame_2 in iteration_point2(math, it, in_frame_1, in_frame_2) {
-            let pix_it = in_frame_1 - in_frame_2;
+        for math, x, y, out, in_frame_1_to_it, in_frame_2 in iteration_point2(math, it, in_frame_1_to_it, in_frame_2) {
+            let pix_it = in_frame_1_to_it - in_frame_2;
             out.write(x, y, pix_it);
         }
-
-        // Splitting in_frame_1
-        let (in_frame_1_to_ix, in_frame_1_to_iy) = split_image(math, in_frame_1, &mut channel_in_frame_1_to_ix, &mut channel_in_frame_1_to_iy);
 
         // I_x
         for math, x, y, out, in_frame_1_to_ix, mask in iteration(math, ix, in_frame_1_to_ix, mask_x, lower, upper) {
