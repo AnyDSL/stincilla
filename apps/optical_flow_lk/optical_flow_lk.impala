@@ -44,8 +44,8 @@ fn main() -> i32 {
     static mut channel_wixt : pipe;
     static mut channel_wiyt : pipe;
     static mut channel_denominator : pipe;
-    static mut channel_denom_of_v_x : pipe;
-    static mut channel_denom_of_v_y : pipe;
+    static mut channel_inv_denom_of_v_x : pipe;
+    static mut channel_inv_denom_of_v_y : pipe;
     static mut channel_wixt_to_v_x : pipe;
     static mut channel_wixt_to_v_y : pipe;
     static mut channel_wixy_to_v_x : pipe;
@@ -76,7 +76,7 @@ fn main() -> i32 {
     let wixy = create_virtual_img(width, height, &mut channel_wixy );
     let wixt = create_virtual_img(width, height, &mut channel_wixt );
     let wiyt = create_virtual_img(width, height, &mut channel_wiyt );
-    let denominator = create_virtual_img(width, height, &mut channel_denominator );
+    let inv_denominator = create_virtual_img(width, height, &mut channel_denominator );
 
     init_rand(bitcast[&mut[pixel_t]](in_frame_1.buf.data), in_frame_1.stride, in_frame_1.height);
     init_data(in_frame_2, 8, 8);
@@ -217,33 +217,32 @@ fn main() -> i32 {
        // Splitting wiyt
        let (wiyt_to_v_x, wiyt_to_v_y) = split_image(math, wiyt, &mut channel_wiyt_to_v_x, &mut channel_wiyt_to_v_y);
 
-       // Denominator of cramer's rule
-       for math, x, y, out, wixx_to_denom, wiyy_to_denom, wixy_to_denom in iteration_point3(math, denominator, wixx_to_denom, wiyy_to_denom, wixy_to_denom) {
+       // Inverted denominator of cramer's rule
+       for math, x, y, out, wixx_to_denom, wiyy_to_denom, wixy_to_denom in iteration_point3(math, inv_denominator, wixx_to_denom, wiyy_to_denom, wixy_to_denom) {
            let pix_denominator = wixx_to_denom * wiyy_to_denom - wixy_to_denom * wixy_to_denom;
            // denoiminator is equal to the determinant of the coefficient matrix
            // if this determinant is zero the matrix is singular and non-invertible, hence the system of equations has either no or infinite solutions
            // a possible estimation can be found by analysing eigenvalues and normalizing the gradient flow or via an expensive least square approximation.
-           out.write(x, y, pix_denominator);
+           let pix_inv_denominator = if (pix_denominator != 0) {
+              1 / pix_denominator
+            } else { 0 };
+           out.write(x, y, pix_inv_denominator);
        }
 
-       // Spliting denominator for two unknowns (V_x and V_y)
-       let (denom_of_v_x, denom_of_v_y) = split_image(math, denominator, &mut channel_denom_of_v_x, &mut channel_denom_of_v_y);
+       // Spliting inv_denominator for two unknowns (V_x and V_y)
+       let (inv_denom_of_v_x, inv_denom_of_v_y) = split_image(math, inv_denominator, &mut channel_inv_denom_of_v_x, &mut channel_inv_denom_of_v_y);
 
        // calculating V_x
-       for math, x, y, out, wixt_to_v_x, wiyy_to_v_x, wixy_to_v_x, wiyt_to_v_x, denom_of_v_x in iteration_point5(math, out_host_v_x, wixt_to_v_x, wiyy_to_v_x, wixy_to_v_x, wiyt_to_v_x, denom_of_v_x) {
-           let pix_v_x = if (denom_of_v_x != 0) {
-               let nominator_v_x = ((-1 * wixt_to_v_x) * wiyy_to_v_x) - (wixy_to_v_x * (-1 * wiyt_to_v_x));
-               nominator_v_x / denom_of_v_x
-           } else { 0 };
+       for math, x, y, out, wixt_to_v_x, wiyy_to_v_x, wixy_to_v_x, wiyt_to_v_x, inv_denom_of_v_x in iteration_point5(math, out_host_v_x, wixt_to_v_x, wiyy_to_v_x, wixy_to_v_x, wiyt_to_v_x, inv_denom_of_v_x) {
+           let nominator_v_x = ((-1 * wixt_to_v_x) * wiyy_to_v_x) - (wixy_to_v_x * (-1 * wiyt_to_v_x));
+           let pix_v_x = nominator_v_x * inv_denom_of_v_x;
            out.write(x, y, pix_v_x);
        }
 
      // calculating V_y
-       for math, x, y, out, wixx_to_v_y, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, denom_of_v_y in iteration_point5(math, out_host_v_y, wixx_to_v_y, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, denom_of_v_y) {
-           let pix_v_y = if (denom_of_v_y != 0) {
-               let nominator_v_y = (wixx_to_v_y * (-1 * wiyt_to_v_y)) - ((-1 * wixt_to_v_y) * wixy_to_v_y);
-               nominator_v_y / denom_of_v_y
-           } else { 0 };
+       for math, x, y, out, wixx_to_v_y, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, inv_denom_of_v_y in iteration_point5(math, out_host_v_y, wixx_to_v_y, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, inv_denom_of_v_y) {
+           let nominator_v_y = (wixx_to_v_y * (-1 * wiyt_to_v_y)) - ((-1 * wixt_to_v_y) * wixy_to_v_y);
+           let pix_v_y = nominator_v_y * inv_denom_of_v_y;
            out.write(x, y, pix_v_y);
        }
 
