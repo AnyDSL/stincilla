@@ -21,6 +21,7 @@ fn main() -> i32 {
 
     static mut channel_in_frame_1_to_ix : pipe;
     static mut channel_in_frame_1_to_iy : pipe;
+    static mut channel_in_frame_1_to_it : pipe;
     static mut channel_it : pipe;
     static mut channel_ix : pipe;
     static mut channel_iy : pipe;
@@ -49,8 +50,13 @@ fn main() -> i32 {
     static mut channel_wixt_to_v_y : pipe;
     static mut channel_wixy_to_v_x : pipe;
     static mut channel_wixy_to_v_y : pipe;
+    static mut channel_wixy_to_denom : pipe;
     static mut channel_wiyt_to_v_x : pipe;
     static mut channel_wiyt_to_v_y : pipe;
+    static mut channel_wiyy_to_denom : pipe;
+    static mut channel_wiyy_to_v_x :pipe;
+    static mut channel_wixx_to_denom : pipe;
+    static mut channel_wixx_to_v_y : pipe;
 
     let in_frame_1 = create_host_img(width, height);
     let in_frame_2 = create_host_img(width, height);
@@ -72,7 +78,7 @@ fn main() -> i32 {
     let wiyt = create_virtual_img(width, height, &mut channel_wiyt );
     let denominator = create_virtual_img(width, height, &mut channel_denominator );
 
-    init_data(in_frame_1, 8, 8);
+    init_rand(bitcast[&mut[pixel_t]](in_frame_1.buf.data), in_frame_1.stride, in_frame_1.height);
     init_data(in_frame_2, 8, 8);
     init_zero(bitcast[&mut[pixel_t]](out_host_v_x.buf.data), out_host_v_x.stride, out_host_v_x.height);
     init_zero(bitcast[&mut[pixel_t]](out_host_v_y.buf.data), out_host_v_y.stride, out_host_v_y.height);
@@ -100,14 +106,15 @@ fn main() -> i32 {
     for benchmark_host(num_host_iter) {
         // ---------------- Preprocessing stages ------------------
 
+        // Splitting in_frame_1
+        let (in_frame_1_to_ix, in_frame_1_to_iy, in_frame_1_to_it) = split_image3(math, in_frame_1, &mut channel_in_frame_1_to_ix, &mut channel_in_frame_1_to_iy, &mut channel_in_frame_1_to_it);
+
         // I_t
-        for math, x, y, out, in_frame_1, in_frame_2 in iteration_point2(math, it, in_frame_1, in_frame_2) {
-            let pix_it = in_frame_1 - in_frame_2;
+        for math, x, y, out, in_frame_1_to_it, in_frame_2 in iteration_point2(math, it, in_frame_1_to_it, in_frame_2) {
+            let pix_it = in_frame_1_to_it - in_frame_2;
             out.write(x, y, pix_it);
         }
 
-        // Splitting in_frame_1
-        let (in_frame_1_to_ix, in_frame_1_to_iy) = split_image(math, in_frame_1, &mut channel_in_frame_1_to_ix, &mut channel_in_frame_1_to_iy);
 
         // Splitting I_t
         let (it_to_ixt, it_to_iyt) =
@@ -140,8 +147,8 @@ fn main() -> i32 {
         }
 
         // I_yy
-        for math, x, y, out, iy in iteration_point(math, iyy, iy) {
-            let pix_iyy = iy * iy;
+        for math, x, y, out, iy_to_iyy in iteration_point(math, iyy, iy_to_iyy) {
+            let pix_iyy = iy_to_iyy * iy_to_iyy;
             out.write(x, y, pix_iyy);
         }
 
@@ -163,71 +170,82 @@ fn main() -> i32 {
             out.write(x, y, pix_iyt);
         }
 
-        // windowed weighted averages
+       // windowed weighted averages
 
-        // wixx : windowed I_xx
-        for math, x, y, out, ixx, mask in iteration(math, wixx, ixx, mask_a, lower, upper) {
-            let pix_wixx = apply_stencil(x, y, ixx, mask);
-            out.write(x, y, pix_wixx);
-        }
+       // wixx : windowed I_xx
+       for math, x, y, out, ixx, mask in iteration(math, wixx, ixx, mask_a, lower, upper) {
+           let pix_wixx = apply_stencil(x, y, ixx, mask);
+           out.write(x, y, pix_wixx);
+       }
 
-        // wiyy : windowed I_yy
-        for math, x, y, out, iyy, mask in iteration(math, wiyy, iyy, mask_a, lower, upper) {
-            let pix_wiyy = apply_stencil(x, y, iyy, mask);
-            out.write(x, y, pix_wiyy);
-        }
+       // Splitting wixx
+       let (wixx_to_denom, wixx_to_v_y) = split_image(math, wixx, &mut channel_wixx_to_denom, &mut channel_wixx_to_v_y);
 
-        // wixy : windowed I_xy
-        for math, x, y, out, ixy, mask in iteration(math, wixy, ixy, mask_a ,lower, upper) {
-            let pix_wixy = apply_stencil(x, y, ixy, mask);
-            out.write(x, y, pix_wixy);
-        }
+       // wiyy : windowed I_yy
+       for math, x, y, out, iyy, mask in iteration(math, wiyy, iyy, mask_a, lower, upper) {
+           let pix_wiyy = apply_stencil(x, y, iyy, mask);
+           out.write(x, y, pix_wiyy);
+       }
 
-        // wixt : windowed I_xt
-        for math, x, y, out, ixt, mask in iteration(math, wixt, ixt, mask_a, lower, upper) {
-            let pix_wixt = apply_stencil(x, y, ixt, mask);
-            out.write(x, y, pix_wixt);
-        }
+       // Splitting wiyy
+       let (wiyy_to_denom, wiyy_to_v_x) = split_image(math, wiyy, &mut channel_wiyy_to_denom, &mut channel_wiyy_to_v_x);
 
-        // wiyt : windowed I_yt
-        for math, x, y, out, iyt, mask in iteration(math, wiyt, iyt, mask_a, lower, upper) {
-            let pix_wiyt = apply_stencil(x, y, iyt, mask);
-            out.write(x, y, pix_wiyt);
-        }
+       // wixy : windowed I_xy
+       for math, x, y, out, ixy, mask in iteration(math, wixy, ixy, mask_a ,lower, upper) {
+           let pix_wixy = apply_stencil(x, y, ixy, mask);
+           out.write(x, y, pix_wixy);
+       }
 
-        // Denominator of cramer's rule
-        for math, x, y, out, wixx, wiyy, wixy in iteration_point3(math, denominator, wixx, wiyy, wixy) {
-            let pix_denominator = wixx * wiyy - wixy * wixy;
-            out.write(x, y, pix_denominator);
-        }
+       // Splitting wixy
+       let (wixy_to_denom, wixy_to_v_x, wixy_to_v_y) = split_image3(math, wixy, &mut channel_wixy_to_denom, &mut channel_wixy_to_v_x, &mut channel_wixy_to_v_y);
 
-        // Spliting denominator for two unknowns (V_x and V_y)
-        let (denom_of_v_x, denom_of_v_y) = split_image(math, denominator, &mut channel_denom_of_v_x, &mut channel_denom_of_v_y);
+       // wixt : windowed I_xt
+       for math, x, y, out, ixt, mask in iteration(math, wixt, ixt, mask_a, lower, upper) {
+           let pix_wixt = apply_stencil(x, y, ixt, mask);
+           out.write(x, y, pix_wixt);
+       }
 
-        // Splitting wixt
-        let (wixt_to_v_x, wixt_to_v_y) = split_image(math, wixt, &mut channel_wixt_to_v_x, &mut channel_wixt_to_v_y);
+       // Splitting wixt
+       let (wixt_to_v_x, wixt_to_v_y) = split_image(math, wixt, &mut channel_wixt_to_v_x, &mut channel_wixt_to_v_y);
 
-        // Splitting wixy
-        let (wixy_to_v_x, wixy_to_v_y) = split_image(math, wixy, &mut channel_wixy_to_v_x, &mut channel_wixy_to_v_y);
+       // wiyt : windowed I_yt
+       for math, x, y, out, iyt, mask in iteration(math, wiyt, iyt, mask_a, lower, upper) {
+           let pix_wiyt = apply_stencil(x, y, iyt, mask);
+           out.write(x, y, pix_wiyt);
+       }
 
-        // Splitting wiyt
-        let (wiyt_to_v_x, wiyt_to_v_y) = split_image(math, wiyt, &mut channel_wiyt_to_v_x, &mut channel_wiyt_to_v_y);
+       // Splitting wiyt
+       let (wiyt_to_v_x, wiyt_to_v_y) = split_image(math, wiyt, &mut channel_wiyt_to_v_x, &mut channel_wiyt_to_v_y);
 
+       // Denominator of cramer's rule
+       for math, x, y, out, wixx_to_denom, wiyy_to_denom, wixy_to_denom in iteration_point3(math, denominator, wixx_to_denom, wiyy_to_denom, wixy_to_denom) {
+           let pix_denominator = wixx_to_denom * wiyy_to_denom - wixy_to_denom * wixy_to_denom;
+           // denoiminator is equal to the determinant of the coefficient matrix
+           // if this determinant is zero the matrix is singular and non-invertible, hence the system of equations has either no or infinite solutions
+           // a possible estimation can be found by analysing eigenvalues and normalizing the gradient flow or via an expensive least square approximation.
+           out.write(x, y, pix_denominator);
+       }
 
-        // calculating V_x
-        for math, x, y, out, wixt_to_v_x, wiyy, wixy_to_v_x, wiyt_to_v_x, denom_of_v_x in iteration_point5(math, out_host_v_x, wixt_to_v_x, wiyy, wixy_to_v_x, wiyt_to_v_x, denom_of_v_x) {
-            let nominator_v_x = ((-1 * wixt_to_v_x) * wiyy) - (wixy_to_v_x * (-1 * wiyt_to_v_x));
-            let pix_v_x = nominator_v_x / denom_of_v_x;
-            out.write(x, y, pix_v_x);
-        }
+       // Spliting denominator for two unknowns (V_x and V_y)
+       let (denom_of_v_x, denom_of_v_y) = split_image(math, denominator, &mut channel_denom_of_v_x, &mut channel_denom_of_v_y);
 
-        // calculating V_y
-        for math, x, y, out, wixx, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, denom_of_v_y in iteration_point5(math, out_host_v_y, wixx, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, denom_of_v_y) {
-            let nominator_v_y = (wixx * (-1 * wiyt_to_v_y)) - ((-1 * wixt_to_v_y) * wixy_to_v_y);
-            let pix_v_y = nominator_v_y / denom_of_v_y;
-            out.write(x, y, pix_v_y);
-        }
+       // calculating V_x
+       for math, x, y, out, wixt_to_v_x, wiyy_to_v_x, wixy_to_v_x, wiyt_to_v_x, denom_of_v_x in iteration_point5(math, out_host_v_x, wixt_to_v_x, wiyy_to_v_x, wixy_to_v_x, wiyt_to_v_x, denom_of_v_x) {
+           let pix_v_x = if (denom_of_v_x != 0) {
+               let nominator_v_x = ((-1 * wixt_to_v_x) * wiyy_to_v_x) - (wixy_to_v_x * (-1 * wiyt_to_v_x));
+               nominator_v_x / denom_of_v_x
+           } else { 0 };
+           out.write(x, y, pix_v_x);
+       }
 
+     // calculating V_y
+       for math, x, y, out, wixx_to_v_y, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, denom_of_v_y in iteration_point5(math, out_host_v_y, wixx_to_v_y, wiyt_to_v_y, wixt_to_v_y, wixy_to_v_y, denom_of_v_y) {
+           let pix_v_y = if (denom_of_v_y != 0) {
+               let nominator_v_y = (wixx_to_v_y * (-1 * wiyt_to_v_y)) - ((-1 * wixt_to_v_y) * wixy_to_v_y);
+               nominator_v_y / denom_of_v_y
+           } else { 0 };
+           out.write(x, y, pix_v_y);
+       }
 
     }
     print_total_timing();
