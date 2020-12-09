@@ -13,7 +13,13 @@ if [[ ! -e $dir ]]; then
 else
     echo "Emulating device code in $dir"
 fi
-aoc -report -march=emulator -v $APP.cl -o $dir/$APP.aocx
+if [ "$SELECTED_VERSION" == "19.*" ]
+then
+    EMULATOR_ARCH="emulator -legacy-emulator"
+else
+    EMULATOR_ARCH="emulator"
+fi
+aoc -report -march=$EMULATOR_ARCH -v $APP.cl -o $dir/$APP.aocx
 ln -sf $dir/$APP.aocx ./$APP.aocx
 
 if [ "$SELECTED_VERSION" == "19.*" ]
