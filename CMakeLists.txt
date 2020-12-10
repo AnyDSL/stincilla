@@ -21,7 +21,13 @@ else()
     set(DEVICE "acc")
 endif()
 
-set(CLANG_FLAGS -march=native)
+set(CLANG_FLAGS -O2)
+option(ANYDSL_TARGET_TRIPLE "Cross-compilation target" "")
+option(ANYDSL_TARGET_CPU "Cross-compilation cpu" "")
+option(ANYDSL_TARGET_FEATURE "Cross-compilation cpu features" "")
+
+option(RT_ENABLE_JIT "Build JIT tests" On)
+
 set(IMPALA_FLAGS --log-level info)
 set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 
@@ -39,6 +45,9 @@ add_subdirectory(vcycle)
 
 # simple CPU-based examples
 anydsl_runtime_wrap(MATMUL_PROGRAM
+    TARGET_TRIPLE ${ANYDSL_TARGET_TRIPLE}
+    TARGET_CPU ${ANYDSL_TARGET_CPU}
+    TARGET_FEATURES ${ANYDSL_TARGET_FEATURES}
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala matmul.impala)
@@ -48,6 +57,9 @@ add_test("matmul" matmul)
 
 # examples based on the "mapping"
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
+    TARGET_TRIPLE ${ANYDSL_TARGET_TRIPLE}
+    TARGET_CPU ${ANYDSL_TARGET_CPU}
+    TARGET_FEATURES ${ANYDSL_TARGET_FEATURES}
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
@@ -56,6 +68,9 @@ target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
 
 anydsl_runtime_wrap(BILATERAL_PROGRAM
+    TARGET_TRIPLE ${ANYDSL_TARGET_TRIPLE}
+    TARGET_CPU ${ANYDSL_TARGET_CPU}
+    TARGET_FEATURES ${ANYDSL_TARGET_FEATURES}
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
@@ -64,6 +79,9 @@ target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
 
 anydsl_runtime_wrap(JACOBI_PROGRAM
+    TARGET_TRIPLE ${ANYDSL_TARGET_TRIPLE}
+    TARGET_CPU ${ANYDSL_TARGET_CPU}
+    TARGET_FEATURES ${ANYDSL_TARGET_FEATURES}
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)

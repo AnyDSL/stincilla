@@ -1,9 +1,14 @@
-add_executable(jit jit.cpp)
-target_link_libraries(jit ${AnyDSL_runtime_LIBRARIES})
-set_target_properties(jit PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
-add_test("jit" jit)
+if (RT_ENABLE_JIT)
+  add_executable(jit jit.cpp)
+  target_link_libraries(jit ${AnyDSL_runtime_LIBRARIES})
+  set_target_properties(jit PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+  add_test("jit" jit)
+ENDIF()
 
 anydsl_runtime_wrap(STENCIL_INT_PROGRAM
+    TARGET_TRIPLE ${ANYDSL_TARGET_TRIPLE}
+    TARGET_CPU ${ANYDSL_TARGET_CPU}
+    TARGET_FEATURES ${ANYDSL_TARGET_FEATURES}
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES stencil_dsl.impala)
@@ -12,6 +17,9 @@ target_link_libraries(stencil_dsl ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("stencil_dsl" stencil_dsl)
 
 anydsl_runtime_wrap(FLOW_GRAPH_PROGRAM
+    TARGET_TRIPLE ${ANYDSL_TARGET_TRIPLE}
+    TARGET_CPU ${ANYDSL_TARGET_CPU}
+    TARGET_FEATURES ${ANYDSL_TARGET_FEATURES}
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES flow_graph.impala)

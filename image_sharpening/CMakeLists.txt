@@ -1,4 +1,7 @@
 anydsl_runtime_wrap(SHARPENING_PROGRAM
+    TARGET_TRIPLE ${ANYDSL_TARGET_TRIPLE}
+    TARGET_CPU ${ANYDSL_TARGET_CPU}
+    TARGET_FEATURES ${ANYDSL_TARGET_FEATURES}
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ../stencil_lib.impala ../sorting_networks/bitonic.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala stencil_lib_i16.impala sharpening.impala)

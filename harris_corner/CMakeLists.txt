@@ -1,4 +1,7 @@
 anydsl_runtime_wrap(HARRIS_CORNER_PROGRAM
+    TARGET_TRIPLE ${ANYDSL_TARGET_TRIPLE}
+    TARGET_CPU ${ANYDSL_TARGET_CPU}
+    TARGET_FEATURES ${ANYDSL_TARGET_FEATURES}
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala harris_corner.impala)
