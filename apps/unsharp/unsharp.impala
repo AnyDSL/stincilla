@@ -28,13 +28,13 @@ fn main() -> i32 {
     static mut ch_sharpen_to_mask : pipe;
 
     let input_image = create_host_img(width, height);
-    let out = create_host_img(width, height);
+    let out_host = create_host_img(width, height);
 
     let blur = create_virtual_img(width, height, &mut ch_blur_to_sharpen_or_mask);
     let sharpen = create_virtual_img(width, height, &mut ch_sharpen_to_mask );
 
     init_data(input_image);
-    init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
+    init_zero(bitcast[&mut[pixel_t]](out_host.buf.data), out_host.stride, out_host.height);
 
     let mask = get_mask5(blur_mask5);
 
@@ -49,25 +49,25 @@ fn main() -> i32 {
     for benchmark_host(num_host_iter) {
         let (in_to_blur, in_to_sharpen, in_to_mask) = split_image3(math, input_image, &mut ch_in_to_blur , &mut ch_in_to_sharpen, &mut ch_in_to_mask);
 
-        for math, x, y, out, input_image, mask in iteration(math, blur, in_to_blur, mask, lower,upper) {
+        for math, x, y, out, in_to_blur, mask in iteration(math, blur, in_to_blur, mask, lower,upper) {
             // Blur = Blurx . Blury
-            let pix_blur = apply_stencil(x, y, input_image, mask);
+            let pix_blur = apply_stencil(x, y, in_to_blur, mask);
             out.write(x, y, pix_blur);
 
         }
 
         let (blur_to_sharpen, blur_to_mask) = split_image(math, blur, &mut ch_blur_to_sharpen, &mut ch_blur_to_mask);
 
-        for math, x, y, out, input_image, blur in iteration_point2(math, sharpen, in_to_sharpen, blur_to_sharpen) {
+        for math, x, y, out, in_to_sharpen, blur_to_sharpen in iteration_point2(math, sharpen, in_to_sharpen, blur_to_sharpen) {
             // Sharpen
-            let pix_sharpen = input_image * (one + weight) + blur * (-weight);
+            let pix_sharpen = in_to_sharpen * (one + weight) + blur_to_sharpen * (-weight);
             out.write(x, y, pix_sharpen);
         }
 
-        for math, x, y, out, sharpen , blur, input_image in iteration_point3(math, out, sharpen, blur_to_mask, in_to_mask) {
+        for math, x, y, out, sharpen , blur_to_mask, in_to_mask in iteration_point3(math, out_host, sharpen, blur_to_mask, in_to_mask) {
             // Mask (Ratio)
-            let absolute_value = absolute(input_image - blur);
-            let pix_mask_out = if (absolute_value < threshold) {input_image} else {sharpen};
+            let absolute_value = absolute(in_to_mask - blur_to_mask);
+            let pix_mask_out = if (absolute_value < threshold) {in_to_mask} else {sharpen};
             out.write(x, y, pix_mask_out);
         }
     }
@@ -75,7 +75,7 @@ fn main() -> i32 {
 
     // display results
     let input_image_acc = get_acc(input_image, |idx, val| { bitcast[&mut[pixel_t]](input_image.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](input_image.buf.data)(idx));
-    let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+    let out_acc = get_acc(out_host, |idx, val| { bitcast[&mut[pixel_t]](out_host.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out_host.buf.data)(idx));
 
     let roi_x = 0;
     let roi_y = 0;
@@ -83,6 +83,7 @@ fn main() -> i32 {
     display_image(out_acc, roi_x, roi_y);
 
     release(input_image.buf);
-    release(out.buf);
+    release(out_host.buf);
+
     0
 }
