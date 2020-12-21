@@ -42,11 +42,13 @@ fn main() -> i32 {
     static mut channel_it_to_common2: pipe;
     static mut channel_it_to_common3: pipe;
     static mut channel_ix_to_ixx : pipe;
+    static mut channel_ix_to_common_x : pipe;
     static mut channel_ix_to_common0 : pipe;
     static mut channel_ix_to_common1 : pipe;
     static mut channel_ix_to_common2 : pipe;
     static mut channel_ix_to_common3 : pipe;
     static mut channel_iy_to_iyy : pipe;
+    static mut channel_iy_to_common_y : pipe;
     static mut channel_iy_to_common0 : pipe;
     static mut channel_iy_to_common1 : pipe;
     static mut channel_iy_to_common2 : pipe;
@@ -183,8 +185,8 @@ fn main() -> i32 {
         }
 
         // Spliting Ix
-        let (ix_to_ixx, ix_to_common0, ix_to_common1, ix_to_common2, ix_to_common3) =
-        split_image5(math, ix, &mut channel_ix_to_ixx, &mut channel_ix_to_common0, &mut channel_ix_to_common1, &mut channel_ix_to_common2,
+        let (ix_to_ixx, ix_to_common_x ,ix_to_common0, ix_to_common1, ix_to_common2, ix_to_common3) =
+        split_image6(math, ix, &mut channel_ix_to_ixx, &mut channel_ix_to_common_x, &mut channel_ix_to_common0, &mut channel_ix_to_common1, &mut channel_ix_to_common2,
         &mut channel_ix_to_common3);
 
         // I_y
@@ -194,8 +196,8 @@ fn main() -> i32 {
         }
 
         // Spliting Iy
-        let (iy_to_iyy, iy_to_common0, iy_to_common1, iy_to_common2, iy_to_common3) =
-        split_image5(math, iy, &mut channel_iy_to_iyy, &mut channel_iy_to_common0, &mut channel_iy_to_common1, &mut channel_iy_to_common2,
+        let (iy_to_iyy, iy_to_common_y, iy_to_common0, iy_to_common1, iy_to_common2, iy_to_common3) =
+        split_image6(math, iy, &mut channel_iy_to_iyy, &mut channel_iy_to_common_y, &mut channel_iy_to_common0, &mut channel_iy_to_common1, &mut channel_iy_to_common2,
         &mut channel_iy_to_common3);
 
         // I_xx
@@ -221,8 +223,8 @@ fn main() -> i32 {
         let (denom_x, denom_y) = split_image(math, denom, &mut channel_denom_to_common_x , &mut channel_denom_to_common_y);
 
         // Common_x
-        for math, x, y, out, denom_x, ix in iteration_point2(math, common_x, denom_x, ix) {
-            let pix_denom_x = ix / denom_x;
+        for math, x, y, out, denom_x, ix_to_common_x in iteration_point2(math, common_x, denom_x, ix_to_common_x) {
+            let pix_denom_x = ix_to_common_x / denom_x;
             out.write(x, y, pix_denom_x);
         }
 
@@ -232,8 +234,8 @@ fn main() -> i32 {
         &mut channel_common_x_to_v3_x, &mut channel_common_x_to_v4_x);
 
         // Common_y
-        for math, x, y, out, denom_y, iy in iteration_point2(math, common_y, denom_y, iy) {
-            let pix_denom_y = iy / denom_y;
+        for math, x, y, out, denom_y, iy_to_common_y in iteration_point2(math, common_y, denom_y, iy_to_common_y) {
+            let pix_denom_y = iy_to_common_y / denom_y;
             out.write(x, y, pix_denom_y);
         }
         // Splitting Common_y
@@ -247,7 +249,7 @@ fn main() -> i32 {
         &mut channel_it_to_common2, &mut channel_it_to_common3);
 
         // V0_x
-        for math, x, y, out, common_x_to_v0_x, it_to_v0_x in iteration_point2(math, v0_x, common_x_to_v0_x, it_to_v0_y) {
+        for math, x, y, out, common_x_to_v0_x, it_to_v0_x in iteration_point2(math, v0_x, common_x_to_v0_x, it_to_v0_x) {
             let pix_common_x = -it_to_v0_x * common_x_to_v0_x;
             out.write(x, y, pix_common_x);
         }
