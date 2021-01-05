@@ -3,6 +3,7 @@ if(DEVICE STREQUAL "cpu")
 endif()
 
 anydsl_runtime_wrap(HALIDE_BLUR_PROGRAM
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ${DUMMY_BACKEND} schedule.impala blur.impala)
@@ -13,6 +14,7 @@ set_target_properties(blur PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 add_test("blur" blur)
 
 anydsl_runtime_wrap(HALIDE_HARRIS_PROGRAM
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ${DUMMY_BACKEND} schedule.impala harris.impala)
@@ -23,6 +25,7 @@ set_target_properties(harris PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON
 add_test("harris" harris)
 
 anydsl_runtime_wrap(HALIDE_SIMPLE_PROGRAM
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ${DUMMY_BACKEND} simple.impala)

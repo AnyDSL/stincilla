@@ -1,4 +1,5 @@
 anydsl_runtime_wrap(STENCIL_INT_PROGRAM
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES stencil_dsl.impala)
@@ -7,6 +8,7 @@ target_link_libraries(stencil_dsl ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("stencil_dsl" stencil_dsl)
 
 anydsl_runtime_wrap(FLOW_GRAPH_PROGRAM
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES flow_graph.impala)
@@ -16,13 +18,14 @@ add_test("flow_graph" flow_graph)
 
 if(AnyDSL_runtime_HAS_JIT_SUPPORT)
     add_executable(jit jit.cpp)
-    target_link_libraries(jit ${AnyDSL_runtime_LIBRARIES})
+    target_link_libraries(jit ${AnyDSL_runtime_LIBRARIES} ${AnyDSL_runtime_ARTIC_JIT_LIBRARIES})
     set_target_properties(jit PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
     add_test("jit" jit)
 endif()
 
 if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     anydsl_runtime_wrap(MULTI_GPU_PROGRAM
+        FRONTEND "artic"
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
         FILES ../${BACKEND_FILE} ../utils.impala multi_gpu.impala)
@@ -31,6 +34,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     add_test("multi_gpu" multi_gpu)
 
     anydsl_runtime_wrap(ALLOC_GPU_PROGRAM
+        FRONTEND "artic"
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
         FILES ../${BACKEND_FILE} alloc_gpu.impala)
@@ -40,6 +44,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
 
     if(BACKEND STREQUAL "cuda" OR BACKEND STREQUAL "nvvm")
         anydsl_runtime_wrap(PRINT_GPU_PROGRAM
+            FRONTEND "artic"
             CLANG_FLAGS ${CLANG_FLAGS}
             IMPALA_FLAGS ${IMPALA_FLAGS}
             FILES ../${BACKEND_FILE} print_gpu.impala)
@@ -49,6 +54,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     endif()
 
     anydsl_runtime_wrap(ALLOC_GPU_UNIFIED_PROGRAM
+        FRONTEND "artic"
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
         FILES ../${BACKEND_FILE} alloc_gpu_unified.impala)
@@ -57,6 +63,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     add_test("alloc_gpu_unified" alloc_gpu_unified)
 
     anydsl_runtime_wrap(RESERVE_SHARED_PROGRAM
+        FRONTEND "artic"
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
         FILES ../${BACKEND_FILE} reserve_shared.impala)
@@ -66,6 +73,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
 
     if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
         anydsl_runtime_wrap(HALF_FLOAT_GPU_PROGRAM
+            FRONTEND "artic"
             CLANG_FLAGS ${CLANG_FLAGS}
             IMPALA_FLAGS ${IMPALA_FLAGS}
             FILES ../${BACKEND_FILE} half_float_gpu.impala)

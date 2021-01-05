@@ -2,6 +2,7 @@
 #include <string>
 
 #include <anydsl_runtime.h>
+#include <anydsl_jit.h>
 
 typedef int(*exec_cpu_fn)();
 typedef int(*exec_gpu_fn)();

@@ -39,6 +39,7 @@ add_subdirectory(vcycle)
 
 # simple CPU-based examples
 anydsl_runtime_wrap(MATMUL_PROGRAM
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala matmul.impala)
@@ -47,7 +48,8 @@ target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("matmul" matmul)
 
 # examples based on the "mapping"
-anydsl_runtime_wrap(GAUSSIAN_PROGRAM
+anydsl_runtime_wrap(GAUSSIAN_PROGRAM FRONTEND "artic"
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
@@ -56,6 +58,7 @@ target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
 
 anydsl_runtime_wrap(BILATERAL_PROGRAM
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
@@ -64,6 +67,7 @@ target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
 
 anydsl_runtime_wrap(JACOBI_PROGRAM
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)

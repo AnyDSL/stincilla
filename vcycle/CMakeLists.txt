@@ -1,4 +1,5 @@
 anydsl_runtime_wrap(VCYCLE_PROGRAM
+    FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala vcycle.impala)
