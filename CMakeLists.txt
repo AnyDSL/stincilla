@@ -48,7 +48,7 @@ target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("matmul" matmul)
 
 # examples based on the "mapping"
-anydsl_runtime_wrap(GAUSSIAN_PROGRAM FRONTEND "artic"
+anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}

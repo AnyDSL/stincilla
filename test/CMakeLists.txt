@@ -18,7 +18,7 @@ add_test("flow_graph" flow_graph)
 
 if(AnyDSL_runtime_HAS_JIT_SUPPORT)
     add_executable(jit jit.cpp)
-    target_link_libraries(jit ${AnyDSL_runtime_LIBRARIES} ${AnyDSL_runtime_ARTIC_JIT_LIBRARIES})
+    target_link_libraries(jit ${AnyDSL_runtime_ARTIC_JIT_LIBRARIES})
     set_target_properties(jit PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
     add_test("jit" jit)
 endif()
