@@ -43,15 +43,18 @@ set (OPTICAL_FLOW_LK_DIR  ${APPS_DIR}/optical_flow_lk)
 set (JACOBI_DIR           ${APPS_DIR}/jacobi)
 set (BILATERAL_DIR        ${APPS_DIR}/bilateral)
 set (SQUARE_DIR           ${APPS_DIR}/square)
+set (SQUARE_BURST_DIR     ${APPS_DIR}/square_burst)
 set (MAXIMUM_DIR          ${APPS_DIR}/reduce_ex)
 set (BOX_FILTER_DIR       ${APPS_DIR}/box_filter)
 set (LAPLACE_DIR          ${APPS_DIR}/laplace)
 set (FILTER_CHAIN_DIR     ${APPS_DIR}/filter_chain)
+set (FILTER_CHAIN_BURST_DIR ${APPS_DIR}/filter_chain_burst)
 set (HARRIS_CORNER_DIR    ${APPS_DIR}/harris_corner)
 set (SHI_THOMASI_DIR      ${APPS_DIR}/shi_thomasi)
 
 set(BILATERAL_FILES        ${BILATERAL_DIR}/mask_f32.impala ${BILATERAL_DIR}/bilateral.impala)
 set(SQUARE_FILES           ${SQUARE_DIR}/square.impala)
+set(SQUARE_BURST_FILES     ${SQUARE_BURST_DIR}/square_burst.impala)
 set(MAXIMUM_FILES          ${MAXIMUM_DIR}/reduce_ex.impala)
 set(BOX_FILTER_FILES       ${BOX_FILTER_DIR}/mask.impala ${BOX_FILTER_DIR}/box_filter.impala)
 set(LAPLACE_FILES          ${LAPLACE_DIR}/mask.impala ${LAPLACE_DIR}/laplace.impala)
@@ -63,6 +66,7 @@ set(OPTICAL_FLOW_HS_FILES  ${OPTICAL_FLOW_HS_DIR}/mask_${PIXEL_TYPE}.impala ${OP
 set(OPTICAL_FLOW_LK_FILES  ${OPTICAL_FLOW_LK_DIR}/mask_${PIXEL_TYPE}.impala ${OPTICAL_FLOW_LK_DIR}/optical_flow_lk.impala)
 set(JACOBI_FILES           ${JACOBI_DIR}/mask_${PIXEL_TYPE}.impala ${JACOBI_DIR}/jacobi.impala)
 set(FILTER_CHAIN_FILES     ${FILTER_CHAIN_DIR}/mask_${PIXEL_TYPE}.impala ${FILTER_CHAIN_DIR}/filter_chain.impala)
+set(FILTER_CHAIN_BURST_FILES     ${FILTER_CHAIN_BURST_DIR}/mask_${PIXEL_TYPE}.impala ${FILTER_CHAIN_BURST_DIR}/filter_chain_burst.impala)
 set(HARRIS_CORNER_FILES    ${HARRIS_CORNER_DIR}/mask_${PIXEL_TYPE}.impala ${HARRIS_CORNER_DIR}/harris_corner.impala)
 set(SHI_THOMASI_FILES      ${SHI_THOMASI_DIR}/mask_${PIXEL_TYPE}.impala ${SHI_THOMASI_DIR}/shi_thomasi.impala)
 
@@ -159,6 +163,15 @@ add_executable(square ${SQUARE_PROGRAM})
 target_link_libraries(square ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("square" square)
 
+anydsl_runtime_wrap(SQUARE_BURST_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${SQUARE_BURST_FILES})
+add_executable(square_burst ${SQUARE_BURST_PROGRAM})
+target_link_libraries(square_burst ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("square_burst" square_burst)
+
 anydsl_runtime_wrap(MAXIMUM_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
@@ -177,6 +190,16 @@ add_executable(filter_chain ${FILTER_CHAIN_PROGRAM})
 target_link_libraries(filter_chain ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(filter_chain PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
 set_target_properties(filter_chain PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+
+anydsl_runtime_wrap(FILTER_CHAIN_BURST_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${FILTER_CHAIN_BURST_FILES})
+add_executable(filter_chain_burst ${FILTER_CHAIN_BURST_PROGRAM})
+target_link_libraries(filter_chain_burst ${ANYDSL_RUNTIME_LIBRARIES})
+set_target_properties(filter_chain_burst PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=${STINCILLA_DATA_TYPE})
+set_target_properties(filter_chain_burst PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 
 anydsl_runtime_wrap(SHI_THOMASI_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}

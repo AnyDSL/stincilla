@@ -1,0 +1,54 @@
+fn main() -> i32 {
+    static mut out0_buf: pipe;
+    static mut out1_buf: pipe;
+    let width  = 4096;
+    let height = 4096;
+    let arr    = create_host_img(width, height);
+    let out    = create_host_img(width, height);
+    let out0   = create_virtual_img(width, height, &mut out0_buf);
+    let out1   = create_virtual_img(width, height, &mut out1_buf);
+    init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
+
+    fn @kernel (pixel: pixel_t) -> pixel_t {
+    //-------Your pointwise operation------
+        pixel * pixel * pixel + pixel / pixel
+    //-------------------------------------
+    }
+
+    for math, x, y, out, pin in iteration_point(math, out0, arr) {
+        out.write(x, y, pin);
+    }
+
+    for math, x, y, out, pin in iteration_point(math, out1, out0) {
+        out.write(x, y, kernel(pin));
+    }
+
+    for math, x, y, out, pin in iteration_point(math, out, out1) {
+        out.write(x, y, pin);
+    }
+    print_total_timing();
+
+    fn reference() -> i32 {
+        let ref     = create_host_img(width, height);
+        let arr_acc = get_acc(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx));
+        let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+        let ref_acc = get_acc(ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
+        let prop    = get_RoI(0, 0, height, width);
+
+        for y in range(0, out.height) {
+            for x in range(0, out.width) {
+                let mut ref = arr_acc.read(x, y);
+                ref = kernel(ref);
+                ref_acc.write(x, y, ref);
+            }
+        }
+        check(arr_acc, out_acc, ref_acc, prop)
+    }
+
+    let result = reference();
+    release(arr.buf);
+    release(out.buf);
+    result
+}
+
