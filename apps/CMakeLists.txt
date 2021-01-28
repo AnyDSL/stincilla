@@ -47,6 +47,7 @@ set (SQUARE_BURST_DIR     ${APPS_DIR}/square_burst)
 set (MAXIMUM_DIR          ${APPS_DIR}/reduce_ex)
 set (BOX_FILTER_DIR       ${APPS_DIR}/box_filter)
 set (LAPLACE_DIR          ${APPS_DIR}/laplace)
+set (LAPLACE_BURST_DIR    ${APPS_DIR}/laplace_burst)
 set (FILTER_CHAIN_DIR     ${APPS_DIR}/filter_chain)
 set (FILTER_CHAIN_BURST_DIR ${APPS_DIR}/filter_chain_burst)
 set (HARRIS_CORNER_DIR    ${APPS_DIR}/harris_corner)
@@ -58,6 +59,7 @@ set(SQUARE_BURST_FILES     ${SQUARE_BURST_DIR}/square_burst.impala)
 set(MAXIMUM_FILES          ${MAXIMUM_DIR}/reduce_ex.impala)
 set(BOX_FILTER_FILES       ${BOX_FILTER_DIR}/mask.impala ${BOX_FILTER_DIR}/box_filter.impala)
 set(LAPLACE_FILES          ${LAPLACE_DIR}/mask.impala ${LAPLACE_DIR}/laplace.impala)
+set(LAPLACE_BURST_FILES    ${LAPLACE_BURST_DIR}/mask.impala ${LAPLACE_BURST_DIR}/laplace_burst.impala)
 set(BOX_FILTER_CONST_FILES ${BOX_FILTER_DIR}/box_filter_const.impala)
 set(GAUSSIAN_FILES         ${GAUSSIAN_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_DIR}/gaussian.impala)
 set(SOBEL_LUMA_FILES       ${SOBEL_LUMA_DIR}/mask_i32.impala ${SOBEL_LUMA_DIR}/sobel_luma.impala)
@@ -99,6 +101,15 @@ anydsl_runtime_wrap(LAPLACE_PROGRAM
 add_executable(laplace ${LAPLACE_PROGRAM})
 target_link_libraries(laplace ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("laplace" laplace)
+
+anydsl_runtime_wrap(LAPLACE_BURST_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${LAPLACE_BURST_FILES})
+add_executable(laplace_burst ${LAPLACE_BURST_PROGRAM})
+target_link_libraries(laplace_burst ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("laplace_burst" laplace_burst)
 
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}

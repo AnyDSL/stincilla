@@ -1,0 +1,58 @@
+fn main() -> i32 {
+    static mut mm_to_str_buf: pipe;
+    static mut str_to_mm_buf: pipe;
+
+    let width  = 1024;
+    let height = 1024;
+    let arr    = create_host_img(width, height);
+    let out    = create_host_img(width, height);
+    let mm_to_str = create_virtual_img(width, height, &mut mm_to_str_buf);
+    let str_to_mm   = create_virtual_img(width, height, &mut str_to_mm_buf);
+    init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
+    init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
+
+    let mask   = get_mask3(laplace_mask3);
+    let kernel = apply_stencil;
+    let lower  = clamp_lower;
+    let upper  = clamp_upper;
+    let enable_offset = 0;
+    let iteration_fun = iteration;                  // SS
+
+
+    for benchmark_host(num_host_iter) {
+        for math, x, y, out, in_mm in iteration_point(math, mm_to_str, arr) {
+            out.write(x, y, in_mm);
+        }
+        for math, x, y, out_acc, arr_acc, mask in iteration_fun(math, str_to_mm, mm_to_str, mask, lower, upper) {
+            out_acc.write(x, y, kernel(x, y, arr_acc, mask));
+        }
+
+        for math, x, y, out, str_to_mm in iteration_point(math, out, str_to_mm) {
+            out.write(x, y, str_to_mm);
+        }
+    }
+    print_total_timing();
+
+    fn reference() -> i32 {
+        let ref = create_host_img(width, height);
+        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
+        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+        let ref_acc = get_acc   (ref, |idx, val| { bitcast[&mut[pixel_t]](ref.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](ref.buf.data)(idx));
+
+        for y in range(0, out.height) {
+            for x in range(0, out.width) {
+                let mut ref = 0 as pixel_t;
+                ref = kernel(x, y, arr_acc, mask);
+                ref_acc.write(x, y, ref);
+            }
+        }
+
+        let offset  = enable_offset * (mask.size_x / 2);
+        let prop    = get_RoI(offset, offset, width - 2 * offset, height - 2 * offset);
+        check(arr_acc, out_acc, ref_acc, prop)
+    }
+    let result = reference();
+    release(arr.buf);
+    release(out.buf);
+    result
+}

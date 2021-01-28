@@ -1,0 +1,3 @@
+static laplace_mask3 = [[ 0 as pixel_t, 1 as pixel_t, 0 as pixel_t ],
+                       [  1 as pixel_t, -4 as pixel_t, 1 as pixel_t],
+                       [  0 as pixel_t, 1 as pixel_t, 0 as pixel_t]];
