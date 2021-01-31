@@ -6,7 +6,7 @@ fn main() -> i32 {
     let arr    = create_host_img(width, height);
     let out    = create_host_img(width, height);
     let mm_to_str = create_virtual_img(width, height, &mut mm_to_str_buf);
-    let str_to_mm   = create_virtual_img(width, height, &mut str_to_mm_buf);
+    let str_to_mm = create_virtual_img(width, height, &mut str_to_mm_buf);
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 

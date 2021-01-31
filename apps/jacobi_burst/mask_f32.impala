@@ -1,0 +1,3 @@
+static jacobi_a = 0.2f;
+static jacobi_b = 1.0f - 4.0f * jacobi_a;
+static diff_treshold = 0.01f;

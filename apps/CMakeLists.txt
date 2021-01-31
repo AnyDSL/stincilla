@@ -41,6 +41,7 @@ set (UNSHARP_DIR          ${APPS_DIR}/unsharp)
 set (OPTICAL_FLOW_HS_DIR  ${APPS_DIR}/optical_flow_hs)
 set (OPTICAL_FLOW_LK_DIR  ${APPS_DIR}/optical_flow_lk)
 set (JACOBI_DIR           ${APPS_DIR}/jacobi)
+set (JACOBI_BURST_DIR     ${APPS_DIR}/jacobi_burst)
 set (BILATERAL_DIR        ${APPS_DIR}/bilateral)
 set (SQUARE_DIR           ${APPS_DIR}/square)
 set (SQUARE_BURST_DIR     ${APPS_DIR}/square_burst)
@@ -69,6 +70,7 @@ set(UNSHARP_FILES          ${UNSHARP_DIR}/mask_${PIXEL_TYPE}.impala ${UNSHARP_DI
 set(OPTICAL_FLOW_HS_FILES  ${OPTICAL_FLOW_HS_DIR}/mask_${PIXEL_TYPE}.impala ${OPTICAL_FLOW_HS_DIR}/optical_flow_hs.impala)
 set(OPTICAL_FLOW_LK_FILES  ${OPTICAL_FLOW_LK_DIR}/mask_${PIXEL_TYPE}.impala ${OPTICAL_FLOW_LK_DIR}/optical_flow_lk.impala)
 set(JACOBI_FILES           ${JACOBI_DIR}/mask_${PIXEL_TYPE}.impala ${JACOBI_DIR}/jacobi.impala)
+set(JACOBI_BURST_FILES     ${JACOBI_BURST_DIR}/mask_${PIXEL_TYPE}.impala ${JACOBI_BURST_DIR}/jacobi_burst.impala)
 set(FILTER_CHAIN_FILES     ${FILTER_CHAIN_DIR}/mask_${PIXEL_TYPE}.impala ${FILTER_CHAIN_DIR}/filter_chain.impala)
 set(FILTER_CHAIN_BURST_FILES     ${FILTER_CHAIN_BURST_DIR}/mask_${PIXEL_TYPE}.impala ${FILTER_CHAIN_BURST_DIR}/filter_chain_burst.impala)
 set(HARRIS_CORNER_FILES    ${HARRIS_CORNER_DIR}/mask_${PIXEL_TYPE}.impala ${HARRIS_CORNER_DIR}/harris_corner.impala)
@@ -175,6 +177,15 @@ anydsl_runtime_wrap(JACOBI_PROGRAM
 add_executable(jacobi ${JACOBI_PROGRAM})
 target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("jacobi" jacobi)
+
+anydsl_runtime_wrap(JACOBI_BURST_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${JACOBI_BURST_FILES})
+add_executable(jacobi_burst ${JACOBI_BURST_PROGRAM})
+target_link_libraries(jacobi_burst ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("jacobi_burst" jacobi_burst)
 
 anydsl_runtime_wrap(SQUARE_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
