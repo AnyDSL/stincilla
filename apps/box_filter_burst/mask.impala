@@ -1,0 +1,7 @@
+static box_mask5 = [[ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ],
+                    [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ],
+                    [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ],
+                    [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ],
+                    [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ]];
+
+static box_mask_sep5 = [ 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t, 1 as pixel_t ];

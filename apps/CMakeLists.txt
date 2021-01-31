@@ -46,6 +46,7 @@ set (SQUARE_DIR           ${APPS_DIR}/square)
 set (SQUARE_BURST_DIR     ${APPS_DIR}/square_burst)
 set (MAXIMUM_DIR          ${APPS_DIR}/reduce_ex)
 set (BOX_FILTER_DIR       ${APPS_DIR}/box_filter)
+set (BOX_FILTER_BURST_DIR ${APPS_DIR}/box_filter_burst)
 set (LAPLACE_DIR          ${APPS_DIR}/laplace)
 set (LAPLACE_BURST_DIR    ${APPS_DIR}/laplace_burst)
 set (FILTER_CHAIN_DIR     ${APPS_DIR}/filter_chain)
@@ -58,6 +59,7 @@ set(SQUARE_FILES           ${SQUARE_DIR}/square.impala)
 set(SQUARE_BURST_FILES     ${SQUARE_BURST_DIR}/square_burst.impala)
 set(MAXIMUM_FILES          ${MAXIMUM_DIR}/reduce_ex.impala)
 set(BOX_FILTER_FILES       ${BOX_FILTER_DIR}/mask.impala ${BOX_FILTER_DIR}/box_filter.impala)
+set(BOX_FILTER_BURST_FILES ${BOX_FILTER_BURST_DIR}/mask.impala ${BOX_FILTER_BURST_DIR}/box_filter_burst.impala)
 set(LAPLACE_FILES          ${LAPLACE_DIR}/mask.impala ${LAPLACE_DIR}/laplace.impala)
 set(LAPLACE_BURST_FILES    ${LAPLACE_BURST_DIR}/mask.impala ${LAPLACE_BURST_DIR}/laplace_burst.impala)
 set(BOX_FILTER_CONST_FILES ${BOX_FILTER_DIR}/box_filter_const.impala)
@@ -92,6 +94,15 @@ anydsl_runtime_wrap(BOX_FILTER_PROGRAM
 add_executable(box_filter ${BOX_FILTER_PROGRAM})
 target_link_libraries(box_filter ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("box_filter" box_filter)
+
+anydsl_runtime_wrap(BOX_FILTER_BURST_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${BOX_FILTER_BURST_FILES})
+add_executable(box_filter_burst ${BOX_FILTER_BURST_PROGRAM})
+target_link_libraries(box_filter_burst ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("box_filter_burst" box_filter_burst)
 
 anydsl_runtime_wrap(LAPLACE_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
