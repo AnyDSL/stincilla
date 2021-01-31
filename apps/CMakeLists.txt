@@ -37,6 +37,7 @@ set(COMMON_FILES_U8  ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIX
 # application sources and benchmarks
 set (GAUSSIAN_DIR         ${APPS_DIR}/gaussian)
 set (SOBEL_LUMA_DIR       ${APPS_DIR}/sobel_luma)
+set (SOBEL_LUMA_BURST_DIR ${APPS_DIR}/sobel_luma_burst)
 set (UNSHARP_DIR          ${APPS_DIR}/unsharp)
 set (OPTICAL_FLOW_HS_DIR  ${APPS_DIR}/optical_flow_hs)
 set (OPTICAL_FLOW_LK_DIR  ${APPS_DIR}/optical_flow_lk)
@@ -66,6 +67,7 @@ set(LAPLACE_BURST_FILES    ${LAPLACE_BURST_DIR}/mask.impala ${LAPLACE_BURST_DIR}
 set(BOX_FILTER_CONST_FILES ${BOX_FILTER_DIR}/box_filter_const.impala)
 set(GAUSSIAN_FILES         ${GAUSSIAN_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_DIR}/gaussian.impala)
 set(SOBEL_LUMA_FILES       ${SOBEL_LUMA_DIR}/mask_i32.impala ${SOBEL_LUMA_DIR}/sobel_luma.impala)
+set(SOBEL_LUMA_BURST_FILES ${SOBEL_LUMA_BURST_DIR}/mask_i32.impala ${SOBEL_LUMA_BURST_DIR}/sobel_luma_burst.impala)
 set(UNSHARP_FILES          ${UNSHARP_DIR}/mask_${PIXEL_TYPE}.impala ${UNSHARP_DIR}/unsharp.impala)
 set(OPTICAL_FLOW_HS_FILES  ${OPTICAL_FLOW_HS_DIR}/mask_${PIXEL_TYPE}.impala ${OPTICAL_FLOW_HS_DIR}/optical_flow_hs.impala)
 set(OPTICAL_FLOW_LK_FILES  ${OPTICAL_FLOW_LK_DIR}/mask_${PIXEL_TYPE}.impala ${OPTICAL_FLOW_LK_DIR}/optical_flow_lk.impala)
@@ -141,6 +143,15 @@ anydsl_runtime_wrap(SOBEL_LUMA_PROGRAM
 add_executable(sobel_luma ${SOBEL_LUMA_PROGRAM})
 target_link_libraries(sobel_luma ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("sobel_luma" sobel_luma)
+
+anydsl_runtime_wrap(SOBEL_LUMA_BURST_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${SOBEL_LUMA_BURST_FILES})
+add_executable(sobel_luma_burst ${SOBEL_LUMA_BURST_PROGRAM})
+target_link_libraries(sobel_luma_burst ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("sobel_luma_burst" sobel_luma_burst)
 
 anydsl_runtime_wrap(UNSHARP_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}

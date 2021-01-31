@@ -1,0 +1,82 @@
+fn init_data(arr: Img) -> () {
+    let buf = bitcast[&mut[pixel_t]](arr.buf.data);
+
+    for y in range(0, arr.height) {
+        for x in range(0, arr.width) {
+            let val = if ((((x % 16) >= 8) & (( y % 16) < 8)) | (((x % 16) < 8) & ((y % 16) >= 8))) == false { 255 as pixel_t }
+                      else { 0 as pixel_t };
+            buf(y * arr.stride + x) = val;
+        }
+    }
+}
+
+
+fn main() -> i32 {
+    static mut mm_to_str_buf: pipe;
+    static mut str_to_mm_buf: pipe;
+    let width  = 1024;
+    let height = 1024;
+    static mut luma_c : pipe;
+
+    let arr = create_host_img(width, height);
+    let out = create_host_img(width, height);
+    let mm_to_str = create_virtual_img(width, height, &mut mm_to_str_buf);
+    let str_to_mm = create_virtual_img(width, height, &mut str_to_mm_buf);
+    let luma = create_virtual_img(width, height, &mut luma_c );
+    init_data(arr);
+    init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
+
+    let mask_x   = get_mask3(sobel_maskx);
+    let mask_y   = get_mask3(sobel_masky);
+    let threshold = 80 as i32;
+
+    let lower = nobh_center;
+    let upper = nobh_center;
+    //let lower = clamp_lower;
+    //let upper = clamp_upper;
+    //let lower = mirro_lower;
+    //let upper = mirro_upper;
+    let enable_offset = 1;
+
+    for benchmark_host(num_host_iter) {
+
+        for math, x, y, out, in_mm in iteration_point(math, mm_to_str, arr) {
+            out.write(x, y, in_mm);
+        }
+
+        for math, x, y, out, arr in iteration_point(math, luma, mm_to_str) {
+            let b = arr & 0xff;
+            let g = (arr >> 8)  & 0xff;
+            let r = (arr >> 16) & 0xff;
+            let pix_luma = ((r * 66 + g * 129 + b * 25 + 128) >> 8) + 16;
+            out.write(x, y, pix_luma);
+        }
+
+        for math, x, y, out, arr, mask in iteration(math, str_to_mm, luma, mask_x, lower, upper) {
+            let pix_dx = apply_stencil(x, y, arr, mask);
+            let pix_dy = apply_stencil(x, y, arr, mask);
+            let val = abs(pix_dx) + abs(pix_dy);
+            let mut res = 0;
+            if (val > threshold) { res = 255 as pixel_t }
+            out.write(x, y, res);
+        }
+
+        for math, x, y, out, str_to_mm in iteration_point(math, out, str_to_mm) {
+            out.write(x, y, str_to_mm);
+        }
+    }
+    print_total_timing();
+
+    // display results
+    let arr_acc = get_acc(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx));
+    let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+
+    let roi_x = 0;
+    let roi_y = 0;
+    display_image(arr_acc, roi_x, roi_y);
+    display_image(out_acc, roi_x, roi_y);
+
+    release(arr.buf);
+    release(out.buf);
+    0
+}
