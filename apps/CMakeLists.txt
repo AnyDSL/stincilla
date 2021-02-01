@@ -31,11 +31,12 @@ set(CHANNEL_TYPE_FILE ${DSL_SOURCE_DIR}/channel_type.impala)
 
 # common DSL files for all applications applications
 set(COMMON_FILES     ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ${CHANNEL_TYPE_FILE} ${CHANNEL_LIB} ${MAPPING_FILE})
-set(COMMON_FILES_F32 ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_FLOAT_FILE} ${MAPPING_FILE})
+set(COMMON_FILES_F32 ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_FLOAT_FILE} ${CHANNEL_TYPE_FILE} ${CHANNEL_LIB} ${MAPPING_FILE})
 set(COMMON_FILES_U8  ${DSL_FILES} ${DEVICE_SPECIFIC_FILES} ${BACKEND_FILE} ${PIXEL_TYPE_UCHAR_FILE} ${MAPPING_FILE})
 
 # application sources and benchmarks
 set (GAUSSIAN_DIR         ${APPS_DIR}/gaussian)
+set (GAUSSIAN_BURST_DIR   ${APPS_DIR}/gaussian_burst)
 set (SOBEL_LUMA_DIR       ${APPS_DIR}/sobel_luma)
 set (SOBEL_LUMA_BURST_DIR ${APPS_DIR}/sobel_luma_burst)
 set (UNSHARP_DIR          ${APPS_DIR}/unsharp)
@@ -44,6 +45,7 @@ set (OPTICAL_FLOW_LK_DIR  ${APPS_DIR}/optical_flow_lk)
 set (JACOBI_DIR           ${APPS_DIR}/jacobi)
 set (JACOBI_BURST_DIR     ${APPS_DIR}/jacobi_burst)
 set (BILATERAL_DIR        ${APPS_DIR}/bilateral)
+set (BILATERAL_BURST_DIR  ${APPS_DIR}/bilateral_burst)
 set (SQUARE_DIR           ${APPS_DIR}/square)
 set (SQUARE_BURST_DIR     ${APPS_DIR}/square_burst)
 set (MAXIMUM_DIR          ${APPS_DIR}/reduce_ex)
@@ -57,6 +59,7 @@ set (HARRIS_CORNER_DIR    ${APPS_DIR}/harris_corner)
 set (SHI_THOMASI_DIR      ${APPS_DIR}/shi_thomasi)
 
 set(BILATERAL_FILES        ${BILATERAL_DIR}/mask_f32.impala ${BILATERAL_DIR}/bilateral.impala)
+set(BILATERAL_BURST_FILES  ${BILATERAL_BURST_DIR}/mask_f32.impala ${BILATERAL_BURST_DIR}/bilateral_burst.impala)
 set(SQUARE_FILES           ${SQUARE_DIR}/square.impala)
 set(SQUARE_BURST_FILES     ${SQUARE_BURST_DIR}/square_burst.impala)
 set(MAXIMUM_FILES          ${MAXIMUM_DIR}/reduce_ex.impala)
@@ -66,6 +69,7 @@ set(LAPLACE_FILES          ${LAPLACE_DIR}/mask.impala ${LAPLACE_DIR}/laplace.imp
 set(LAPLACE_BURST_FILES    ${LAPLACE_BURST_DIR}/mask.impala ${LAPLACE_BURST_DIR}/laplace_burst.impala)
 set(BOX_FILTER_CONST_FILES ${BOX_FILTER_DIR}/box_filter_const.impala)
 set(GAUSSIAN_FILES         ${GAUSSIAN_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_DIR}/gaussian.impala)
+set(GAUSSIAN_BURST_FILES   ${GAUSSIAN_BURST_DIR}/mask_${PIXEL_TYPE}.impala ${GAUSSIAN_BURST_DIR}/gaussian_burst.impala)
 set(SOBEL_LUMA_FILES       ${SOBEL_LUMA_DIR}/mask_i32.impala ${SOBEL_LUMA_DIR}/sobel_luma.impala)
 set(SOBEL_LUMA_BURST_FILES ${SOBEL_LUMA_BURST_DIR}/mask_i32.impala ${SOBEL_LUMA_BURST_DIR}/sobel_luma_burst.impala)
 set(UNSHARP_FILES          ${UNSHARP_DIR}/mask_${PIXEL_TYPE}.impala ${UNSHARP_DIR}/unsharp.impala)
@@ -89,6 +93,15 @@ anydsl_runtime_wrap(BILATERAL_PROGRAM
 add_executable(bilateral ${BILATERAL_PROGRAM})
 target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("bilateral" bilateral)
+
+anydsl_runtime_wrap(BILATERAL_BURST_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES_F32} ${BILATERAL_BURST_FILES})
+add_executable(bilateral_burst ${BILATERAL_BURST_PROGRAM})
+target_link_libraries(bilateral_burst ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("bilateral_burst" bilateral_burs)
 
 anydsl_runtime_wrap(BOX_FILTER_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
@@ -134,6 +147,15 @@ anydsl_runtime_wrap(GAUSSIAN_PROGRAM
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
 target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARIES})
 add_test("gaussian" gaussian)
+
+anydsl_runtime_wrap(GAUSSIAN_BURST_PROGRAM
+    CLANG_FLAGS ${CLANG_FLAGS}
+    IMPALA_FLAGS ${IMPALA_FLAGS}
+    HLS_FLAGS ${HLS_FLAGS}
+    FILES ${APPS_CONFIG_FILES} ${COMMON_FILES} ${GAUSSIAN_BURST_FILES})
+add_executable(gaussian_burst ${GAUSSIAN_BURST_PROGRAM})
+target_link_libraries(gaussian_burst ${ANYDSL_RUNTIME_LIBRARIES})
+add_test("gaussian_burst" gaussian_burst)
 
 anydsl_runtime_wrap(SOBEL_LUMA_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}

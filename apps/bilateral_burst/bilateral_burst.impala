@@ -1,0 +1,121 @@
+fn @closeness(math: Intrinsics, c_d: f32, xf: i32, yf: i32) -> f32 {
+    math.expf(-c_d * (xf*xf) as f32) * math.expf(-c_d * (yf*yf) as f32)
+}
+fn @similarity(math: Intrinsics, c_r: f32, xi: f32, x: f32) -> f32 {
+    let diff = xi - x;
+    math.expf(-c_r * diff * diff)
+}
+
+fn @bilateral_filter(math: Intrinsics, x: i32, y: i32, acc: Acc, mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
+    let mut k = 0.0f;
+    let mut p = 0.0f;
+
+    for yf in unroll(-2*sigma_d, 2*sigma_d+1) {
+        for xf in unroll(-2*sigma_d, 2*sigma_d+1) {
+            let diff = acc.read(x + xf, y + yf) - acc.read(x, y);
+
+            let c = closeness(math, c_d, xf, yf);
+            let s = similarity(math, c_r, acc.read(x + xf, y + yf), acc.read(x, y));
+
+            k += c * s;
+            p += c * s * acc.read(x + xf, y + yf);
+        }
+    }
+
+    p / k
+}
+
+fn @bilateral_filter_mask(math: Intrinsics, x: i32, y: i32, acc: Acc, mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
+    let mut k = 0.0f;
+    let mut p = 0.0f;
+
+    for yf in unroll(-2*sigma_d, 2*sigma_d+1) {
+        for xf in unroll(-2*sigma_d, 2*sigma_d+1) {
+            let diff = acc.read(x + xf, y + yf) - acc.read(x, y);
+
+            let c = mask.data(xf + 2*sigma_d, yf + 2*sigma_d);
+            let s = math.expf(-c_r * diff*diff);
+
+            k += c * s;
+            p += c * s * acc.read(x + xf, y + yf);
+        }
+    }
+
+    p / k
+}
+
+fn main() -> i32 {
+    static mut mm_to_str_buf: pipe;
+    static mut str_to_mm_buf: pipe;
+    let width   = 1024;
+    let height  = 1024;
+    let sigma_r = 5.0f;
+    let c_r     = 1.0f / (2.0f * sigma_r*sigma_r);
+    let arr     = create_host_img(width, height);
+    let out     = create_host_img(width, height);
+    let mm_to_str = create_virtual_img(width, height, &mut mm_to_str_buf);
+    let str_to_mm = create_virtual_img(width, height, &mut str_to_mm_buf);
+    let mask = get_mask5(mask5);
+    //let mask = get_mask9(mask9);
+    //let mask = get_mask13(mask13);
+    let sigma_d = mask.size_x / 4;
+    let c_d = 1.0f / (2.0f * (sigma_d*sigma_d) as f32);
+
+    let lower = clamp_lower;
+    let upper = clamp_upper;
+    let enable_offset = 0;
+
+    let iteration_fun = iteration;                  // SS
+    //let iteration_fun = iteration_bounds;           // SS + BH
+    //let iteration_fun = iteration_advanced;         // SS + SM
+
+    //let bilateral_fun = bilateral_filter;
+    let bilateral_fun = bilateral_filter_mask;
+
+    for benchmark_host(num_host_iter) {
+
+        for math, x, y, out, in_mm in iteration_point(math, mm_to_str, arr) {
+            out.write(x, y, in_mm);
+        }
+
+        for math, x, y, out, arr, mask in iteration_fun(math, str_to_mm, mm_to_str, mask, lower, upper) {
+            out.write(x, y, bilateral_fun(math, x, y, arr, mask, sigma_d, c_d, c_r));
+        }
+
+        for math, x, y, out, str_to_mm in iteration_point(math, out, str_to_mm) {
+            out.write(x, y, str_to_mm);
+        }
+    }
+    print_total_timing();
+
+    // compare results
+    fn reference() -> i32 {
+        let mut passed = 0;
+        let mut rms_err = 0.0f;   // RMS error
+        let EPS = 0.02f;
+        let arr_acc = get_acc_bh(arr, |idx, val| { bitcast[&mut[f32]](arr.buf.data)(idx) = val }, |idx| bitcast[&[f32]](arr.buf.data)(idx), (Boundary::Unknown, Boundary::Unknown), lower, upper);
+        let out_acc = get_acc   (out, |idx, val| { bitcast[&mut[f32]](out.buf.data)(idx) = val }, |idx| bitcast[&[f32]](out.buf.data)(idx));
+        for y in range(0, out.height) {
+            for x in range(0, out.width) {
+                let ref = bilateral_filter_mask(cpu_intrinsics, x, y, arr_acc, mask, sigma_d, c_d, c_r);
+                let mut err = ref - out_acc.read(x, y);
+                rms_err += err*err;
+
+                if err < 0.0f { err = -err; }
+                if err > EPS  { passed = 42; }
+            }
+        }
+        rms_err = cpu_intrinsics.sqrtf(rms_err / (out.width*out.height) as f32);
+        if passed == 0 {
+            print_string("Test PASSED!\n");
+        } else {
+            print_string("Test FAILED!\n");
+        }
+        passed
+    }
+
+    let result = reference();
+    release(arr.buf);
+    release(out.buf);
+    result
+}
