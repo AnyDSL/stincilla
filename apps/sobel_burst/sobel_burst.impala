@@ -1,0 +1,84 @@
+fn init_data(arr: Img) -> () {
+    let buf = bitcast[&mut[pixel_t]](arr.buf.data);
+
+    for y in range(0, arr.height) {
+        for x in range(0, arr.width) {
+            let val = if ((((x % 16) >= 8) & (( y % 16) < 8)) | (((x % 16) < 8) & ((y % 16) >= 8))) == false { 255 as pixel_t }
+                      else { 0 as pixel_t };
+            buf(y * arr.stride + x) = val;
+        }
+    }
+}
+
+
+fn main() -> i32 {
+    let width  = 1024;
+    let height = 1024;
+    static mut str_to_mm_buf: pipe;
+    static mut ch_in_to_gx: pipe;
+    static mut ch_in_to_gy: pipe;
+    static mut ch_gx_to_mag: pipe;
+    static mut ch_gy_to_mag: pipe;
+
+    let arr = create_host_img(width, height);
+    let out = create_host_img(width, height);
+    let str_to_mem = create_virtual_img(width, height, &mut str_to_mm_buf);
+    let in_to_gx = create_virtual_img(width, height, &mut ch_in_to_gx);
+    let in_to_gy = create_virtual_img(width, height, &mut ch_in_to_gy);
+    let gx_to_mag = create_virtual_img(width, height, &mut ch_gx_to_mag);
+    let gy_to_mag = create_virtual_img(width, height, &mut ch_gy_to_mag);
+    init_data(arr);
+    init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
+
+    let mask_x   = get_mask3(sobel_maskx);
+    let mask_y   = get_mask3(sobel_masky);
+    let threshold = 80 as i32;
+
+    let lower = nobh_center;
+    let upper = nobh_center;
+    //let lower = clamp_lower;
+    //let upper = clamp_upper;
+    //let lower = mirro_lower;
+    //let upper = mirro_upper;
+    let enable_offset = 1;
+
+    for benchmark_host(num_host_iter) {
+
+        let (in_to_gx, in_to_gy) = split_image(math, arr, &mut ch_in_to_gx , &mut ch_in_to_gy);
+
+        for math, x, y, out, arr, mask in iteration(math, gx_to_mag, in_to_gx, mask_x, lower, upper) {
+            let pix_gx = apply_stencil(x, y, arr, mask);
+            out.write(x, y, pix_gx);
+        }
+
+        for math, x, y, out, arr, mask in iteration(math, gy_to_mag, in_to_gy, mask_y, lower, upper) {
+            let pix_gy = apply_stencil(x, y, arr, mask);
+            out.write(x, y, pix_gy);
+        }
+
+        for math, x, y, out, pix_gx, pix_gy in iteration_point2(math, str_to_mem, gx_to_mag, gy_to_mag) {
+            let val = abs(pix_gx) + abs(pix_gy);
+            let mut res = 0;
+            if (val > threshold) { res = 255 as pixel_t }
+            out.write(x, y, res);
+        }
+
+        for math, x, y, out, str_to_mem in iteration_point(math, out, str_to_mem) {
+            out.write(x, y, str_to_mem);
+        }
+    }
+    print_total_timing();
+
+    // display results
+    let arr_acc = get_acc(arr, |idx, val| { bitcast[&mut[pixel_t]](arr.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](arr.buf.data)(idx));
+    let out_acc = get_acc(out, |idx, val| { bitcast[&mut[pixel_t]](out.buf.data)(idx) = val }, |idx| bitcast[&[pixel_t]](out.buf.data)(idx));
+
+    let roi_x = 0;
+    let roi_y = 0;
+    display_image(arr_acc, roi_x, roi_y);
+    display_image(out_acc, roi_x, roi_y);
+
+    release(arr.buf);
+    release(out.buf);
+    0
+}
