@@ -11,7 +11,14 @@ fn main() -> i32 {
     init_rand(bitcast[&mut[pixel_t]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[pixel_t]](out.buf.data), out.stride, out.height);
 
-    let mask   = get_mask3(laplace_mask3);
+    fn @get_laplace_mask3(data: [[pixel_t * 3] * 3]) -> Mask {
+        Mask {
+            data : @|x, y| -> pixel_t { data(y)(x) },
+            sum  : 1, size_x : 3, size_y : 3
+        }
+    }
+
+    let mask   = get_laplace_mask3(laplace_mask3);
     let kernel = apply_stencil;
     let lower  = clamp_lower;
     let upper  = clamp_upper;
