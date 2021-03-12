@@ -14,6 +14,7 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
 
     static mut in_c0  : pipe;
     static mut in_c1  : pipe;
+    static mut str_to_mm_buf: pipe;
     static mut dx_c  : pipe;
     static mut dy_c  : pipe;
     static mut dxx_c : pipe;
@@ -32,6 +33,7 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
     //       \         /              /
     //         -- iy -|-- iyy -- syy -
     let input  = new_img(width, height, stride, Buffer { data : bitcast[&[i8]](img_data), size : ((width * height) as i64 * sizeof[pixel_t]()) as i64, device : 0 });
+    let str_to_mm = create_virtual_img(width, height, &mut str_to_mm_buf);
     let harris = create_host_img(width, height);
     let dx  = create_virtual_img(width, height, &mut dx_c );
     let dy  = create_virtual_img(width, height, &mut dy_c );
@@ -98,10 +100,14 @@ fn harris_corner(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
         }
 
         // compute score for Harris corner
-        for math, x, y, out, xx, yy, xy in iteration_point3(math, harris, gxx, gyy, gxy) {
+        for math, x, y, out, xx, yy, xy in iteration_point3(math, str_to_mm, gxx, gyy, gxy) {
             let det   = xx * yy - xy * xy;
             let trace = xx + yy;
             out.write(x, y, det - trace * trace * k / k_den);
+        }
+
+        for math, x, y, out, str_to_mm in iteration_point(math, harris, str_to_mm) {
+            out.write(x, y, str_to_mm);
         }
     }
     print_total_timing();
