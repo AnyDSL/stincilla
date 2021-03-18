@@ -91,7 +91,12 @@ fn shi_thomasi(img_data: &[pixel_t], out_data: &mut[pixel_t]) -> () {
 
         // compute score for shi-thomasi
         for math, x, y, out, xx, yy, xy in iteration_point3(math, out_image, gxx, gyy, gxy) {
-            let min = if (xx < yy) { xx } else { yy };
+            let mut min = 0;
+            if (xx < yy) {
+                min = xx;
+            } else {
+                min = yy;
+            };
             out.write(x, y, min);
         }
     }
