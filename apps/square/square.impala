@@ -12,8 +12,10 @@ fn main() -> i32 {
     //-------------------------------------
     }
 
-    for math, x, y, out, pin in iteration_point(math, out, arr) {
-        out.write(x, y, kernel(pin));
+    for benchmark_host(num_host_iter) {
+        for math, x, y, out, pin in iteration_point(math, out, arr) {
+            out.write(x, y, kernel(pin));
+        }
     }
     print_total_timing();
 

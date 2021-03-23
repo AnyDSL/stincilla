@@ -12,20 +12,22 @@ fn main() -> i32 {
 
     fn @kernel (pixel: pixel_t) -> pixel_t {
     //-------Your pointwise operation------
-        pixel * pixel * pixel + pixel / pixel
+        pixel * pixel
     //-------------------------------------
     }
+    for benchmark_host(num_host_iter) {
 
-    for math, x, y, out, pin in iteration_point(math, out0, arr) {
-        out.write(x, y, pin);
-    }
+        for math, x, y, out, pin in iteration_point(math, out0, arr) {
+            out.write(x, y, pin);
+        }
 
-    for math, x, y, out, pin in iteration_point(math, out1, out0) {
-        out.write(x, y, kernel(pin));
-    }
+        for math, x, y, out, pin in iteration_point(math, out1, out0) {
+            out.write(x, y, kernel(pin));
+        }
 
-    for math, x, y, out, pin in iteration_point(math, out, out1) {
-        out.write(x, y, pin);
+        for math, x, y, out, pin in iteration_point(math, out, out1) {
+            out.write(x, y, pin);
+        }
     }
     print_total_timing();
 
