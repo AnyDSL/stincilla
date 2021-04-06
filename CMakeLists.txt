@@ -13,8 +13,7 @@ endif()
 string(TOLOWER "${BACKEND}" BACKEND)
 message(STATUS "Selected backend: ${BACKEND}")
 
-set(BACKEND_FILE backend_${BACKEND}.impala)
-
+get_filename_component(BACKEND_FILE backend_${BACKEND}.impala ABSOLUTE CACHE)
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(DEVICE "cpu")
 else()
@@ -24,9 +23,29 @@ endif()
 set(CLANG_FLAGS -march=native)
 set(IMPALA_FLAGS --log-level info)
 set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
+option(EMIT_C "Emit the host code as C code instead of LLVM IR" OFF)
 
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
+
+function(add_stincilla_test name cpp_files impala_files)
+    if (EMIT_C)
+        anydsl_runtime_wrap(${name}_objs
+            EMIT_C
+            CLANG_FLAGS ${CLANG_FLAGS}
+            IMPALA_FLAGS ${IMPALA_FLAGS}
+            FILES ${BACKEND_FILE} ${impala_files})
+    else()
+        anydsl_runtime_wrap(${name}_objs
+            CLANG_FLAGS ${CLANG_FLAGS}
+            IMPALA_FLAGS ${IMPALA_FLAGS}
+            FILES ${BACKEND_FILE} ${impala_files})
+    endif()
+    add_executable(${name} "${cpp_files};${${name}_objs}")
+    set_target_properties(${name} PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+    target_link_libraries(${name} ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test(${name} ${name})
+endfunction()
 
 add_subdirectory(aobench)
 add_subdirectory(bilateral_grid)
@@ -37,36 +56,7 @@ add_subdirectory(image_sharpening)
 add_subdirectory(sorting_networks)
 add_subdirectory(vcycle)
 
-# simple CPU-based examples
-anydsl_runtime_wrap(MATMUL_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala matmul.impala)
-add_executable(matmul ${MATMUL_PROGRAM})
-target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("matmul" matmul)
-
-# examples based on the "mapping"
-anydsl_runtime_wrap(GAUSSIAN_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
-add_executable(gaussian ${GAUSSIAN_PROGRAM})
-target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("gaussian" gaussian)
-
-anydsl_runtime_wrap(BILATERAL_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
-add_executable(bilateral ${BILATERAL_PROGRAM})
-target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("bilateral" bilateral)
-
-anydsl_runtime_wrap(JACOBI_PROGRAM
-    CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
-add_executable(jacobi ${JACOBI_PROGRAM})
-target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARIES})
-add_test("jacobi" jacobi)
+add_stincilla_test(matmul "" "utils.impala;matmul.impala")
+add_stincilla_test(gaussian "" "utils.impala;stencil_lib.impala;mapping_${DEVICE}.impala;gaussian.impala")
+add_stincilla_test(bilateral "" "utils.impala;stencil_lib.impala;mapping_${DEVICE}.impala;bilateral.impala")
+add_stincilla_test(jacobi "" "utils.impala;stencil_lib.impala;mapping_${DEVICE}.impala;jacobi.impala")
