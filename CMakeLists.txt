@@ -15,13 +15,17 @@ message(STATUS "Selected backend: ${BACKEND}")
 
 set(BACKEND_FILE backend_${BACKEND}.impala)
 
-if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
+if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx" OR BACKEND STREQUAL "ve")
     set(DEVICE "cpu")
 else()
     set(DEVICE "acc")
 endif()
 
 set(CLANG_FLAGS -O2)
+if(BACKEND STREQUAL "ve")
+  set(CLANG_FLAGS -mno-vepacked ${CLANG_FLAGS})
+endif()
+
 option(ANYDSL_TARGET_TRIPLE "Cross-compilation target" "")
 option(ANYDSL_TARGET_CPU "Cross-compilation cpu" "")
 option(ANYDSL_TARGET_FEATURE "Cross-compilation cpu features" "")
