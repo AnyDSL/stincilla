@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4.3 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.13.4 FATAL_ERROR)
 
 project(STINCILLA CXX)
 enable_testing()
@@ -6,11 +6,9 @@ enable_testing()
 find_package(AnyDSL_runtime REQUIRED)
 include_directories(${AnyDSL_runtime_INCLUDE_DIRS})
 
-set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU")
-if(NOT BACKEND)
-    set(BACKEND cpu CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU" FORCE)
-endif()
-string(TOLOWER "${BACKEND}" BACKEND)
+set(BACKEND "cpu" CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU")
+set_property(CACHE BACKEND PROPERTY STRINGS cpu avx nvvm cuda opencl amdgpu)
+string(TOLOWER ${BACKEND} BACKEND)
 message(STATUS "Selected backend: ${BACKEND}")
 
 set(BACKEND_FILE backend_${BACKEND}.impala)
@@ -23,7 +21,6 @@ endif()
 
 set(CLANG_FLAGS -march=native)
 set(IMPALA_FLAGS --log-level info --max-errors 5)
-set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
@@ -44,7 +41,7 @@ anydsl_runtime_wrap(MATMUL_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala matmul.impala)
 add_executable(matmul ${MATMUL_PROGRAM})
-target_link_libraries(matmul ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(matmul ${AnyDSL_runtime_LIBRARIES})
 add_test("matmul" matmul)
 
 # examples based on the "mapping"
@@ -54,7 +51,7 @@ anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
-target_link_libraries(gaussian ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(gaussian ${AnyDSL_runtime_LIBRARIES})
 add_test("gaussian" gaussian)
 
 anydsl_runtime_wrap(BILATERAL_PROGRAM
@@ -63,7 +60,7 @@ anydsl_runtime_wrap(BILATERAL_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
 add_executable(bilateral ${BILATERAL_PROGRAM})
-target_link_libraries(bilateral ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(bilateral ${AnyDSL_runtime_LIBRARIES})
 add_test("bilateral" bilateral)
 
 anydsl_runtime_wrap(JACOBI_PROGRAM
@@ -72,5 +69,5 @@ anydsl_runtime_wrap(JACOBI_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
 add_executable(jacobi ${JACOBI_PROGRAM})
-target_link_libraries(jacobi ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(jacobi ${AnyDSL_runtime_LIBRARIES})
 add_test("jacobi" jacobi)
