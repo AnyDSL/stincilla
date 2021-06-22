@@ -1,4 +1,4 @@
-fn @iteration(body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()) = @|math: Intrinsics, out: Buffer, width: i32, height: i32| {
+fn @iteration(body: fn(i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()) = @|out: Buffer, width: i32, height: i32| {
     random_seed(get_micro_time() as u32);
 
     for benchmark_cpu() {
@@ -16,7 +16,7 @@ fn @iteration(body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) 
                     out(3 * (y * width + x) + 1) = g;
                     out(3 * (y * width + x) + 2) = b;
                 }
-                body(math, x, y, out_fun, rand);
+                body(x, y, out_fun, rand);
             }
         }
     }

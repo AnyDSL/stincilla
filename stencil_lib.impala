@@ -1,6 +1,6 @@
 type BoundaryFn[T]   = fn(i32, i32, i32) -> BoundaryMode[T];
-type StencilFn[T]    = fn(Intrinsics, i32, i32, Acc[T], AccList[T]) -> ();
-type StencilSepFn[T] = fn(Intrinsics, i32, i32, Acc[T], Acc[T], MaskSep, bool) -> ();
+type StencilFn[T]    = fn(i32, i32, Acc[T], AccList[T]) -> ();
+type StencilSepFn[T] = fn(i32, i32, Acc[T], Acc[T], MaskSep, bool) -> ();
 type Region          = (Boundary, Boundary);
 
 struct Img {

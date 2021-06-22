@@ -1,19 +1,19 @@
-fn @closeness(math: Intrinsics, c_d: f32, xf: i32, yf: i32) -> f32 {
-    math.expf(-c_d * (xf*xf) as f32) * math.expf(-c_d * (yf*yf) as f32)
+fn @closeness(c_d: f32, xf: i32, yf: i32) -> f32 {
+    math_builtins::exp(-c_d * (xf*xf) as f32) * math_builtins::exp(-c_d * (yf*yf) as f32)
 }
-fn @similarity(math: Intrinsics, c_r: f32, xi: f32, x: f32) -> f32 {
+fn @similarity(c_r: f32, xi: f32, x: f32) -> f32 {
     let diff = xi - x;
-    math.expf(-c_r * diff * diff)
+    math_builtins::exp(-c_r * diff * diff)
 }
 
-fn @bilateral_filter(math: Intrinsics, x: i32, y: i32, acc: Acc[f32], _mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
+fn @bilateral_filter(x: i32, y: i32, acc: Acc[f32], _mask: Mask, sigma_d: i32, c_d: f32, c_r: f32) -> f32 {
     let mut k = 0:f32;
     let mut p = 0:f32;
 
     for yf in unroll(-2*sigma_d, 2*sigma_d+1) {
         for xf in unroll(-2*sigma_d, 2*sigma_d+1) {
-            let c = closeness(math, c_d, xf, yf);
-            let s = similarity(math, c_r, acc.read(x + xf, y + yf), acc.read(x, y));
+            let c = closeness(c_d, xf, yf);
+            let s = similarity(c_r, acc.read(x + xf, y + yf), acc.read(x, y));
 
             k += c * s;
             p += c * s * acc.read(x + xf, y + yf);
@@ -23,7 +23,7 @@ fn @bilateral_filter(math: Intrinsics, x: i32, y: i32, acc: Acc[f32], _mask: Mas
     p / k
 }
 
-fn @bilateral_filter_mask(math: Intrinsics, x: i32, y: i32, acc: Acc[f32], mask: Mask, sigma_d: i32, _c_d: f32, c_r: f32) -> f32 {
+fn @bilateral_filter_mask(x: i32, y: i32, acc: Acc[f32], mask: Mask, sigma_d: i32, _c_d: f32, c_r: f32) -> f32 {
     let mut k = 0:f32;
     let mut p = 0:f32;
 
@@ -32,7 +32,7 @@ fn @bilateral_filter_mask(math: Intrinsics, x: i32, y: i32, acc: Acc[f32], mask:
             let diff = acc.read(x + xf, y + yf) - acc.read(x, y);
 
             let c = mask.data(xf + 2*sigma_d, yf + 2*sigma_d);
-            let s = math.expf(-c_r * diff*diff);
+            let s = math_builtins::exp(-c_r * diff*diff);
 
             k += c * s;
             p += c * s * acc.read(x + xf, y + yf);
@@ -96,8 +96,8 @@ fn main() -> i32 {
     //let bilateral_fun = bilateral_filter;
     let bilateral_fun = bilateral_filter_mask;
 
-    for math, x, y, out_acc, accs in iteration_fun(math, out, make_img_list1(arr, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
-        out_acc.write(x, y, bilateral_fun(math, x, y, accs.get(0), mask, sigma_d, c_d, c_r));
+    for x, y, out_acc, accs in iteration_fun(out, make_img_list1(arr, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
+        out_acc.write(x, y, bilateral_fun(x, y, accs.get(0), mask, sigma_d, c_d, c_r));
     }
     print_total_timing();
 
@@ -110,7 +110,7 @@ fn main() -> i32 {
         let out_acc = get_acc   [f32](out, |idx, val| bitcast[&mut[f32]](out.buf.data)(idx) = val, |idx| bitcast[&[f32]](out.buf.data)(idx));
         for y in range(0, out.height) {
             for x in range(0, out.width) {
-                let ref = bilateral_filter_mask(cpu_intrinsics, x, y, arr_acc, mask, sigma_d, c_d, c_r);
+                let ref = bilateral_filter_mask(x, y, arr_acc, mask, sigma_d, c_d, c_r);
                 let mut err = ref - out_acc.read(x, y);
                 rms_err += err*err;
 
@@ -118,7 +118,7 @@ fn main() -> i32 {
                 if err > EPS   { passed = 42; }
             }
         }
-        rms_err = cpu_intrinsics.sqrtf(rms_err / (out.width*out.height) as f32);
+        rms_err = math_builtins::sqrt(rms_err / (out.width*out.height) as f32);
         if passed == 0 {
             print_string("Test PASSED!\n");
         } else {

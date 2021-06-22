@@ -1,4 +1,4 @@
-fn @iteration(body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()) = @|math: Intrinsics, out: Buffer, width: i32, height: i32| {
+fn @iteration(body: fn(i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()) = @|out: Buffer, width: i32, height: i32| {
     let acc   = accelerator(device_id);
     let grid  = (width, height, 1);
     let block = (32, 4, 1);
@@ -32,7 +32,7 @@ fn @iteration(body: fn(Intrinsics, i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) 
                 out(3 * (gid_y * width + gid_x) + 1) = g;
                 out(3 * (gid_y * width + gid_x) + 2) = b;
             }
-            @body(math, gid_x, gid_y, out_fun, rand);
+            @body(gid_x, gid_y, out_fun, rand);
         }
     }
 

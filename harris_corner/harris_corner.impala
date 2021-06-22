@@ -31,24 +31,24 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
     let upper = clamp_upper[f32];
     let iteration_fun = iteration[f32];
 
-    for math, x, y, out, arrs in iteration_fun(math, dx, make_img_list1(input, (mdx.size_x / 2, mdx.size_y / 2)), lower, upper) {
+    for x, y, out, arrs in iteration_fun(dx, make_img_list1(input, (mdx.size_x / 2, mdx.size_y / 2)), lower, upper) {
         out.write(x, y, apply_stencil(x, y, arrs.get(0), mdx));
     }
-    for math, x, y, out, arrs in iteration_fun(math, dy, make_img_list1(input, (mdy.size_x / 2, mdy.size_y / 2)), lower, upper) {
+    for x, y, out, arrs in iteration_fun(dy, make_img_list1(input, (mdy.size_x / 2, mdy.size_y / 2)), lower, upper) {
         out.write(x, y, apply_stencil(x, y, arrs.get(0), mdy));
     }
 
 
     // compute dxx, dyy, dxy
-    for math, x, y, out, arrs in iteration_fun(math, dxx, make_img_list1(dx, (0, 0)), lower, upper) {
+    for x, y, out, arrs in iteration_fun(dxx, make_img_list1(dx, (0, 0)), lower, upper) {
         let dx = arrs.get(0);
         out.write(x, y, dx.read(x, y) * dx.read(x, y));
     }
-    for math, x, y, out, arrs in iteration_fun(math, dyy, make_img_list1(dy, (0, 0)), lower, upper) {
+    for x, y, out, arrs in iteration_fun(dyy, make_img_list1(dy, (0, 0)), lower, upper) {
         let dy = arrs.get(0);
         out.write(x, y, dy.read(x, y) * dy.read(x, y));
     }
-    for math, x, y, out, arrs in iteration_fun(math, dxy, make_img_list2(dx, (0, 0), dy, (0, 0)), lower, upper) {
+    for x, y, out, arrs in iteration_fun(dxy, make_img_list2(dx, (0, 0), dy, (0, 0)), lower, upper) {
         let (dx, dy) = (arrs.get(0), arrs.get(1));
         out.write(x, y, dx.read(x, y) * dy.read(x, y));
     }
@@ -59,19 +59,19 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
                         [ 0.124758:f32, 0.272496:f32, 0.124758:f32 ],
                         [ 0.057118:f32, 0.124758:f32, 0.057118:f32 ]]);
 
-    for math, x, y, out, arrs in iteration_fun(math, gxx, make_img_list1(dxx, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
+    for x, y, out, arrs in iteration_fun(gxx, make_img_list1(dxx, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
         out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
     }
-    for math, x, y, out, arrs in iteration_fun(math, gyy, make_img_list1(dyy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
+    for x, y, out, arrs in iteration_fun(gyy, make_img_list1(dyy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
         out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
     }
-    for math, x, y, out, arrs in iteration_fun(math, gxy, make_img_list1(dxy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
+    for x, y, out, arrs in iteration_fun(gxy, make_img_list1(dxy, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
         out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));
     }
 
 
     // compute score for Harris corner
-    for math, x, y, out, arrs in iteration_fun(math, harris, make_img_list3(gxx, (0, 0), gyy, (0, 0), gxy, (0, 0)), lower, upper) {
+    for x, y, out, arrs in iteration_fun(harris, make_img_list3(gxx, (0, 0), gyy, (0, 0), gxy, (0, 0)), lower, upper) {
         let (gxx_acc, gyy_acc, gxy_acc) = (arrs.get(0), arrs.get(1), arrs.get(2));
         let gxx     = gxx_acc.read(x, y);
         let gyy     = gyy_acc.read(x, y);

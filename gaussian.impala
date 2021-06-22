@@ -26,7 +26,7 @@ fn main() -> i32 {
         //let iteration_sep_fun = iteration_sep_bounds[f32];   // SEP + SS + BH
         //let iteration_sep_fun = iteration_sep_advanced[f32]; // SEP + SS + SM
 
-        for _math, x, y, out_acc, arr_acc, mask, is_row in iteration_sep_fun(math, out, arr, mask_sep, mask_sep, lower, upper) {
+        for x, y, out_acc, arr_acc, mask, is_row in iteration_sep_fun(out, arr, mask_sep, mask_sep, lower, upper) {
             out_acc.write(x, y, apply_stencil_sep(x, y, arr_acc, mask, is_row));
         }
     } else {
@@ -34,7 +34,7 @@ fn main() -> i32 {
         //let iteration_fun = iteration_bounds[f32];           // SS + BH
         //let iteration_fun = iteration_advanced[f32];         // SS + SM
 
-        for _math, x, y, out_acc, accs in iteration_fun(math, out, make_img_list1(arr, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
+        for x, y, out_acc, accs in iteration_fun(out, make_img_list1(arr, (mask.size_x / 2, mask.size_y / 2)), lower, upper) {
             out_acc.write(x, y, apply_stencil(x, y, accs.get(0), mask));
         }
     }
