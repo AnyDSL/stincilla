@@ -9,9 +9,9 @@ fn main() -> i32 {
     init_rand(bitcast[&mut[f32]](arr.buf.data), arr.stride, out.height);
     init_zero(bitcast[&mut[f32]](out.buf.data), out.stride, out.height);
 
-    let stencil = get_mask3([[0:f32, b, 0:f32],
-                             [    b, a, b   ],
-                             [0:f32, b, 0:f32]]);
+    let stencil = get_mask3([[0, b, 0],
+                             [b, a, b],
+                             [0, b, 0]]);
 
     let lower = clamp_lower[f32];
     let upper = clamp_upper[f32];

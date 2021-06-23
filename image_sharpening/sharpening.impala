@@ -8,8 +8,8 @@ fn @qcod(x: i32, y: i32, map: Acc[f32], img: Acc[i16]) -> () {
 
     bitonic_sort(25, @|a: i16, b: i16| a > b, @|idx: i32| arr(idx), @|idx: i32, val: i16| arr(idx) = val);
 
-    let Q1 = (arr(5)  + arr(6))  as f32 / 2:f32;
-    let Q3 = (arr(18) + arr(19)) as f32 / 2:f32;
+    let Q1 = (arr(5)  + arr(6))  as f32 / 2;
+    let Q3 = (arr(18) + arr(19)) as f32 / 2;
 
     map.write(x, y, (Q3 - Q1) / (Q3 + Q1));
 }
