@@ -20,12 +20,12 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
     let gyy    = create_img[f32](width, height, alloc_cpu);
 
     // compute the first derivative using the Sobel operator
-    let mdx = get_mask3([[ -1:f32,  0:f32,  1:f32 ],
-                         [ -2:f32,  0:f32,  2:f32 ],
-                         [ -1:f32,  0:f32,  1:f32 ]]);
-    let mdy = get_mask3([[ -1:f32, -2:f32, -1:f32 ],
-                         [  0:f32,  0:f32,  0:f32 ],
-                         [  1:f32,  2:f32,  1:f32 ]]);
+    let mdx = get_mask3([[ -1,  0,  1 ],
+                         [ -2,  0,  2 ],
+                         [ -1,  0,  1 ]]);
+    let mdy = get_mask3([[ -1, -2, -1 ],
+                         [  0,  0,  0 ],
+                         [  1,  2,  1 ]]);
 
     let lower = clamp_lower[f32];
     let upper = clamp_upper[f32];
@@ -55,9 +55,9 @@ fn harris_corner(img_data: &[f32], out_data: &mut[f32], width: i32, height: i32)
 
 
     // compute gxx, gyy, gxy using Gaussian blur
-    let mg = get_mask3([[ 0.057118:f32, 0.124758:f32, 0.057118:f32 ],
-                        [ 0.124758:f32, 0.272496:f32, 0.124758:f32 ],
-                        [ 0.057118:f32, 0.124758:f32, 0.057118:f32 ]]);
+    let mg = get_mask3([[ 0.057118, 0.124758, 0.057118 ],
+                        [ 0.124758, 0.272496, 0.124758 ],
+                        [ 0.057118, 0.124758, 0.057118 ]]);
 
     for math, x, y, out, arrs in iteration_fun(math, gxx, make_img_list1(dxx, (mg.size_x / 2, mg.size_y / 2)), lower, upper) {
         out.write(x, y, apply_stencil(x, y, arrs.get(0), mg));

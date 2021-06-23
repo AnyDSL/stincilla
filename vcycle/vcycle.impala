@@ -1,8 +1,8 @@
 // Deriv 2D
 fn @deriv2D(RHS: Img, img: Img) -> () {
-    let mask = get_mask3([[0:f32,  1:f32, 0:f32],
-                          [1:f32, -4:f32, 1:f32],
-                          [0:f32,  1:f32, 0:f32]]);
+    let mask = get_mask3([[0,  1, 0],
+                          [1, -4, 1],
+                          [0,  1, 0]]);
     for _math, x, y, rhs_acc, accs in iteration_bounds[f32](math, RHS, make_img_list1(img, (mask.size_x / 2, mask.size_y / 2)), mirror_lower[f32], mirror_upper[f32]) {
         rhs_acc.write(x, y, apply_stencil[f32](x, y, accs.get(0), mask));
     }
@@ -12,9 +12,9 @@ fn @deriv2D(RHS: Img, img: Img) -> () {
 // Jacobi
 static omega = 0.8:f32;
 static jacobi_mask = Mask {
-    data = @|x: i32, y: i32| -> f32 { [[0.00:f32, 0.25:f32, 0.00:f32],
-                                       [0.25:f32, 0.00:f32, 0.25:f32],
-                                       [0.00:f32, 0.25:f32, 0.00:f32]](y)(x) },
+    data = @|x: i32, y: i32| -> f32 { [[0.00, 0.25, 0.00] : [f32 * 3],
+                                       [0.25, 0.00, 0.25],
+                                       [0.00, 0.25, 0.00]](y)(x) },
     size_x = 3, size_y = 3
 };
 // Dirichlet boundary handling -> 0
@@ -62,9 +62,9 @@ fn @residual(math: Intrinsics, Res: Img, Sol: Img, RHS: Img) -> () {
 // Restrict: arr = size x size; out = size/2 x size/2; fine -> coarse
 // coarse = Stencil * fine;
 static restrict_mask = Mask {
-    data = @|x: i32, y: i32| -> f32 { [[0.25:f32, 0.50:f32, 0.25:f32],
-                                       [0.50:f32, 1.00:f32, 0.50:f32],
-                                       [0.25:f32, 0.50:f32, 0.25:f32]](y)(x) },
+    data = @|x: i32, y: i32| -> f32 { [[0.25, 0.50, 0.25] : [f32 * 3],
+                                       [0.50, 1.00, 0.50],
+                                       [0.25, 0.50, 0.25]](y)(x) },
     size_x = 3, size_y = 3
 };
 fn @restrict_fun(_math: Intrinsics, x: i32, y: i32, RHS: Acc[f32], Res: Acc[f32]) -> () {

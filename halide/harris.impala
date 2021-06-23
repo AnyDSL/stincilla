@@ -14,13 +14,13 @@ fn run_halide(data: &mut[pixel_t], width: i32, height: i32) -> () {
 
     let i_x = stencil(|read: Read, x, y| {
         let read = read(0);
-        - 1:f32 / 12:f32 * read(x-1, y-1) + 1:f32 / 12:f32 * read(x+1, y-1)
-        - 2:f32 / 12:f32 * read(x-1, y  ) + 2:f32 / 12:f32 * read(x+1, y  )
-        - 1:f32 / 12:f32 * read(x-1, y+1) + 1:f32 / 12:f32 * read(x+1, y+1) }, extents(1, 1), 1);
+        - 1 / 12 * read(x-1, y-1) + 1 / 12 * read(x+1, y-1)
+        - 2 / 12 * read(x-1, y  ) + 2 / 12 * read(x+1, y  )
+        - 1 / 12 * read(x-1, y+1) + 1 / 12 * read(x+1, y+1) }, extents(1, 1), 1);
     let i_y = stencil(|read: Read, x, y| {
         let read = read(0);
-        - 1:f32 / 12:f32 * read(x-1, y-1) - 2:f32 / 12:f32 * read(x, y-1) - 1:f32 / 12:f32 * read(x+1, y-1)
-        + 1:f32 / 12:f32 * read(x-1, y+1) + 2:f32 / 12:f32 * read(x, y+1) + 1:f32 / 12:f32 * read(x+1, y+1) }, extents(1, 1), 1);
+        - 1 / 12 * read(x-1, y-1) - 2 / 12 * read(x, y-1) - 1 / 12 * read(x+1, y-1)
+        + 1 / 12 * read(x-1, y+1) + 2 / 12 * read(x, y+1) + 1 / 12 * read(x+1, y+1) }, extents(1, 1), 1);
 
     let multiply = @|i: i32, j: i32| @|read: Read, x: i32, y: i32| read(i)(x, y) * read(j)(x, y);
     let i_xx = multiply(0, 0);
