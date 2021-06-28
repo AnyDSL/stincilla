@@ -5,6 +5,7 @@ anydsl_runtime_wrap(STENCIL_INT_PROGRAM
 add_executable(stencil_dsl ${STENCIL_INT_PROGRAM})
 target_link_libraries(stencil_dsl ${AnyDSL_runtime_LIBRARIES})
 add_test("stencil_dsl" stencil_dsl)
+set_target_properties(stencil_dsl PROPERTIES LINKER_LANGUAGE CXX)
 
 if(AnyDSL_runtime_HAS_JIT_SUPPORT)
     add_executable(jit jit.cpp)
@@ -38,6 +39,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
         add_executable(print_gpu ${PRINT_GPU_PROGRAM})
         target_link_libraries(print_gpu ${AnyDSL_runtime_LIBRARIES})
         add_test("print_gpu" print_gpu)
+        set_target_properties(print_gpu PROPERTIES LINKER_LANGUAGE CXX)
     endif()
 
     anydsl_runtime_wrap(ALLOC_GPU_UNIFIED_PROGRAM
@@ -64,5 +66,13 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
         add_executable(half_float_gpu ${HALF_FLOAT_GPU_PROGRAM})
         target_link_libraries(half_float_gpu ${AnyDSL_runtime_LIBRARIES})
         add_test("half_float_gpu" half_float_gpu)
+        set_target_properties(half_float_gpu PROPERTIES LINKER_LANGUAGE CXX)
     endif()
+
+    set_target_properties(
+        multi_gpu
+        alloc_gpu
+        reserve_shared
+        alloc_gpu_unified
+        PROPERTIES LINKER_LANGUAGE CXX)
 endif()

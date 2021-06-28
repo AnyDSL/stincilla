@@ -67,3 +67,5 @@ anydsl_runtime_wrap(JACOBI_PROGRAM
 add_executable(jacobi ${JACOBI_PROGRAM})
 target_link_libraries(jacobi ${AnyDSL_runtime_LIBRARIES})
 add_test("jacobi" jacobi)
+
+set_target_properties(jacobi gaussian matmul bilateral PROPERTIES LINKER_LANGUAGE CXX)
