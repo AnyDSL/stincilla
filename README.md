@@ -15,9 +15,16 @@ The setup.sh configures Stincilla and sets all required paths. The backend for c
         - `ANYDSL_FPGA`: device configuration variable. `HPC` for generating complete HW/SW design for PCIe accelerator cards. `SOC` generating IP.
         Adding `GMEM_OPT` beside *HPC* or *SOC*, assigns separate memory interfaces for ports accessing the global memory.
 
+
 Example:
 ```bash
 cd anydsl/stincilla/build
 cmake -DBACKEND=aocl .. # optional: switch to multi-platform (Intel/Xilinx) OpenCL backend.
 make
+```
+
+To generate vectorized version of applications, edit `backend_hls.impala` and modify the value of `vector_length`, then before generating a new application rebuild the cache:
+```bash
+cd anydsl/stincilla/build
+make rebuild_cache
 ```
