@@ -28,7 +28,7 @@ else()
 endif()
 
 if(BACKEND STREQUAL "hls")
-    set(SYNTHESIS OFF CACHE BOOL "ON: Synthesis and HDL generation (also required for HW emulation), OFF: C simulation")
+    set(SYNTHESIS ON CACHE BOOL "ON: Synthesis and HDL generation (also required for HW emulation), OFF: C simulation")
     string(TOLOWER "${SYNTHESIS}" SYNTHESIS)
     message(STATUS "HW Synthesis: ${SYNTHESIS}")
 
