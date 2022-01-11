@@ -29,6 +29,15 @@ if(DEVICE STREQUAL "fpga")
     target_link_libraries(fpga_copy ${ANYDSL_RUNTIME_LIBRARIES})
     add_test("fpga_copy" fpga_copy)
 
+    anydsl_runtime_wrap(DATA_FLOW_PROGRAM
+        CLANG_FLAGS ${CLANG_FLAGS}
+        IMPALA_FLAGS ${IMPALA_FLAGS}
+        FILES ${BACKEND_FILE} ${PIXEL_TYPE_FILE} ../utils.impala dataflow.impala
+        HLS_FLAGS ${HLS_FLAGS})
+    add_executable(dataflow ${DATA_FLOW_PROGRAM})
+    target_link_libraries(dataflow ${ANYDSL_RUNTIME_LIBRARIES})
+    add_test("dataflow" dataflow)
+
     anydsl_runtime_wrap(LOOP_PIPELINE_PROGRAM
         CLANG_FLAGS ${CLANG_FLAGS}
         IMPALA_FLAGS ${IMPALA_FLAGS}
