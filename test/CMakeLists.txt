@@ -18,7 +18,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     anydsl_runtime_wrap(MULTI_GPU_PROGRAM
         FRONTEND "artic"
         CLANG_FLAGS ${CLANG_FLAGS}
-        IMPALA_FLAGS ${IMPALA_FLAGS}
+        ARTIC_FLAGS ${ARTIC_FLAGS}
         FILES ../${BACKEND_FILE} ../utils.impala multi_gpu.impala)
     add_executable(multi_gpu ${MULTI_GPU_PROGRAM})
     target_link_libraries(multi_gpu ${AnyDSL_runtime_LIBRARIES})
@@ -27,7 +27,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     anydsl_runtime_wrap(ALLOC_GPU_PROGRAM
         FRONTEND "artic"
         CLANG_FLAGS ${CLANG_FLAGS}
-        IMPALA_FLAGS ${IMPALA_FLAGS}
+        ARTIC_FLAGS ${ARTIC_FLAGS}
         FILES ../${BACKEND_FILE} alloc_gpu.impala)
     add_executable(alloc_gpu ${ALLOC_GPU_PROGRAM})
     target_link_libraries(alloc_gpu ${AnyDSL_runtime_LIBRARIES})
@@ -37,7 +37,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
         anydsl_runtime_wrap(PRINT_GPU_PROGRAM
             FRONTEND "artic"
             CLANG_FLAGS ${CLANG_FLAGS}
-            IMPALA_FLAGS ${IMPALA_FLAGS}
+            ARTIC_FLAGS ${ARTIC_FLAGS}
             FILES ../${BACKEND_FILE} print_gpu.impala)
         add_executable(print_gpu ${PRINT_GPU_PROGRAM})
         target_link_libraries(print_gpu ${AnyDSL_runtime_LIBRARIES})
@@ -47,7 +47,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     anydsl_runtime_wrap(ALLOC_GPU_UNIFIED_PROGRAM
         FRONTEND "artic"
         CLANG_FLAGS ${CLANG_FLAGS}
-        IMPALA_FLAGS ${IMPALA_FLAGS}
+        ARTIC_FLAGS ${ARTIC_FLAGS}
         FILES ../${BACKEND_FILE} alloc_gpu_unified.impala)
     add_executable(alloc_gpu_unified ${ALLOC_GPU_UNIFIED_PROGRAM})
     target_link_libraries(alloc_gpu_unified ${AnyDSL_runtime_LIBRARIES})
@@ -56,7 +56,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
     anydsl_runtime_wrap(RESERVE_SHARED_PROGRAM
         FRONTEND "artic"
         CLANG_FLAGS ${CLANG_FLAGS}
-        IMPALA_FLAGS ${IMPALA_FLAGS}
+        ARTIC_FLAGS ${ARTIC_FLAGS}
         FILES ../${BACKEND_FILE} reserve_shared.impala)
     add_executable(reserve_shared ${RESERVE_SHARED_PROGRAM})
     target_link_libraries(reserve_shared ${AnyDSL_runtime_LIBRARIES})
@@ -66,7 +66,7 @@ if(NOT (BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx"))
         anydsl_runtime_wrap(HALF_FLOAT_GPU_PROGRAM
             FRONTEND "artic"
             CLANG_FLAGS ${CLANG_FLAGS}
-            IMPALA_FLAGS ${IMPALA_FLAGS}
+            ARTIC_FLAGS ${ARTIC_FLAGS}
             FILES ../${BACKEND_FILE} half_float_gpu.impala)
         add_executable(half_float_gpu ${HALF_FLOAT_GPU_PROGRAM})
         target_link_libraries(half_float_gpu ${AnyDSL_runtime_LIBRARIES})

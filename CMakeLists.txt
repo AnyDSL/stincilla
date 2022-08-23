@@ -20,7 +20,7 @@ else()
 endif()
 
 set(CLANG_FLAGS -march=native)
-set(IMPALA_FLAGS --log-level info --max-errors 5)
+set(ARTIC_FLAGS --log-level info --max-errors 5)
 
 set(STINCILLA_COMMON_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/common/pnm_image)
 include_directories(${STINCILLA_COMMON_INCLUDE_DIRS})
@@ -38,7 +38,7 @@ add_subdirectory(vcycle)
 anydsl_runtime_wrap(MATMUL_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ${BACKEND_FILE} utils.impala matmul.impala)
 add_executable(matmul ${MATMUL_PROGRAM})
 target_link_libraries(matmul ${AnyDSL_runtime_LIBRARIES})
@@ -48,7 +48,7 @@ add_test("matmul" matmul)
 anydsl_runtime_wrap(GAUSSIAN_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala gaussian.impala)
 add_executable(gaussian ${GAUSSIAN_PROGRAM})
 target_link_libraries(gaussian ${AnyDSL_runtime_LIBRARIES})
@@ -57,7 +57,7 @@ add_test("gaussian" gaussian)
 anydsl_runtime_wrap(BILATERAL_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala bilateral.impala)
 add_executable(bilateral ${BILATERAL_PROGRAM})
 target_link_libraries(bilateral ${AnyDSL_runtime_LIBRARIES})
@@ -66,7 +66,7 @@ add_test("bilateral" bilateral)
 anydsl_runtime_wrap(JACOBI_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ${BACKEND_FILE} utils.impala stencil_lib.impala mapping_${DEVICE}.impala jacobi.impala)
 add_executable(jacobi ${JACOBI_PROGRAM})
 target_link_libraries(jacobi ${AnyDSL_runtime_LIBRARIES})

@@ -5,7 +5,7 @@ endif()
 anydsl_runtime_wrap(HALIDE_BLUR_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ${DUMMY_BACKEND} schedule.impala blur.impala)
 add_executable(blur main.cpp ${HALIDE_BLUR_PROGRAM})
 target_link_libraries(blur ${AnyDSL_runtime_LIBRARIES})
@@ -16,7 +16,7 @@ add_test("blur" blur)
 anydsl_runtime_wrap(HALIDE_HARRIS_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ${DUMMY_BACKEND} schedule.impala harris.impala)
 add_executable(harris main.cpp ${HALIDE_HARRIS_PROGRAM})
 target_link_libraries(harris ${AnyDSL_runtime_LIBRARIES})
@@ -27,7 +27,7 @@ add_test("harris" harris)
 anydsl_runtime_wrap(HALIDE_SIMPLE_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ${DUMMY_BACKEND} simple.impala)
 add_executable(simple main.cpp ${HALIDE_SIMPLE_PROGRAM})
 target_link_libraries(simple ${AnyDSL_runtime_LIBRARIES})

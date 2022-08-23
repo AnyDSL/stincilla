@@ -1,7 +1,7 @@
 anydsl_runtime_wrap(SHARPENING_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ../stencil_lib.impala ../sorting_networks/bitonic.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala sharpening.impala)
 add_executable(sharpening main.cpp ${SHARPENING_PROGRAM})
 target_link_libraries(sharpening ${AnyDSL_runtime_LIBRARIES})

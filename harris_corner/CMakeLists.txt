@@ -1,7 +1,7 @@
 anydsl_runtime_wrap(HARRIS_CORNER_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala harris_corner.impala)
 add_executable(harris_corner main.cpp ${HARRIS_CORNER_PROGRAM})
 target_link_libraries(harris_corner ${AnyDSL_runtime_LIBRARIES})

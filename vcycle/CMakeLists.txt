@@ -1,7 +1,7 @@
 anydsl_runtime_wrap(VCYCLE_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES ../${BACKEND_FILE} ../utils.impala ../stencil_lib.impala ../mapping_${DEVICE}.impala mapping_${DEVICE}.impala vcycle.impala)
 add_executable(vcycle main.cpp ${VCYCLE_PROGRAM})
 target_link_libraries(vcycle ${AnyDSL_runtime_LIBRARIES})
