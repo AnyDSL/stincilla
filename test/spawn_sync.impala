@@ -1,0 +1,121 @@
+fn numeric_sum(n: i32) -> i32 {
+    n * (n+1) / 2
+}
+
+fn iterative_sum(n: i32) -> i32 {
+    let mut s = 0;
+
+    for i in range(0, n + 1) {
+        s += i;
+    }
+
+    s
+}
+
+fn recursive_sum(n: i32) -> i32 {
+    if n == 1 {
+        1
+    } else {
+        recursive_sum(n - 1) + n
+    }
+}
+
+fn recursive_sum_range(n: i32) -> i32 {
+    fn range_sum(l: i32, u: i32) -> i32 {
+        if l == u {
+            l
+        } else {
+            let m = (l + u) / 2;
+            range_sum(l, m) + range_sum(m + 1, u)
+        }
+    }
+
+    range_sum(1, n)
+}
+
+fn parallel_sum(n: i32) -> i32 {
+    let mut s = 0;
+
+    let t = 16;
+    let block = n / t;
+    let buffer = alloc_cpu(2i64 * t as i64 * sizeof[i32]());
+    let data = buffer.data as &mut [i32];
+
+    for i in range(0, t) {
+        let lower = i*block;
+        let upper = if i == t-1 { n + 1 } else { (i+1)*block };
+
+        data(2*i  ) = 0;
+        let task = @|| spawn(|| {
+            for j in range(lower, upper) {
+                data(2*i) += j;
+            }
+        });
+        data(2*i+1) = task();
+    }
+
+    for i in range(0, t) {
+        sync(data(2*i+1));
+        s += data(2*i  );
+    }
+
+    release(buffer);
+
+    s
+}
+
+fn parallel_sum_range(n: i32) -> i32 {
+    fn @range_sum(l: i32, u: i32) -> i32 {
+        if l == u {
+            l
+        } else {
+            let m = (l + u) / 2;
+
+            let buffer = alloc_cpu(2i64 * sizeof[i32]());
+            let data = buffer.data as &mut [i32];
+
+            let t1 = @|| spawn(|| {
+                data(0) = range_sum(l, m);
+            });
+            let t2 = @|| spawn(|| {
+                data(1) = range_sum(m + 1, u);
+            });
+
+            let tid1 = t1();
+            let tid2 = t2();
+
+            sync(tid1);
+            sync(tid2);
+
+            let result = data(0) + data(1);
+            release(buffer);
+
+            result
+        }
+    }
+
+    range_sum(1, n)
+}
+
+
+fn main() -> i32 {
+    let r = numeric_sum;
+    //let f = iterative_sum;
+    //let f = recursive_sum;
+    //let f = recursive_sum_range;
+    let f = parallel_sum;
+    let g = parallel_sum_range;
+
+    let v = r(100);
+    let s = f(100);
+    let t = g(100);
+
+    print_i32(v);
+    print_char('\n');
+    print_i32(s);
+    print_char('\n');
+    print_i32(t);
+    print_char('\n');
+
+    if v == s { 0 } else { -1 }
+}
