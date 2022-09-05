@@ -2,7 +2,7 @@
 A DSL for Stencil Codes
 
 ## Prerequisites ##
-Stincilla requires a working AnyDSL installation. A script to build the [impala](https://github.com/AnyDSL/impala) frontend and [thorin](https://github.com/AnyDSL/thorin) backend as well as the [runtime](https://github.com/AnyDSL/runtime) component is provided by the [anydsl metaproject](https://github.com/AnyDSL/anydsl) (setup.sh). This script will also checkout Stincilla's sources and configure a build directory.
+Stincilla requires a working AnyDSL installation. A script to build the [artic](https://github.com/AnyDSL/artic) frontend and [thorin](https://github.com/AnyDSL/thorin) backend as well as the [runtime](https://github.com/AnyDSL/runtime) component is provided by the [anydsl metaproject](https://github.com/AnyDSL/anydsl) (setup.sh). This script will also checkout Stincilla's sources and configure a build directory.
 
 If you checked out Stincilla separately, use the following command to download submodules:
 ```bash
