@@ -7,6 +7,15 @@ add_executable(stencil_dsl ${STENCIL_INT_PROGRAM})
 target_link_libraries(stencil_dsl ${AnyDSL_runtime_LIBRARIES})
 add_test("stencil_dsl" stencil_dsl)
 
+anydsl_runtime_wrap(SPAWN_SYNC_PROGRAM
+    FRONTEND "artic"
+    CLANG_FLAGS ${CLANG_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
+    FILES spawn_sync.impala)
+add_executable(spawn_sync ${SPAWN_SYNC_PROGRAM})
+target_link_libraries(spawn_sync ${AnyDSL_runtime_LIBRARIES})
+add_test("spawn_sync" spawn_sync)
+
 if(AnyDSL_runtime_HAS_JIT_SUPPORT)
     add_executable(jit jit.cpp)
     target_link_libraries(jit ${AnyDSL_runtime_ARTIC_JIT_LIBRARIES})
