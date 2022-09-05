@@ -1,7 +1,7 @@
 anydsl_runtime_wrap(STENCIL_INT_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
-    IMPALA_FLAGS ${IMPALA_FLAGS}
+    ARTIC_FLAGS ${ARTIC_FLAGS}
     FILES stencil_dsl.impala)
 add_executable(stencil_dsl ${STENCIL_INT_PROGRAM})
 target_link_libraries(stencil_dsl ${AnyDSL_runtime_LIBRARIES})
