@@ -6,8 +6,8 @@ enable_testing()
 find_package(AnyDSL_runtime REQUIRED)
 include_directories(${AnyDSL_runtime_INCLUDE_DIRS})
 
-set(BACKEND "cpu" CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU")
-set_property(CACHE BACKEND PROPERTY STRINGS cpu avx nvvm cuda opencl amdgpu)
+set(BACKEND "cpu" CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL, AMDGPU_HSA, AMDGPU_PAL")
+set_property(CACHE BACKEND PROPERTY STRINGS cpu avx nvvm cuda opencl amdgpu_hsa amdgpu_pal)
 string(TOLOWER ${BACKEND} BACKEND)
 message(STATUS "Selected backend: ${BACKEND}")
 

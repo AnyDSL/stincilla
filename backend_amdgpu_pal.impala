@@ -1,5 +1,5 @@
-fn @accelerator(dev: i32) = amdgpu_accelerator(dev);
-static device_id = 1;
+fn @accelerator(dev: i32) = amdgpu_pal_accelerator(dev);
+static device_id = 0;
 static atomic_add_global = amdgcn_atomic_add_global;
 static atomic_add_shared = amdgcn_atomic_add_shared;
 static atomic_min_global = amdgcn_atomic_min_global;
