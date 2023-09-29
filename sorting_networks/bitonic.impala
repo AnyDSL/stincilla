@@ -3,7 +3,7 @@ fn @bitonic_sort[T](length: i32, cmp: fn(T, T) -> bool, read: fn(i32) -> T, writ
     let ascending = true; // sorting direction
 
     fn @(?n) greatest_power_of_two_less_than(n: i32) -> i32 {
-        fn @(?k) loop(k: i32) -> i32 {
+        fn @(?n & ?k) loop(k: i32) -> i32 {
             if k < n {
                 loop(k << 1)
             } else {
