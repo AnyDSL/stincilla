@@ -24,6 +24,7 @@ set_target_properties(harris PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=floa
 set_target_properties(harris PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 add_test("harris" harris)
 
+if (ANYDSL_runtime_HAS_RV_SUPPORT)
 anydsl_runtime_wrap(HALIDE_SIMPLE_PROGRAM
     FRONTEND "artic"
     CLANG_FLAGS ${CLANG_FLAGS}
@@ -34,6 +35,7 @@ target_link_libraries(simple ${AnyDSL_runtime_LIBRARIES})
 set_target_properties(simple PROPERTIES COMPILE_FLAGS -DSTINCILLA_DATA_TYPE=int)
 set_target_properties(simple PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 add_test("simple" simple)
+endif()
 
 configure_file(../common/lena.pgm ${CMAKE_CURRENT_BINARY_DIR}/lena.pgm COPYONLY)
 configure_file(../common/square.pgm ${CMAKE_CURRENT_BINARY_DIR}/square.pgm COPYONLY)
