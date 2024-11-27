@@ -8,26 +8,27 @@ fn @rnd_u32(state: u64) -> (u32, u64) {
     (lo as u32 ^ hi as u32, lo * 4294883355:u64 + hi)
 }
 
-fn @rnd_f64(state: u64) -> (f64, u64) {
+fn @rnd_float(state: u64) -> (float, u64) {
     let (r, state) = rnd_u32(state);
-    let k = 1:f64 / 0xFFFFFFFF:f64;
-    (r as f64 * k, state)
+    let k = 1:float / 0xFFFFFFFF:float;
+    (r as float * k, state)
 }
 
 static WIDTH       = 256;
 static HEIGHT      = 256;
 static NSUBSAMPLES = 2;
 static NAO_SAMPLES = 8;
-static PI          = 3.14159265358979323846;
+static PI:float    = 3.14159265358979323846;
+
 
 struct Vec {
-    x: f64,
-    y: f64,
-    z: f64,
+    x: float,
+    y: float,
+    z: float,
 }
 
 struct Isect {
-    t: f64,
+    t: float,
     p: Vec,
     n: Vec,
     hit: i32,
@@ -35,7 +36,7 @@ struct Isect {
 
 struct Sphere {
     center: Vec,
-    radius: f64,
+    radius: float,
 }
 
 struct Plane {
@@ -48,7 +49,7 @@ struct Ray {
     dir: Vec,
 }
 
-fn @vdot(v0: Vec, v1: Vec) -> f64 {
+fn @vdot(v0: Vec, v1: Vec) -> float {
     v0.x * v1.x + v0.y * v1.y + v0.z * v1.z
 }
 
@@ -118,7 +119,7 @@ fn @ray_plane_intersect(isect: Isect, ray: Ray, plane: Plane) -> Isect {
 
 fn @ortho_basis(n: Vec) -> [Vec * 3] {
     let mut basis: [Vec * 3];
-    let mut x = 0.0; let mut y = 0.0; let mut z = 0.0;
+    let mut x:float = 0.0; let mut y:float = 0.0; let mut z:float = 0.0;
 
     if n.x < 0.6 && n.x > -0.6 {
         x = 1.0;
@@ -138,10 +139,10 @@ fn @ortho_basis(n: Vec) -> [Vec * 3] {
     basis
 }
 
-fn @ambient_occlusion(isect: Isect, spheres: [Sphere * 3], plane: Plane, rand: fn() -> f64) -> f64 {
-    let ntheta = NAO_SAMPLES;
-    let nphi   = NAO_SAMPLES;
-    let eps    = 0.0001;
+fn @ambient_occlusion(isect: Isect, spheres: [Sphere * 3], plane: Plane, rand: fn() -> float) -> float {
+    let ntheta    = NAO_SAMPLES;
+    let nphi      = NAO_SAMPLES;
+    let eps:float = 0.0001;
 
     let p = Vec {
         x = isect.p.x + eps * isect.n.x,
@@ -151,7 +152,7 @@ fn @ambient_occlusion(isect: Isect, spheres: [Sphere * 3], plane: Plane, rand: f
 
     let basis = ortho_basis(isect.n);
 
-    let mut occlusion = 0.0;
+    let mut occlusion:float = 0.0;
 
     for _j in range(0, ntheta) {
         for _i in range(0, nphi) {
@@ -185,13 +186,13 @@ fn @ambient_occlusion(isect: Isect, spheres: [Sphere * 3], plane: Plane, rand: f
         }
     }
 
-    occlusion = ((ntheta * nphi) as f64 - occlusion) / (ntheta * nphi) as f64;
+    occlusion = ((ntheta * nphi) as float - occlusion) / (ntheta * nphi) as float;
 
     occlusion
 }
 
-fn @clamp(f: f64) -> u8 {
-    let mut i = (f * 255.5:f64) as i32;
+fn @clamp(f: float) -> u8 {
+    let mut i = (f * 255.5:float) as i32;
 
     if i < 0   { i = 0; }
     if i > 255 { i = 255; }
@@ -201,17 +202,17 @@ fn @clamp(f: f64) -> u8 {
 
 fn render(img: Buffer, w: i32, h: i32, nsubsamples: i32, spheres: [Sphere * 3], plane: Plane) -> () {
     for x, y, out, rand in iteration(img, w, h) {
-        let mut r = 0:f64;
-        let mut g = 0:f64;
-        let mut b = 0:f64;
+        let mut r = 0:float;
+        let mut g = 0:float;
+        let mut b = 0:float;
         for v in range(0, nsubsamples) {
             for u in range(0, nsubsamples) {
-                let px =  (x as f64 + u as f64 / nsubsamples as f64 - w as f64 / 2:f64) / (w as f64 / 2:f64);
-                let py = -(y as f64 + v as f64 / nsubsamples as f64 - h as f64 / 2:f64) / (h as f64 / 2:f64);
+                let px =  (x as float + u as float / nsubsamples as float - w as float / 2:float) / (w as float / 2:float);
+                let py = -(y as float + v as float / nsubsamples as float - h as float / 2:float) / (h as float / 2:float);
 
                 let ray = Ray {
-                    org =            Vec { x = 0:f64, y = 0:f64, z =  0:f64 },
-                    dir = vnormalize(Vec { x = px,    y = py,    z = -1:f64 })
+                    org =            Vec { x = 0:float, y = 0:float, z =  0:float },
+                    dir = vnormalize(Vec { x = px,      y = py,      z = -1:float })
                 };
 
                 let mut isect: Isect;
@@ -233,21 +234,21 @@ fn render(img: Buffer, w: i32, h: i32, nsubsamples: i32, spheres: [Sphere * 3], 
             }
         }
 
-        r /= (nsubsamples * nsubsamples) as f64;
-        g /= (nsubsamples * nsubsamples) as f64;
-        b /= (nsubsamples * nsubsamples) as f64;
+        r /= (nsubsamples * nsubsamples) as float;
+        g /= (nsubsamples * nsubsamples) as float;
+        b /= (nsubsamples * nsubsamples) as float;
 
         out(clamp(r), clamp(g), clamp(b))
     }
 }
 
 fn init_scene() -> ([Sphere * 3], Plane) {
-    let spheres = [ Sphere { center = Vec { x = -2.0:f64, y = 0:f64, z = -3.5:f64 }, radius = 0.5:f64 },
-                    Sphere { center = Vec { x = -0.5:f64, y = 0:f64, z = -3.0:f64 }, radius = 0.5:f64 },
-                    Sphere { center = Vec { x =  1.0:f64, y = 0:f64, z = -2.2:f64 }, radius = 0.5:f64 } ];
+    let spheres = [ Sphere { center = Vec { x = -2.0:float, y = 0:float, z = -3.5:float }, radius = 0.5:float },
+                    Sphere { center = Vec { x = -0.5:float, y = 0:float, z = -3.0:float }, radius = 0.5:float },
+                    Sphere { center = Vec { x =  1.0:float, y = 0:float, z = -2.2:float }, radius = 0.5:float } ];
 
-    let plane = Plane { p = Vec { x = 0:f64, y = -0.5:f64, z = 0:f64 },
-                        n = Vec { x = 0:f64, y =  1.0:f64, z = 0:f64 } };
+    let plane = Plane { p = Vec { x = 0:float, y = -0.5:float, z = 0:float },
+                        n = Vec { x = 0:float, y =  1.0:float, z = 0:float } };
 
     (spheres, plane)
 }

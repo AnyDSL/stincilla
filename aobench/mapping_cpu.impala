@@ -1,11 +1,14 @@
-fn @iteration(body: fn(i32, i32, fn(u8, u8, u8) -> (), fn() -> f64) -> ()) = @|out: Buffer, width: i32, height: i32| {
+
+type float = f64;
+
+fn @iteration(body: fn(i32, i32, fn(u8, u8, u8) -> (), fn() -> float) -> ()) = @|out: Buffer, width: i32, height: i32| {
     random_seed(get_micro_time() as u32);
 
     for benchmark_cpu() {
         for y in outer_loop(0, height) {
             let mut state = random_val_u64();
-            fn @rand() -> f64 {
-                let (r, s) = rnd_f64(state);
+            fn @rand() -> float {
+                let (r, s) = rnd_float(state);
                 state = s;
                 r
             }
